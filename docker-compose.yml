@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: chairx-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: chairx
+      POSTGRES_USER: chairx
+      POSTGRES_PASSWORD: chairx_dev_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - chairx_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chairx -d chairx"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  chairx_postgres_data:

@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: chairx-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/chairx}
+    username: ${DB_USERNAME:chairx}
+    password: ${DB_PASSWORD:chairx_dev_password}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
