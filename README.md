@@ -1,6 +1,6 @@
 # ChairX
 
-ERP/CRM для бизнеса по продаже кресел в Кыргызстане. Реализованы backend Foundation, Product/ProductVariant и Warehouse.
+ERP/CRM для бизнеса по продаже кресел в Кыргызстане. Реализованы backend Foundation, Product/ProductVariant, Warehouse и внутренний Inventory.
 
 ## Требования и запуск
 
@@ -125,3 +125,14 @@ Flyway — единственный источник схемы, Hibernate ра�
 Создание — 201 с Location; остальные успешные действия — 200. Code в PUT отклоняется как неизвестное поле; отсутствие address при PUT очищает адрес. DELETE не предусмотрен. Повторный activate/deactivate не меняет данные и не создаёт лишний аудит. Ошибки: WAREHOUSE_NOT_FOUND (404), WAREHOUSE_CODE_ALREADY_EXISTS (409), общий VALIDATION_ERROR (400). При одновременном создании одного code уникальность защищает PostgreSQL; проигравшая транзакция откатывается вместе с аудитом. Авторизация и CSRF действуют так же, как для каталога.
 
 WarehouseTests проверяют жизненный цикл, ограничения, неизменяемость кода, дубли после деактивации, конкурентное создание, rollback аудита, seed, обновление V1→V2 без потери товара и отсутствие повторной перезаписи seed. PostgreSQL используется только через существующую Testcontainers-конфигурацию.
+
+
+## Inventory
+
+Внутренний складской сервис: InventoryBalance, immutable StockMovement и атомарный `InventoryService.recordMovement`. HTTP CRUD остатков не создаётся. `available = onHand - reserved - blocked` вычисляется; текущие физические операции не меняют reserved/blocked.
+
+V3 (`V3__create_inventory.sql`) добавляет две таблицы, PK пары Warehouse + ProductVariant, FK, CHECK invariants, UNIQUE(operation_id), индекс истории и запрет UPDATE/DELETE движений. Все восемь физических типов из Master Specification поддержаны; направления задаёт тип, quantity всегда положительное.
+
+Операции защищены SELECT FOR UPDATE и транзакцией, включающей движение, остаток и аудит. Повтор запроса требует прежнего operationId. Источник и инициатор фиксируются в журнале. Ошибки источника/прав проверяет вызывающий бизнес-модуль; Purchase/Sale/Return/StockTransfer и Reservation/Defect пока отсутствуют.
+
+Подробный контракт, ограничения reserved/blocked, порядок блокировок для будущих составных операций и правила idempotency: `docs/adr/0002-inventory.md`. Все тесты, включая PostgreSQL concurrency scenarios: `cd backend && ./mvnw clean verify`.

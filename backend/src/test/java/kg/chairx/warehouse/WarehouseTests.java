@@ -215,7 +215,7 @@ class WarehouseTests {
                     insert into warehouse_upgrade_test.products(id,name,active,created_at,updated_at)
                     values (?, 'Existing product', true, now(), now())
                     """, product);
-            var upgrade = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load();
+            var upgrade = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("2").load();
             assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
             assertThat(jdbc.queryForObject("select name from warehouse_upgrade_test.products where id=?", String.class, product))
                     .isEqualTo("Existing product");

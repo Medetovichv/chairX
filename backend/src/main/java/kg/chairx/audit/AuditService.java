@@ -24,6 +24,11 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(String entityType, UUID entityId, String action, Object before, Object after) {
         String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+        recordAs(actor, entityType, entityId, action, before, after);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordAs(String actor, String entityType, UUID entityId, String action, Object before, Object after) {
         jdbc.sql("""
                 INSERT INTO audit_entries
                     (id, entity_type, entity_id, action, actor, occurred_at, before_state, after_state)
