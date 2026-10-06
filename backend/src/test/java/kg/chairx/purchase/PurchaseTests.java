@@ -156,7 +156,7 @@ class PurchaseTests {
         assertThat(p.items().get(0).allocatedCargoCost()).isEqualByComparingTo("3.33");
         assertThat(p.items().get(1).allocatedCargoCost()).isEqualByComparingTo("6.67");
         assertThat(p.items().get(0).finalUnitCost()).isEqualByComparingTo("103.33");
-        assertThat(p.items().get(1).finalUnitCost()).isEqualByComparingTo("4.335");
+        assertThat(p.items().get(1).finalUnitCost()).isEqualByComparingTo("4.34");
         assertThat(p.items().stream().map(PurchaseItemResponse::allocatedCargoCost).reduce(BigDecimal.ZERO,BigDecimal::add)).isEqualByComparingTo("10.00");
     }
     @Test
