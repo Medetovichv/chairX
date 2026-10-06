@@ -2,6 +2,7 @@ package kg.chairx.defect.application;
 
 import kg.chairx.defect.domain.Defect;
 import kg.chairx.defect.domain.DefectStatus;
+import kg.chairx.defect.domain.ReceiptItemOrigin;
 import kg.chairx.defect.persistence.DefectRepository;
 import kg.chairx.inventory.api.ChangeBlockedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
@@ -39,29 +40,18 @@ public class DefectService {
             String description,
             String actor
     ) {
-        if (warehouseId == null) {
-            throw new DefectRuleViolationException(
-                    "Укажите склад"
-            );
-        }
+        requireWarehouse(warehouseId);
+        requireProductVariant(productVariantId);
+        requirePositiveQuantity(quantity);
+        requireDescription(description);
+        requireActor(actor);
 
-        if (productVariantId == null) {
-            throw new DefectRuleViolationException(
-                    "Укажите вариант товара"
-            );
-        }
-
-        if (quantity <= 0) {
-            throw new DefectRuleViolationException(
-                    "Количество должно быть положительным"
-            );
-        }
-
-        if (description == null || description.isBlank()) {
-            throw new DefectRuleViolationException(
-                    "Описание дефекта обязательно"
-            );
-        }
+        validateOrigin(
+                warehouseId,
+                productVariantId,
+                supplierId,
+                purchaseReceiptItemId
+        );
 
         UUID defectId = UUID.randomUUID();
 
@@ -71,7 +61,7 @@ public class DefectService {
                         productVariantId,
                         quantity,
                         defectId,
-                        actor
+                        actor.trim()
                 )
         );
 
@@ -85,7 +75,7 @@ public class DefectService {
                 DefectStatus.OPEN,
                 description.trim(),
                 null,
-                actor,
+                actor.trim(),
                 Instant.now(),
                 null,
                 null
@@ -98,19 +88,11 @@ public class DefectService {
 
     @Transactional
     public Defect waitForParts(UUID defectId) {
-        if (defectId == null) {
-            throw new DefectRuleViolationException(
-                    "Укажите дефект"
-            );
-        }
+        requireDefectId(defectId);
 
         Defect defect = findForUpdate(defectId);
 
-        if (defect.closed()) {
-            throw new DefectRuleViolationException(
-                    "Закрытый дефект нельзя изменить"
-            );
-        }
+        ensureOpen(defect);
 
         try {
             Defect changed = defect.waitingParts();
@@ -134,29 +116,25 @@ public class DefectService {
     ) {
         validateClosingRequest(
                 defectId,
-                resolutionNote
+                resolutionNote,
+                actor
         );
 
         Defect defect = findForUpdate(defectId);
 
         ensureOpen(defect);
 
-        /*
-         * Товар исправлен и физически остаётся на складе.
-         * Поэтому StockMovement не создаётся.
-         * Снимается только blocked.
-         */
         inventoryService.unblock(
                 blockedStockCommand(
                         defect,
-                        actor
+                        actor.trim()
                 )
         );
 
         try {
             Defect resolved = defect.resolve(
                     resolutionNote,
-                    actor,
+                    actor.trim(),
                     Instant.now()
             );
 
@@ -179,28 +157,18 @@ public class DefectService {
     ) {
         validateClosingRequest(
                 defectId,
-                resolutionNote
+                resolutionNote,
+                actor
         );
 
         Defect defect = findForUpdate(defectId);
 
         ensureOpen(defect);
 
-        /*
-         * Дефектный товар до списания находится в blocked.
-         *
-         * Сначала снимаем blocked, чтобы количество снова стало
-         * доступно для физического движения.
-         *
-         * Затем WRITE_OFF уменьшает onHand и создаёт
-         * неизменяемый StockMovement.
-         *
-         * Всё выполняется в одной транзакции.
-         */
         inventoryService.unblock(
                 blockedStockCommand(
                         defect,
-                        actor
+                        actor.trim()
                 )
         );
 
@@ -213,14 +181,14 @@ public class DefectService {
                         defect.quantity(),
                         STOCK_SOURCE_TYPE,
                         defect.id(),
-                        actor
+                        actor.trim()
                 )
         );
 
         try {
             Defect writtenOff = defect.writeOff(
                     resolutionNote,
-                    actor,
+                    actor.trim(),
                     Instant.now()
             );
 
@@ -231,6 +199,44 @@ public class DefectService {
         } catch (IllegalStateException | IllegalArgumentException exception) {
             throw new DefectRuleViolationException(
                     exception.getMessage()
+            );
+        }
+    }
+
+    private void validateOrigin(
+            UUID warehouseId,
+            UUID productVariantId,
+            UUID supplierId,
+            UUID purchaseReceiptItemId
+    ) {
+        if (purchaseReceiptItemId == null) {
+            return;
+        }
+
+        ReceiptItemOrigin origin = repository
+                .findReceiptItemOrigin(purchaseReceiptItemId)
+                .orElseThrow(
+                        () -> new DefectRuleViolationException(
+                                "Позиция поступления не найдена"
+                        )
+                );
+
+        if (!origin.warehouseId().equals(warehouseId)) {
+            throw new DefectRuleViolationException(
+                    "Позиция поступления относится к другому складу"
+            );
+        }
+
+        if (!origin.productVariantId().equals(productVariantId)) {
+            throw new DefectRuleViolationException(
+                    "Позиция поступления относится к другому варианту товара"
+            );
+        }
+
+        if (supplierId != null
+                && !origin.supplierId().equals(supplierId)) {
+            throw new DefectRuleViolationException(
+                    "Поставщик не соответствует позиции поступления"
             );
         }
     }
@@ -254,17 +260,72 @@ public class DefectService {
 
     private void validateClosingRequest(
             UUID defectId,
-            String resolutionNote
+            String resolutionNote,
+            String actor
     ) {
+        requireDefectId(defectId);
+
+        if (resolutionNote == null
+                || resolutionNote.isBlank()) {
+            throw new DefectRuleViolationException(
+                    "Укажите результат обработки дефекта"
+            );
+        }
+
+        requireActor(actor);
+    }
+
+    private void requireDefectId(UUID defectId) {
         if (defectId == null) {
             throw new DefectRuleViolationException(
                     "Укажите дефект"
             );
         }
+    }
 
-        if (resolutionNote == null || resolutionNote.isBlank()) {
+    private void requireWarehouse(UUID warehouseId) {
+        if (warehouseId == null) {
             throw new DefectRuleViolationException(
-                    "Укажите результат обработки дефекта"
+                    "Укажите склад"
+            );
+        }
+    }
+
+    private void requireProductVariant(UUID productVariantId) {
+        if (productVariantId == null) {
+            throw new DefectRuleViolationException(
+                    "Укажите вариант товара"
+            );
+        }
+    }
+
+    private void requirePositiveQuantity(long quantity) {
+        if (quantity <= 0) {
+            throw new DefectRuleViolationException(
+                    "Количество должно быть положительным"
+            );
+        }
+    }
+
+    private void requireDescription(String description) {
+        if (description == null
+                || description.isBlank()) {
+            throw new DefectRuleViolationException(
+                    "Описание дефекта обязательно"
+            );
+        }
+    }
+
+    private void requireActor(String actor) {
+        if (actor == null || actor.isBlank()) {
+            throw new DefectRuleViolationException(
+                    "Укажите инициатора операции"
+            );
+        }
+
+        if (actor.trim().length() > 200) {
+            throw new DefectRuleViolationException(
+                    "Имя инициатора не должно превышать 200 символов"
             );
         }
     }

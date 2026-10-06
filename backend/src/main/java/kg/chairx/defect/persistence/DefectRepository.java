@@ -4,7 +4,7 @@ import kg.chairx.defect.domain.Defect;
 import kg.chairx.defect.domain.DefectStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
-
+import kg.chairx.defect.domain.ReceiptItemOrigin;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -129,6 +129,48 @@ public class DefectRepository {
                 """)
                 .param("id", id)
                 .query(this::map)
+                .optional();
+    }
+
+    public Optional<ReceiptItemOrigin> findReceiptItemOrigin(
+            UUID receiptItemId
+    ) {
+        return jdbc.sql("""
+            SELECT
+                ri.id AS receipt_item_id,
+                pr.warehouse_id,
+                pi.product_variant_id,
+                p.supplier_id
+            FROM purchase_receipt_items ri
+            JOIN purchase_receipts pr
+              ON pr.id = ri.receipt_id
+             AND pr.purchase_id = ri.purchase_id
+            JOIN purchase_items pi
+              ON pi.id = ri.purchase_item_id
+             AND pi.purchase_id = ri.purchase_id
+            JOIN purchases p
+              ON p.id = ri.purchase_id
+            WHERE ri.id = :id
+            """)
+                .param("id", receiptItemId)
+                .query((rs, rowNum) -> new ReceiptItemOrigin(
+                        rs.getObject(
+                                "receipt_item_id",
+                                UUID.class
+                        ),
+                        rs.getObject(
+                                "warehouse_id",
+                                UUID.class
+                        ),
+                        rs.getObject(
+                                "product_variant_id",
+                                UUID.class
+                        ),
+                        rs.getObject(
+                                "supplier_id",
+                                UUID.class
+                        )
+                ))
                 .optional();
     }
 
