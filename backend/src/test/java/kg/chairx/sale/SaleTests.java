@@ -174,7 +174,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 3, "8500.00")
+                        item(firstVariant, home, 3, "8500")
                 )
         );
 
@@ -224,7 +224,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         null,
-                        item(firstVariant, home, 1, "9000.00")
+                        item(firstVariant, home, 1, "9000")
                 )
         );
 
@@ -254,13 +254,13 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         2,
-                                        "8500.00"
+                                        "8500"
                                 ),
                                 item(
                                         secondVariant,
                                         office,
                                         3,
-                                        "9500.00"
+                                        "9500"
                                 )
                         )
                 )
@@ -300,7 +300,7 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         21,
-                                        "8500.00"
+                                        "8500"
                                 )
                         )
                 )
@@ -343,13 +343,13 @@ class SaleTests {
                                 firstVariant,
                                 home,
                                 2,
-                                "8500.00"
+                                "8500"
                         ),
                         item(
                                 secondVariant,
                                 office,
                                 21,
-                                "9500.00"
+                                "9500"
                         )
                 )
         );
@@ -389,7 +389,7 @@ class SaleTests {
         var request = request(
                 key,
                 customer,
-                item(firstVariant, home, 2, "8500.00")
+                item(firstVariant, home, 2, "8500")
         );
 
         var first = sales.create(request);
@@ -426,7 +426,7 @@ class SaleTests {
                 request(
                         key,
                         customer,
-                        item(firstVariant, home, 1, "8500.00")
+                        item(firstVariant, home, 1, "8500")
                 )
         );
 
@@ -439,7 +439,7 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         2,
-                                        "8500.00"
+                                        "8500"
                                 )
                         )
                 )
@@ -479,7 +479,7 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         1,
-                                        "8500.00"
+                                        "8500"
                                 )
                         )
                 )
@@ -512,13 +512,13 @@ class SaleTests {
                                 firstVariant,
                                 home,
                                 1,
-                                "8500.00"
+                                "8500"
                         ),
                         item(
                                 firstVariant,
                                 home,
                                 1,
-                                "8500.00"
+                                "8500"
                         )
                 )
         );
@@ -551,7 +551,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 4, "8500.00")
+                        item(firstVariant, home, 4, "8500")
                 )
         );
 
@@ -595,7 +595,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 2, "8500.00")
+                        item(firstVariant, home, 2, "8500")
                 )
         );
 
@@ -625,7 +625,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 3, "8500.00")
+                        item(firstVariant, home, 3, "8500")
                 )
         );
 
@@ -689,13 +689,13 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         2,
-                                        "8500.00"
+                                        "8500"
                                 ),
                                 item(
                                         secondVariant,
                                         office,
                                         3,
-                                        "9500.00"
+                                        "9500"
                                 )
                         )
                 )
@@ -747,7 +747,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 2, "8500.00")
+                        item(firstVariant, home, 2, "8500")
                 )
         );
 
@@ -784,7 +784,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 1, "8500.00")
+                        item(firstVariant, home, 1, "8500")
                 )
         );
 
@@ -819,7 +819,7 @@ class SaleTests {
                 request(
                         UUID.randomUUID(),
                         customer,
-                        item(firstVariant, home, 1, "8500.00")
+                        item(firstVariant, home, 1, "8500")
                 )
         );
 
@@ -856,13 +856,13 @@ class SaleTests {
                                         firstVariant,
                                         home,
                                         2,
-                                        "8500.00"
+                                        "8500"
                                 ),
                                 item(
                                         secondVariant,
                                         office,
                                         2,
-                                        "9500.00"
+                                        "9500"
                                 )
                         )
                 )
@@ -956,7 +956,7 @@ class SaleTests {
                         firstVariant,
                         home,
                         2,
-                        "8500.00"
+                        "8500"
                 )
         );
 

@@ -23,6 +23,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -411,13 +413,21 @@ public class SaleService {
     private String fingerprint(
             CreateSaleRequest request
     ) {
-        List<CreateSaleItemRequest> sorted =
+        List<FingerprintSaleItem> sorted =
                 request.items()
                         .stream()
+                        .map(item -> new FingerprintSaleItem(
+                                item.productVariantId(),
+                                item.warehouseId(),
+                                item.quantity(),
+                                normalizeMoney(
+                                        item.unitSalePrice()
+                                )
+                        ))
                         .sorted(
                                 Comparator
                                         .comparing(
-                                                (CreateSaleItemRequest item) ->
+                                                (FingerprintSaleItem item) ->
                                                         item.productVariantId()
                                                                 .toString()
                                         )
@@ -455,6 +465,15 @@ public class SaleService {
         }
     }
 
+    private BigDecimal normalizeMoney(
+            BigDecimal value
+    ) {
+        return value.setScale(
+                0,
+                RoundingMode.UNNECESSARY
+        );
+    }
+
     private String actor() {
         return SecurityContextHolder
                 .getContext()
@@ -478,10 +497,18 @@ public class SaleService {
     ) {
     }
 
+    private record FingerprintSaleItem(
+            UUID productVariantId,
+            UUID warehouseId,
+            long quantity,
+            BigDecimal unitSalePrice
+    ) {
+    }
+
     private record SaleContent(
             UUID customerId,
             FulfillmentType fulfillmentType,
-            List<CreateSaleItemRequest> items
+            List<FingerprintSaleItem> items
     ) {
     }
 }
