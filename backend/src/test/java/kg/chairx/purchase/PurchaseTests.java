@@ -76,7 +76,15 @@ class PurchaseTests {
     private void reset() {
         assertThat(jdbc.queryForObject("select current_database()", String.class)).isEqualTo("chairx_test");
         // Testcontainer only: posted receipts and the stock journal prohibit ordinary DELETE.
-        jdbc.execute("truncate purchase_receipt_items, purchase_receipts, purchase_items, purchases, stock_movements, inventory_balances");
+        jdbc.execute("""
+        truncate defects,
+                 purchase_receipt_items,
+                 purchase_receipts,
+                 purchase_items,
+                 purchases,
+                 stock_movements,
+                 inventory_balances
+        """);
         jdbc.update("delete from audit_entries where entity_type in ('PURCHASE','PURCHASE_RECEIPT','STOCK_MOVEMENT')");
     }
     @Test

@@ -51,6 +51,20 @@ public class InventoryRepository {
                 .param("variant", balance.productVariantId()).update();
     }
 
+    public void updateBlocked(InventoryBalance balance) {
+        jdbc.sql("""
+            UPDATE inventory_balances
+            SET blocked = :blocked,
+                updated_at = clock_timestamp()
+            WHERE warehouse_id = :warehouse
+              AND product_variant_id = :variant
+            """)
+                .param("blocked", balance.blocked())
+                .param("warehouse", balance.warehouseId())
+                .param("variant", balance.productVariantId())
+                .update();
+    }
+
     public Optional<StockMovement> findMovement(UUID operationId) {
         return jdbc.sql("SELECT * FROM stock_movements WHERE operation_id = :operation")
                 .param("operation", operationId).query(InventoryRepository::movement).optional();

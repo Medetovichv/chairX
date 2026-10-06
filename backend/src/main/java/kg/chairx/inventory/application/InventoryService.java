@@ -1,6 +1,7 @@
 package kg.chairx.inventory.application;
 
 import jakarta.validation.Valid;
+import kg.chairx.inventory.api.ChangeBlockedStock;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
@@ -17,6 +18,7 @@ import kg.chairx.product.application.ProductVariantService;
 import kg.chairx.warehouse.application.WarehouseService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 
@@ -60,6 +62,32 @@ public class InventoryService {
                 "STOCK_MOVEMENT", movement.id(), command.type().name(), before,
                 Map.of("balance", after, "movement", movement));
         return movement;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public InventoryBalance block(ChangeBlockedStock command) {
+        InventoryBalance current = repository.lockOrCreate(
+                command.warehouseId(),
+                command.productVariantId()
+        );
+
+        InventoryBalance changed = current.block(command.quantity());
+        repository.updateBlocked(changed);
+
+        return changed;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public InventoryBalance unblock(ChangeBlockedStock command) {
+        InventoryBalance current = repository.lockOrCreate(
+                command.warehouseId(),
+                command.productVariantId()
+        );
+
+        InventoryBalance changed = current.unblock(command.quantity());
+        repository.updateBlocked(changed);
+
+        return changed;
     }
 
     public InventoryBalance getBalance(@NotNull UUID warehouseId, @NotNull UUID variantId) {
