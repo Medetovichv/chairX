@@ -95,6 +95,33 @@ public record Defect(
             String actor,
             Instant resolvedAt
     ) {
+        return close(
+                DefectStatus.RESOLVED,
+                resolutionNote,
+                actor,
+                resolvedAt
+        );
+    }
+
+    public Defect writeOff(
+            String resolutionNote,
+            String actor,
+            Instant resolvedAt
+    ) {
+        return close(
+                DefectStatus.WRITTEN_OFF,
+                resolutionNote,
+                actor,
+                resolvedAt
+        );
+    }
+
+    private Defect close(
+            DefectStatus targetStatus,
+            String resolutionNote,
+            String actor,
+            Instant resolvedAt
+    ) {
         if (closed()) {
             throw new IllegalStateException(
                     "Дефект уже закрыт"
@@ -103,13 +130,20 @@ public record Defect(
 
         if (resolutionNote == null || resolutionNote.isBlank()) {
             throw new IllegalArgumentException(
-                    "Укажите результат устранения дефекта"
+                    "Укажите результат обработки дефекта"
             );
         }
 
         if (resolvedAt == null) {
             throw new IllegalArgumentException(
-                    "Время устранения обязательно"
+                    "Время закрытия обязательно"
+            );
+        }
+
+        if (targetStatus != DefectStatus.RESOLVED
+                && targetStatus != DefectStatus.WRITTEN_OFF) {
+            throw new IllegalArgumentException(
+                    "Некорректный итоговый статус дефекта"
             );
         }
 
@@ -120,7 +154,7 @@ public record Defect(
                 supplierId,
                 purchaseReceiptItemId,
                 quantity,
-                DefectStatus.RESOLVED,
+                targetStatus,
                 description,
                 resolutionNote.trim(),
                 createdBy,
