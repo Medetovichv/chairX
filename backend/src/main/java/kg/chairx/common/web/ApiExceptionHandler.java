@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import kg.chairx.sale.application.SaleNotFoundException;
+import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.customer.application.CustomerNotFoundException;
 import kg.chairx.customer.application.CustomerRuleViolationException;
 import kg.chairx.inventory.domain.StockQuantityLimitException;
@@ -94,6 +96,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(PurchaseRuleViolationException.class)
     ResponseEntity<ApiError> purchaseRuleViolation(
             PurchaseRuleViolationException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        ApiError.of(
+                                exception.getCode(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(SaleNotFoundException.class)
+    ResponseEntity<ApiError> saleNotFound(
+            SaleNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiError.of(
+                                "SALE_NOT_FOUND",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(SaleRuleViolationException.class)
+    ResponseEntity<ApiError> saleRuleViolation(
+            SaleRuleViolationException exception
     ) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
