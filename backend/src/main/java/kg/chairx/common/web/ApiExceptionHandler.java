@@ -1,6 +1,10 @@
 package kg.chairx.common.web;
 
 import java.util.LinkedHashMap;
+import kg.chairx.purchase.application.PurchaseNotFoundException;
+import kg.chairx.purchase.application.PurchaseRuleViolationException;
+import kg.chairx.supplier.application.SupplierNotFoundException;
+import kg.chairx.inventory.domain.StockQuantityLimitException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -25,6 +29,26 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+    @ExceptionHandler(SupplierNotFoundException.class)
+    ResponseEntity<ApiError> supplierNotFound(SupplierNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of("SUPPLIER_NOT_FOUND",exception.getMessage()));
+    }
+
+    @ExceptionHandler(PurchaseNotFoundException.class)
+    ResponseEntity<ApiError> purchaseNotFound(PurchaseNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of("PURCHASE_NOT_FOUND",exception.getMessage()));
+    }
+
+    @ExceptionHandler(PurchaseRuleViolationException.class)
+    ResponseEntity<ApiError> purchaseRuleViolation(PurchaseRuleViolationException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(exception.getCode(),exception.getMessage()));
+    }
+
+    @ExceptionHandler(StockQuantityLimitException.class)
+    ResponseEntity<ApiError> stockLimit(StockQuantityLimitException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of("STOCK_QUANTITY_LIMIT",exception.getMessage()));
+    }
 
     @ExceptionHandler(WarehouseNotFoundException.class)
     ResponseEntity<ApiError> warehouseNotFound(WarehouseNotFoundException exception) {

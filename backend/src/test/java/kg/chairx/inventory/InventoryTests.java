@@ -332,7 +332,7 @@ class InventoryTests {
             jdbc.update("update inventory_upgrade_test.warehouses set name='Сохранить' where code='HOME'");
             UUID id = UUID.randomUUID();
             jdbc.update("insert into inventory_upgrade_test.products(id,name,active,created_at,updated_at) values (?, 'Existing', true, now(), now())", id);
-            var upgrade = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).load();
+            var upgrade = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema).target("3").load();
             assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
             upgrade.validate();
             assertThat(upgrade.migrate().migrationsExecuted).isZero();
