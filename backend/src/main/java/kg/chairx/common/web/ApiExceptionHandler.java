@@ -16,6 +16,8 @@ import kg.chairx.product.application.ProductNotFoundException;
 import kg.chairx.product.application.ProductVariantNotFoundException;
 import kg.chairx.purchase.application.PurchaseNotFoundException;
 import kg.chairx.purchase.application.PurchaseRuleViolationException;
+import kg.chairx.returning.application.ReturnRuleViolationException;
+import kg.chairx.returning.application.ReturnNotFoundException;
 import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.supplier.application.SupplierNotFoundException;
@@ -190,6 +192,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(
                         ApiError.of(
                                 exception.code(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(ReturnNotFoundException.class)
+    ResponseEntity<ApiError> returnNotFound(
+            ReturnNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiError.of(
+                                "RETURN_NOT_FOUND",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(ReturnRuleViolationException.class)
+    ResponseEntity<ApiError> returnRuleViolation(
+            ReturnRuleViolationException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        ApiError.of(
+                                exception.getCode(),
                                 exception.getMessage()
                         )
                 );

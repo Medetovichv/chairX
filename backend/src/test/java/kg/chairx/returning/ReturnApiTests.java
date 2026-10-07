@@ -1,4 +1,4 @@
-package kg.chairx.payment;
+package kg.chairx.returning;
 
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.inventory.api.RecordStockMovement;
@@ -26,7 +26,6 @@ import java.util.UUID;
 
 import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -42,8 +41,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "payment-api-tester")
-class PaymentApiTests {
+@WithMockUser(username = "return-api-tester")
+class ReturnApiTests {
 
     @Autowired
     MockMvc mvc;
@@ -87,7 +86,7 @@ class PaymentApiTests {
                     created_at,
                     updated_at
                 )
-                values (?, 'Payment API fixture', true, now(), now())
+                values (?, 'Return API fixture', true, now(), now())
                 """, product);
 
         jdbc.update("""
@@ -114,8 +113,8 @@ class PaymentApiTests {
                 )
                 values (
                     ?,
-                    'Payment API Customer',
-                    '+996555000000',
+                    'Return API Customer',
+                    '+996555000002',
                     true,
                     now(),
                     now()
@@ -129,9 +128,9 @@ class PaymentApiTests {
                         variant,
                         ADJUSTMENT_IN,
                         20,
-                        "PAYMENT_API_TEST_FIXTURE",
+                        "RETURN_API_TEST_FIXTURE",
                         UUID.randomUUID(),
-                        "payment-api-test"
+                        "return-api-test"
                 )
         );
     }
@@ -159,24 +158,34 @@ class PaymentApiTests {
     }
 
     @Test
-    void createsAndGetsPaymentThroughApi()
+    void createsAndGetsReturnThroughApi()
             throws Exception {
 
-        var sale = createSale(
+        var sale = createFulfilledSale(
                 2,
                 "8500"
         );
 
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
+        UUID idempotencyKey =
+                UUID.randomUUID();
+
         String body = mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
                                 .content(
-                                        paymentJson(
+                                        returnJson(
                                                 sale.id(),
-                                                "TRANSFER"
+                                                home,
+                                                idempotencyKey,
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
                                         )
                                 )
                 )
@@ -184,7 +193,7 @@ class PaymentApiTests {
                 .andExpect(
                         header().string(
                                 "Location",
-                                startsWith("/api/payments/")
+                                startsWith("/api/returns/")
                         )
                 )
                 .andExpect(
@@ -192,287 +201,418 @@ class PaymentApiTests {
                                 .value(sale.id().toString())
                 )
                 .andExpect(
-                        jsonPath("$.amount")
-                                .value(17000)
+                        jsonPath("$.warehouseId")
+                                .value(home.toString())
                 )
                 .andExpect(
-                        jsonPath("$.method")
-                                .value("TRANSFER")
+                        jsonPath("$.items[0].saleItemId")
+                                .value(saleItemId.toString())
                 )
                 .andExpect(
-                        jsonPath("$.status")
-                                .value("PAID")
+                        jsonPath("$.items[0].quantity")
+                                .value(1)
                 )
                 .andExpect(
-                        jsonPath("$.paidBy")
-                                .value("payment-api-tester")
+                        jsonPath("$.items[0].condition")
+                                .value("SELLABLE")
+                )
+                .andExpect(
+                        jsonPath("$.reason")
+                                .value("Возврат клиента")
+                )
+                .andExpect(
+                        jsonPath("$.comment")
+                                .value("Return API test")
+                )
+                .andExpect(
+                        jsonPath("$.createdBy")
+                                .value("return-api-tester")
                 )
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
 
-        String paymentId =
+        String returnId =
                 mapper.readTree(body)
                         .get("id")
                         .asText();
 
         mvc.perform(
                         get(
-                                "/api/payments/"
-                                        + paymentId
+                                "/api/returns/"
+                                        + returnId
                         )
                 )
                 .andExpect(status().isOk())
                 .andExpect(
                         jsonPath("$.id")
-                                .value(paymentId)
+                                .value(returnId)
                 )
                 .andExpect(
                         jsonPath("$.saleId")
                                 .value(sale.id().toString())
                 )
                 .andExpect(
-                        jsonPath("$.amount")
-                                .value(17000)
+                        jsonPath("$.warehouseId")
+                                .value(home.toString())
                 )
                 .andExpect(
-                        jsonPath("$.status")
-                                .value("PAID")
+                        jsonPath("$.items[0].saleItemId")
+                                .value(saleItemId.toString())
+                )
+                .andExpect(
+                        jsonPath("$.items[0].quantity")
+                                .value(1)
+                )
+                .andExpect(
+                        jsonPath("$.items[0].condition")
+                                .value("SELLABLE")
                 );
+
+        var balance =
+                inventory.getBalance(
+                        home,
+                        variant
+                );
+
+        /*
+         * 20 initial
+         * -2 SALE_OUT
+         * +1 RETURN_IN
+         * =19
+         */
+        assertThat(balance.onHand())
+                .isEqualTo(19);
+
+        assertThat(balance.blocked())
+                .isZero();
+
+        assertThat(balance.available())
+                .isEqualTo(19);
     }
 
     @Test
-    void amountCannotBeSuppliedByClient()
+    void blockedReturnIsExposedThroughApiAndBlocksStock()
             throws Exception {
 
-        var sale = createSale(
+        var sale = createFulfilledSale(
                 1,
                 "8500"
         );
 
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
         mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
                                 .content(
-                                        """
-                                        {
-                                          "saleId": "%s",
-                                          "method": "CASH",
-                                          "amount": 1
-                                        }
-                                        """.formatted(
-                                                sale.id()
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                1,
+                                                "BLOCKED"
                                         )
                                 )
                 )
-                .andExpect(status().isBadRequest())
+                .andExpect(status().isCreated())
+                .andExpect(
+                        jsonPath("$.items[0].condition")
+                                .value("BLOCKED")
+                );
+
+        var balance =
+                inventory.getBalance(
+                        home,
+                        variant
+                );
+
+        assertThat(balance.onHand())
+                .isEqualTo(20);
+
+        assertThat(balance.blocked())
+                .isEqualTo(1);
+
+        assertThat(balance.available())
+                .isEqualTo(19);
+    }
+
+    @Test
+    void returnAboveRemainingQuantityUsesBusinessConflict()
+            throws Exception {
+
+        var sale = createFulfilledSale(
+                1,
+                "8500"
+        );
+
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
+        mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
+                                        )
+                                )
+                )
+                .andExpect(status().isCreated());
+
+        mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
+                                        )
+                                )
+                )
+                .andExpect(status().isConflict())
                 .andExpect(
                         jsonPath("$.code")
-                                .value("INVALID_REQUEST")
+                                .value(
+                                        "RETURN_QUANTITY_EXCEEDED"
+                                )
                 );
 
         assertThat(
                 jdbc.queryForObject(
-                        "select count(*) from payments",
+                        """
+                        select coalesce(sum(quantity), 0)
+                        from return_items
+                        where sale_item_id=?
+                        """,
+                        Long.class,
+                        saleItemId
+                )
+        ).isEqualTo(1);
+    }
+
+    @Test
+    void confirmedSaleCannotBeReturnedThroughApi()
+            throws Exception {
+
+        var sale = createSale(
+                1,
+                "8500"
+        );
+
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
+        mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
+                                        )
+                                )
+                )
+                .andExpect(status().isConflict())
+                .andExpect(
+                        jsonPath("$.code")
+                                .value(
+                                        "SALE_NOT_FULFILLED"
+                                )
+                );
+    }
+
+    @Test
+    void repeatedIdempotentRequestReturnsSameResource()
+            throws Exception {
+
+        var sale = createFulfilledSale(
+                1,
+                "8500"
+        );
+
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
+        UUID idempotencyKey =
+                UUID.randomUUID();
+
+        String request =
+                returnJson(
+                        sale.id(),
+                        home,
+                        idempotencyKey,
+                        saleItemId,
+                        1,
+                        "SELLABLE"
+                );
+
+        String firstBody = mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(request)
+                )
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String firstId =
+                mapper.readTree(firstBody)
+                        .get("id")
+                        .asText();
+
+        String secondBody = mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(request)
+                )
+                .andExpect(status().isCreated())
+                .andExpect(
+                        header().string(
+                                "Location",
+                                "/api/returns/" + firstId
+                        )
+                )
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String secondId =
+                mapper.readTree(secondBody)
+                        .get("id")
+                        .asText();
+
+        assertThat(secondId)
+                .isEqualTo(firstId);
+
+        assertThat(
+                jdbc.queryForObject(
+                        "select count(*) from returns",
                         Integer.class
                 )
-        ).isZero();
+        ).isEqualTo(1);
+
+        assertThat(
+                jdbc.queryForObject(
+                        """
+                        select count(*)
+                        from stock_movements
+                        where movement_type='RETURN_IN'
+                          and source_type='SALE_RETURN'
+                        """,
+                        Integer.class
+                )
+        ).isEqualTo(1);
     }
 
     @Test
-    void duplicateActivePaymentReturnsBusinessConflict()
+    void reusedIdempotencyKeyWithDifferentPayloadUsesBusinessConflict()
             throws Exception {
 
-        var sale = createSale(
-                1,
+        var sale = createFulfilledSale(
+                2,
                 "8500"
         );
 
-        createPayment(
-                sale.id(),
-                "TRANSFER"
-        );
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
+        UUID idempotencyKey =
+                UUID.randomUUID();
 
         mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
                                 .content(
-                                        paymentJson(
+                                        returnJson(
                                                 sale.id(),
-                                                "CASH"
+                                                home,
+                                                idempotencyKey,
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
+                                        )
+                                )
+                )
+                .andExpect(status().isCreated());
+
+        mvc.perform(
+                        post("/api/returns")
+                                .with(csrf())
+                                .contentType(
+                                        MediaType.APPLICATION_JSON
+                                )
+                                .content(
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                idempotencyKey,
+                                                saleItemId,
+                                                2,
+                                                "SELLABLE"
                                         )
                                 )
                 )
                 .andExpect(status().isConflict())
                 .andExpect(
                         jsonPath("$.code")
-                                .value("SALE_ALREADY_PAID")
-                );
-    }
-
-    @Test
-    void cancelledPaymentAllowsNewPaymentAndKeepsHistory()
-            throws Exception {
-
-        var sale = createSale(
-                1,
-                "8500"
-        );
-
-        String firstPaymentId =
-                createPayment(
-                        sale.id(),
-                        "TRANSFER"
-                );
-
-        mvc.perform(
-                        post(
-                                "/api/payments/"
-                                        + firstPaymentId
-                                        + "/cancel"
-                        )
-                                .with(csrf())
-                                .contentType(
-                                        MediaType.APPLICATION_JSON
-                                )
-                                .content(
-                                        """
-                                        {
-                                          "reason": "Ошибочная регистрация оплаты"
-                                        }
-                                        """
-                                )
-                )
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.status")
-                                .value("CANCELLED")
-                )
-                .andExpect(
-                        jsonPath("$.cancellationReason")
                                 .value(
-                                        "Ошибочная регистрация оплаты"
+                                        "IDEMPOTENCY_KEY_REUSED"
                                 )
-                );
-
-        String secondPaymentId =
-                createPayment(
-                        sale.id(),
-                        "CASH"
-                );
-
-        mvc.perform(
-                        get(
-                                "/api/payments/sale/"
-                                        + sale.id()
-                        )
-                )
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$", hasSize(2))
-                )
-                .andExpect(
-                        jsonPath("$[0].id")
-                                .value(firstPaymentId)
-                )
-                .andExpect(
-                        jsonPath("$[0].status")
-                                .value("CANCELLED")
-                )
-                .andExpect(
-                        jsonPath("$[1].id")
-                                .value(secondPaymentId)
-                )
-                .andExpect(
-                        jsonPath("$[1].status")
-                                .value("PAID")
                 );
     }
 
     @Test
-    void activePaymentCanBeRetrievedThroughApi()
-            throws Exception {
-
-        var sale = createSale(
-                1,
-                "8500"
-        );
-
-        String paymentId =
-                createPayment(
-                        sale.id(),
-                        "TRANSFER"
-                );
-
-        mvc.perform(
-                        get(
-                                "/api/payments/sale/"
-                                        + sale.id()
-                                        + "/active"
-                        )
-                )
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.id")
-                                .value(paymentId)
-                )
-                .andExpect(
-                        jsonPath("$.status")
-                                .value("PAID")
-                );
-    }
-
-    @Test
-    void cancelledSaleCannotBePaidThroughApi()
-            throws Exception {
-
-        var sale = createSale(
-                1,
-                "8500"
-        );
-
-        sales.cancel(sale.id());
-
-        mvc.perform(
-                        post("/api/payments")
-                                .with(csrf())
-                                .contentType(
-                                        MediaType.APPLICATION_JSON
-                                )
-                                .content(
-                                        paymentJson(
-                                                sale.id(),
-                                                "CASH"
-                                        )
-                                )
-                )
-                .andExpect(status().isConflict())
-                .andExpect(
-                        jsonPath("$.code")
-                                .value("SALE_CANCELLED")
-                );
-    }
-
-    @Test
-    void missingPaymentUsesErrorContract()
+    void missingReturnUsesErrorContract()
             throws Exception {
 
         mvc.perform(
                         get(
-                                "/api/payments/"
+                                "/api/returns/"
                                         + UUID.randomUUID()
                         )
                 )
                 .andExpect(status().isNotFound())
                 .andExpect(
                         jsonPath("$.code")
-                                .value("PAYMENT_NOT_FOUND")
+                                .value("RETURN_NOT_FOUND")
                 );
     }
 
@@ -481,7 +621,7 @@ class PaymentApiTests {
             throws Exception {
 
         mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
@@ -500,36 +640,32 @@ class PaymentApiTests {
     }
 
     @Test
-    void invalidCancelRequestUsesValidationContract()
+    void invalidReturnQuantityUsesValidationContract()
             throws Exception {
 
-        var sale = createSale(
+        var sale = createFulfilledSale(
                 1,
                 "8500"
         );
 
-        String paymentId =
-                createPayment(
-                        sale.id(),
-                        "CASH"
-                );
+        UUID saleItemId =
+                sale.items().getFirst().id();
 
         mvc.perform(
-                        post(
-                                "/api/payments/"
-                                        + paymentId
-                                        + "/cancel"
-                        )
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
                                 .content(
-                                        """
-                                        {
-                                          "reason": "   "
-                                        }
-                                        """
+                                        returnJson(
+                                                sale.id(),
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                0,
+                                                "SELLABLE"
+                                        )
                                 )
                 )
                 .andExpect(status().isBadRequest())
@@ -540,12 +676,12 @@ class PaymentApiTests {
     }
 
     @Test
-    void malformedPaymentIdUsesErrorContract()
+    void malformedReturnIdUsesErrorContract()
             throws Exception {
 
         mvc.perform(
                         get(
-                                "/api/payments/not-a-uuid"
+                                "/api/returns/not-a-uuid"
                         )
                 )
                 .andExpect(status().isBadRequest())
@@ -560,7 +696,7 @@ class PaymentApiTests {
             throws Exception {
 
         mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .with(csrf())
                                 .contentType(
                                         MediaType.APPLICATION_JSON
@@ -575,23 +711,30 @@ class PaymentApiTests {
     }
 
     @Test
-    void paymentEndpointsKeepSecurityAndCsrfProtection()
+    void returnEndpointsKeepSecurityAndCsrfProtection()
             throws Exception {
 
-        var sale = createSale(
+        var sale = createFulfilledSale(
                 1,
                 "8500"
         );
 
+        UUID saleItemId =
+                sale.items().getFirst().id();
+
         mvc.perform(
-                        post("/api/payments")
+                        post("/api/returns")
                                 .contentType(
                                         MediaType.APPLICATION_JSON
                                 )
                                 .content(
-                                        paymentJson(
+                                        returnJson(
                                                 sale.id(),
-                                                "CASH"
+                                                home,
+                                                UUID.randomUUID(),
+                                                saleItemId,
+                                                1,
+                                                "SELLABLE"
                                         )
                                 )
                 )
@@ -603,7 +746,7 @@ class PaymentApiTests {
 
         mvc.perform(
                         get(
-                                "/api/payments/"
+                                "/api/returns/"
                                         + UUID.randomUUID()
                         )
                                 .with(anonymous())
@@ -617,48 +760,50 @@ class PaymentApiTests {
                 );
     }
 
-    private String createPayment(
+    private String returnJson(
             UUID saleId,
-            String method
-    ) throws Exception {
-
-        String body = mvc.perform(
-                        post("/api/payments")
-                                .with(csrf())
-                                .contentType(
-                                        MediaType.APPLICATION_JSON
-                                )
-                                .content(
-                                        paymentJson(
-                                                saleId,
-                                                method
-                                        )
-                                )
-                )
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-
-        return mapper.readTree(body)
-                .get("id")
-                .asText();
-    }
-
-    private String paymentJson(
-            UUID saleId,
-            String method
+            UUID warehouseId,
+            UUID idempotencyKey,
+            UUID saleItemId,
+            long quantity,
+            String condition
     ) {
         return """
                 {
                   "saleId": "%s",
-                  "method": "%s",
-                  "reference": "TEST-REFERENCE",
-                  "comment": "Тестовая оплата"
+                  "warehouseId": "%s",
+                  "idempotencyKey": "%s",
+                  "items": [
+                    {
+                      "saleItemId": "%s",
+                      "quantity": %d,
+                      "condition": "%s"
+                    }
+                  ],
+                  "reason": "Возврат клиента",
+                  "comment": "Return API test"
                 }
                 """.formatted(
                 saleId,
-                method
+                warehouseId,
+                idempotencyKey,
+                saleItemId,
+                quantity,
+                condition
+        );
+    }
+
+    private kg.chairx.sale.api.SaleResponse createFulfilledSale(
+            long quantity,
+            String unitSalePrice
+    ) {
+        var sale = createSale(
+                quantity,
+                unitSalePrice
+        );
+
+        return sales.fulfill(
+                sale.id()
         );
     }
 
@@ -690,7 +835,9 @@ class PaymentApiTests {
 
         jdbc.execute("""
                 truncate table
-                    return_items, returns, payments,
+                    return_items,
+                    returns,
+                    payments,
                     deliveries,
                     sale_items,
                     sales,
@@ -706,7 +853,9 @@ class PaymentApiTests {
         jdbc.update("""
                 delete from audit_entries
                 where entity_type in (
+                    'RETURN',
                     'PAYMENT',
+                    'DELIVERY',
                     'SALE',
                     'STOCK_MOVEMENT'
                 )
