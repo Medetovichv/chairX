@@ -8,6 +8,7 @@ import kg.chairx.payment.api.PaymentResponse;
 import kg.chairx.payment.domain.Payment;
 import kg.chairx.payment.domain.PaymentStatus;
 import kg.chairx.payment.persistence.PaymentRepository;
+import kg.chairx.refund.persistence.RefundRepository;
 import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleStatus;
@@ -28,15 +29,18 @@ public class PaymentService {
 
     private final PaymentRepository repository;
     private final SaleRepository sales;
+    private final RefundRepository refunds;
     private final AuditService audit;
 
     public PaymentService(
             PaymentRepository repository,
             SaleRepository sales,
+            RefundRepository refunds,
             AuditService audit
     ) {
         this.repository = repository;
         this.sales = sales;
+        this.refunds = refunds;
         this.audit = audit;
     }
 
@@ -153,6 +157,13 @@ public class PaymentService {
             throw rule(
                     "INVALID_PAYMENT_STATUS",
                     "Оплату нельзя аннулировать в текущем состоянии"
+            );
+        }
+
+        if (refunds.existsBySale(payment.saleId())) {
+            throw rule(
+                    "PAYMENT_HAS_REFUNDS",
+                    "Нельзя аннулировать оплату, по которой уже был выполнен возврат денег"
             );
         }
 

@@ -111,6 +111,21 @@ public class RefundRepository {
                 .optional();
     }
 
+    public boolean existsBySale(UUID saleId) {
+        return Boolean.TRUE.equals(
+                jdbc.sql("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM refunds
+                        WHERE sale_id = :saleId
+                    )
+                    """)
+                        .param("saleId", saleId)
+                        .query(Boolean.class)
+                        .single()
+        );
+    }
+
     public Optional<Refund> findByIdempotencyKey(
             UUID idempotencyKey
     ) {
