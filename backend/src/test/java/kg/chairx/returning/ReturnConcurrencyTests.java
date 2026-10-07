@@ -421,6 +421,7 @@ class ReturnConcurrencyTests {
 
         jdbc.execute("""
                 truncate table
+                    refunds,
                     return_items,
                     returns,
                     payments,

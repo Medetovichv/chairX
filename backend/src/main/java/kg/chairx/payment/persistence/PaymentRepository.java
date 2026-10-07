@@ -132,6 +132,19 @@ public class PaymentRepository {
                 .optional();
     }
 
+    public Optional<Payment> lockActiveBySale(UUID saleId) {
+        return jdbc.sql("""
+                SELECT *
+                FROM payments
+                WHERE sale_id = :saleId
+                  AND status = 'PAID'
+                FOR UPDATE
+                """)
+                .param("saleId", saleId)
+                .query(PaymentRepository::mapPayment)
+                .optional();
+    }
+
     public List<Payment> findBySale(UUID saleId) {
         return jdbc.sql("""
                 SELECT *

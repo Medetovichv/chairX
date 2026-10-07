@@ -16,8 +16,10 @@ import kg.chairx.product.application.ProductNotFoundException;
 import kg.chairx.product.application.ProductVariantNotFoundException;
 import kg.chairx.purchase.application.PurchaseNotFoundException;
 import kg.chairx.purchase.application.PurchaseRuleViolationException;
-import kg.chairx.returning.application.ReturnRuleViolationException;
+import kg.chairx.refund.application.RefundNotFoundException;
+import kg.chairx.refund.application.RefundRuleViolationException;
 import kg.chairx.returning.application.ReturnNotFoundException;
+import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.supplier.application.SupplierNotFoundException;
@@ -158,6 +160,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(PaymentRuleViolationException.class)
     ResponseEntity<ApiError> paymentRuleViolation(
             PaymentRuleViolationException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        ApiError.of(
+                                exception.getCode(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(RefundNotFoundException.class)
+    ResponseEntity<ApiError> refundNotFound(
+            RefundNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiError.of(
+                                "REFUND_NOT_FOUND",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(RefundRuleViolationException.class)
+    ResponseEntity<ApiError> refundRuleViolation(
+            RefundRuleViolationException exception
     ) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)

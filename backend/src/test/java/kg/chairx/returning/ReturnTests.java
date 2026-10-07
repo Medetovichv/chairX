@@ -1159,6 +1159,7 @@ class ReturnTests {
 
         jdbc.execute("""
                 truncate table
+                    refunds,
                     return_items,
                     returns,
                     payments,

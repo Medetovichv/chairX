@@ -835,6 +835,7 @@ class ReturnApiTests {
 
         jdbc.execute("""
                 truncate table
+                    refunds,
                     return_items,
                     returns,
                     payments,
