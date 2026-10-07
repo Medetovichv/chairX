@@ -10,6 +10,8 @@ import kg.chairx.customer.application.CustomerRuleViolationException;
 import kg.chairx.delivery.application.DeliveryNotFoundException;
 import kg.chairx.delivery.application.DeliveryRuleViolationException;
 import kg.chairx.inventory.domain.StockQuantityLimitException;
+import kg.chairx.payment.application.PaymentNotFoundException;
+import kg.chairx.payment.application.PaymentRuleViolationException;
 import kg.chairx.product.application.ProductNotFoundException;
 import kg.chairx.product.application.ProductVariantNotFoundException;
 import kg.chairx.purchase.application.PurchaseNotFoundException;
@@ -126,6 +128,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(SaleRuleViolationException.class)
     ResponseEntity<ApiError> saleRuleViolation(
             SaleRuleViolationException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        ApiError.of(
+                                exception.getCode(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(PaymentNotFoundException.class)
+    ResponseEntity<ApiError> paymentNotFound(
+            PaymentNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiError.of(
+                                "PAYMENT_NOT_FOUND",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(PaymentRuleViolationException.class)
+    ResponseEntity<ApiError> paymentRuleViolation(
+            PaymentRuleViolationException exception
     ) {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)

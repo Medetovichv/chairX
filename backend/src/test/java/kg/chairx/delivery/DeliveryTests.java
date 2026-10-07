@@ -998,6 +998,7 @@ class DeliveryTests {
 
         jdbc.execute("""
                 truncate table
+                    payments,
                     deliveries,
                     sale_items,
                     sales,
