@@ -683,7 +683,7 @@ class SaleTests {
                 new CreateSaleRequest(
                         UUID.randomUUID(),
                         customer,
-                        FulfillmentType.REGION_DELIVERY,
+                        FulfillmentType.SELF_PICKUP,
                         List.of(
                                 item(
                                         firstVariant,
@@ -850,7 +850,7 @@ class SaleTests {
                 new CreateSaleRequest(
                         UUID.randomUUID(),
                         customer,
-                        FulfillmentType.CITY_DELIVERY,
+                        FulfillmentType.SELF_PICKUP,
                         List.of(
                                 item(
                                         firstVariant,
@@ -1095,6 +1095,7 @@ class SaleTests {
 
         jdbc.execute("""
                 truncate table
+                    deliveries,
                     sale_items,
                     sales,
                     stock_movements,

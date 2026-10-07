@@ -5,15 +5,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import kg.chairx.sale.application.SaleNotFoundException;
-import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.customer.application.CustomerNotFoundException;
 import kg.chairx.customer.application.CustomerRuleViolationException;
+import kg.chairx.delivery.application.DeliveryNotFoundException;
+import kg.chairx.delivery.application.DeliveryRuleViolationException;
 import kg.chairx.inventory.domain.StockQuantityLimitException;
 import kg.chairx.product.application.ProductNotFoundException;
 import kg.chairx.product.application.ProductVariantNotFoundException;
 import kg.chairx.purchase.application.PurchaseNotFoundException;
 import kg.chairx.purchase.application.PurchaseRuleViolationException;
+import kg.chairx.sale.application.SaleNotFoundException;
+import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.supplier.application.SupplierNotFoundException;
 import kg.chairx.warehouse.application.WarehouseCodeAlreadyExistsException;
 import kg.chairx.warehouse.application.WarehouseNotFoundException;
@@ -130,6 +132,34 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(
                         ApiError.of(
                                 exception.getCode(),
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(DeliveryNotFoundException.class)
+    ResponseEntity<ApiError> deliveryNotFound(
+            DeliveryNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(
+                        ApiError.of(
+                                "DELIVERY_NOT_FOUND",
+                                exception.getMessage()
+                        )
+                );
+    }
+
+    @ExceptionHandler(DeliveryRuleViolationException.class)
+    ResponseEntity<ApiError> deliveryRuleViolation(
+            DeliveryRuleViolationException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(
+                        ApiError.of(
+                                exception.code(),
                                 exception.getMessage()
                         )
                 );

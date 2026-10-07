@@ -3,18 +3,21 @@ package kg.chairx.sale.application;
 import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
 import kg.chairx.customer.application.CustomerService;
+import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.api.ChangeReservedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
-import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
 import kg.chairx.product.application.ProductVariantService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.application.SaleMapper;
 import kg.chairx.sale.api.SaleResponse;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
 import kg.chairx.sale.domain.SaleStatus;
+import kg.chairx.sale.application.SaleNotFoundException;
+import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.persistence.SaleRepository;
 import kg.chairx.warehouse.application.WarehouseService;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,10 +49,12 @@ public class SaleService {
 
     private static final Comparator<SaleItem> INVENTORY_ORDER =
             Comparator.comparing(
-                            (SaleItem item) -> item.warehouseId().toString()
+                            (SaleItem item) ->
+                                    item.warehouseId().toString()
                     )
                     .thenComparing(
-                            item -> item.productVariantId().toString()
+                            item ->
+                                    item.productVariantId().toString()
                     );
 
     private final SaleRepository repository;
@@ -98,9 +103,11 @@ public class SaleService {
         validateReferences(request);
 
         UUID saleId = UUID.randomUUID();
+
         String saleNumber = saleNumber(
                 repository.nextSaleNumber()
         );
+
         String actor = actor();
 
         boolean inserted = repository.tryInsert(
@@ -185,6 +192,127 @@ public class SaleService {
     public SaleResponse fulfill(UUID saleId) {
         Sale sale = lock(saleId);
 
+        if (sale.fulfillmentType()
+                != FulfillmentType.SELF_PICKUP) {
+            throw rule(
+                    "DELIVERY_REQUIRED",
+                    "Продажу с доставкой необходимо выдавать через процесс доставки"
+            );
+        }
+
+        return fulfillLocked(sale);
+    }
+
+    @Transactional
+    public SaleResponse fulfillForDelivery(
+            UUID saleId
+    ) {
+        Sale sale = lock(saleId);
+
+        if (sale.fulfillmentType()
+                == FulfillmentType.SELF_PICKUP) {
+            throw rule(
+                    "DELIVERY_NOT_ALLOWED",
+                    "Самовывоз нельзя выдавать через процесс доставки"
+            );
+        }
+
+        return fulfillLocked(sale);
+    }
+
+    @Transactional
+    public SaleResponse cancel(UUID saleId) {
+        Sale sale = lock(saleId);
+
+        if (sale.fulfillmentType()
+                != FulfillmentType.SELF_PICKUP) {
+            throw rule(
+                    "DELIVERY_REQUIRED",
+                    "Продажу с доставкой необходимо отменять через процесс доставки"
+            );
+        }
+
+        return cancelLocked(sale);
+    }
+
+    @Transactional
+    public SaleResponse cancelForDelivery(
+            UUID saleId
+    ) {
+        Sale sale = lock(saleId);
+
+        if (sale.fulfillmentType()
+                == FulfillmentType.SELF_PICKUP) {
+            throw rule(
+                    "DELIVERY_NOT_ALLOWED",
+                    "Самовывоз нельзя отменять через процесс доставки"
+            );
+        }
+
+        return cancelLocked(sale);
+    }
+
+    private SaleResponse cancelLocked(
+            Sale sale
+    ) {
+        if (sale.status() == SaleStatus.CANCELLED) {
+            return SaleMapper.toResponse(sale);
+        }
+
+        if (sale.status() == SaleStatus.FULFILLED) {
+            throw rule(
+                    "SALE_ALREADY_FULFILLED",
+                    "Выданную продажу нельзя отменить. Используйте возврат"
+            );
+        }
+
+        if (sale.status() != SaleStatus.CONFIRMED) {
+            throw rule(
+                    "INVALID_SALE_STATUS",
+                    "Продажу нельзя отменить в текущем состоянии"
+            );
+        }
+
+        String actor = actor();
+
+        SaleResponse before =
+                SaleMapper.toResponse(sale);
+
+        for (SaleItem item : sale.items()
+                .stream()
+                .sorted(INVENTORY_ORDER)
+                .toList()) {
+
+            inventory.releaseReservation(
+                    new ChangeReservedStock(
+                            item.warehouseId(),
+                            item.productVariantId(),
+                            item.quantity()
+                    )
+            );
+        }
+
+        repository.cancel(
+                sale.id(),
+                actor
+        );
+
+        SaleResponse after = get(sale.id());
+
+        audit.record(
+                "SALE",
+                sale.id(),
+                "CANCELLED",
+                before,
+                after
+        );
+
+        return after;
+    }
+
+    private SaleResponse fulfillLocked(
+            Sale sale
+    ) {
         if (sale.status() == SaleStatus.FULFILLED) {
             return SaleMapper.toResponse(sale);
         }
@@ -204,7 +332,9 @@ public class SaleService {
         }
 
         String actor = actor();
-        SaleResponse before = SaleMapper.toResponse(sale);
+
+        SaleResponse before =
+                SaleMapper.toResponse(sale);
 
         for (SaleItem item : sale.items()
                 .stream()
@@ -244,63 +374,6 @@ public class SaleService {
                 "SALE",
                 sale.id(),
                 "FULFILLED",
-                before,
-                after
-        );
-
-        return after;
-    }
-
-    @Transactional
-    public SaleResponse cancel(UUID saleId) {
-        Sale sale = lock(saleId);
-
-        if (sale.status() == SaleStatus.CANCELLED) {
-            return SaleMapper.toResponse(sale);
-        }
-
-        if (sale.status() == SaleStatus.FULFILLED) {
-            throw rule(
-                    "SALE_ALREADY_FULFILLED",
-                    "Выданную продажу нельзя отменить. Используйте возврат"
-            );
-        }
-
-        if (sale.status() != SaleStatus.CONFIRMED) {
-            throw rule(
-                    "INVALID_SALE_STATUS",
-                    "Продажу нельзя отменить в текущем состоянии"
-            );
-        }
-
-        String actor = actor();
-        SaleResponse before = SaleMapper.toResponse(sale);
-
-        for (SaleItem item : sale.items()
-                .stream()
-                .sorted(INVENTORY_ORDER)
-                .toList()) {
-
-            inventory.releaseReservation(
-                    new ChangeReservedStock(
-                            item.warehouseId(),
-                            item.productVariantId(),
-                            item.quantity()
-                    )
-            );
-        }
-
-        repository.cancel(
-                sale.id(),
-                actor
-        );
-
-        SaleResponse after = get(sale.id());
-
-        audit.record(
-                "SALE",
-                sale.id(),
-                "CANCELLED",
                 before,
                 after
         );
@@ -416,14 +489,16 @@ public class SaleService {
         List<FingerprintSaleItem> sorted =
                 request.items()
                         .stream()
-                        .map(item -> new FingerprintSaleItem(
-                                item.productVariantId(),
-                                item.warehouseId(),
-                                item.quantity(),
-                                normalizeMoney(
-                                        item.unitSalePrice()
+                        .map(item ->
+                                new FingerprintSaleItem(
+                                        item.productVariantId(),
+                                        item.warehouseId(),
+                                        item.quantity(),
+                                        normalizeMoney(
+                                                item.unitSalePrice()
+                                        )
                                 )
-                        ))
+                        )
                         .sorted(
                                 Comparator
                                         .comparing(
