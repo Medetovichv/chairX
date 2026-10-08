@@ -3,13 +3,13 @@ package kg.chairx.refund.application;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import kg.chairx.audit.AuditService;
-import kg.chairx.payment.domain.Payment;
+import kg.chairx.exchange.infrastructure.ExchangeRepository;
+import kg.chairx.payment.application.PaymentBalanceService;
 import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.refund.api.CreateRefundRequest;
 import kg.chairx.refund.api.RefundResponse;
 import kg.chairx.refund.domain.Refund;
 import kg.chairx.refund.persistence.RefundRepository;
-import kg.chairx.refund.application.RefundNotFoundException;
 import kg.chairx.returning.persistence.ReturnRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -33,18 +33,24 @@ public class RefundService {
 
     private final RefundRepository repository;
     private final PaymentRepository payments;
+    private final PaymentBalanceService paymentBalanceService;
     private final ReturnRepository returns;
+    private final ExchangeRepository exchanges;
     private final AuditService audit;
 
     public RefundService(
             RefundRepository repository,
             PaymentRepository payments,
+            PaymentBalanceService paymentBalanceService,
             ReturnRepository returns,
+            ExchangeRepository exchanges,
             AuditService audit
     ) {
         this.repository = repository;
         this.payments = payments;
+        this.paymentBalanceService = paymentBalanceService;
         this.returns = returns;
+        this.exchanges = exchanges;
         this.audit = audit;
     }
 
@@ -54,73 +60,61 @@ public class RefundService {
     ) {
         String fingerprint = fingerprint(request);
 
-        Refund existing =
-                repository.findByIdempotencyKey(
-                                request.idempotencyKey()
-                        )
-                        .orElse(null);
+        Refund existing = repository
+                .findByIdempotencyKey(request.idempotencyKey())
+                .orElse(null);
 
         if (existing != null) {
-            return replayOrReject(
-                    existing,
-                    fingerprint
-            );
+            return replayOrReject(existing, fingerprint);
         }
 
-        Payment payment =
-                payments.lockActiveBySale(
-                                request.saleId()
-                        )
-                        .orElseThrow(() ->
-                                rule(
-                                        "SALE_NOT_PAID",
-                                        "Для продажи нет активной оплаты"
-                                )
-                        );
+        payments.lockActiveBySale(request.saleId())
+                .orElseThrow(() -> rule(
+                        "SALE_NOT_PAID",
+                        "Для продажи нет активной оплаты"
+                ));
 
-        existing =
-                repository.findByIdempotencyKey(
-                                request.idempotencyKey()
-                        )
-                        .orElse(null);
+        existing = repository
+                .findByIdempotencyKey(request.idempotencyKey())
+                .orElse(null);
 
         if (existing != null) {
-            return replayOrReject(
-                    existing,
-                    fingerprint
-            );
+            return replayOrReject(existing, fingerprint);
         }
 
         if (request.returnId() != null) {
-            var saleReturn =
-                    returns.find(request.returnId())
-                            .orElseThrow(() ->
-                                    rule(
-                                            "RETURN_NOT_FOUND",
-                                            "Возврат товара не найден"
-                                    )
-                            );
+            var saleReturn = returns.find(request.returnId())
+                    .orElseThrow(() -> rule(
+                            "RETURN_NOT_FOUND",
+                            "Возврат товара не найден"
+                    ));
 
-            if (!saleReturn.saleId()
-                    .equals(request.saleId())) {
+            if (!saleReturn.saleId().equals(request.saleId())) {
                 throw rule(
                         "RETURN_SALE_MISMATCH",
                         "Возврат товара относится к другой продаже"
                 );
             }
+
+            if (repository.existsByReturn(request.returnId())) {
+                throw rule(
+                        "RETURN_ALREADY_REFUNDED",
+                        "По этому возврату товара деньги уже возвращены"
+                );
+            }
+
+            if (exchanges.existsByReturn(request.returnId())) {
+                throw rule(
+                        "RETURN_ALREADY_EXCHANGED",
+                        "Этот возврат товара уже использован для обмена"
+                );
+            }
         }
 
-        BigDecimal alreadyRefunded =
-                repository.refundedAmount(
-                        request.saleId()
-                );
-
         BigDecimal remaining =
-                payment.amount()
-                        .subtract(alreadyRefunded);
+                paymentBalanceService.availableBalance(request.saleId());
 
-        if (request.amount()
-                .compareTo(remaining) > 0) {
+        if (request.amount().compareTo(remaining) > 0) {
             throw rule(
                     "REFUND_AMOUNT_EXCEEDED",
                     "Сумма возврата превышает доступный остаток оплаты"
@@ -140,32 +134,23 @@ public class RefundService {
                 Instant.now()
         );
 
-        boolean inserted =
-                repository.tryInsert(
-                        refund,
-                        request.idempotencyKey(),
-                        fingerprint
-                );
+        boolean inserted = repository.tryInsert(
+                refund,
+                request.idempotencyKey(),
+                fingerprint
+        );
 
         if (!inserted) {
-            Refund concurrent =
-                    repository.findByIdempotencyKey(
-                                    request.idempotencyKey()
-                            )
-                            .orElseThrow(() ->
-                                    new IllegalStateException(
-                                            "Refund idempotency conflict without existing record"
-                                    )
-                            );
+            Refund concurrent = repository
+                    .findByIdempotencyKey(request.idempotencyKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Refund idempotency conflict without existing record"
+                    ));
 
-            return replayOrReject(
-                    concurrent,
-                    fingerprint
-            );
+            return replayOrReject(concurrent, fingerprint);
         }
 
-        RefundResponse response =
-                toResponse(refund);
+        RefundResponse response = toResponse(refund);
 
         audit.record(
                 "REFUND",
@@ -198,15 +183,11 @@ public class RefundService {
             Refund existing,
             String fingerprint
     ) {
-        String existingFingerprint =
-                repository.requestFingerprint(
-                                existing.id()
-                        )
-                        .orElseThrow(() ->
-                                new IllegalStateException(
-                                        "Refund request fingerprint отсутствует"
-                                )
-                        );
+        String existingFingerprint = repository
+                .requestFingerprint(existing.id())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Refund request fingerprint отсутствует"
+                ));
 
         if (!existingFingerprint.equals(fingerprint)) {
             throw rule(
@@ -218,9 +199,7 @@ public class RefundService {
         return toResponse(existing);
     }
 
-    private static RefundResponse toResponse(
-            Refund refund
-    ) {
+    private static RefundResponse toResponse(Refund refund) {
         return new RefundResponse(
                 refund.id(),
                 refund.saleId(),
@@ -235,9 +214,7 @@ public class RefundService {
         );
     }
 
-    private static String fingerprint(
-            CreateRefundRequest request
-    ) {
+    private static String fingerprint(CreateRefundRequest request) {
         String canonical = String.join(
                 "|",
                 request.saleId().toString(),
@@ -257,9 +234,7 @@ public class RefundService {
 
             return HexFormat.of().formatHex(
                     digest.digest(
-                            canonical.getBytes(
-                                    StandardCharsets.UTF_8
-                            )
+                            canonical.getBytes(StandardCharsets.UTF_8)
                     )
             );
         } catch (NoSuchAlgorithmException exception) {
@@ -270,33 +245,22 @@ public class RefundService {
         }
     }
 
-    private static String canonicalAmount(
-            BigDecimal amount
-    ) {
-        return amount.stripTrailingZeros()
-                .toPlainString();
+    private static String canonicalAmount(BigDecimal amount) {
+        return amount.stripTrailingZeros().toPlainString();
     }
 
-    private static String canonicalText(
-            String value
-    ) {
-        return value == null
-                ? ""
-                : value.trim();
+    private static String canonicalText(String value) {
+        return value == null ? "" : value.trim();
     }
 
-    private static String normalize(
-            String value
-    ) {
+    private static String normalize(String value) {
         if (value == null) {
             return null;
         }
 
         String normalized = value.trim();
 
-        return normalized.isEmpty()
-                ? null
-                : normalized;
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private String actor() {
@@ -310,9 +274,6 @@ public class RefundService {
             String code,
             String message
     ) {
-        return new RefundRuleViolationException(
-                code,
-                message
-        );
+        return new RefundRuleViolationException(code, message);
     }
 }

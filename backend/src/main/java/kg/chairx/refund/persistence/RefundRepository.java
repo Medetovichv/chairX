@@ -66,34 +66,18 @@ public class RefundRepository {
                 """)
                 .param("id", refund.id())
                 .param("saleId", refund.saleId())
-                .param(
-                        "returnId",
-                        refund.returnId(),
-                        Types.OTHER
-                )
+                .param("returnId", refund.returnId(), Types.OTHER)
                 .param("amount", refund.amount())
                 .param("method", refund.method().name())
                 .param("reason", refund.reason())
-                .param(
-                        "reference",
-                        refund.reference(),
-                        Types.VARCHAR
-                )
-                .param(
-                        "comment",
-                        refund.comment(),
-                        Types.VARCHAR
-                )
+                .param("reference", refund.reference(), Types.VARCHAR)
+                .param("comment", refund.comment(), Types.VARCHAR)
                 .param("idempotencyKey", idempotencyKey)
-                .param(
-                        "requestFingerprint",
-                        requestFingerprint
-                )
+                .param("requestFingerprint", requestFingerprint)
                 .param("refundedBy", refund.refundedBy())
                 .param(
                         "refundedAt",
-                        refund.refundedAt()
-                                .atOffset(ZoneOffset.UTC)
+                        refund.refundedAt().atOffset(ZoneOffset.UTC)
                 )
                 .update();
 
@@ -114,13 +98,28 @@ public class RefundRepository {
     public boolean existsBySale(UUID saleId) {
         return Boolean.TRUE.equals(
                 jdbc.sql("""
-                    SELECT EXISTS (
-                        SELECT 1
-                        FROM refunds
-                        WHERE sale_id = :saleId
-                    )
-                    """)
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM refunds
+                            WHERE sale_id = :saleId
+                        )
+                        """)
                         .param("saleId", saleId)
+                        .query(Boolean.class)
+                        .single()
+        );
+    }
+
+    public boolean existsByReturn(UUID returnId) {
+        return Boolean.TRUE.equals(
+                jdbc.sql("""
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM refunds
+                            WHERE return_id = :returnId
+                        )
+                        """)
+                        .param("returnId", returnId)
                         .query(Boolean.class)
                         .single()
         );
@@ -134,17 +133,12 @@ public class RefundRepository {
                 FROM refunds
                 WHERE idempotency_key = :idempotencyKey
                 """)
-                .param(
-                        "idempotencyKey",
-                        idempotencyKey
-                )
+                .param("idempotencyKey", idempotencyKey)
                 .query(RefundRepository::mapRefund)
                 .optional();
     }
 
-    public Optional<String> requestFingerprint(
-            UUID refundId
-    ) {
+    public Optional<String> requestFingerprint(UUID refundId) {
         return jdbc.sql("""
                 SELECT request_fingerprint
                 FROM refunds
@@ -157,10 +151,7 @@ public class RefundRepository {
 
     public BigDecimal refundedAmount(UUID saleId) {
         return jdbc.sql("""
-                SELECT COALESCE(
-                    SUM(amount),
-                    0
-                )
+                SELECT COALESCE(SUM(amount), 0)
                 FROM refunds
                 WHERE sale_id = :saleId
                 """)
@@ -186,19 +177,14 @@ public class RefundRepository {
             int rowNum
     ) throws SQLException {
         OffsetDateTime refundedAt =
-                rs.getObject(
-                        "refunded_at",
-                        OffsetDateTime.class
-                );
+                rs.getObject("refunded_at", OffsetDateTime.class);
 
         return new Refund(
                 rs.getObject("id", UUID.class),
                 rs.getObject("sale_id", UUID.class),
                 rs.getObject("return_id", UUID.class),
                 rs.getBigDecimal("amount"),
-                RefundMethod.valueOf(
-                        rs.getString("method")
-                ),
+                RefundMethod.valueOf(rs.getString("method")),
                 rs.getString("reason"),
                 rs.getString("reference"),
                 rs.getString("comment"),
