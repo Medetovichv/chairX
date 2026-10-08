@@ -64,6 +64,7 @@ public class ExchangeService {
     ) {
         String fingerprint = fingerprint(request);
 
+        // 1. Проверяем, не был ли обмен уже создан.
         Exchange existing = exchanges
                 .findByIdempotencyKey(request.idempotencyKey())
                 .orElse(null);
@@ -72,21 +73,25 @@ public class ExchangeService {
             return replay(existing, fingerprint);
         }
 
+        // 2. Получаем возврат товара.
         var saleReturn = returns.find(request.returnId())
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new ExchangeRuleViolationException(
+                        "RETURN_NOT_FOUND",
                         "Возврат товара не найден"
                 ));
 
         UUID originalSaleId = saleReturn.saleId();
 
-        // Все денежные компенсации исходной продажи
-        // используют одну и ту же блокировку оплаты.
+        // 3. Блокируем активную оплату исходной продажи.
+        // Это синхронизирует обмены и денежные возвраты
+        // по одной продаже.
         payments.lockActiveBySale(originalSaleId)
-                .orElseThrow(() -> new IllegalStateException(
+                .orElseThrow(() -> new ExchangeRuleViolationException(
+                        "SALE_NOT_PAID",
                         "Для исходной продажи нет активной оплаты"
                 ));
 
-        // Повторная проверка после получения блокировки.
+        // 4. Повторно проверяем идемпотентность после блокировки.
         existing = exchanges
                 .findByIdempotencyKey(request.idempotencyKey())
                 .orElse(null);
@@ -95,26 +100,33 @@ public class ExchangeService {
             return replay(existing, fingerprint);
         }
 
+        // 5. Один возврат нельзя компенсировать дважды.
         if (refunds.existsByReturn(request.returnId())) {
-            throw new IllegalStateException(
+            throw new ExchangeRuleViolationException(
+                    "RETURN_ALREADY_REFUNDED",
                     "По этому возврату товара уже возвращены деньги"
             );
         }
 
         if (exchanges.existsByReturn(request.returnId())) {
-            throw new IllegalStateException(
+            throw new ExchangeRuleViolationException(
+                    "RETURN_ALREADY_EXCHANGED",
                     "Этот возврат товара уже использован для обмена"
             );
         }
 
+        // 6. Получаем исходную продажу.
         var originalSale = saleRepository.find(originalSaleId)
                 .orElseThrow(() -> new IllegalStateException(
-                        "Исходная продажа не найдена"
+                        "Нарушена целостность данных: исходная продажа не найдена"
                 ));
 
+        // 7. Рассчитываем стоимость возвращённого товара
+        // по ценам исходной продажи.
         BigDecimal returnedValue = BigDecimal.ZERO;
 
         for (var returnItem : saleReturn.items()) {
+
             var originalItem = originalSale.items()
                     .stream()
                     .filter(item ->
@@ -126,33 +138,44 @@ public class ExchangeService {
                     ));
 
             BigDecimal itemValue = originalItem.unitSalePrice()
-                    .multiply(BigDecimal.valueOf(returnItem.quantity()));
+                    .multiply(
+                            BigDecimal.valueOf(returnItem.quantity())
+                    );
 
             returnedValue = returnedValue.add(itemValue);
         }
 
         if (returnedValue.signum() <= 0) {
-            throw new IllegalStateException(
+            throw new ExchangeRuleViolationException(
+                    "INVALID_RETURN_VALUE",
                     "Стоимость возвращённого товара должна быть положительной"
             );
         }
 
+        // 8. Проверяем доступный финансовый остаток.
         BigDecimal availableBalance =
                 balances.availableBalance(originalSaleId);
 
         if (returnedValue.compareTo(availableBalance) > 0) {
-            throw new IllegalStateException(
+            throw new ExchangeRuleViolationException(
+                    "EXCHANGE_AMOUNT_EXCEEDED",
                     "Стоимость возврата превышает доступный остаток оплаты"
             );
         }
 
-        // Идемпотентность новой продажи связана с обменом,
-        // а не с произвольным новым UUID.
+        // 9. Создаём детерминированный ключ новой продажи.
+        // Повторный запрос обмена не должен создавать
+        // вторую продажу.
         UUID saleIdempotencyKey = UUID.nameUUIDFromBytes(
                 ("EXCHANGE_SALE:" + request.idempotencyKey())
                         .getBytes(StandardCharsets.UTF_8)
         );
 
+        // 10. Создаём новую продажу.
+        // SaleService самостоятельно проверяет товар,
+        // склад и резервирует остатки.
+        //
+        // Всё выполняется внутри одной транзакции.
         var newSale = sales.create(
                 new CreateSaleRequest(
                         saleIdempotencyKey,
@@ -162,6 +185,7 @@ public class ExchangeService {
                 )
         );
 
+        // 11. Рассчитываем финансовую разницу.
         BigDecimal newSaleTotal = newSale.total();
 
         BigDecimal creditApplied =
@@ -173,6 +197,7 @@ public class ExchangeService {
         BigDecimal refundDue =
                 returnedValue.subtract(creditApplied);
 
+        // 12. Создаём запись обмена.
         Exchange exchange = new Exchange(
                 UUID.randomUUID(),
                 originalSaleId,
@@ -193,17 +218,21 @@ public class ExchangeService {
         );
 
         if (!exchanges.tryInsert(exchange)) {
-            throw new IllegalStateException(
-                    "Не удалось создать обмен: конфликт идемпотентности"
+            throw new ExchangeRuleViolationException(
+                    "EXCHANGE_IDEMPOTENCY_CONFLICT",
+                    "Ключ идемпотентности уже используется другим обменом"
             );
         }
 
-// Если стоимость старого и нового товара совпадает,
-// дополнительных расчётов с клиентом не требуется.
+        // 13. Если разницы в стоимости нет,
+        // автоматически завершаем финансовый расчёт.
         if (additionalPaymentDue.signum() == 0
                 && refundDue.signum() == 0) {
 
-            int updated = exchanges.complete(exchange.id(), actor());
+            int updated = exchanges.complete(
+                    exchange.id(),
+                    actor()
+            );
 
             if (updated != 1) {
                 throw new IllegalStateException(
@@ -214,24 +243,36 @@ public class ExchangeService {
             return get(exchange.id());
         }
 
+        // 14. Если есть доплата или возврат,
+        // обмен ожидает финансового расчёта.
         return ExchangeResponse.from(exchange);
     }
 
     @Transactional(readOnly = true)
-    public ExchangeResponse get(UUID exchangeId) {
+    public ExchangeResponse get(
+            @NotNull UUID exchangeId
+    ) {
         return exchanges.find(exchangeId)
                 .map(ExchangeResponse::from)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Обмен не найден"
-                ));
+                .orElseThrow(ExchangeNotFoundException::new);
     }
 
+    /**
+     * Повторное выполнение запроса с тем же ключом.
+     *
+     * Если содержимое запроса совпадает,
+     * возвращаем существующий обмен.
+     *
+     * Если содержимое отличается,
+     * отклоняем запрос.
+     */
     private ExchangeResponse replay(
             Exchange existing,
             String fingerprint
     ) {
         if (!existing.requestFingerprint().equals(fingerprint)) {
-            throw new IllegalStateException(
+            throw new ExchangeRuleViolationException(
+                    "EXCHANGE_IDEMPOTENCY_CONFLICT",
                     "Ключ идемпотентности уже использован с другими данными"
             );
         }
@@ -239,6 +280,12 @@ public class ExchangeService {
         return ExchangeResponse.from(existing);
     }
 
+    /**
+     * Создаёт SHA-256 отпечаток запроса.
+     *
+     * Порядок позиций не влияет на результат.
+     * Денежные значения нормализуются.
+     */
     private static String fingerprint(
             CreateExchangeRequest request
     ) {
@@ -247,10 +294,10 @@ public class ExchangeService {
                 .append('|')
                 .append(request.fulfillmentType());
 
-        // Сортировка нужна, чтобы порядок позиций
-        // не влиял на идентичность запроса.
-        request.items().stream()
+        request.items()
+                .stream()
                 .sorted((a, b) -> {
+
                     int variant = a.productVariantId()
                             .compareTo(b.productVariantId());
 
@@ -269,17 +316,23 @@ public class ExchangeService {
                         .append(':')
                         .append(item.quantity())
                         .append(':')
-                        .append(item.unitSalePrice()
-                                .stripTrailingZeros()
-                                .toPlainString())
+                        .append(
+                                item.unitSalePrice()
+                                        .stripTrailingZeros()
+                                        .toPlainString()
+                        )
                 );
 
         try {
-            byte[] hash = MessageDigest.getInstance("SHA-256")
-                    .digest(canonical.toString()
-                            .getBytes(StandardCharsets.UTF_8));
+            byte[] hash = MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(
+                            canonical.toString()
+                                    .getBytes(StandardCharsets.UTF_8)
+                    );
 
             return HexFormat.of().formatHex(hash);
+
         } catch (NoSuchAlgorithmException exception) {
             throw new IllegalStateException(
                     "SHA-256 недоступен",
@@ -288,8 +341,12 @@ public class ExchangeService {
         }
     }
 
+    /**
+     * Текущий авторизованный пользователь.
+     */
     private static String actor() {
-        return SecurityContextHolder.getContext()
+        return SecurityContextHolder
+                .getContext()
                 .getAuthentication()
                 .getName();
     }

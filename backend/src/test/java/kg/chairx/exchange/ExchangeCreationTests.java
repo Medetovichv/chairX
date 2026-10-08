@@ -20,6 +20,7 @@ import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
+import kg.chairx.exchange.application.ExchangeRuleViolationException;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -222,7 +223,11 @@ class ExchangeCreationTests {
 
         assertThatThrownBy(() -> exchanges.create(
                 request(returnId, "10000", UUID.randomUUID())
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOfSatisfying(
+                ExchangeRuleViolationException.class,
+                exception -> assertThat(exception.getCode())
+                        .isEqualTo("RETURN_ALREADY_EXCHANGED")
+        );
 
         assertThat(countExchanges(returnId)).isEqualTo(1);
     }
@@ -251,7 +256,11 @@ class ExchangeCreationTests {
 
         assertThatThrownBy(() -> exchanges.create(
                 request(returnId, "10000", UUID.randomUUID())
-        )).isInstanceOf(IllegalStateException.class);
+        )).isInstanceOfSatisfying(
+                ExchangeRuleViolationException.class,
+                exception -> assertThat(exception.getCode())
+                        .isEqualTo("RETURN_ALREADY_REFUNDED")
+        );
 
         assertThat(countExchanges(returnId)).isZero();
     }
