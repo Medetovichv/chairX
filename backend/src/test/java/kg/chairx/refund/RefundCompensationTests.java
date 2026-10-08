@@ -298,7 +298,7 @@ class RefundCompensationTests {
 
         jdbc.execute("""
                 TRUNCATE TABLE
-                    exchange_settlements, exchanges, refunds,
+                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
                     return_items, returns, payments,
                     deliveries, sale_items, sales,
                     stock_movements, inventory_balances

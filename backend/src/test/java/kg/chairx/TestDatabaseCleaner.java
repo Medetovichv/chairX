@@ -10,7 +10,7 @@ public final class TestDatabaseCleaner {
     public static void clean(JdbcTemplate jdbc) {
         jdbc.execute("""
                 TRUNCATE TABLE
-                    exchange_settlements,
+                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements,
                     exchanges,
                     refunds,
                     return_items,

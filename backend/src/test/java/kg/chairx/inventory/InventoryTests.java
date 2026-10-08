@@ -77,7 +77,7 @@ class InventoryTests {
     private void clearInventory() {
         assertThat(jdbc.queryForObject("select current_database()", String.class)).isEqualTo("chairx_test");
         // Fixture reset only: ordinary UPDATE/DELETE of the append-only journal is forbidden by a trigger.
-        jdbc.execute("truncate table stock_movements, inventory_balances");
+        jdbc.execute("truncate table inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, stock_movements, inventory_balances");
         jdbc.update("delete from audit_entries where entity_type='STOCK_MOVEMENT'");
     }
 

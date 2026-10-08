@@ -1,5 +1,6 @@
 package kg.chairx.purchase;
 
+import kg.chairx.inventory.cost.InventoryCostService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -49,6 +50,8 @@ class PurchaseTests {
     @Autowired PlatformTransactionManager transactions;
     @Autowired MockMvc mvc;
     @Autowired JsonMapper mapper;
+    @Autowired InventoryCostService inventoryCosts;
+
     UUID supplier, product, variant, otherVariant, warehouse;
 
     @BeforeEach
@@ -77,7 +80,7 @@ class PurchaseTests {
         assertThat(jdbc.queryForObject("select current_database()", String.class)).isEqualTo("chairx_test");
         // Testcontainer only: posted receipts and the stock journal prohibit ordinary DELETE.
         jdbc.execute("""
-        truncate defects,
+        truncate inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, defects,
                  purchase_receipt_items,
                  purchase_receipts,
                  purchase_items,
@@ -149,6 +152,303 @@ class PurchaseTests {
                 List.of(line(variant,200,"1.00")),money("20.00"),null)));
         assertThat(purchases.get(p.id())).isEqualTo(locked);
     }
+
+    @Test
+    void fifoConsumesOldestCostLayersFirst() {
+        var purchase = purchases.confirm(
+                purchases.create(
+                        new CreatePurchaseRequest(
+                                supplier,
+                                List.of(line(variant, 20, "5000.00")),
+                                money("0.00"),
+                                null
+                        )
+                ).id()
+        );
+
+        receiving.receive(purchase.id(), receipt(purchase, 10));
+        receiving.receive(purchase.id(), receipt(purchase, 10));
+
+        assertThat(count("inventory_cost_layers")).isEqualTo(2);
+
+        var movement = inventory.recordMovement(
+                new RecordStockMovement(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        SALE_OUT,
+                        15,
+                        "TEST_FIFO",
+                        UUID.randomUUID(),
+                        "purchase-tester"
+                )
+        );
+
+        BigDecimal cost = new TransactionTemplate(transactions)
+                .execute(status -> inventoryCosts.consumeSale(movement));
+
+        assertThat(cost).isEqualByComparingTo("75000.00");
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class))
+                .isEqualTo(5L);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(remaining_cost)
+            FROM inventory_cost_layers
+            """, BigDecimal.class))
+                .isEqualByComparingTo("25000.00");
+
+        assertThat(count("inventory_cost_allocations")).isEqualTo(2);
+    }
+    @Test
+    void fifoConsumesDifferentCostLayersInCorrectOrder() {
+        // Первая закупка: 10 шт. по 5 000 сом
+        var firstPurchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 10, "5000.00")),
+                        money("0.00"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(
+                firstPurchase.id(),
+                receipt(firstPurchase, 10)
+        );
+
+        // Вторая закупка: 10 шт. по 5 500 сом
+        var secondPurchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 10, "5500.00")),
+                        money("0.00"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(
+                secondPurchase.id(),
+                receipt(secondPurchase, 10)
+        );
+
+        // Создаём складское движение на 15 шт.
+        var movement = inventory.recordMovement(
+                new RecordStockMovement(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        SALE_OUT,
+                        15,
+                        "TEST_FIFO",
+                        UUID.randomUUID(),
+                        "purchase-tester"
+                )
+        );
+
+        // Списываем себестоимость.
+        BigDecimal cost = new TransactionTemplate(transactions)
+                .execute(status -> inventoryCosts.consumeSale(movement));
+
+        // 10 × 5000 + 5 × 5500 = 77500
+        assertThat(cost)
+                .isEqualByComparingTo("77500.00");
+
+        // На складе осталось 5 шт. стоимостью 27500.
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class))
+                .isEqualTo(5L);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(remaining_cost)
+            FROM inventory_cost_layers
+            """, BigDecimal.class))
+                .isEqualByComparingTo("27500.00");
+
+        // Должны быть две FIFO-аллокации.
+        assertThat(count("inventory_cost_allocations"))
+                .isEqualTo(2);
+
+        // Первая партия должна быть полностью списана.
+        assertThat(jdbc.queryForObject("""
+            SELECT COUNT(*)
+            FROM inventory_cost_layers
+            WHERE total_cost = 50000.00
+              AND quantity_remaining = 0
+              AND remaining_cost = 0
+            """, Integer.class))
+                .isEqualTo(1);
+
+        // Вторая партия должна сохранить 5 шт.
+        assertThat(jdbc.queryForObject("""
+            SELECT COUNT(*)
+            FROM inventory_cost_layers
+            WHERE total_cost = 55000.00
+              AND quantity_remaining = 5
+              AND remaining_cost = 27500.00
+            """, Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void fifoRejectsInsufficientCostLayersWithoutChanges() {
+        var purchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 10, "5000.00")),
+                        money("0.00"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(purchase.id(), receipt(purchase, 10));
+
+        inventory.recordMovement(new RecordStockMovement(
+                UUID.randomUUID(),
+                warehouse,
+                variant,
+                ADJUSTMENT_IN,
+                10,
+                "TEST",
+                UUID.randomUUID(),
+                "purchase-tester"
+        ));
+
+        var movement = inventory.recordMovement(
+                new RecordStockMovement(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        SALE_OUT,
+                        15,
+                        "TEST_FIFO",
+                        UUID.randomUUID(),
+                        "purchase-tester"
+                )
+        );
+
+        assertThatThrownBy(() ->
+                new TransactionTemplate(transactions).execute(
+                        status -> inventoryCosts.consumeSale(movement)
+                )
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FIFO_COST_LAYERS_INSUFFICIENT");
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class)).isEqualTo(10L);
+
+        assertThat(count("inventory_cost_allocations")).isZero();
+        assertThat(count("inventory_cost_movements")).isEqualTo(1);
+    }
+
+    @Test
+    void fifoRejectsDuplicateConsumption() {
+        var purchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 10, "5000.00")),
+                        money("0.00"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(purchase.id(), receipt(purchase, 10));
+
+        var movement = inventory.recordMovement(
+                new RecordStockMovement(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        SALE_OUT,
+                        5,
+                        "TEST_FIFO",
+                        UUID.randomUUID(),
+                        "purchase-tester"
+                )
+        );
+
+        var tx = new TransactionTemplate(transactions);
+
+        BigDecimal consumedCost = tx.execute(
+                status -> inventoryCosts.consumeSale(movement)
+        );
+
+        assertThat(consumedCost)
+                .isEqualByComparingTo("25000.00");
+
+        assertThatThrownBy(() ->
+                tx.execute(status -> inventoryCosts.consumeSale(movement))
+        ).isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FIFO_ALREADY_ALLOCATED");
+
+        assertThat(count("inventory_cost_allocations")).isEqualTo(1);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class)).isEqualTo(5L);
+    }
+
+    @Test
+    void fifoPreservesCostWhenSplittingUnevenAmounts() {
+        var purchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 3, "2.00")),
+                        money("0.01"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(purchase.id(), receipt(purchase, 3));
+
+        var tx = new TransactionTemplate(transactions);
+
+        BigDecimal totalConsumed = BigDecimal.ZERO;
+
+        for (int i = 0; i < 3; i++) {
+            var movement = inventory.recordMovement(
+                    new RecordStockMovement(
+                            UUID.randomUUID(),
+                            warehouse,
+                            variant,
+                            SALE_OUT,
+                            1,
+                            "TEST_FIFO",
+                            UUID.randomUUID(),
+                            "purchase-tester"
+                    )
+            );
+
+            BigDecimal cost = tx.execute(
+                    status -> inventoryCosts.consumeSale(movement)
+            );
+
+            totalConsumed = totalConsumed.add(cost);
+        }
+
+        assertThat(totalConsumed).isEqualByComparingTo("6.01");
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class)).isZero();
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(remaining_cost)
+            FROM inventory_cost_layers
+            """, BigDecimal.class)).isEqualByComparingTo("0.00");
+
+        assertThat(count("inventory_cost_allocations")).isEqualTo(3);
+    }
+
     @Test
     void byQuantityIgnoresPricesAndConservesCargoCents() {
         var p = purchases.create(new CreatePurchaseRequest(supplier,List.of(line(variant,1,"100.00"),line(otherVariant,2,"1.00")),money("10.00"),null));
@@ -176,6 +476,23 @@ class PurchaseTests {
         assertThat(last.items().getFirst().totalCost()).isEqualByComparingTo("404.00");
         assertThat(inventory.getBalance(warehouse,variant).onHand()).isEqualTo(100);
         assertThat(count("purchase_receipts")).isEqualTo(2); assertThat(count("stock_movements")).isEqualTo(2);
+        assertThat(count("inventory_cost_layers")).isEqualTo(2);
+        assertThat(count("inventory_cost_movements")).isEqualTo(2);
+
+        assertThat(jdbc.queryForObject("""
+        SELECT SUM(quantity_remaining)
+        FROM inventory_cost_layers
+        """, Long.class))
+                .isEqualTo(100L);
+
+        assertThat(jdbc.queryForObject("""
+        SELECT SUM(remaining_cost)
+        FROM inventory_cost_layers
+        """, BigDecimal.class))
+                .isEqualByComparingTo("1010.00");
+
+
+
     }
     @Test
     void splitReceiptsConserveRoundingRemainder() {
@@ -234,6 +551,8 @@ class PurchaseTests {
         assertThat(count("stock_movements")).isEqualTo(1); assertThat(count("audit_entries")).isEqualTo(audits);
         assertThat(purchases.get(p.id()).items().getFirst().receivedQuantity()).isEqualTo(60);
         assertThat(inventory.getBalance(warehouse,variant).onHand()).isEqualTo(60);
+        assertThat(count("inventory_cost_layers")).isEqualTo(1);
+        assertThat(count("inventory_cost_movements")).isEqualTo(1);
     }
     @Test
     void sameKeyWithChangedPayloadIsRejected() {
@@ -262,6 +581,8 @@ class PurchaseTests {
         assertThat(count("stock_movements")).isEqualTo(1); assertThat(count("inventory_balances")).isEqualTo(1); assertThat(count("audit_entries")).isEqualTo(audits);
         assertThat(inventory.getBalance(warehouse,variant).onHand()).isZero();
         assertThat(inventory.getBalance(warehouse,otherVariant).onHand()).isEqualTo(Long.MAX_VALUE);
+        assertThat(count("inventory_cost_layers")).isZero();
+        assertThat(count("inventory_cost_movements")).isZero();
     }
     @ParameterizedTest @ValueSource(booleans = {false,true})
     void cancellationIsAllowedBeforeAnyReceipt(boolean confirm) {

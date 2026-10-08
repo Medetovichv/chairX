@@ -58,12 +58,15 @@ public class CashFlowService {
 
         BigDecimal totalIn = payments.add(exchangePayments);
 
-        BigDecimal totalOut = corrections
-                .add(refunds)
+        BigDecimal totalOut = refunds
                 .add(exchangeRefunds)
                 .add(expenses);
 
-        BigDecimal netCashFlow = totalIn.subtract(totalOut);
+// Корректировки уменьшают итог зарегистрированных операций,
+// но не считаются реальными выплатами.
+        BigDecimal netCashFlow = totalIn
+                .subtract(totalOut)
+                .subtract(corrections);
 
         return new CashFlowSummaryResponse(
                 from,

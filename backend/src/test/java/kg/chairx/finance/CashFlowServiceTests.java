@@ -106,7 +106,7 @@ class CashFlowServiceTests {
                 .thenReturn(BigDecimal.ZERO);
         when(repository.paymentCorrections(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
-        
+
         when(repository.refunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 

@@ -41,7 +41,7 @@ class ProductPersistenceTests {
     @Test
     void cleanMigrationAndSchemaValidationSucceed() {
         flyway.validate();
-        assertThat(flyway.info().applied()).hasSize(20);
+        assertThat(flyway.info().applied()).hasSize(21);
         assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname='public'", String.class))
                 .containsExactlyInAnyOrder(
                 "products",
@@ -50,6 +50,9 @@ class ProductPersistenceTests {
                 "flyway_schema_history",
                 "warehouses",
                 "inventory_balances",
+                "inventory_cost_movements",
+                "inventory_cost_allocations",
+                "inventory_cost_layers",
                 "stock_movements",
                 "suppliers",
                 "purchases",

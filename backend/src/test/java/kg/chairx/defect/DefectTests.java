@@ -112,7 +112,7 @@ class DefectTests {
 
         jdbc.execute("""
                 truncate table
-                    defects,
+                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, defects,
                     stock_movements,
                     inventory_balances
                 """);
