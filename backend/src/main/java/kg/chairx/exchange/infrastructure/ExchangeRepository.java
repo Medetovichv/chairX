@@ -65,9 +65,11 @@ public class ExchangeRepository {
                     exchange.idempotencyKey(),
                     exchange.requestFingerprint(),
                     exchange.createdBy(),
-                    exchange.createdAt(),
+                    java.sql.Timestamp.from(exchange.createdAt()),
                     exchange.completedBy(),
-                    exchange.completedAt()
+                    exchange.completedAt() == null
+                            ? null
+                            : java.sql.Timestamp.from(exchange.completedAt())
             );
 
             return inserted == 1;
