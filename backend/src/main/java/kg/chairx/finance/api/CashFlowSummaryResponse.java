@@ -7,6 +7,7 @@ public record CashFlowSummaryResponse(
         Instant from,
         Instant to,
         BigDecimal payments,
+        BigDecimal paymentCorrections,
         BigDecimal refunds,
         BigDecimal exchangePayments,
         BigDecimal exchangeRefunds,

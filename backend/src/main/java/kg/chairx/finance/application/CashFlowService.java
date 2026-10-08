@@ -5,10 +5,11 @@ import kg.chairx.finance.infrastructure.CashFlowRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.time.LocalTime;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.ZoneId;
 
 @Service
@@ -39,44 +40,40 @@ public class CashFlowService {
             );
         }
 
-        // Границы периода в часовом поясе бизнеса
         LocalDate fromDate = from.atZone(BUSINESS_ZONE).toLocalDate();
         LocalDate toDate = to.atZone(BUSINESS_ZONE).toLocalDate();
 
-        // Операционные поступления и выплаты
         BigDecimal payments = repository.payments(from, to);
+        BigDecimal corrections = repository.paymentCorrections(from, to);
         BigDecimal refunds = repository.refunds(from, to);
 
-        // Доплаты и возвраты по обменам
         BigDecimal exchangePayments =
                 repository.exchangePayments(from, to);
 
         BigDecimal exchangeRefunds =
                 repository.exchangeRefunds(from, to);
 
-        // Расходы бизнеса
-        BigDecimal operatingExpenses =
+        BigDecimal expenses =
                 repository.operatingExpenses(fromDate, toDate);
 
-        // Все поступления
         BigDecimal totalIn = payments.add(exchangePayments);
 
-        // Все выплаты
-        BigDecimal totalOut = refunds
+        BigDecimal totalOut = corrections
+                .add(refunds)
                 .add(exchangeRefunds)
-                .add(operatingExpenses);
+                .add(expenses);
 
-        // Итоговый денежный поток
         BigDecimal netCashFlow = totalIn.subtract(totalOut);
 
         return new CashFlowSummaryResponse(
                 from,
                 to,
                 payments,
+                corrections,
                 refunds,
                 exchangePayments,
                 exchangeRefunds,
-                operatingExpenses,
+                expenses,
                 totalIn,
                 totalOut,
                 netCashFlow

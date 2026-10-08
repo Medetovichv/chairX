@@ -2,10 +2,12 @@ package kg.chairx.finance.infrastructure;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
-import java.time.LocalDate;
+
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 
 @Repository
 public class CashFlowRepository {
@@ -16,28 +18,22 @@ public class CashFlowRepository {
         this.jdbc = jdbc;
     }
 
-    public BigDecimal operatingExpenses(LocalDate from, LocalDate to) {
-        BigDecimal result = jdbc.queryForObject("""
-            SELECT COALESCE(SUM(amount), 0)
-            FROM expenses
-            WHERE expense_date >= ?
-              AND expense_date < ?
-            """,
-                BigDecimal.class,
-                java.sql.Date.valueOf(from),
-                java.sql.Date.valueOf(to)
-        );
-
-        return result == null ? BigDecimal.ZERO : result;
-    }
-
     public BigDecimal payments(Instant from, Instant to) {
         return sum("""
                 SELECT COALESCE(SUM(amount), 0)
                 FROM payments
-                WHERE status = 'PAID'
-                  AND paid_at >= ?
+                WHERE paid_at >= ?
                   AND paid_at < ?
+                """, from, to);
+    }
+
+    public BigDecimal paymentCorrections(Instant from, Instant to) {
+        return sum("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM payments
+                WHERE status = 'CANCELLED'
+                  AND cancelled_at >= ?
+                  AND cancelled_at < ?
                 """, from, to);
     }
 
@@ -50,18 +46,27 @@ public class CashFlowRepository {
                 """, from, to);
     }
 
-    public BigDecimal exchangePayments(
-            Instant from,
-            Instant to
-    ) {
+    public BigDecimal exchangePayments(Instant from, Instant to) {
         return exchangeSettlements("IN", from, to);
     }
 
-    public BigDecimal exchangeRefunds(
-            Instant from,
-            Instant to
-    ) {
+    public BigDecimal exchangeRefunds(Instant from, Instant to) {
         return exchangeSettlements("OUT", from, to);
+    }
+
+    public BigDecimal operatingExpenses(LocalDate from, LocalDate to) {
+        BigDecimal result = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM expenses
+                WHERE expense_date >= ?
+                  AND expense_date < ?
+                """,
+                BigDecimal.class,
+                Date.valueOf(from),
+                Date.valueOf(to)
+        );
+
+        return result == null ? BigDecimal.ZERO : result;
     }
 
     private BigDecimal exchangeSettlements(
@@ -85,11 +90,7 @@ public class CashFlowRepository {
         return result == null ? BigDecimal.ZERO : result;
     }
 
-    private BigDecimal sum(
-            String sql,
-            Instant from,
-            Instant to
-    ) {
+    private BigDecimal sum(String sql, Instant from, Instant to) {
         BigDecimal result = jdbc.queryForObject(
                 sql,
                 BigDecimal.class,

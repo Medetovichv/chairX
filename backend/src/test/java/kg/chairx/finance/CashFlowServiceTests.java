@@ -42,6 +42,8 @@ class CashFlowServiceTests {
     void calculatesCashFlowIncludingExpenses() {
         when(repository.payments(FROM, TO))
                 .thenReturn(new BigDecimal("200000"));
+        when(repository.paymentCorrections(FROM, TO))
+                .thenReturn(BigDecimal.ZERO);
 
         when(repository.refunds(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
@@ -77,6 +79,8 @@ class CashFlowServiceTests {
     void negativeCashFlowIsAllowed() {
         when(repository.payments(FROM, TO))
                 .thenReturn(new BigDecimal("10000"));
+        when(repository.paymentCorrections(FROM, TO))
+                .thenReturn(BigDecimal.ZERO);
 
         when(repository.refunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
@@ -100,7 +104,9 @@ class CashFlowServiceTests {
     void emptyPeriodReturnsZero() {
         when(repository.payments(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
-
+        when(repository.paymentCorrections(FROM, TO))
+                .thenReturn(BigDecimal.ZERO);
+        
         when(repository.refunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
