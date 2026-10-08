@@ -37,12 +37,12 @@ public class PaymentBalanceService {
 
         BigDecimal refunded = refunds.refundedAmount(saleId);
 
-        BigDecimal credited =
-                exchanges.creditedAmountByOriginalSale(saleId);
+        BigDecimal consumed =
+                exchanges.consumedAmountByOriginalSale(saleId);
 
         BigDecimal remaining = payment.amount()
                 .subtract(refunded)
-                .subtract(credited);
+                .subtract(consumed);
 
         if (remaining.signum() < 0) {
             throw new IllegalStateException(

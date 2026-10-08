@@ -93,9 +93,9 @@ public class ExchangeRepository {
         return Boolean.TRUE.equals(exists);
     }
 
-    public BigDecimal creditedAmountByOriginalSale(UUID saleId) {
+    public BigDecimal consumedAmountByOriginalSale(UUID saleId) {
         return jdbc.queryForObject("""
-            SELECT COALESCE(SUM(credit_applied), 0)
+            SELECT COALESCE(SUM(returned_value), 0)
             FROM exchanges
             WHERE original_sale_id = ?
             """,
