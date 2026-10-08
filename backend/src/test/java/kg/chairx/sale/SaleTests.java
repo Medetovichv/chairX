@@ -24,7 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
-
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -48,6 +48,8 @@ class SaleTests {
 
     @Autowired
     JdbcTemplate jdbc;
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     UUID home;
     UUID office;
@@ -1076,17 +1078,14 @@ class SaleTests {
             UUID variantId,
             long quantity
     ) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouseId,
-                        variantId,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "SALE_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "sale-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                warehouseId,
+                variantId,
+                quantity,
+                BigDecimal.valueOf(5000)
+                        .multiply(BigDecimal.valueOf(quantity)),
+                "sale-test"
         );
     }
 
@@ -1095,7 +1094,9 @@ class SaleTests {
 
         jdbc.execute("""
                 truncate table
-                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
+                    inventory_cost_allocations,
+                    inventory_cost_movements,
+                    inventory_cost_layers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
                     return_items, returns, payments,
                     deliveries,
                     sale_items,

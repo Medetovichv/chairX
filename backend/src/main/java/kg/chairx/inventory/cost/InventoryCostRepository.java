@@ -99,6 +99,50 @@ public class InventoryCostRepository {
                 .update();
     }
 
+    public BigDecimal findOriginalCost(UUID movementId) {
+        return jdbc.sql("""
+            SELECT total_cost
+            FROM inventory_cost_layers
+            WHERE source_movement_id = :movementId
+            """)
+                .param("movementId", movementId)
+                .query(BigDecimal.class)
+                .optional()
+                .orElse(null);
+    }
+
+    public boolean hasCostLayer(UUID movementId) {
+        return Boolean.TRUE.equals(
+                jdbc.sql("""
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM inventory_cost_layers
+                        WHERE source_movement_id = :movementId
+                    )
+                    """)
+                        .param("movementId", movementId)
+                        .query(Boolean.class)
+                        .single()
+        );
+    }
+
+    public void lockMovement(UUID movementId) {
+        var found = jdbc.sql("""
+            SELECT id
+            FROM stock_movements
+            WHERE id = :movementId
+            FOR UPDATE
+            """)
+                .param("movementId", movementId)
+                .query(UUID.class)
+                .optional();
+
+        if (found.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Stock movement not found: " + movementId
+            );
+        }
+    }
 
     public boolean hasAllocations(UUID movementId) {
         return Boolean.TRUE.equals(

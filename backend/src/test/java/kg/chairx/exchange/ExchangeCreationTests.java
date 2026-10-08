@@ -4,7 +4,7 @@ import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.exchange.api.CreateExchangeRequest;
 import kg.chairx.exchange.application.ExchangeService;
 import kg.chairx.exchange.domain.ExchangeStatus;
-import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.application.PaymentService;
@@ -37,7 +37,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = {
@@ -53,6 +52,7 @@ class ExchangeCreationTests {
     @Autowired ReturnService returns;
     @Autowired RefundService refunds;
     @Autowired InventoryService inventory;
+    @Autowired InventoryAdjustmentService adjustments;
     @Autowired JdbcTemplate jdbc;
 
     UUID warehouseId;
@@ -97,17 +97,13 @@ class ExchangeCreationTests {
                         '+996555222222', true, now(), now())
                 """, customerId);
 
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouseId,
-                        variantId,
-                        ADJUSTMENT_IN,
-                        30,
-                        "EXCHANGE_CREATION_TEST",
-                        UUID.randomUUID(),
-                        "exchange-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                warehouseId,
+                variantId,
+                30,
+                BigDecimal.valueOf(5000).multiply(BigDecimal.valueOf(30)),
+                "exchange-test"
         );
     }
 

@@ -1,5 +1,6 @@
 package kg.chairx.delivery;
 
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.delivery.api.CreateDeliveryRequest;
 import kg.chairx.delivery.api.FailDeliveryRequest;
@@ -51,6 +52,9 @@ class DeliveryTests {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     UUID home;
     UUID office;
@@ -943,17 +947,14 @@ class DeliveryTests {
             UUID variantId,
             long quantity
     ) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouseId,
-                        variantId,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "DELIVERY_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "delivery-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                warehouseId,
+                variantId,
+                quantity,
+                BigDecimal.valueOf(5000)
+                        .multiply(BigDecimal.valueOf(quantity)),
+                "delivery-test"
         );
     }
 
@@ -998,7 +999,9 @@ class DeliveryTests {
 
         jdbc.execute("""
                 truncate table
-                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
+                    inventory_cost_allocations,
+                    inventory_cost_movements,
+                    inventory_cost_layers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
                     return_items, returns, payments,
                     deliveries,
                     sale_items,

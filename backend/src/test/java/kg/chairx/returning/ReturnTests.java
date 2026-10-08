@@ -1,5 +1,6 @@
 package kg.chairx.returning;
 
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
@@ -37,6 +38,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 })
 @Import(PostgresTestConfiguration.class)
 class ReturnTests {
+    @org.springframework.beans.factory.annotation.Autowired
+    InventoryAdjustmentService adjustments;
+
 
     @Autowired
     ReturnService returns;
@@ -1102,17 +1106,14 @@ class ReturnTests {
             UUID variantId,
             long quantity
     ) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouseId,
-                        variantId,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "RETURN_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "return-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                warehouseId,
+                variantId,
+                quantity,
+                java.math.BigDecimal.valueOf(5000)
+                        .multiply(java.math.BigDecimal.valueOf(quantity)),
+                "test-user"
         );
     }
 

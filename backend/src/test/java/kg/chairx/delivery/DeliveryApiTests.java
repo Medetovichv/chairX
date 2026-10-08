@@ -1,5 +1,6 @@
 package kg.chairx.delivery;
 
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
@@ -43,6 +44,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(PostgresTestConfiguration.class)
 @WithMockUser(username = "delivery-api-tester")
 class DeliveryApiTests {
+    @org.springframework.beans.factory.annotation.Autowired
+    InventoryAdjustmentService adjustments;
+
 
     @Autowired
     MockMvc mvc;
@@ -642,17 +646,14 @@ class DeliveryApiTests {
             UUID variantId,
             long quantity
     ) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouseId,
-                        variantId,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "DELIVERY_API_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "delivery-api-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                warehouseId,
+                variantId,
+                quantity,
+                java.math.BigDecimal.valueOf(5000)
+                        .multiply(java.math.BigDecimal.valueOf(quantity)),
+                "test-user"
         );
     }
 

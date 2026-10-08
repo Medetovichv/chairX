@@ -1,7 +1,7 @@
 package kg.chairx.returning;
 
 import kg.chairx.PostgresTestConfiguration;
-import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.returning.api.CreateReturnItemRequest;
 import kg.chairx.returning.api.CreateReturnRequest;
@@ -31,7 +31,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
@@ -49,6 +48,9 @@ class ReturnConcurrencyTests {
 
     @Autowired
     InventoryService inventory;
+
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -395,17 +397,13 @@ class ReturnConcurrencyTests {
     }
 
     private void addStock(long quantity) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        home,
-                        variant,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "RETURN_CONCURRENCY_FIXTURE",
-                        UUID.randomUUID(),
-                        "return-concurrency-setup"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                home,
+                variant,
+                quantity,
+                BigDecimal.valueOf(5000).multiply(BigDecimal.valueOf(quantity)),
+                "return-concurrency-setup"
         );
     }
 

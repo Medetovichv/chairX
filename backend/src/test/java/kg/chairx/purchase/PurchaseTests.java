@@ -1,5 +1,6 @@
 package kg.chairx.purchase;
 
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.cost.InventoryCostService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,6 +30,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
+import kg.chairx.inventory.cost.InventoryCostPostingService;
+
 import static kg.chairx.inventory.domain.StockMovementType.*;
 import static kg.chairx.purchase.domain.PurchaseStatus.*;
 import static org.assertj.core.api.Assertions.*;
@@ -51,6 +54,9 @@ class PurchaseTests {
     @Autowired MockMvc mvc;
     @Autowired JsonMapper mapper;
     @Autowired InventoryCostService inventoryCosts;
+    @Autowired InventoryCostPostingService costPosting;
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     UUID supplier, product, variant, otherVariant, warehouse;
 
@@ -90,6 +96,186 @@ class PurchaseTests {
         """);
         jdbc.update("delete from audit_entries where entity_type in ('PURCHASE','PURCHASE_RECEIPT','STOCK_MOVEMENT')");
     }
+    @Test
+    void valuedAdjustmentCreatesStockAndCostLayer() {
+        UUID operationId = UUID.randomUUID();
+
+        adjustments.recordValuedAdjustmentIn(
+                operationId,
+                warehouse,
+                variant,
+                20,
+                money("100000.00"),
+                "purchase-tester"
+        );
+
+        assertThat(inventory.getBalance(warehouse, variant).onHand())
+                .isEqualTo(20);
+
+        assertThat(count("inventory_cost_layers"))
+                .isEqualTo(1);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class))
+                .isEqualTo(20L);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(remaining_cost)
+            FROM inventory_cost_layers
+            """, BigDecimal.class))
+                .isEqualByComparingTo("100000.00");
+    }
+
+    @Test
+    void valuedAdjustmentRetryDoesNotDuplicateStockOrCost() {
+        UUID operationId = UUID.randomUUID();
+
+        adjustments.recordValuedAdjustmentIn(
+                operationId,
+                warehouse,
+                variant,
+                10,
+                money("50000.00"),
+                "purchase-tester"
+        );
+
+        adjustments.recordValuedAdjustmentIn(
+                operationId,
+                warehouse,
+                variant,
+                10,
+                money("50000.00"),
+                "purchase-tester"
+        );
+
+        assertThat(inventory.getBalance(warehouse, variant).onHand())
+                .isEqualTo(10);
+
+        assertThat(count("inventory_cost_layers"))
+                .isEqualTo(1);
+
+        assertThat(count("inventory_cost_movements"))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void valuedAdjustmentRejectsNegativeCostWithoutChangingStock() {
+        assertThatThrownBy(() ->
+                adjustments.recordValuedAdjustmentIn(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        10,
+                        money("-100.00"),
+                        "purchase-tester"
+                )
+        ).isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(inventory.getBalance(warehouse, variant).onHand())
+                .isZero();
+
+        assertThat(count("inventory_cost_layers"))
+                .isZero();
+    }
+
+    @Test
+    void atomicSalePostingRollsBackStockWhenCostLayersAreInsufficient() {
+        var purchase = purchases.confirm(
+                purchases.create(new CreatePurchaseRequest(
+                        supplier,
+                        List.of(line(variant, 10, "5000.00")),
+                        money("0.00"),
+                        null
+                )).id()
+        );
+
+        receiving.receive(purchase.id(), receipt(purchase, 10));
+
+        // На складе 20 шт., но себестоимость известна только для 10.
+        inventory.recordMovement(new RecordStockMovement(
+                UUID.randomUUID(),
+                warehouse,
+                variant,
+                ADJUSTMENT_IN,
+                10,
+                "TEST",
+                UUID.randomUUID(),
+                "purchase-tester"
+        ));
+
+        long stockBefore = inventory.getBalance(
+                warehouse, variant
+        ).onHand();
+
+        int movementsBefore = count("stock_movements");
+        int allocationsBefore = count("inventory_cost_allocations");
+
+        assertThatThrownBy(() -> costPosting.postSaleOut(
+                new RecordStockMovement(
+                        UUID.randomUUID(),
+                        warehouse,
+                        variant,
+                        SALE_OUT,
+                        15,
+                        "TEST_FIFO",
+                        UUID.randomUUID(),
+                        "purchase-tester"
+                )
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("FIFO_COST_LAYERS_INSUFFICIENT");
+
+        assertThat(inventory.getBalance(warehouse, variant).onHand())
+                .isEqualTo(stockBefore);
+
+        assertThat(count("stock_movements"))
+                .isEqualTo(movementsBefore);
+
+        assertThat(count("inventory_cost_allocations"))
+                .isEqualTo(allocationsBefore);
+
+        assertThat(jdbc.queryForObject("""
+            SELECT SUM(quantity_remaining)
+            FROM inventory_cost_layers
+            """, Long.class))
+                .isEqualTo(10L);
+    }
+
+    @Test
+    void valuedAdjustmentRejectsDifferentCostOnRetry() {
+        UUID operationId = UUID.randomUUID();
+
+        adjustments.recordValuedAdjustmentIn(
+                operationId,
+                warehouse,
+                variant,
+                10,
+                money("50000.00"),
+                "purchase-tester"
+        );
+
+        assertThatThrownBy(() ->
+                adjustments.recordValuedAdjustmentIn(
+                        operationId,
+                        warehouse,
+                        variant,
+                        10,
+                        money("60000.00"),
+                        "purchase-tester"
+                )
+        )
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("ADJUSTMENT_COST_CONFLICT");
+
+        assertThat(inventory.getBalance(warehouse, variant).onHand())
+                .isEqualTo(10);
+
+        assertThat(count("inventory_cost_layers"))
+                .isEqualTo(1);
+    }
+
     @Test
     void createsAndUpdatesDraftThroughApi() throws Exception {
         var request = new CreatePurchaseRequest(supplier, List.of(line(variant,100,"10.00")), null," Draft ");

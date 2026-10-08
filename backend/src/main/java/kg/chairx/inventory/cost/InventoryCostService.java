@@ -36,6 +36,7 @@ public class InventoryCostService {
                     "FIFO quantity must be positive"
             );
         }
+        repository.lockMovement(movement.id());
         if (repository.hasAllocations(movement.id())) {
             throw new IllegalStateException(
                     "FIFO_ALREADY_ALLOCATED: " + movement.id()
@@ -121,6 +122,49 @@ public class InventoryCostService {
         }
 
         return totalCost;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void recordValuedAdjustment(
+            StockMovement movement,
+            BigDecimal totalCost
+    ) {
+        if (movement.type() != StockMovementType.ADJUSTMENT_IN) {
+            throw new IllegalArgumentException(
+                    "Cost initialization requires ADJUSTMENT_IN"
+            );
+        }
+
+        if (movement.quantity() <= 0) {
+            throw new IllegalArgumentException(
+                    "Adjustment quantity must be positive"
+            );
+        }
+
+        if (totalCost == null
+                || totalCost.scale() > 2
+                || totalCost.signum() < 0) {
+            throw new IllegalArgumentException(
+                    "Adjustment cost must be non-negative with at most 2 decimals"
+            );
+        }
+
+        repository.lockMovement(movement.id());
+
+        if (repository.hasCostLayer(movement.id())) {
+            throw new IllegalStateException(
+                    "ADJUSTMENT_ALREADY_VALUED: " + movement.id()
+            );
+        }
+
+        repository.createReceiptLayer(
+                movement.id(),
+                movement.warehouseId(),
+                movement.productVariantId(),
+                movement.quantity(),
+                totalCost,
+                movement.occurredAt()
+        );
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

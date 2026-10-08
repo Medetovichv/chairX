@@ -1,7 +1,7 @@
 package kg.chairx.returning;
 
 import kg.chairx.PostgresTestConfiguration;
-import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
@@ -58,6 +57,9 @@ class ReturnApiTests {
 
     @Autowired
     InventoryService inventory;
+
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     UUID home;
     UUID product;
@@ -121,17 +123,13 @@ class ReturnApiTests {
                 )
                 """, customer);
 
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        home,
-                        variant,
-                        ADJUSTMENT_IN,
-                        20,
-                        "RETURN_API_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "return-api-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                home,
+                variant,
+                20,
+                BigDecimal.valueOf(5000).multiply(BigDecimal.valueOf(20)),
+                "return-api-test"
         );
     }
 

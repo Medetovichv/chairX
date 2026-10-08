@@ -17,6 +17,7 @@ import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
 import kg.chairx.sale.domain.SaleStatus;
+import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.persistence.SaleRepository;
@@ -66,6 +67,7 @@ public class SaleService {
     private final AuditService audit;
     private final JsonMapper mapper;
     private final ExchangeSaleGuard exchangeSaleGuard;
+    private final InventoryCostPostingService costPosting;
 
     public SaleService(
             SaleRepository repository,
@@ -75,7 +77,8 @@ public class SaleService {
             InventoryService inventory,
             AuditService audit,
             JsonMapper mapper,
-            ExchangeSaleGuard exchangeSaleGuard
+            ExchangeSaleGuard exchangeSaleGuard,
+            InventoryCostPostingService costPosting
     ) {
         this.repository = repository;
         this.customers = customers;
@@ -85,6 +88,7 @@ public class SaleService {
         this.audit = audit;
         this.mapper = mapper;
         this.exchangeSaleGuard = exchangeSaleGuard;
+        this.costPosting = costPosting;
     }
 
     @Transactional
@@ -355,7 +359,7 @@ public class SaleService {
                     )
             );
 
-            inventory.recordMovement(
+            costPosting.postSaleOut(
                     new RecordStockMovement(
                             saleOutOperationId(item.id()),
                             item.warehouseId(),

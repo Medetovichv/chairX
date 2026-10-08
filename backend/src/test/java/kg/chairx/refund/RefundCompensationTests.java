@@ -1,7 +1,7 @@
 package kg.chairx.refund;
 
 import kg.chairx.PostgresTestConfiguration;
-import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.application.PaymentService;
@@ -32,7 +32,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,6 +56,9 @@ class RefundCompensationTests {
 
     @Autowired
     InventoryService inventory;
+
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -109,17 +111,13 @@ class RefundCompensationTests {
                 )
                 """, customer);
 
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        home,
-                        variant,
-                        ADJUSTMENT_IN,
-                        20,
-                        "COMPENSATION_TEST",
-                        UUID.randomUUID(),
-                        "compensation-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(),
+                home,
+                variant,
+                20,
+                BigDecimal.valueOf(5000).multiply(BigDecimal.valueOf(20)),
+                "compensation-test"
         );
     }
 
