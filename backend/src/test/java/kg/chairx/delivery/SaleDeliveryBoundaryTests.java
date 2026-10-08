@@ -266,7 +266,7 @@ class SaleDeliveryBoundaryTests {
 
         jdbc.execute("""
                 truncate table
-                    refunds,
+                    exchange_settlements, exchanges, refunds,
                     return_items, returns, payments,
                     deliveries,
                     sale_items,
