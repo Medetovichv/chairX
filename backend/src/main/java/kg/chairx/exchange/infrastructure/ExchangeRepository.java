@@ -6,7 +6,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
-
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -91,6 +91,17 @@ public class ExchangeRepository {
         );
 
         return Boolean.TRUE.equals(exists);
+    }
+
+    public BigDecimal creditedAmountByOriginalSale(UUID saleId) {
+        return jdbc.queryForObject("""
+            SELECT COALESCE(SUM(credit_applied), 0)
+            FROM exchanges
+            WHERE original_sale_id = ?
+            """,
+                BigDecimal.class,
+                saleId
+        );
     }
 
     public Optional<Exchange> find(UUID exchangeId) {
