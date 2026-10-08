@@ -19,6 +19,13 @@ import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
+import kg.chairx.exchange.application.ExchangeRuleViolationException;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,6 +138,59 @@ class ExchangeSettlementTests {
         );
     }
 
+    private SettlementAttempt attemptSettlement(
+            UUID exchangeId,
+            UUID key,
+            String amount,
+            CountDownLatch ready,
+            CountDownLatch start
+    ) {
+        try {
+            authenticate();
+
+            ready.countDown();
+
+            if (!start.await(5, TimeUnit.SECONDS)) {
+                return SettlementAttempt.failed("START_TIMEOUT");
+            }
+
+            var result = service.settle(
+                    exchangeId,
+                    key,
+                    "IN",
+                    "CASH",
+                    new BigDecimal(amount),
+                    null,
+                    "exchange-concurrency-test"
+            );
+
+            return SettlementAttempt.succeeded(result.id());
+
+        } catch (ExchangeRuleViolationException exception) {
+            return SettlementAttempt.failed(exception.getCode());
+
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return SettlementAttempt.failed("INTERRUPTED");
+
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    private record SettlementAttempt(
+            boolean success,
+            UUID settlementId,
+            String errorCode
+    ) {
+        static SettlementAttempt succeeded(UUID id) {
+            return new SettlementAttempt(true, id, null);
+        }
+
+        static SettlementAttempt failed(String code) {
+            return new SettlementAttempt(false, null, code);
+        }
+    }
     @AfterEach
     void cleanup() {
         assertTestDatabase();
@@ -153,6 +213,152 @@ class ExchangeSettlementTests {
         );
 
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void concurrentSettlementsCannotExceedRemainingAmount()
+            throws Exception {
+
+        Exchange exchange = createExchange("8500", "10000");
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<SettlementAttempt> first = executor.submit(
+                    () -> attemptSettlement(
+                            exchange.id(),
+                            UUID.randomUUID(),
+                            "1000",
+                            ready,
+                            start
+                    )
+            );
+
+            Future<SettlementAttempt> second = executor.submit(
+                    () -> attemptSettlement(
+                            exchange.id(),
+                            UUID.randomUUID(),
+                            "1000",
+                            ready,
+                            start
+                    )
+            );
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+
+            start.countDown();
+
+            SettlementAttempt firstResult =
+                    first.get(15, TimeUnit.SECONDS);
+
+            SettlementAttempt secondResult =
+                    second.get(15, TimeUnit.SECONDS);
+
+            var results = List.of(firstResult, secondResult);
+
+            assertThat(results.stream()
+                    .filter(SettlementAttempt::success)
+                    .count())
+                    .isEqualTo(1);
+
+            assertThat(results.stream()
+                    .filter(result ->
+                            "EXCHANGE_SETTLEMENT_EXCEEDS_REMAINING"
+                                    .equals(result.errorCode()))
+                    .count())
+                    .isEqualTo(1);
+
+            assertThat(settlements.total(exchange.id(), "IN"))
+                    .isEqualByComparingTo("1000");
+
+            assertThat(settlements.findByExchange(exchange.id()))
+                    .hasSize(1);
+
+            assertThat(exchanges.find(exchange.id())
+                    .orElseThrow()
+                    .status())
+                    .isEqualTo(ExchangeStatus.PENDING_SETTLEMENT);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+
+            assertThat(executor.awaitTermination(
+                    5, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    @Test
+    void concurrentRequestsWithSameKeyCreateOnlyOneSettlement()
+            throws Exception {
+
+        Exchange exchange = createExchange("8500", "10000");
+
+        UUID sharedKey = UUID.randomUUID();
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<SettlementAttempt> first = executor.submit(
+                    () -> attemptSettlement(
+                            exchange.id(),
+                            sharedKey,
+                            "1500",
+                            ready,
+                            start
+                    )
+            );
+
+            Future<SettlementAttempt> second = executor.submit(
+                    () -> attemptSettlement(
+                            exchange.id(),
+                            sharedKey,
+                            "1500",
+                            ready,
+                            start
+                    )
+            );
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+
+            start.countDown();
+
+            SettlementAttempt firstResult =
+                    first.get(15, TimeUnit.SECONDS);
+
+            SettlementAttempt secondResult =
+                    second.get(15, TimeUnit.SECONDS);
+
+            assertThat(firstResult.success()).isTrue();
+            assertThat(secondResult.success()).isTrue();
+
+            assertThat(firstResult.settlementId())
+                    .isEqualTo(secondResult.settlementId());
+
+            assertThat(settlements.findByExchange(exchange.id()))
+                    .hasSize(1);
+
+            assertThat(settlements.total(exchange.id(), "IN"))
+                    .isEqualByComparingTo("1500");
+
+            assertThat(exchanges.find(exchange.id())
+                    .orElseThrow()
+                    .status())
+                    .isEqualTo(ExchangeStatus.COMPLETED);
+
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+
+            assertThat(executor.awaitTermination(
+                    5, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test
@@ -223,13 +429,14 @@ class ExchangeSettlementTests {
                 "CASH",
                 "2000",
                 UUID.randomUUID()
-        )).isInstanceOf(IllegalStateException.class);
+        ))
+                .isInstanceOf(ExchangeRuleViolationException.class)
+                .satisfies(exception -> {
+                    var error = (ExchangeRuleViolationException) exception;
 
-        assertThat(settlements.findByExchange(exchange.id()))
-                .isEmpty();
-
-        assertThat(exchanges.find(exchange.id()).orElseThrow().status())
-                .isEqualTo(ExchangeStatus.PENDING_SETTLEMENT);
+                    assertThat(error.getCode())
+                            .isEqualTo("EXCHANGE_SETTLEMENT_EXCEEDS_REMAINING");
+                });
     }
 
     @Test
@@ -280,10 +487,14 @@ class ExchangeSettlementTests {
                 "CASH",
                 "500",
                 key
-        )).isInstanceOf(IllegalStateException.class);
+        ))
+                .isInstanceOf(ExchangeRuleViolationException.class)
+                .satisfies(exception -> {
+                    var error = (ExchangeRuleViolationException) exception;
 
-        assertThat(settlements.total(exchange.id(), "IN"))
-                .isEqualByComparingTo("1000");
+                    assertThat(error.getCode())
+                            .isEqualTo("EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT");
+                });
     }
 
     @Test

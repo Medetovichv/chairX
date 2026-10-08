@@ -2,6 +2,7 @@ package kg.chairx.payment.application;
 
 import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
+import kg.chairx.exchange.infrastructure.ExchangeRepository;
 import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.api.PaymentResponse;
@@ -13,11 +14,11 @@ import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.persistence.SaleRepository;
+
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
-import kg.chairx.exchange.infrastructure.ExchangeRepository;
 
 import java.time.Instant;
 import java.util.List;
@@ -52,10 +53,28 @@ public class PaymentService {
     public PaymentResponse create(
             @Valid CreatePaymentRequest request
     ) {
+        // Блокируем продажу для синхронизации операций оплаты.
         Sale sale = sales.lock(request.saleId())
-                .orElseThrow(
-                        SaleNotFoundException::new
-                );
+                .orElseThrow(SaleNotFoundException::new);
+
+        /*
+         * Новая продажа, созданная через Exchange,
+         * уже имеет финансовый зачёт стоимости
+         * возвращённого товара.
+         *
+         * Доплата или возврат разницы должны проходить
+         * исключительно через ExchangeSettlementService.
+         *
+         * Обычная оплата полной стоимости запрещена.
+         */
+        if (exchanges.existsByNewSale(sale.id())) {
+            throw rule(
+                    "EXCHANGE_SALE_PAYMENT_FORBIDDEN",
+                    "Эта продажа создана через обмен. "
+                            + "Доплату необходимо зарегистрировать "
+                            + "через финансовые расчёты Exchange"
+            );
+        }
 
         if (sale.status() == SaleStatus.CANCELLED) {
             throw rule(
@@ -68,13 +87,12 @@ public class PaymentService {
                 && sale.status() != SaleStatus.FULFILLED) {
             throw rule(
                     "INVALID_SALE_STATUS",
-                    "Нельзя зарегистрировать оплату для продажи в текущем состоянии"
+                    "Нельзя зарегистрировать оплату для продажи "
+                            + "в текущем состоянии"
             );
         }
 
-        if (repository.findActiveBySale(
-                sale.id()
-        ).isPresent()) {
+        if (repository.findActiveBySale(sale.id()).isPresent()) {
             throw rule(
                     "SALE_ALREADY_PAID",
                     "Для продажи уже зарегистрирована оплата"
@@ -112,34 +130,24 @@ public class PaymentService {
         return result;
     }
 
-    public PaymentResponse get(
-            UUID paymentId
-    ) {
+    public PaymentResponse get(UUID paymentId) {
         return PaymentMapper.toResponse(
                 repository.find(paymentId)
-                        .orElseThrow(
-                                PaymentNotFoundException::new
-                        )
+                        .orElseThrow(PaymentNotFoundException::new)
         );
     }
 
-    public List<PaymentResponse> getBySale(
-            UUID saleId
-    ) {
+    public List<PaymentResponse> getBySale(UUID saleId) {
         return repository.findBySale(saleId)
                 .stream()
                 .map(PaymentMapper::toResponse)
                 .toList();
     }
 
-    public PaymentResponse getActiveBySale(
-            UUID saleId
-    ) {
+    public PaymentResponse getActiveBySale(UUID saleId) {
         return PaymentMapper.toResponse(
                 repository.findActiveBySale(saleId)
-                        .orElseThrow(
-                                PaymentNotFoundException::new
-                        )
+                        .orElseThrow(PaymentNotFoundException::new)
         );
     }
 
@@ -149,9 +157,7 @@ public class PaymentService {
             @Valid CancelPaymentRequest request
     ) {
         Payment payment = repository.lock(paymentId)
-                .orElseThrow(
-                        PaymentNotFoundException::new
-                );
+                .orElseThrow(PaymentNotFoundException::new);
 
         if (payment.cancelled()) {
             return PaymentMapper.toResponse(payment);
@@ -167,17 +173,18 @@ public class PaymentService {
         if (refunds.existsBySale(payment.saleId())) {
             throw rule(
                     "PAYMENT_HAS_REFUNDS",
-                    "Нельзя аннулировать оплату, по которой уже был выполнен возврат денег"
+                    "Нельзя аннулировать оплату, "
+                            + "по которой уже был выполнен возврат денег"
             );
         }
 
         if (exchanges.existsByOriginalSale(payment.saleId())) {
             throw rule(
                     "PAYMENT_HAS_EXCHANGES",
-                    "Нельзя аннулировать оплату, использованную при обмене"
+                    "Нельзя аннулировать оплату, "
+                            + "использованную при обмене"
             );
         }
-
 
         PaymentResponse before =
                 PaymentMapper.toResponse(payment);
@@ -223,9 +230,6 @@ public class PaymentService {
             String code,
             String message
     ) {
-        return new PaymentRuleViolationException(
-                code,
-                message
-        );
+        return new PaymentRuleViolationException(code, message);
     }
 }

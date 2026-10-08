@@ -1,6 +1,7 @@
 package kg.chairx.sale.application;
 
 import jakarta.validation.Valid;
+import kg.chairx.exchange.application.ExchangeSaleGuard;
 import kg.chairx.audit.AuditService;
 import kg.chairx.customer.application.CustomerService;
 import kg.chairx.inventory.application.InventoryService;
@@ -64,6 +65,7 @@ public class SaleService {
     private final InventoryService inventory;
     private final AuditService audit;
     private final JsonMapper mapper;
+    private final ExchangeSaleGuard exchangeSaleGuard;
 
     public SaleService(
             SaleRepository repository,
@@ -72,7 +74,8 @@ public class SaleService {
             WarehouseService warehouses,
             InventoryService inventory,
             AuditService audit,
-            JsonMapper mapper
+            JsonMapper mapper,
+            ExchangeSaleGuard exchangeSaleGuard
     ) {
         this.repository = repository;
         this.customers = customers;
@@ -81,6 +84,7 @@ public class SaleService {
         this.inventory = inventory;
         this.audit = audit;
         this.mapper = mapper;
+        this.exchangeSaleGuard = exchangeSaleGuard;
     }
 
     @Transactional
@@ -272,6 +276,7 @@ public class SaleService {
                     "Продажу нельзя отменить в текущем состоянии"
             );
         }
+        exchangeSaleGuard.requireCancellationAllowed(sale.id());
 
         String actor = actor();
 
@@ -330,6 +335,7 @@ public class SaleService {
                     "Продажу нельзя выдать в текущем состоянии"
             );
         }
+        exchangeSaleGuard.requireFulfillmentAllowed(sale.id());
 
         String actor = actor();
 

@@ -4,7 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import kg.chairx.expense.application.ExpenseNotFoundException;
+import kg.chairx.inventory.domain.InsufficientStockException;
 import kg.chairx.customer.application.CustomerNotFoundException;
 import kg.chairx.customer.application.CustomerRuleViolationException;
 import kg.chairx.delivery.application.DeliveryNotFoundException;
@@ -40,6 +41,7 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import kg.chairx.exchange.application.ExchangeNotFoundException;
 import kg.chairx.exchange.application.ExchangeRuleViolationException;
+import kg.chairx.expense.application.ExpenseValidationException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
@@ -73,6 +75,42 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                                 exception.getMessage()
                         )
                 );
+    }
+
+    @ExceptionHandler(ExpenseValidationException.class)
+    ResponseEntity<ApiError> expenseValidation(
+            ExpenseValidationException exception
+    ) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiError.of(
+                        "EXPENSE_VALIDATION_ERROR",
+                        exception.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(ExpenseNotFoundException.class)
+    ResponseEntity<ApiError> expenseNotFound(
+            ExpenseNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of(
+                        "EXPENSE_NOT_FOUND",
+                        exception.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(InsufficientStockException.class)
+    ResponseEntity<ApiError> insufficientStock(
+            InsufficientStockException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiError.of(
+                        "INSUFFICIENT_STOCK",
+                        exception.getMessage()
+                ));
     }
 
     @ExceptionHandler(SupplierNotFoundException.class)

@@ -93,6 +93,29 @@ public class ExchangeRepository {
         return Boolean.TRUE.equals(exists);
     }
 
+    public Optional<Exchange> lockByNewSale(UUID saleId) {
+        return jdbc.query("""
+            SELECT *
+            FROM exchanges
+            WHERE new_sale_id = ?
+            FOR UPDATE
+            """,
+                MAPPER,
+                saleId
+        ).stream().findFirst();
+    }
+
+    public Optional<Exchange> findByNewSale(UUID saleId) {
+        return jdbc.query("""
+            SELECT *
+            FROM exchanges
+            WHERE new_sale_id = ?
+            """,
+                MAPPER,
+                saleId
+        ).stream().findFirst();
+    }
+
     public BigDecimal consumedAmountByOriginalSale(UUID saleId) {
         return jdbc.queryForObject("""
             SELECT COALESCE(SUM(returned_value), 0)

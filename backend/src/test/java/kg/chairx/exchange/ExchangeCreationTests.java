@@ -274,6 +274,54 @@ class ExchangeCreationTests {
         );
     }
 
+    @Test
+    void insufficientStockRollsBackExchangeAndNewSale() {
+        UUID returnId = createPaidSaleAndReturn("8500");
+
+        UUID key = UUID.randomUUID();
+
+        // Запрашиваем 100 кресел, хотя на складе их меньше.
+        var exchangeRequest = new CreateExchangeRequest(
+                key,
+                returnId,
+                FulfillmentType.SELF_PICKUP,
+                List.of(
+                        new CreateSaleItemRequest(
+                                variantId,
+                                warehouseId,
+                                100,
+                                new BigDecimal("10000")
+                        )
+                )
+        );
+
+        Long salesBefore = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sales",
+                Long.class
+        );
+
+        long reservedBefore = inventory
+                .getBalance(warehouseId, variantId)
+                .reserved();
+
+        assertThatThrownBy(
+                () -> exchanges.create(exchangeRequest)
+        ).isInstanceOf(
+                kg.chairx.inventory.domain.InsufficientStockException.class
+        );
+
+        assertThat(countExchanges(returnId)).isZero();
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sales",
+                Long.class
+        )).isEqualTo(salesBefore);
+
+        assertThat(
+                inventory.getBalance(warehouseId, variantId).reserved()
+        ).isEqualTo(reservedBefore);
+    }
+    
     private kg.chairx.sale.api.SaleResponse createPaidSale(
             String price
     ) {

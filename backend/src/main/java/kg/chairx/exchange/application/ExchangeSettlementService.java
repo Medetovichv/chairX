@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -43,33 +42,29 @@ public class ExchangeSettlementService {
             String actor
     ) {
         if (exchangeId == null || idempotencyKey == null) {
-            throw new IllegalArgumentException("Exchange ID and idempotency key are required");
+            throw invalid("Exchange ID and idempotency key are required");
         }
 
         if (!"IN".equals(direction) && !"OUT".equals(direction)) {
-            throw new IllegalArgumentException("Invalid settlement direction");
+            throw invalid("Invalid settlement direction");
         }
 
         if (!"CASH".equals(method) && !"TRANSFER".equals(method)) {
-            throw new IllegalArgumentException("Invalid payment method");
+            throw invalid("Invalid payment method");
         }
 
         if (amount == null
                 || amount.signum() <= 0
                 || amount.stripTrailingZeros().scale() > 0) {
-            throw new IllegalArgumentException("Amount must be a positive integer");
+            throw invalid("Amount must be a positive integer");
         }
 
-        if (actor == null || actor.isBlank()) {
-            throw new IllegalArgumentException("Actor is required");
-        }
-
-        if (actor.length() > 200) {
-            throw new IllegalArgumentException("Actor is too long");
+        if (actor == null || actor.isBlank() || actor.length() > 200) {
+            throw invalid("Invalid actor");
         }
 
         if (reference != null && reference.length() > 200) {
-            throw new IllegalArgumentException("Reference is too long");
+            throw invalid("Reference is too long");
         }
 
         String fingerprint = fingerprint(
@@ -80,18 +75,21 @@ public class ExchangeSettlementService {
                 reference
         );
 
-        // Lock serializes settlements for the same exchange.
+        // Блокируем обмен для последовательного выполнения расчётов.
         Exchange exchange = exchanges.lock(exchangeId)
-                .orElseThrow(() -> new IllegalArgumentException("Exchange not found"));
+                .orElseThrow(ExchangeNotFoundException::new);
 
-        Settlement previous = settlements.findByIdempotencyKey(idempotencyKey)
+        // Повторный запрос должен возвращать первоначальный результат.
+        Settlement previous = settlements
+                .findByIdempotencyKey(idempotencyKey)
                 .orElse(null);
 
         if (previous != null) {
             if (!previous.exchangeId().equals(exchangeId)
                     || !previous.requestFingerprint().equals(fingerprint)) {
-                throw new IllegalStateException(
-                        "Idempotency key already used for another request"
+                throw rule(
+                        "EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT",
+                        "Ключ идемпотентности уже использован с другими данными"
                 );
             }
 
@@ -99,27 +97,39 @@ public class ExchangeSettlementService {
         }
 
         if (exchange.status() == ExchangeStatus.COMPLETED) {
-            throw new IllegalStateException("Exchange is already completed");
-        }
-
-        BigDecimal due = switch (direction) {
-            case "IN" -> exchange.additionalPaymentDue();
-            case "OUT" -> exchange.refundDue();
-            default -> throw new IllegalArgumentException("Invalid direction");
-        };
-
-        if (due.signum() == 0) {
-            throw new IllegalStateException(
-                    "This exchange does not require settlement in direction " + direction
+            throw rule(
+                    "EXCHANGE_ALREADY_COMPLETED",
+                    "Финансовые расчёты по обмену уже завершены"
             );
         }
 
-        BigDecimal alreadySettled = settlements.total(exchangeId, direction);
+        BigDecimal due = "IN".equals(direction)
+                ? exchange.additionalPaymentDue()
+                : exchange.refundDue();
+
+        if (due.signum() == 0) {
+            throw rule(
+                    "EXCHANGE_SETTLEMENT_NOT_REQUIRED",
+                    "Для обмена не требуется расчёт в направлении " + direction
+            );
+        }
+
+        BigDecimal alreadySettled =
+                settlements.total(exchangeId, direction);
+
         BigDecimal remaining = due.subtract(alreadySettled);
 
+        if (remaining.signum() <= 0) {
+            throw rule(
+                    "EXCHANGE_SETTLEMENT_ALREADY_PAID",
+                    "Расчёт по этому обмену уже выполнен"
+            );
+        }
+
         if (amount.compareTo(remaining) > 0) {
-            throw new IllegalStateException(
-                    "Settlement exceeds remaining amount: " + remaining
+            throw rule(
+                    "EXCHANGE_SETTLEMENT_EXCEEDS_REMAINING",
+                    "Сумма превышает остаток: " + remaining
             );
         }
 
@@ -138,13 +148,21 @@ public class ExchangeSettlementService {
         );
 
         if (!inserted) {
-            throw new IllegalStateException(
-                    "Settlement idempotency conflict"
+            throw rule(
+                    "EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT",
+                    "Ключ идемпотентности уже используется"
             );
         }
 
+        // Последняя часть доплаты или возврата завершает обмен.
         if (amount.compareTo(remaining) == 0) {
-            exchanges.complete(exchangeId, actor);
+            int updated = exchanges.complete(exchangeId, actor);
+
+            if (updated != 1) {
+                throw new IllegalStateException(
+                        "Не удалось завершить финансовый расчёт по обмену"
+                );
+            }
         }
 
         return settlements.findByIdempotencyKey(idempotencyKey)
@@ -156,13 +174,24 @@ public class ExchangeSettlementService {
     @Transactional(readOnly = true)
     public List<Settlement> getSettlements(UUID exchangeId) {
         if (exchangeId == null) {
-            throw new IllegalArgumentException("Exchange ID is required");
+            throw invalid("Exchange ID is required");
         }
 
         exchanges.find(exchangeId)
-                .orElseThrow(() -> new IllegalArgumentException("Exchange not found"));
+                .orElseThrow(ExchangeNotFoundException::new);
 
         return settlements.findByExchange(exchangeId);
+    }
+
+    private static ExchangeRuleViolationException invalid(String message) {
+        return rule("INVALID_EXCHANGE_SETTLEMENT", message);
+    }
+
+    private static ExchangeRuleViolationException rule(
+            String code,
+            String message
+    ) {
+        return new ExchangeRuleViolationException(code, message);
     }
 
     private static String fingerprint(
@@ -172,7 +201,8 @@ public class ExchangeSettlementService {
             BigDecimal amount,
             String reference
     ) {
-        String canonical = String.join("\n",
+        String canonical = String.join(
+                "\n",
                 exchangeId.toString(),
                 direction,
                 method,
@@ -181,13 +211,16 @@ public class ExchangeSettlementService {
         );
 
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(
-                    canonical.getBytes(StandardCharsets.UTF_8)
-            );
+            byte[] hash = MessageDigest
+                    .getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+
             return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 unavailable", e);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(
+                    "SHA-256 unavailable",
+                    exception
+            );
         }
     }
 }
