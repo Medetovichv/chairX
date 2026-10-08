@@ -78,6 +78,21 @@ public class ExchangeRepository {
         }
     }
 
+    public boolean existsByOriginalSale(UUID saleId) {
+        Boolean exists = jdbc.queryForObject("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM exchanges
+                WHERE original_sale_id = ?
+            )
+            """,
+                Boolean.class,
+                saleId
+        );
+
+        return Boolean.TRUE.equals(exists);
+    }
+
     public Optional<Exchange> find(UUID exchangeId) {
         return jdbc.query("""
                         SELECT *

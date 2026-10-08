@@ -17,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
+import kg.chairx.exchange.infrastructure.ExchangeRepository;
 
 import java.time.Instant;
 import java.util.List;
@@ -30,17 +31,20 @@ public class PaymentService {
     private final PaymentRepository repository;
     private final SaleRepository sales;
     private final RefundRepository refunds;
+    private final ExchangeRepository exchanges;
     private final AuditService audit;
 
     public PaymentService(
             PaymentRepository repository,
             SaleRepository sales,
             RefundRepository refunds,
+            ExchangeRepository exchanges,
             AuditService audit
     ) {
         this.repository = repository;
         this.sales = sales;
         this.refunds = refunds;
+        this.exchanges = exchanges;
         this.audit = audit;
     }
 
@@ -166,6 +170,14 @@ public class PaymentService {
                     "Нельзя аннулировать оплату, по которой уже был выполнен возврат денег"
             );
         }
+
+        if (exchanges.existsByOriginalSale(payment.saleId())) {
+            throw rule(
+                    "PAYMENT_HAS_EXCHANGES",
+                    "Нельзя аннулировать оплату, использованную при обмене"
+            );
+        }
+
 
         PaymentResponse before =
                 PaymentMapper.toResponse(payment);
