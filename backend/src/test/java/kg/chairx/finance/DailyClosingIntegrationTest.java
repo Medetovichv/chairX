@@ -125,6 +125,56 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
+    void closingPreservesExpectedBalancesAndPersistsBothDiscrepancies() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        jdbc.update("UPDATE finance_accounts SET balance = 200 WHERE code = 'CASH'");
+        jdbc.update("UPDATE finance_accounts SET balance = 300 WHERE code = 'BANK'");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var closing = closings.close(today, new DailyClosingRequest(
+                new BigDecimal("180"), "  Недостача при пересчёте  ",
+                new BigDecimal("350"), "  Излишек по выписке  "), "admin");
+        assertThat(closing.cash().expected()).isEqualByComparingTo("200");
+        assertThat(closing.cash().actual()).isEqualByComparingTo("180");
+        assertThat(closing.cash().difference()).isEqualByComparingTo("-20");
+        assertThat(closing.cash().note()).isEqualTo("Недостача при пересчёте");
+        assertThat(closing.bank().expected()).isEqualByComparingTo("300");
+        assertThat(closing.bank().actual()).isEqualByComparingTo("350");
+        assertThat(closing.bank().difference()).isEqualByComparingTo("50");
+        assertThat(closing.bank().note()).isEqualTo("Излишек по выписке");
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
+                .isEqualByComparingTo("200");
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo("300");
+        assertThat(closings.closedDates()).contains(today);
+        assertThat(closings.findByDate(today)).isEqualTo(closing);
+    }
+
+    @Test
+    void closedDayRejectsOpeningBalanceInitializationWithoutChangingFlag() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        closings.close(today, new DailyClosingRequest(cash, null, bank, null), "admin");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = FALSE WHERE code='CASH'");
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status ->
+                accounts.markOpeningBalanceInitialized(kg.chairx.finance.domain.FinanceAccount.CASH)))
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class)
+                .hasMessageContaining("Финансовый день уже закрыт");
+        assertThat(jdbc.queryForObject(
+                "SELECT opening_balance_initialized FROM finance_accounts WHERE code='CASH'", Boolean.class))
+                .isFalse();
+    }
+
+    @Test
     void previousDayClosingDoesNotBlockCurrentDayBalanceChanges() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
