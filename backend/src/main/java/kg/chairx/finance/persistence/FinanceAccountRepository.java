@@ -114,9 +114,18 @@ public class FinanceAccountRepository {
                 .update();
 
         if (updated != 1) {
-            throw new IllegalStateException(
-                    "Недостаточно средств или счёт не существует"
-            );
+            boolean closed = Boolean.TRUE.equals(jdbc.sql("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM finance_daily_closings
+                        WHERE business_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                    )
+                    """).query(Boolean.class).single());
+            if (closed) {
+                throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                        "Финансовый день уже закрыт: изменение остатка запрещено");
+            }
+            throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                    "Недостаточно средств или счёт не существует");
         }
     }
 }
