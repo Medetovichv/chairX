@@ -26,18 +26,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -65,7 +60,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     private final WarehouseService warehouses;
     private final InventoryService inventory;
     private final AuditService audit;
-    private final JsonMapper mapper;
+    private final SaleRequestFingerprint fingerprint;
     private final ExchangeSaleGuard exchangeSaleGuard;
     private final InventoryCostPostingService costPosting;
 
@@ -76,7 +71,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
             WarehouseService warehouses,
             InventoryService inventory,
             AuditService audit,
-            JsonMapper mapper,
+            SaleRequestFingerprint fingerprint,
             ExchangeSaleGuard exchangeSaleGuard,
             InventoryCostPostingService costPosting
     ) {
@@ -86,7 +81,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         this.warehouses = warehouses;
         this.inventory = inventory;
         this.audit = audit;
-        this.mapper = mapper;
+        this.fingerprint = fingerprint;
         this.exchangeSaleGuard = exchangeSaleGuard;
         this.costPosting = costPosting;
     }
@@ -95,7 +90,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     public SaleResponse create(
             @Valid CreateSaleRequest request
     ) {
-        String fingerprint = fingerprint(request);
+        String fingerprint = this.fingerprint.fingerprint(request);
 
         var existing = repository.findByIdempotencyKey(
                 request.idempotencyKey()
@@ -498,72 +493,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         );
     }
 
-    private String fingerprint(
-            CreateSaleRequest request
-    ) {
-        List<FingerprintSaleItem> sorted =
-                request.items()
-                        .stream()
-                        .map(item ->
-                                new FingerprintSaleItem(
-                                        item.productVariantId(),
-                                        item.warehouseId(),
-                                        item.quantity(),
-                                        normalizeMoney(
-                                                item.unitSalePrice()
-                                        )
-                                )
-                        )
-                        .sorted(
-                                Comparator
-                                        .comparing(
-                                                (FingerprintSaleItem item) ->
-                                                        item.productVariantId()
-                                                                .toString()
-                                        )
-                                        .thenComparing(
-                                                item ->
-                                                        item.warehouseId()
-                                                                .toString()
-                                        )
-                        )
-                        .toList();
-
-        String json = mapper.writeValueAsString(
-                new SaleContent(
-                        request.customerId(),
-                        request.fulfillmentType(),
-                        sorted
-                )
-        );
-
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest
-                            .getInstance("SHA-256")
-                            .digest(
-                                    json.getBytes(
-                                            StandardCharsets.UTF_8
-                                    )
-                            )
-            );
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException(
-                    "SHA-256 unavailable",
-                    exception
-            );
-        }
-    }
-
-    private BigDecimal normalizeMoney(
-            BigDecimal value
-    ) {
-        return value.setScale(
-                0,
-                RoundingMode.UNNECESSARY
-        );
-    }
-
     private String actor() {
         return SecurityContextHolder
                 .getContext()
@@ -587,18 +516,5 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     ) {
     }
 
-    private record FingerprintSaleItem(
-            UUID productVariantId,
-            UUID warehouseId,
-            long quantity,
-            BigDecimal unitSalePrice
-    ) {
-    }
 
-    private record SaleContent(
-            UUID customerId,
-            FulfillmentType fulfillmentType,
-            List<FingerprintSaleItem> items
-    ) {
-    }
 }
