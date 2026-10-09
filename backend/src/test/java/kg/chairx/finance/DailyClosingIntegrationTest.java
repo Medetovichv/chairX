@@ -4,6 +4,7 @@ import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.finance.api.DailyClosingRequest;
 import kg.chairx.finance.application.DailyClosingService;
 import org.junit.jupiter.api.Test;
+import java.util.concurrent.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -30,6 +31,51 @@ class DailyClosingIntegrationTest {
     void cleanupClosing() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
+    }
+
+    @Test
+    void concurrentClosingAllowsOnlyOneSuccessfulRequest() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("chairx_test");
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var request = new DailyClosingRequest(cash, null, bank, null);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Callable<Boolean> task = () -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Workers did not start");
+                }
+                try {
+                    closings.close(today, request, "admin");
+                    return true;
+                } catch (IllegalStateException duplicate) {
+                    if (!"День уже закрыт".equals(duplicate.getMessage())) {
+                        throw duplicate;
+                    }
+                    return false;
+                }
+            };
+            Future<Boolean> first = executor.submit(task);
+            Future<Boolean> second = executor.submit(task);
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat((first.get(20, TimeUnit.SECONDS) ? 1 : 0)
+                    + (second.get(20, TimeUnit.SECONDS) ? 1 : 0)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                    .isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                    .isEqualTo(2);
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test
