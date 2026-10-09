@@ -50,6 +50,7 @@ class DailyClosingIntegrationTest {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
         jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        jdbc.update("UPDATE finance_accounts SET balance = 100 WHERE code = 'CASH'");
         BigDecimal cash = jdbc.queryForObject(
                 "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
         BigDecimal bank = jdbc.queryForObject(
