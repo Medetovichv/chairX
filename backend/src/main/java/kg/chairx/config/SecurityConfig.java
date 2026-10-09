@@ -89,10 +89,20 @@ public class SecurityConfig {
                         // Остальные финансовые маршруты запрещены
                         .requestMatchers("/api/finance/**").denyAll()
 
-                        // Остальные существующие API пока не меняем
-                        // Административные операции
-                        .requestMatchers("/api/admin/**")
+                        // Разрешения для административного API
+                        .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/*")
+                        .hasAuthority("USERS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/users")
+                        .hasAuthority("USERS_CREATE")
+                        .requestMatchers(HttpMethod.PATCH, "/api/admin/users/*/deactivate")
+                        .hasAuthority("USERS_DEACTIVATE")
+                        .requestMatchers(HttpMethod.GET, "/api/admin/roles")
+                        .hasAuthority("ROLES_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/users/*/roles")
                         .hasAuthority("ROLES_ASSIGN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/admin/users/*/roles/*")
+                        .hasAuthority("ROLES_ASSIGN")
+                        .requestMatchers("/api/admin/**").denyAll()
                         .anyRequest().authenticated()
                 )
 
