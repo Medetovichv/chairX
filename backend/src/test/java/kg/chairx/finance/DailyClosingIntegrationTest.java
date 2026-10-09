@@ -20,10 +20,15 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
-@org.springframework.transaction.annotation.Transactional
 class DailyClosingIntegrationTest {
     @Autowired DailyClosingService closings;
     @Autowired JdbcTemplate jdbc;
+
+    @org.junit.jupiter.api.AfterEach
+    void cleanupClosing() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+    }
 
     @Test
     void closingWithDifferenceRequiresReasonAndDoesNotChangeAccountBalance() {
