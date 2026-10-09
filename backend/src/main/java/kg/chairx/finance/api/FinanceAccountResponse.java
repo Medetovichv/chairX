@@ -1,4 +1,10 @@
 package kg.chairx.finance.api;
 
-public class FinanceAccountResponse {
+import java.math.BigDecimal;
+
+public record FinanceAccountResponse(
+        String code,
+        BigDecimal balance,
+        boolean initialized
+) {
 }

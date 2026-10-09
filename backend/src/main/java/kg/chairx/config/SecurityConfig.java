@@ -16,10 +16,15 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import tools.jackson.databind.json.JsonMapper;
+import kg.chairx.security.application.ChairxUserDetailsService;
+import kg.chairx.security.application.CompositeUserDetailsService;
+import kg.chairx.security.persistence.AppUserRepository;
+import kg.chairx.security.persistence.SecurityRoleRepository;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 public class SecurityConfig {
-    @Bean
+
     UserDetailsService catalogUser(@Value("${CHAIRX_CATALOG_USERNAME:catalog}") String username,
             @Value("${CHAIRX_CATALOG_PASSWORD}") String password) {
         if (username.isBlank() || username.length() > 200 || password.isBlank()) {
@@ -31,18 +36,85 @@ public class SecurityConfig {
     }
 
     @Bean
+    UserDetailsService userDetailsService(
+            @Value("${CHAIRX_CATALOG_USERNAME:catalog}") String catalogUsername,
+            @Value("${CHAIRX_CATALOG_PASSWORD}") String catalogPassword,
+            AppUserRepository users,
+            SecurityRoleRepository roles
+    ) {
+        UserDetailsService catalog = catalogUser(
+                catalogUsername,
+                catalogPassword
+        );
+
+        UserDetailsService employees =
+                new ChairxUserDetailsService(users, roles);
+
+        return new CompositeUserDetailsService(
+                catalog,
+                employees,
+                catalogUsername
+        );
+    }
+
+    @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
+
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
             response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
         };
-        // Basic authentication can be sent automatically by browsers, so CSRF stays enabled.
-        http.authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
-                .httpBasic(basic -> basic.authenticationEntryPoint(authenticationRequired))
-                .exceptionHandling(errors -> errors.authenticationEntryPoint(authenticationRequired)
+
+        http
+                .authorizeHttpRequests(auth -> auth
+
+                        // Просмотр финансов
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/finance/**"
+                        ).hasAuthority("FINANCE_READ")
+
+                        // Переводы между счетами
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/transfers"
+                        ).hasAuthority("FINANCE_TRANSFER")
+
+                        // Установка начальных остатков
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/opening-balances"
+                        ).hasAuthority("FINANCE_INITIALIZE")
+
+                        // Остальные финансовые маршруты запрещены
+                        .requestMatchers("/api/finance/**").denyAll()
+
+                        // Остальные существующие API пока не меняем
+                        // Административные операции
+                        .requestMatchers("/api/admin/**")
+                        .hasAuthority("ROLES_ASSIGN")
+                        .anyRequest().authenticated()
+                )
+
+                // Сохраняем HTTP Basic
+                .httpBasic(basic ->
+                        basic.authenticationEntryPoint(authenticationRequired)
+                )
+
+                // Сохраняем обработку ошибок
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint(authenticationRequired)
                         .accessDeniedHandler((request, response, exception) ->
-                                writeError(response, mapper, 403, "ACCESS_DENIED",
-                                        "Доступ запрещён или отсутствует корректный CSRF-токен")));
+                                writeError(
+                                        response,
+                                        mapper,
+                                        403,
+                                        "ACCESS_DENIED",
+                                        "Доступ запрещён или отсутствует корректный CSRF-токен"
+                                )
+                        )
+                );
+
         return http.build();
     }
 

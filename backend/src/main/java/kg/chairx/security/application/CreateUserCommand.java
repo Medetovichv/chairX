@@ -1,4 +1,8 @@
 package kg.chairx.security.application;
 
-public class CreateUserCommand {
+public record CreateUserCommand(
+        String username,
+        String password,
+        String displayName
+) {
 }

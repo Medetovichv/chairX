@@ -1,4 +1,6 @@
 package kg.chairx.finance.domain;
 
-public class FinanceAccount {
+public enum FinanceAccount {
+    CASH,
+    BANK
 }

@@ -41,7 +41,7 @@ class ProductPersistenceTests {
     @Test
     void cleanMigrationAndSchemaValidationSucceed() {
         flyway.validate();
-        assertThat(flyway.info().applied()).hasSize(23);
+        assertThat(flyway.info().applied()).hasSize(31);
         assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname='public'", String.class))
                 .containsExactlyInAnyOrder(
                 "products",
@@ -74,7 +74,17 @@ class ProductPersistenceTests {
                         "refunds",
                         "exchanges",
                         "exchange_settlements",
-                        "expenses"
+                        "expenses",
+                        "finance_accounts",
+                        "finance_movements",
+                        "finance_transfers",
+                        "app_users",
+                        "security_roles",
+                        "security_permissions",
+                        "security_user_roles",
+                        "security_role_permissions",
+                        "security_audit_log",
+                        "security_bootstrap_state"
         );
         // A second migration run must leave the existing schema alone.
         assertThat(flyway.migrate().migrationsExecuted).isZero();
