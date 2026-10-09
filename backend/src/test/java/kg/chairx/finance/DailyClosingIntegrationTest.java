@@ -48,6 +48,12 @@ class DailyClosingIntegrationTest {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
         String url = "/api/finance/closings/" + today;
         String body = "{\"actualCash\":0,\"actualBank\":0}";
+        // CSRF is enforced before authentication for state-changing requests.
+        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(url).with(httpBasic("catalog", "integration-test-password"))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
         mvc.perform(post(url).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post(url).with(csrf()).with(httpBasic("catalog", "integration-test-password"))
