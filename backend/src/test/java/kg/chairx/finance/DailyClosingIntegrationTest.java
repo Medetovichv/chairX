@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -41,6 +42,31 @@ class DailyClosingIntegrationTest {
     void cleanupClosing() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
+    }
+
+    @Test
+    void authorizedEmployeeCanCloseDayThroughHttpApi() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("chairx_test");
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        String body = "{\"actualCash\":" + cash.toPlainString()
+                + ",\"actualBank\":" + bank.toPlainString() + "}";
+        mvc.perform(post("/api/finance/closings/" + today)
+                        .with(csrf())
+                        .with(user("finance-manager").authorities(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE")))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                .isEqualTo(2);
+        assertThat(closings.findByDate(today).actor()).isEqualTo("finance-manager");
     }
 
     @Test
