@@ -23,6 +23,8 @@ import static org.assertj.core.api.Assertions.*;
 class DailyClosingIntegrationTest {
     @Autowired DailyClosingService closings;
     @Autowired JdbcTemplate jdbc;
+    @Autowired org.springframework.transaction.support.TransactionTemplate transactions;
+    @Autowired kg.chairx.finance.persistence.FinanceAccountRepository accounts;
 
     @org.junit.jupiter.api.AfterEach
     void cleanupClosing() {
@@ -51,6 +53,9 @@ class DailyClosingIntegrationTest {
         assertThat(closings.findByDate(today).id()).isEqualTo(result.id());
         assertThatThrownBy(() -> closings.close(today,
                 new DailyClosingRequest(actual, "повтор", bank, null), "admin"))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> transactions.executeWithoutResult(status ->
+                accounts.changeBalance(kg.chairx.finance.domain.FinanceAccount.CASH, BigDecimal.ONE)))
                 .isInstanceOf(IllegalStateException.class);
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
                 .isEqualByComparingTo(cash);
