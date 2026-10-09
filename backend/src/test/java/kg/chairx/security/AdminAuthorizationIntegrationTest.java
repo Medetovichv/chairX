@@ -134,6 +134,6 @@ class AdminAuthorizationIntegrationTest {
                                 HttpHeaders.AUTHORIZATION,
                                 basic(username, "test-password")
                         ))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isOk());
     }
 }
