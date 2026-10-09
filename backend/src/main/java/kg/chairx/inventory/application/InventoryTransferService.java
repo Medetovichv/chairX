@@ -138,7 +138,7 @@ public class InventoryTransferService {
                 || saved.quantity() != quantity
                 || !Objects.equals(saved.actor(), actor)) {
 
-            throw new IllegalStateException(
+            throw new InventoryTransferConflictException(
                     "TRANSFER_OPERATION_CONFLICT"
             );
         }

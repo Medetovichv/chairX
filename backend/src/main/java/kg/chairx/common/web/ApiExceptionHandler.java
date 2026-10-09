@@ -106,6 +106,48 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(
+            kg.chairx.inventory.application.InvalidTransferQueryException.class
+    )
+    ResponseEntity<ApiError> invalidTransferQuery(
+            kg.chairx.inventory.application.InvalidTransferQueryException exception
+    ) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiError.of(
+                        "INVALID_TRANSFER_QUERY",
+                        exception.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(
+            kg.chairx.inventory.application.InventoryTransferNotFoundException.class
+    )
+    ResponseEntity<ApiError> inventoryTransferNotFound(
+            kg.chairx.inventory.application.InventoryTransferNotFoundException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of(
+                        "INVENTORY_TRANSFER_NOT_FOUND",
+                        exception.getMessage()
+                ));
+    }
+
+    @ExceptionHandler(
+            kg.chairx.inventory.application.InventoryTransferConflictException.class
+    )
+    ResponseEntity<ApiError> inventoryTransferConflict(
+            kg.chairx.inventory.application.InventoryTransferConflictException exception
+    ) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ApiError.of(
+                        "TRANSFER_OPERATION_CONFLICT",
+                        exception.getMessage()
+                ));
+    }
+
     @ExceptionHandler(InsufficientStockException.class)
     ResponseEntity<ApiError> insufficientStock(
             InsufficientStockException exception

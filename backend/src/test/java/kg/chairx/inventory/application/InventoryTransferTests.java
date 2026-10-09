@@ -256,7 +256,7 @@ class InventoryTransferTests {
         assertThat(count("inventory_cost_allocations")).isEqualTo(1);
 
         assertThatThrownBy(() -> transfer(transferId, 4))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(InventoryTransferConflictException.class)
                 .hasMessageContaining("TRANSFER_OPERATION_CONFLICT");
 
         assertThat(count("inventory_transfers")).isEqualTo(1);
