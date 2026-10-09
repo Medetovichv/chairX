@@ -39,10 +39,10 @@ public class DailyClosingService {
         validate(request.actualCash(), request.cashNote());
         validate(request.actualBank(), request.bankNote());
 
-
         // Serialize all closings and financial writes using the existing account locks.
-        BigDecimal cash = accounts.lockBalance(FinanceAccount.CASH);
+        // Same lock order as FinanceTransferService (BANK before CASH).
         BigDecimal bank = accounts.lockBalance(FinanceAccount.BANK);
+        BigDecimal cash = accounts.lockBalance(FinanceAccount.CASH);
         if (!accounts.isOpeningBalanceInitialized(FinanceAccount.CASH)
                 || !accounts.isOpeningBalanceInitialized(FinanceAccount.BANK)) {
             throw new IllegalStateException("Финансовые счета не инициализированы");
