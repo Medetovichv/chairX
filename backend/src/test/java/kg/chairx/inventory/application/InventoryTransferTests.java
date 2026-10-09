@@ -41,6 +41,8 @@ import static org.assertj.core.api.Assertions.*;
 @Timeout(30)
 class InventoryTransferTests {
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    kg.chairx.inventory.persistence.InventoryRepository inventoryLocks;
     @Autowired InventoryTransferService transfers;
     @Autowired kg.chairx.sale.application.SaleService sales;
     @Autowired InventoryAdjustmentService adjustments;
@@ -521,6 +523,28 @@ class InventoryTransferTests {
                         List.of()
                 )
         );
+    }
+
+    @Test
+    void transferUsesSameWarehouseLockOrderAsSalesAcrossUuidSignBoundary() {
+        UUID low = UUID.fromString("10000000-0000-0000-0000-000000000001");
+        UUID high = UUID.fromString("f0000000-0000-0000-0000-000000000001");
+        try {
+            jdbc.update("INSERT INTO warehouses(id,name,code,active,created_at,updated_at) VALUES (?, 'Low','AUDIT_LOW',true,now(),now()), (?, 'High','AUDIT_HIGH',true,now(),now())", low, high);
+            adjustments.recordValuedAdjustmentIn(UUID.randomUUID(), high, variant, 2, new BigDecimal("100"), "transfer-test");
+            org.mockito.Mockito.clearInvocations(inventoryLocks);
+            var result = transfers.transfer(UUID.randomUUID(), high, low, variant, 1, "transfer-test");
+            var lockedWarehouses = org.mockito.ArgumentCaptor.forClass(UUID.class);
+            org.mockito.Mockito.verify(inventoryLocks, org.mockito.Mockito.atLeast(2))
+                    .lockOrCreate(lockedWarehouses.capture(), org.mockito.ArgumentMatchers.eq(variant));
+            assertThat(lockedWarehouses.getAllValues().subList(0, 2)).containsExactly(low, high);
+            assertThat(result.totalCost()).isEqualByComparingTo("50");
+            assertThat(inventory.getBalance(low, variant).onHand()).isEqualTo(1);
+            assertThat(inventory.getBalance(high, variant).onHand()).isEqualTo(1);
+        } finally {
+            clear();
+            jdbc.update("DELETE FROM warehouses WHERE id IN (?,?)", low, high);
+        }
     }
 
 }
