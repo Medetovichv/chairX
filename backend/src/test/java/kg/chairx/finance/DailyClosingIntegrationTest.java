@@ -7,6 +7,11 @@ import org.junit.jupiter.api.Test;
 import java.util.concurrent.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,9 +26,11 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
+@AutoConfigureMockMvc
 class DailyClosingIntegrationTest {
     @Autowired DailyClosingService closings;
     @Autowired JdbcTemplate jdbc;
+    @Autowired MockMvc mvc;
     @Autowired org.springframework.transaction.support.TransactionTemplate transactions;
     @Autowired kg.chairx.finance.persistence.FinanceAccountRepository accounts;
 
@@ -31,6 +38,16 @@ class DailyClosingIntegrationTest {
     void cleanupClosing() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
+    }
+
+    @Test
+    void closingHistoryRequiresAuthenticationAndFinanceReadPermission() throws Exception {
+        mvc.perform(get("/api/finance/closings")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/finance/closings")
+                .with(httpBasic("catalog", "integration-test-password")))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/finance/closings/2026-01-01"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
