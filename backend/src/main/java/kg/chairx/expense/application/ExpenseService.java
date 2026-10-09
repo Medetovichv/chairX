@@ -1,5 +1,6 @@
 package kg.chairx.expense.application;
 
+import kg.chairx.finance.application.FinancePostingService;
 import kg.chairx.expense.api.CreateExpenseRequest;
 import kg.chairx.expense.api.ExpenseResponse;
 import kg.chairx.expense.domain.Expense;
@@ -19,9 +20,13 @@ import java.util.UUID;
 @Service
 public class ExpenseService {
 
+    private final FinancePostingService finance;
     private final ExpenseRepository repository;
 
-    public ExpenseService(ExpenseRepository repository) {
+    public ExpenseService(
+            FinancePostingService finance,
+            ExpenseRepository repository) {
+        this.finance = finance;
         this.repository = repository;
     }
 
@@ -84,6 +89,7 @@ public class ExpenseService {
 
         // Сохраняем в PostgreSQL
         repository.insert(expense);
+        finance.post(expense.paymentMethod().name(), expense.amount().negate(), "EXPENSE", "EXPENSE", expense.id(), expense.createdBy());
 
         return ExpenseResponse.from(expense);
     }

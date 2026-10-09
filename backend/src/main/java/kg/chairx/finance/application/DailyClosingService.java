@@ -31,10 +31,10 @@ public class DailyClosingService {
     @Transactional
     public DailyClosingResponse close(LocalDate date, DailyClosingRequest request, String actor) {
         if (date == null || request == null || actor == null || actor.isBlank() || actor.length() > 200) {
-            throw new IllegalArgumentException("Некорректные параметры закрытия");
+            throw new FinanceValidationException("Некорректные параметры закрытия");
         }
         if (!date.equals(LocalDate.now(clock.withZone(BUSINESS_ZONE)))) {
-            throw new IllegalArgumentException("Разрешено закрывать только текущий день по Бишкеку");
+            throw new FinanceValidationException("Разрешено закрывать только текущий день по Бишкеку");
         }
         validate(request.actualCash(), request.cashNote());
         validate(request.actualBank(), request.bankNote());
@@ -46,15 +46,15 @@ public class DailyClosingService {
         // A request may wait on account locks across midnight in Bishkek.
         // Revalidate after acquiring both locks to avoid closing yesterday's date.
         if (!date.equals(LocalDate.now(clock.withZone(BUSINESS_ZONE)))) {
-            throw new IllegalArgumentException("Разрешено закрывать только текущий день по Бишкеку");
+            throw new FinanceValidationException("Разрешено закрывать только текущий день по Бишкеку");
         }
         if (!accounts.isOpeningBalanceInitialized(FinanceAccount.CASH)
                 || !accounts.isOpeningBalanceInitialized(FinanceAccount.BANK)) {
-            throw new IllegalStateException("Финансовые счета не инициализированы");
+            throw new FinanceConflictException("Финансовые счета не инициализированы");
         }
         if (jdbc.sql("SELECT EXISTS (SELECT 1 FROM finance_daily_closings WHERE business_date = :date)")
                 .param("date", date).query(Boolean.class).single()) {
-            throw new IllegalStateException("День уже закрыт");
+            throw new FinanceConflictException("День уже закрыт");
         }
         UUID id = UUID.randomUUID();
         jdbc.sql("INSERT INTO finance_daily_closings (id, business_date, created_by) VALUES (:id, :date, :actor)")
@@ -66,17 +66,17 @@ public class DailyClosingService {
 
     private static void validate(BigDecimal actual, String note) {
         if (actual == null || actual.signum() < 0 || actual.stripTrailingZeros().scale() > 0) {
-            throw new IllegalArgumentException("Фактический остаток должен быть неотрицательным целым числом");
+            throw new FinanceValidationException("Фактический остаток должен быть неотрицательным целым числом");
         }
         if (note != null && note.length() > 2000) {
-            throw new IllegalArgumentException("Заметка слишком длинная");
+            throw new FinanceValidationException("Заметка слишком длинная");
         }
     }
 
     private void insertAccount(UUID id, FinanceAccount account, BigDecimal expected,
                                BigDecimal actual, String note) {
         if (expected.compareTo(actual) != 0 && (note == null || note.isBlank())) {
-            throw new IllegalArgumentException("При расхождении необходимо указать причину");
+            throw new FinanceValidationException("При расхождении необходимо указать причину");
         }
         jdbc.sql("""
                 INSERT INTO finance_daily_closing_accounts
@@ -102,7 +102,7 @@ public class DailyClosingService {
                         rs.getBigDecimal("expected_balance"), rs.getBigDecimal("actual_balance"),
                         rs.getBigDecimal("difference"), rs.getString("note")))).list();
         if (rows.size() != 2) {
-            throw new IllegalArgumentException("Закрытие дня не найдено");
+            throw new ClosingNotFoundException("Закрытие дня не найдено");
         }
         ClosingRow first = rows.getFirst();
         var cash = rows.stream().filter(r -> r.account.equals("CASH")).findFirst().orElseThrow().value;

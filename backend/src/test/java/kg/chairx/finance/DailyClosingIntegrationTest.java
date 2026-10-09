@@ -466,4 +466,26 @@ class DailyClosingIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
                 .isEqualByComparingTo(cash);
     }
+    @Test
+    void businessValidationAndDuplicateClosingHaveCorrectHttpStatuses() throws Exception {
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized=TRUE");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var writer = user("auditor").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"));
+        mvc.perform(post("/api/finance/closings/" + today).with(writer).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":-1,\"actualBank\":0}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/finance/closings/" + today.minusDays(1)).with(writer).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":0,\"actualBank\":0}"))
+                .andExpect(status().isBadRequest());
+        BigDecimal cash = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        closings.close(today, new DailyClosingRequest(cash, null, bank, null), "admin");
+        String body = "{\"actualCash\":" + cash + ",\"actualBank\":" + bank + "}";
+        mvc.perform(post("/api/finance/closings/" + today).with(writer).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/finance/closings/" + today.minusDays(5)).with(user("reader").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isNotFound());
+    }
+
 }

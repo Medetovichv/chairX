@@ -1,5 +1,6 @@
 package kg.chairx.refund.application;
 
+import kg.chairx.finance.application.FinancePostingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import kg.chairx.audit.AuditService;
@@ -31,6 +32,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class RefundService {
 
+    private final FinancePostingService finance;
     private final RefundRepository repository;
     private final PaymentRepository payments;
     private final PaymentBalanceService paymentBalanceService;
@@ -39,6 +41,7 @@ public class RefundService {
     private final AuditService audit;
 
     public RefundService(
+            FinancePostingService finance,
             RefundRepository repository,
             PaymentRepository payments,
             PaymentBalanceService paymentBalanceService,
@@ -46,6 +49,7 @@ public class RefundService {
             ExchangeRepository exchanges,
             AuditService audit
     ) {
+        this.finance = finance;
         this.repository = repository;
         this.payments = payments;
         this.paymentBalanceService = paymentBalanceService;
@@ -150,6 +154,7 @@ public class RefundService {
             return replayOrReject(concurrent, fingerprint);
         }
 
+        finance.post(refund.method().name(), refund.amount().negate(), "CUSTOMER_REFUND", "REFUND", refund.id(), refund.refundedBy());
         RefundResponse response = toResponse(refund);
 
         audit.record(

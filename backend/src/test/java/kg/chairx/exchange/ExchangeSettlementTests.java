@@ -45,6 +45,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -641,4 +642,22 @@ class ExchangeSettlementTests {
                 )
         ).isEqualTo("chairx_test");
     }
+
+    @Test
+    void settlementReplayCreditsBankOnceAndOutgoingFailureKeepsExchangePending() {
+        Exchange incoming = createExchange("8500", "10000");
+        BigDecimal before = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        UUID key = UUID.randomUUID();
+        var first = settle(incoming.id(), "IN", "TRANSFER", "1500", key);
+        assertThat(settle(incoming.id(), "IN", "TRANSFER", "1500", key).id()).isEqualTo(first.id());
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class)).isEqualByComparingTo(before.add(new BigDecimal("1500")));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_id=?", Integer.class, first.id())).isEqualTo(1);
+        Exchange outgoing = createExchange("8500", "8000");
+        jdbc.update("UPDATE finance_accounts SET balance=0 WHERE code='BANK'");
+        assertThatThrownBy(() -> settle(outgoing.id(), "OUT", "TRANSFER", "500", UUID.randomUUID()))
+                .isInstanceOf(kg.chairx.finance.domain.FinanceAccountOperationException.class);
+        assertThat(settlements.findByExchange(outgoing.id())).isEmpty();
+        assertThat(exchanges.find(outgoing.id()).orElseThrow().status()).isEqualTo(ExchangeStatus.PENDING_SETTLEMENT);
+    }
+
 }
