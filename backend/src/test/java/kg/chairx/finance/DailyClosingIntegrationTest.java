@@ -34,6 +34,31 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
+    void rejectsInvalidDatesAndBalancesWithoutPersistingClosing() {
+        assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("chairx_test");
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var valid = new DailyClosingRequest(BigDecimal.ZERO, null, BigDecimal.ZERO, null);
+        assertThatThrownBy(() -> closings.close(today.minusDays(1), valid, "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("только текущий день");
+        assertThatThrownBy(() -> closings.close(today.plusDays(1), valid, "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("только текущий день");
+        assertThatThrownBy(() -> closings.close(today,
+                new DailyClosingRequest(new BigDecimal("-1"), null, BigDecimal.ZERO, null), "admin"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> closings.close(today,
+                new DailyClosingRequest(new BigDecimal("1.5"), null, BigDecimal.ZERO, null), "admin"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> closings.close(today, valid, " "))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                .isZero();
+    }
+
+    @Test
     void concurrentClosingAllowsOnlyOneSuccessfulRequest() throws Exception {
         assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("chairx_test");
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
