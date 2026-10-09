@@ -32,6 +32,18 @@ import static org.assertj.core.api.Assertions.*;
 @Import(PostgresTestConfiguration.class)
 @AutoConfigureMockMvc
 class DailyClosingIntegrationTest {
+    private java.util.List<kg.chairx.finance.persistence.FinanceAccountRepository.AccountSnapshot> originalAccounts;
+
+    @org.junit.jupiter.api.BeforeEach
+    void snapshotAccounts() {
+        originalAccounts = jdbc.query(
+                "SELECT code, balance, opening_balance_initialized FROM finance_accounts ORDER BY code",
+                (rs, row) -> new kg.chairx.finance.persistence.FinanceAccountRepository.AccountSnapshot(
+                        kg.chairx.finance.domain.FinanceAccount.valueOf(rs.getString("code")),
+                        rs.getBigDecimal("balance"),
+                        rs.getBoolean("opening_balance_initialized")));
+    }
+
     @Autowired DailyClosingService closings;
     @Autowired kg.chairx.finance.application.FinanceTransferService transferService;
     @Autowired JdbcTemplate jdbc;
@@ -43,6 +55,49 @@ class DailyClosingIntegrationTest {
     void cleanupClosing() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
+        for (var account : originalAccounts) {
+            jdbc.update("UPDATE finance_accounts SET balance = ?, opening_balance_initialized = ? WHERE code = ?",
+                    account.balance(), account.initialized(), account.account().name());
+        }
+    }
+
+    @Test
+    void closingFailureOnSecondAccountRollsBackHeaderAndFirstAccount() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        assertThatThrownBy(() -> closings.close(today,
+                new DailyClosingRequest(cash, null, bank.add(BigDecimal.ONE), null), "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("причину");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                .isZero();
+    }
+
+    @Test
+    void authorizedFinanceReaderCanRetrieveClosingHistoryThroughHttp() throws Exception {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        closings.close(today, new DailyClosingRequest(cash, null, bank, null), "admin");
+        var reader = user("auditor").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
+        mvc.perform(get("/api/finance/closings").with(reader))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/finance/closings/" + today).with(reader))
+                .andExpect(status().isOk());
     }
 
     @Test
