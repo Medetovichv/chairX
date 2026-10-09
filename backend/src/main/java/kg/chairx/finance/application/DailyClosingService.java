@@ -39,6 +39,7 @@ public class DailyClosingService {
         validate(request.actualCash(), request.cashNote());
         validate(request.actualBank(), request.bankNote());
 
+
         // Serialize all closings and financial writes using the existing account locks.
         BigDecimal cash = accounts.lockBalance(FinanceAccount.CASH);
         BigDecimal bank = accounts.lockBalance(FinanceAccount.BANK);
