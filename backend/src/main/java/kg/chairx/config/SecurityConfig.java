@@ -68,6 +68,9 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
 
+                        .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
+                        .hasAuthority("FINANCE_CLOSE")
+
                         // Просмотр финансов
                         .requestMatchers(
                                 HttpMethod.GET,
