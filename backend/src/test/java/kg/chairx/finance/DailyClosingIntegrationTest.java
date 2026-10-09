@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.*;
 @AutoConfigureMockMvc
 class DailyClosingIntegrationTest {
     private java.util.List<kg.chairx.finance.persistence.FinanceAccountRepository.AccountSnapshot> originalAccounts;
+    private final java.util.List<java.util.UUID> testTransferIds = new java.util.ArrayList<>();
 
     @org.junit.jupiter.api.BeforeEach
     void snapshotAccounts() {
@@ -53,6 +54,11 @@ class DailyClosingIntegrationTest {
 
     @org.junit.jupiter.api.AfterEach
     void cleanupClosing() {
+        for (java.util.UUID transferId : testTransferIds) {
+            jdbc.update("DELETE FROM finance_movements WHERE source_type = 'TRANSFER' AND source_id = ?", transferId);
+            jdbc.update("DELETE FROM finance_transfers WHERE id = ?", transferId);
+        }
+        testTransferIds.clear();
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
         for (var account : originalAccounts) {
@@ -73,6 +79,7 @@ class DailyClosingIntegrationTest {
                 new BigDecimal("100"), "Concurrent reconciliation",
                 BigDecimal.ZERO, "Concurrent reconciliation");
         java.util.UUID transferId = java.util.UUID.randomUUID();
+        testTransferIds.add(transferId);
         ExecutorService executor = Executors.newFixedThreadPool(2);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
