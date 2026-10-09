@@ -56,7 +56,8 @@ class DailyClosingIntegrationTest {
                 .isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> transactions.executeWithoutResult(status ->
                 accounts.changeBalance(kg.chairx.finance.domain.FinanceAccount.CASH, BigDecimal.ONE)))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class)
+                .hasMessageContaining("Финансовый день уже закрыт");
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
                 .isEqualByComparingTo(cash);
     }
