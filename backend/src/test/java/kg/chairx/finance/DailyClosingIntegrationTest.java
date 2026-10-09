@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
+@org.springframework.transaction.annotation.Transactional
 class DailyClosingIntegrationTest {
     @Autowired DailyClosingService closings;
     @Autowired JdbcTemplate jdbc;
