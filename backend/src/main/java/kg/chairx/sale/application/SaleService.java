@@ -319,6 +319,11 @@ public class SaleService {
         return after;
     }
 
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public SaleResponse lockForInventoryReturn(UUID saleId) {
+        return SaleMapper.toResponse(lock(saleId));
+    }
+
     private SaleResponse fulfillLocked(
             Sale sale
     ) {

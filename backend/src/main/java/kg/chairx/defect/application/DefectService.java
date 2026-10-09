@@ -6,6 +6,7 @@ import kg.chairx.defect.domain.ReceiptItemOrigin;
 import kg.chairx.defect.persistence.DefectRepository;
 import kg.chairx.inventory.api.ChangeBlockedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
 import org.springframework.stereotype.Service;
@@ -21,13 +22,16 @@ public class DefectService {
 
     private final DefectRepository repository;
     private final InventoryService inventoryService;
+    private final InventoryCostPostingService costPosting;
 
     public DefectService(
             DefectRepository repository,
-            InventoryService inventoryService
+            InventoryService inventoryService,
+            InventoryCostPostingService costPosting
     ) {
         this.repository = repository;
         this.inventoryService = inventoryService;
+        this.costPosting = costPosting;
     }
 
     @Transactional
@@ -172,7 +176,7 @@ public class DefectService {
                 )
         );
 
-        inventoryService.recordMovement(
+        costPosting.postWriteOff(
                 new RecordStockMovement(
                         defect.id(),
                         defect.warehouseId(),
@@ -182,7 +186,7 @@ public class DefectService {
                         STOCK_SOURCE_TYPE,
                         defect.id(),
                         actor.trim()
-                )
+                ), defect.purchaseReceiptItemId()
         );
 
         try {

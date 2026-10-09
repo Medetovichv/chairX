@@ -86,7 +86,7 @@ class PurchaseTests {
         assertThat(jdbc.queryForObject("select current_database()", String.class)).isEqualTo("chairx_test");
         // Testcontainer only: posted receipts and the stock journal prohibit ordinary DELETE.
         jdbc.execute("""
-        truncate inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, defects,
+        truncate inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
                  purchase_receipt_items,
                  purchase_receipts,
                  purchase_items,
@@ -224,8 +224,11 @@ class PurchaseTests {
                         "purchase-tester"
                 )
         ))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("FIFO_COST_LAYERS_INSUFFICIENT");
+                .isInstanceOfSatisfying(
+                        kg.chairx.inventory.cost.InventoryCostException.class,
+                        e -> assertThat(e.getCode())
+                                .isEqualTo("FIFO_COST_LAYERS_INSUFFICIENT")
+                );
 
         assertThat(inventory.getBalance(warehouse, variant).onHand())
                 .isEqualTo(stockBefore);
@@ -522,8 +525,11 @@ class PurchaseTests {
                 new TransactionTemplate(transactions).execute(
                         status -> inventoryCosts.consumeSale(movement)
                 )
-        ).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("FIFO_COST_LAYERS_INSUFFICIENT");
+        ).isInstanceOfSatisfying(
+                        kg.chairx.inventory.cost.InventoryCostException.class,
+                        e -> assertThat(e.getCode())
+                                .isEqualTo("FIFO_COST_LAYERS_INSUFFICIENT")
+                );
 
         assertThat(jdbc.queryForObject("""
             SELECT SUM(quantity_remaining)

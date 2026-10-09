@@ -898,7 +898,7 @@ class RefundApiTests {
 
         jdbc.execute("""
                 truncate table
-                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,
+                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, exchange_settlements, exchanges, refunds,
                     return_items,
                     returns,
                     payments,

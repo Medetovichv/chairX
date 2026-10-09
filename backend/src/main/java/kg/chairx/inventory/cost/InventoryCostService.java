@@ -3,7 +3,6 @@ package kg.chairx.inventory.cost;
 import java.math.BigDecimal;
 import java.util.UUID;
 import kg.chairx.inventory.domain.StockMovement;
-import kg.chairx.inventory.domain.StockMovementType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +28,18 @@ public class InventoryCostService {
             );
         }
 
+        return consume(movement, null);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BigDecimal consumeWriteOff(StockMovement movement, UUID receiptItemId) {
+        if (movement.type() != StockMovementType.WRITE_OFF) {
+            throw new IllegalArgumentException("Expected WRITE_OFF");
+        }
+        return consume(movement, receiptItemId);
+    }
+
+    private BigDecimal consume(StockMovement movement, UUID receiptItemId) {
         long remainingQuantity = movement.quantity();
 
         if (remainingQuantity <= 0) {
@@ -42,10 +53,9 @@ public class InventoryCostService {
                     "FIFO_ALREADY_ALLOCATED: " + movement.id()
             );
         }
-        var layers = repository.lockAvailableLayers(
-                movement.warehouseId(),
-                movement.productVariantId()
-        );
+        var layers = receiptItemId == null
+                ? repository.lockAvailableLayers(movement.warehouseId(), movement.productVariantId())
+                : repository.lockReceiptLayer(movement.warehouseId(), movement.productVariantId(), receiptItemId);
 
         long availableQuantity = 0;
 
@@ -57,7 +67,7 @@ public class InventoryCostService {
         }
 
         if (availableQuantity < movement.quantity()) {
-            throw new IllegalStateException(
+            throw new InventoryCostException("FIFO_COST_LAYERS_INSUFFICIENT",
                     "FIFO_COST_LAYERS_INSUFFICIENT: required="
                             + movement.quantity()
                             + ", available="
@@ -111,7 +121,7 @@ public class InventoryCostService {
         }
 
         if (remainingQuantity != 0) {
-            throw new IllegalStateException(
+            throw new InventoryCostException("FIFO_COST_LAYERS_INSUFFICIENT",
                     "FIFO_COST_LAYERS_INSUFFICIENT: missing "
                             + remainingQuantity
                             + " units for warehouse "
@@ -184,7 +194,7 @@ public class InventoryCostService {
             );
         }
 
-        if (totalCost == null || totalCost.signum() < 0) {
+        if (totalCost == null || totalCost.signum() < 0 || totalCost.scale() > 2) {
             throw new IllegalArgumentException(
                     "Purchase receipt cost must be non-negative"
             );

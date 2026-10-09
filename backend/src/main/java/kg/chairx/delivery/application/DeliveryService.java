@@ -10,6 +10,7 @@ import kg.chairx.delivery.domain.Delivery;
 import kg.chairx.delivery.domain.DeliveryStatus;
 import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
 import kg.chairx.sale.application.SaleService;
@@ -39,19 +40,22 @@ public class DeliveryService {
     private final WarehouseService warehouses;
     private final InventoryService inventory;
     private final AuditService audit;
+    private final InventoryCostPostingService costPosting;
 
     public DeliveryService(
             DeliveryRepository repository,
             SaleService sales,
             WarehouseService warehouses,
             InventoryService inventory,
-            AuditService audit
+            AuditService audit,
+            InventoryCostPostingService costPosting
     ) {
         this.repository = repository;
         this.sales = sales;
         this.warehouses = warehouses;
         this.inventory = inventory;
         this.audit = audit;
+        this.costPosting = costPosting;
     }
 
     @Transactional
@@ -396,9 +400,7 @@ public class DeliveryService {
             );
         }
 
-        SaleResponse sale = sales.get(
-                delivery.saleId()
-        );
+        SaleResponse sale = sales.lockForInventoryReturn(delivery.saleId());
 
         if (sale.status() != SaleStatus.FULFILLED) {
             throw rule(
@@ -417,12 +419,12 @@ public class DeliveryService {
                 .stream()
                 .sorted(
                         Comparator.comparing(
-                                item -> item.id().toString()
+                                item -> item.productVariantId().toString()
                         )
                 )
                 .toList()) {
 
-            inventory.recordMovement(
+            costPosting.postReturn(
                     new RecordStockMovement(
                             returnOperationId(
                                     delivery.id(),
@@ -435,7 +437,7 @@ public class DeliveryService {
                             "DELIVERY_RETURN",
                             delivery.id(),
                             actor
-                    )
+                    ), item.id()
             );
         }
 

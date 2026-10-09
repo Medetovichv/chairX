@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import kg.chairx.audit.AuditService;
 import kg.chairx.inventory.api.ChangeBlockedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
+import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
 import kg.chairx.returning.api.CreateReturnItemRequest;
@@ -46,19 +47,22 @@ public class ReturnService {
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
+    private final InventoryCostPostingService costPosting;
 
     public ReturnService(
             ReturnRepository returnRepository,
             SaleRepository saleRepository,
             WarehouseRepository warehouseRepository,
             InventoryService inventoryService,
-            AuditService auditService
+            AuditService auditService,
+            InventoryCostPostingService costPosting
     ) {
         this.returnRepository = returnRepository;
         this.saleRepository = saleRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryService = inventoryService;
         this.auditService = auditService;
+        this.costPosting = costPosting;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -114,7 +118,8 @@ public class ReturnService {
 
         List<SaleItem> saleItems = sale.items();
 
-        for (CreateReturnItemRequest requestedItem : request.items()) {
+        for (CreateReturnItemRequest requestedItem : request.items().stream()
+                .sorted(Comparator.comparing(i -> findSaleItem(saleItems, i.saleItemId()).productVariantId().toString())).toList()) {
             SaleItem saleItem = findSaleItem(
                     saleItems,
                     requestedItem.saleItemId()
@@ -154,7 +159,8 @@ public class ReturnService {
             return requireSameRequest(concurrent, fingerprint);
         }
 
-        for (CreateReturnItemRequest requestedItem : request.items()) {
+        for (CreateReturnItemRequest requestedItem : request.items().stream()
+                .sorted(Comparator.comparing(i -> findSaleItem(saleItems, i.saleItemId()).productVariantId().toString())).toList()) {
             SaleItem saleItem = findSaleItem(
                     saleItems,
                     requestedItem.saleItemId()
@@ -173,7 +179,7 @@ public class ReturnService {
             /*
              * A physical return always increases onHand first.
              */
-            inventoryService.recordMovement(
+            costPosting.postReturn(
                     new RecordStockMovement(
                             returnItem.id(),
                             request.warehouseId(),
@@ -183,7 +189,7 @@ public class ReturnService {
                             SOURCE_TYPE,
                             returnId,
                             actor
-                    )
+                    ), saleItem.id()
             );
 
             /*

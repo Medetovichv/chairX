@@ -34,6 +34,9 @@ class DefectTests {
     DefectService defects;
 
     @Autowired
+    kg.chairx.inventory.cost.InventoryAdjustmentService adjustments;
+
+    @Autowired
     InventoryService inventory;
 
     @Autowired
@@ -112,7 +115,7 @@ class DefectTests {
 
         jdbc.execute("""
                 truncate table
-                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, defects,
+                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
                     stock_movements,
                     inventory_balances
                 """);
@@ -627,18 +630,8 @@ class DefectTests {
     }
 
     private void addStock(long quantity) {
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        warehouse,
-                        variant,
-                        ADJUSTMENT_IN,
-                        quantity,
-                        "DEFECT_TEST_SETUP",
-                        UUID.randomUUID(),
-                        "test"
-                )
-        );
+        adjustments.recordValuedAdjustmentIn(UUID.randomUUID(), warehouse, variant, quantity,
+                java.math.BigDecimal.valueOf(5000).multiply(java.math.BigDecimal.valueOf(quantity)), "test");
     }
 
     private int count(String table) {

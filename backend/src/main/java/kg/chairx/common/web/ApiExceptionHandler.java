@@ -49,6 +49,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger LOG =
             LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(kg.chairx.inventory.cost.InventoryCostException.class)
+    ResponseEntity<ApiError> inventoryCostConflict(kg.chairx.inventory.cost.InventoryCostException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(exception.getCode(), exception.getMessage()));
+    }
+
     @ExceptionHandler(CustomerNotFoundException.class)
     ResponseEntity<ApiError> customerNotFound(
             CustomerNotFoundException exception
