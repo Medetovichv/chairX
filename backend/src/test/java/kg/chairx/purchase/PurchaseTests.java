@@ -86,7 +86,7 @@ class PurchaseTests {
         assertThat(jdbc.queryForObject("select current_database()", String.class)).isEqualTo("chairx_test");
         // Testcontainer only: posted receipts and the stock journal prohibit ordinary DELETE.
         jdbc.execute("""
-        truncate inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
+        truncate inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
                  purchase_receipt_items,
                  purchase_receipts,
                  purchase_items,

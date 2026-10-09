@@ -135,6 +135,18 @@ public class InventoryCostService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public BigDecimal consumeTransfer(StockMovement movement) {
+        if (movement.type() != StockMovementType.TRANSFER_OUT) {
+            throw new IllegalArgumentException(
+                    "FIFO transfer requires TRANSFER_OUT movement"
+            );
+        }
+
+        return consume(movement, null);
+    }
+
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void recordValuedAdjustment(
             StockMovement movement,
             BigDecimal totalCost

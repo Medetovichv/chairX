@@ -569,7 +569,7 @@ class DefectOriginTests {
 
         jdbc.execute("""
                 truncate table
-                    inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
+                    inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, defects,
                     stock_movements,
                     inventory_balances,
                     purchase_receipt_items,

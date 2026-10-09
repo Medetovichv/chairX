@@ -79,7 +79,7 @@ class FifoIntegrityTests {
     void clear() {
         assertThat(jdbc.queryForObject("select current_database()",String.class)).isEqualTo("chairx_test");
         jdbc.execute("""
-                truncate inventory_cost_restorations,inventory_cost_write_offs,inventory_cost_allocations,
+                truncate inventory_transfer_cost_origins, inventory_transfers, inventory_cost_restorations,inventory_cost_write_offs,inventory_cost_allocations,
                 inventory_cost_movements,inventory_cost_layers,exchange_settlements,exchanges,refunds,
                 return_items,returns,payments,deliveries,sale_items,sales,defects,purchase_receipt_items,
                 purchase_receipts,purchase_items,purchases,stock_movements,inventory_balances
@@ -120,6 +120,99 @@ class FifoIntegrityTests {
         assertThat(jdbc.queryForObject("select min(l.received_at) >= (select max(occurred_at) from stock_movements where movement_type='SALE_OUT') from inventory_cost_layers l join stock_movements m on m.id=l.source_movement_id where m.movement_type='RETURN_IN'",Boolean.class)).isTrue();
         consistent();
     }
+    @Test
+    void saleUpdatesPhysicalStockAndFifoCostTogether() {
+        // 1. Поступило 10 кресел общей стоимостью 50 000 сом.
+        stock(home, variant, 10, "50000");
+
+        assertThat(inventory.getBalance(home, variant).onHand())
+                .isEqualTo(10);
+
+        // 2. Создаём продажу трёх кресел.
+        var created = sale(3);
+
+        // 3. Подтверждаем фактическую выдачу товара.
+        sales.fulfill(created.id());
+
+        // 4. На складе должно остаться семь кресел.
+        assertThat(inventory.getBalance(home, variant).onHand())
+                .isEqualTo(7);
+
+        // 5. FIFO должен списать себестоимость 15 000 сом.
+        BigDecimal consumedCost = jdbc.queryForObject(
+                """
+                SELECT COALESCE(SUM(allocated_cost), 0)
+                FROM inventory_cost_allocations
+                """,
+                BigDecimal.class
+        );
+
+        assertThat(consumedCost)
+                .isEqualByComparingTo("15000");
+
+        // 6. Остаточная стоимость товара — 35 000 сом.
+        BigDecimal remainingCost = jdbc.queryForObject(
+                """
+                SELECT COALESCE(SUM(remaining_cost), 0)
+                FROM inventory_cost_layers
+                """,
+                BigDecimal.class
+        );
+
+        assertThat(remainingCost)
+                .isEqualByComparingTo("35000");
+
+        // 7. Количество и себестоимость должны быть согласованы.
+        consistent();
+    }
+
+    @Test
+    void cannotCreateSaleWhenStockIsInsufficient() {
+        // На домашнем складе только одно кресло.
+        stock(home, variant, 1, "5000");
+
+        long salesBefore = count("sales");
+        long movementsBefore = count("stock_movements");
+        long auditBefore = count("audit_entries");
+
+        // Клиент пытается купить два кресла.
+        assertThatThrownBy(() -> sale(2))
+                .isInstanceOf(RuntimeException.class);
+
+        // Новая продажа не должна сохраниться.
+        assertThat(count("sales"))
+                .isEqualTo(salesBefore);
+
+        // Физический остаток не изменился.
+        var balance = inventory.getBalance(home, variant);
+
+        assertThat(balance.onHand()).isEqualTo(1);
+        assertThat(balance.reserved()).isZero();
+        assertThat(balance.available()).isEqualTo(1);
+
+        // Никаких новых движений товара.
+        assertThat(count("stock_movements"))
+                .isEqualTo(movementsBefore);
+
+        // Себестоимость сохранилась.
+        BigDecimal remainingCost = jdbc.queryForObject(
+                """
+                SELECT COALESCE(SUM(remaining_cost), 0)
+                FROM inventory_cost_layers
+                """,
+                BigDecimal.class
+        );
+
+        assertThat(remainingCost)
+                .isEqualByComparingTo("5000");
+
+        // Не должно быть лишних записей аудита.
+        assertThat(count("audit_entries"))
+                .isEqualTo(auditBefore);
+
+        consistent();
+    }
+
     @Test void fullReturnRestoresAllCostAndLastUnitCanBeSoldAgain() {
         stock(home,variant,1,"5000.01"); var sale=sale(1);sales.fulfill(sale.id());
         var request=request(sale,home,1,ReturnCondition.SELLABLE);
