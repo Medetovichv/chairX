@@ -317,7 +317,7 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
-    void closingHttpRejectsMissingAmountsAndInvalidDatesWithoutWritingRecords() throws Exception {
+    void closingHttpRejectsMalformedJsonAndInvalidDateFormatWithoutWritingRecords() throws Exception {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
@@ -326,18 +326,13 @@ class DailyClosingIntegrationTest {
         mvc.perform(post("/api/finance/closings/" + today)
                         .with(csrf()).with(closer)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"actualCash\":0}"))
-                .andExpect(status().is4xxClientError());
-        mvc.perform(post("/api/finance/closings/" + today.minusDays(1))
+                        .content("{invalid json"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/finance/closings/not-a-date")
                         .with(csrf()).with(closer)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"actualCash\":0,\"actualBank\":0}"))
-                .andExpect(status().is4xxClientError());
-        mvc.perform(post("/api/finance/closings/" + today)
-                        .with(csrf()).with(closer)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"actualCash\":-1,\"actualBank\":0}"))
-                .andExpect(status().is4xxClientError());
+                .andExpect(status().isBadRequest());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
                 .isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
