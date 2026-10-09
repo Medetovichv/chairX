@@ -125,6 +125,42 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
+    void previousDayClosingDoesNotBlockCurrentDayBalanceChanges() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        LocalDate yesterday = LocalDate.now(ZoneId.of("Asia/Bishkek")).minusDays(1);
+        jdbc.update("INSERT INTO finance_daily_closings (id, business_date, created_by) VALUES (?, ?, ?)",
+                java.util.UUID.randomUUID(), yesterday, "historical-admin");
+        BigDecimal before = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        transactions.executeWithoutResult(status ->
+                accounts.changeBalance(kg.chairx.finance.domain.FinanceAccount.CASH, BigDecimal.ONE));
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
+                .isEqualByComparingTo(before.add(BigDecimal.ONE));
+    }
+
+    @Test
+    void closingRejectsUninitializedAccountsWithoutPersistingAnyRecords() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = FALSE WHERE code='BANK'");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        assertThatThrownBy(() -> closings.close(today,
+                new DailyClosingRequest(cash, null, bank, null), "admin"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("не инициализированы");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                .isZero();
+    }
+
+    @Test
     void closingFailureOnSecondAccountRollsBackHeaderAndFirstAccount() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
