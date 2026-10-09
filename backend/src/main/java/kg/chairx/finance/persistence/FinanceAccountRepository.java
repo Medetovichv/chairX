@@ -104,6 +104,10 @@ public class FinanceAccountRepository {
                 SET balance = balance + :amount
                 WHERE code = :code
                   AND balance + :amount >= 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM finance_daily_closings
+                      WHERE business_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                  )
                 """)
                 .param("code", account.name())
                 .param("amount", amount)
