@@ -42,6 +42,7 @@ import static org.assertj.core.api.Assertions.*;
 class InventoryTransferTests {
 
     @Autowired InventoryTransferService transfers;
+    @Autowired kg.chairx.sale.application.SaleService sales;
     @Autowired InventoryAdjustmentService adjustments;
     @Autowired InventoryService inventory;
     @Autowired JdbcTemplate jdbc;
@@ -398,6 +399,66 @@ class InventoryTransferTests {
         assertThat(count("inventory_transfers")).isEqualTo(1);
         assertThat(count("stock_movements")).isEqualTo(3);
         assertThat(count("inventory_cost_allocations")).isEqualTo(1);
+    }
+
+
+    @Test
+    void concurrentSaleAndTransferCannotClaimTheSameStock() throws Exception {
+        stock(5, "500.00");
+
+        var outcomes = parallel(
+                () -> {
+                    try {
+                        sales.create(new kg.chairx.sale.api.CreateSaleRequest(
+                                UUID.randomUUID(),
+                                null,
+                                kg.chairx.sale.domain.FulfillmentType.SELF_PICKUP,
+                                List.of(new kg.chairx.sale.api.CreateSaleItemRequest(
+                                        variant, home, 4, new BigDecimal("8500")))));
+                        return "SALE";
+                    } catch (InsufficientStockException expected) {
+                        return "SALE_REJECTED";
+                    }
+                },
+                () -> {
+                    try {
+                        transfer(UUID.randomUUID(), 4);
+                        return "TRANSFER";
+                    } catch (InsufficientStockException expected) {
+                        return "TRANSFER_REJECTED";
+                    }
+                }
+        );
+
+        assertThat(outcomes).satisfiesAnyOf(
+                values -> assertThat(values).containsExactlyInAnyOrder("SALE", "TRANSFER_REJECTED"),
+                values -> assertThat(values).containsExactlyInAnyOrder("SALE_REJECTED", "TRANSFER")
+        );
+
+        var source = inventory.getBalance(home, variant);
+        var destination = inventory.getBalance(office, variant);
+        assertThat(source.available()).isEqualTo(1);
+
+        if (outcomes.contains("SALE")) {
+            assertThat(source.onHand()).isEqualTo(5);
+            assertThat(source.reserved()).isEqualTo(4);
+            assertThat(destination.onHand()).isZero();
+            assertThat(count("sales")).isEqualTo(1);
+            assertThat(count("inventory_transfers")).isZero();
+        } else {
+            assertThat(source.onHand()).isEqualTo(1);
+            assertThat(source.reserved()).isZero();
+            assertThat(destination.onHand()).isEqualTo(4);
+            assertThat(count("sales")).isZero();
+            assertThat(count("inventory_transfers")).isEqualTo(1);
+        }
+
+        assertThat(jdbc.queryForObject(
+                "SELECT coalesce(sum(remaining_cost),0) FROM inventory_cost_layers",
+                BigDecimal.class)).isEqualByComparingTo("500.00");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM inventory_balances WHERE reserved < 0 OR on_hand < reserved",
+                Long.class)).isZero();
     }
 
     boolean attemptTransfer(UUID id, long quantity) {
