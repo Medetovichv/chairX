@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import org.springframework.http.MediaType;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -47,9 +48,9 @@ class DailyClosingIntegrationTest {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
         String url = "/api/finance/closings/" + today;
         String body = "{\"actualCash\":0,\"actualBank\":0}";
-        mvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(body))
+        mvc.perform(post(url).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
-        mvc.perform(post(url).with(httpBasic("catalog", "integration-test-password"))
+        mvc.perform(post(url).with(csrf()).with(httpBasic("catalog", "integration-test-password"))
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isForbidden());
     }
