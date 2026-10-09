@@ -43,6 +43,11 @@ public class DailyClosingService {
         // Same lock order as FinanceTransferService (BANK before CASH).
         BigDecimal bank = accounts.lockBalance(FinanceAccount.BANK);
         BigDecimal cash = accounts.lockBalance(FinanceAccount.CASH);
+        // A request may wait on account locks across midnight in Bishkek.
+        // Revalidate after acquiring both locks to avoid closing yesterday's date.
+        if (!date.equals(LocalDate.now(clock.withZone(BUSINESS_ZONE)))) {
+            throw new IllegalArgumentException("Разрешено закрывать только текущий день по Бишкеку");
+        }
         if (!accounts.isOpeningBalanceInitialized(FinanceAccount.CASH)
                 || !accounts.isOpeningBalanceInitialized(FinanceAccount.BANK)) {
             throw new IllegalStateException("Финансовые счета не инициализированы");
