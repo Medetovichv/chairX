@@ -859,5 +859,15 @@ class RefundTests {
         assertThat(refundCount(sale.id())).isEqualTo(1);
     }
 
+    @Test
+    void delimiterCollisionCannotReplayDifferentRefundFields() {
+        var sale = createSale(1, "8500"); createPayment(sale.id()); UUID key = UUID.randomUUID();
+        refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
+                "A|B", "C", null, key));
+        assertThatThrownBy(() -> refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
+                "A", "B|C", null, key)))
+                .isInstanceOfSatisfying(RefundRuleViolationException.class, error -> assertThat(error.getCode()).isEqualTo("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(refundCount(sale.id())).isEqualTo(1);
+    }
 
 }

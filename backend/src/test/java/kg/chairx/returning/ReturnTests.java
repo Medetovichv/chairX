@@ -1196,4 +1196,14 @@ class ReturnTests {
         assertThat(database)
                 .isEqualTo("chairx_test");
     }
+    @Test
+    void delimiterCollisionCannotReplayDifferentReturnReasonAndComment() {
+        var sale = createFulfilledSale(item(firstVariant, home, 3, "8500"));
+        var items = List.of(returnItem(sale.items().getFirst().id(), 1, ReturnCondition.SELLABLE));
+        UUID key = UUID.randomUUID();
+        returns.create(new CreateReturnRequest(sale.id(), home, key, items, "A|B", "C"));
+        assertThatThrownBy(() -> returns.create(new CreateReturnRequest(sale.id(), home, key, items, "A", "B|C")))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class, error -> assertThat(error.getCode()).isEqualTo("IDEMPOTENCY_KEY_REUSED"));
+    }
+
 }

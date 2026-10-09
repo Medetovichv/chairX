@@ -69,7 +69,7 @@ public class RefundService {
                 .orElse(null);
 
         if (existing != null) {
-            return replayOrReject(existing, fingerprint);
+            return replayOrReject(existing, fingerprint, request);
         }
 
         payments.lockActiveBySale(request.saleId())
@@ -83,7 +83,7 @@ public class RefundService {
                 .orElse(null);
 
         if (existing != null) {
-            return replayOrReject(existing, fingerprint);
+            return replayOrReject(existing, fingerprint, request);
         }
 
         if (request.returnId() != null) {
@@ -151,7 +151,7 @@ public class RefundService {
                             "Refund idempotency conflict without existing record"
                     ));
 
-            return replayOrReject(concurrent, fingerprint);
+            return replayOrReject(concurrent, fingerprint, request);
         }
 
         finance.post(refund.method().name(), refund.amount().negate(), "CUSTOMER_REFUND", "REFUND", refund.id(), refund.refundedBy());
@@ -186,7 +186,7 @@ public class RefundService {
 
     private RefundResponse replayOrReject(
             Refund existing,
-            String fingerprint
+            String fingerprint, CreateRefundRequest request
     ) {
         String existingFingerprint = repository
                 .requestFingerprint(existing.id())
@@ -194,7 +194,15 @@ public class RefundService {
                         "Refund request fingerprint отсутствует"
                 ));
 
-        if (!existingFingerprint.equals(fingerprint)) {
+        // Compare structured fields too: delimiter-based legacy hashes can be ambiguous.
+        if (!existingFingerprint.equals(fingerprint)
+                || !existing.saleId().equals(request.saleId())
+                || !java.util.Objects.equals(existing.returnId(), request.returnId())
+                || existing.amount().compareTo(request.amount()) != 0
+                || existing.method() != request.method()
+                || !existing.reason().equals(request.reason().trim())
+                || !java.util.Objects.equals(existing.reference(), normalize(request.reference()))
+                || !java.util.Objects.equals(existing.comment(), normalize(request.comment()))) {
             throw rule(
                     "IDEMPOTENCY_KEY_REUSED",
                     "Ключ операции уже использован для другого возврата денег"
