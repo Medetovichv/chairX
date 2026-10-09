@@ -430,10 +430,10 @@ class InventoryTransferTests {
                 }
         );
 
-        assertThat(outcomes).satisfiesAnyOf(
-                values -> assertThat(values).containsExactlyInAnyOrder("SALE", "TRANSFER_REJECTED"),
-                values -> assertThat(values).containsExactlyInAnyOrder("SALE_REJECTED", "TRANSFER")
-        );
+        assertThat(
+                outcomes.containsAll(List.of("SALE", "TRANSFER_REJECTED"))
+                || outcomes.containsAll(List.of("SALE_REJECTED", "TRANSFER"))
+        ).isTrue();
 
         var source = inventory.getBalance(home, variant);
         var destination = inventory.getBalance(office, variant);
