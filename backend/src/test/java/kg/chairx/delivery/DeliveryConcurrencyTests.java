@@ -51,6 +51,9 @@ class DeliveryConcurrencyTests {
     InventoryService inventory;
 
     @Autowired
+    kg.chairx.inventory.cost.InventoryAdjustmentService adjustments;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     UUID home;
@@ -123,17 +126,9 @@ class DeliveryConcurrencyTests {
                 customer
         );
 
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        home,
-                        variant,
-                        ADJUSTMENT_IN,
-                        20,
-                        "DELIVERY_CONCURRENCY_FIXTURE",
-                        UUID.randomUUID(),
-                        "delivery-concurrency-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(), home, variant, 20,
+                new BigDecimal("100000.00"), "delivery-concurrency-test"
         );
     }
 
@@ -337,6 +332,67 @@ class DeliveryConcurrencyTests {
             assertThat(saleOutCount())
                     .isZero();
         }
+    }
+
+
+    @Test
+    void concurrentFailedDeliveryReturnsStockOnlyOnce() throws Exception {
+        var sale = sales.create(new CreateSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.CITY_DELIVERY,
+                List.of(new CreateSaleItemRequest(
+                        variant, home, 2, new BigDecimal("8500")))));
+        var delivery = deliveries.create(new CreateDeliveryRequest(
+                sale.id(), "Иван Иванов", "+996555111222",
+                "Бишкек, ул. Тестовая 10", "Бишкек",
+                new BigDecimal("300"), "ChairX Courier", null, "Return race"));
+        deliveries.dispatch(delivery.id());
+        deliveries.markFailed(delivery.id(),
+                new kg.chairx.delivery.api.FailDeliveryRequest("Клиент отказался"));
+
+        var request = new kg.chairx.delivery.api.ReturnDeliveryToWarehouseRequest(home);
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            Callable<kg.chairx.delivery.api.DeliveryResponse> task = () -> {
+                SecurityContextHolder.getContext().setAuthentication(
+                        UsernamePasswordAuthenticationToken.authenticated(
+                                "concurrent-delivery-test-user", null, List.of()));
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Return race did not start");
+                    }
+                    return deliveries.returnToWarehouse(delivery.id(), request);
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            };
+
+            Future<kg.chairx.delivery.api.DeliveryResponse> first = executor.submit(task);
+            Future<kg.chairx.delivery.api.DeliveryResponse> second = executor.submit(task);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            var a = first.get(20, TimeUnit.SECONDS);
+            var b = second.get(20, TimeUnit.SECONDS);
+            assertThat(a.returnedToWarehouseAt()).isNotNull();
+            assertThat(b.returnedToWarehouseAt()).isEqualTo(a.returnedToWarehouseAt());
+            assertThat(a.returnWarehouseId()).isEqualTo(home);
+            assertThat(b.returnWarehouseId()).isEqualTo(home);
+        }
+
+        var balance = inventory.getBalance(home, variant);
+        assertThat(balance.onHand()).isEqualTo(20);
+        assertThat(balance.reserved()).isZero();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from stock_movements where movement_type='RETURN_IN'",
+                Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from inventory_cost_restorations",
+                Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from audit_entries where entity_type='DELIVERY' and action='RETURNED_TO_WAREHOUSE'",
+                Long.class)).isEqualTo(1);
     }
 
     private Object get(Future<Object> future)

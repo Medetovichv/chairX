@@ -1046,6 +1046,64 @@ class SaleTests {
         }
     }
 
+
+    @Test
+    void concurrentDifferentSalesCannotReserveTheLastUnitTwice() throws Exception {
+        // The fixture starts with 20 units. Reserve 19 before the race.
+        sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 19, "8500")));
+
+        var ready = new CountDownLatch(2);
+        var start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Object> task = () -> {
+                SecurityContextHolder.getContext().setAuthentication(
+                        UsernamePasswordAuthenticationToken.authenticated(
+                                "last-unit-test-user", null, List.of()));
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("Concurrent sale start timed out");
+                    }
+                    try {
+                        return sales.create(request(UUID.randomUUID(), customer,
+                                item(firstVariant, home, 1, "8500")));
+                    } catch (InsufficientStockException expected) {
+                        return expected;
+                    }
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            };
+
+            Future<Object> first = executor.submit(task);
+            Future<Object> second = executor.submit(task);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            Object a = first.get(15, TimeUnit.SECONDS);
+            Object b = second.get(15, TimeUnit.SECONDS);
+            assertThat(List.of(a, b).stream()
+                    .filter(kg.chairx.sale.api.SaleResponse.class::isInstance).count())
+                    .isEqualTo(1);
+            assertThat(List.of(a, b).stream()
+                    .filter(InsufficientStockException.class::isInstance).count())
+                    .isEqualTo(1);
+        }
+
+        assertThat(count("sales")).isEqualTo(2);
+        assertThat(count("sale_items")).isEqualTo(2);
+        var balance = inventory.getBalance(home, firstVariant);
+        assertThat(balance.onHand()).isEqualTo(20);
+        assertThat(balance.reserved()).isEqualTo(20);
+        assertThat(balance.available()).isZero();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from stock_movements where movement_type='SALE_OUT'",
+                Long.class)).isZero();
+        assertThat(saleAuditCount()).isEqualTo(2);
+    }
+
     private CreateSaleRequest request(
             UUID idempotencyKey,
             UUID customerId,

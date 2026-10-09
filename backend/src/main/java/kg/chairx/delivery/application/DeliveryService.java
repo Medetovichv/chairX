@@ -13,7 +13,7 @@ import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
-import kg.chairx.sale.application.SaleService;
+import kg.chairx.sale.api.DeliverySaleOperations;
 import kg.chairx.sale.api.SaleResponse;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.SaleStatus;
@@ -36,7 +36,7 @@ import java.util.UUID;
 public class DeliveryService {
 
     private final DeliveryRepository repository;
-    private final SaleService sales;
+    private final DeliverySaleOperations sales;
     private final WarehouseService warehouses;
     private final InventoryService inventory;
     private final AuditService audit;
@@ -44,7 +44,7 @@ public class DeliveryService {
 
     public DeliveryService(
             DeliveryRepository repository,
-            SaleService sales,
+            DeliverySaleOperations sales,
             WarehouseService warehouses,
             InventoryService inventory,
             AuditService audit,
