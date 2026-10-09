@@ -1,6 +1,7 @@
 package kg.chairx.security;
 
 import kg.chairx.security.application.AdminBootstrapService;
+import kg.chairx.security.application.AdminBootstrapRunner;
 import kg.chairx.security.persistence.SecurityUserRoleRepository;
 
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,11 @@ class AdminBootstrapRollbackIntegrationTest {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    // Runner must not execute bootstrap while its dependency is mocked.
+    // This test invokes AdminBootstrapService.initialize() explicitly.
+    @MockitoBean
+    AdminBootstrapRunner bootstrapRunner;
 
     @MockitoBean
     SecurityUserRoleRepository userRoles;
