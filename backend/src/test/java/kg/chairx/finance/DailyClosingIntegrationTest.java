@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.*;
 @AutoConfigureMockMvc
 class DailyClosingIntegrationTest {
     @Autowired DailyClosingService closings;
+    @Autowired kg.chairx.finance.application.FinanceTransferService transferService;
     @Autowired JdbcTemplate jdbc;
     @Autowired MockMvc mvc;
     @Autowired org.springframework.transaction.support.TransactionTemplate transactions;
@@ -42,6 +43,40 @@ class DailyClosingIntegrationTest {
     void cleanupClosing() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
+    }
+
+    @Test
+    void transferAfterClosingRollsBackWithoutMovementsOrBalanceChanges() {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        closings.close(today, new DailyClosingRequest(cash, null, bank, null), "admin");
+
+        java.util.UUID transferId = java.util.UUID.randomUUID();
+        assertThatThrownBy(() -> transferService.transfer(transferId,
+                kg.chairx.finance.domain.FinanceAccount.CASH,
+                kg.chairx.finance.domain.FinanceAccount.BANK,
+                BigDecimal.ONE, "admin"))
+                .isInstanceOf(org.springframework.dao.InvalidDataAccessApiUsageException.class)
+                .hasMessageContaining("Финансовый день уже закрыт");
+
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
+                .isEqualByComparingTo(cash);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo(bank);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_transfers WHERE id = ?", Integer.class, transferId))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE reference_id = ?", Integer.class, transferId))
+                .isZero();
     }
 
     @Test
