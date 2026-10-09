@@ -62,6 +62,69 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
+    void concurrentTransferAndClosingSerializeWithoutPartialMoneyMovement() throws Exception {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized = TRUE");
+        jdbc.update("UPDATE finance_accounts SET balance = 100 WHERE code = 'CASH'");
+        jdbc.update("UPDATE finance_accounts SET balance = 0 WHERE code = 'BANK'");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var request = new DailyClosingRequest(
+                new BigDecimal("100"), "Concurrent reconciliation",
+                BigDecimal.ZERO, "Concurrent reconciliation");
+        java.util.UUID transferId = java.util.UUID.randomUUID();
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Boolean> transfer = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start timeout");
+                try {
+                    transferService.transfer(transferId,
+                            kg.chairx.finance.domain.FinanceAccount.CASH,
+                            kg.chairx.finance.domain.FinanceAccount.BANK,
+                            BigDecimal.ONE, "admin");
+                    return true;
+                } catch (org.springframework.dao.InvalidDataAccessApiUsageException closed) {
+                    if (!closed.getMessage().contains("Финансовый день уже закрыт")) throw closed;
+                    return false;
+                }
+            });
+            Future<?> closing = executor.submit(() -> {
+                ready.countDown();
+                if (!start.await(10, TimeUnit.SECONDS)) throw new IllegalStateException("Start timeout");
+                closings.close(today, request, "admin");
+                return null;
+            });
+            assertThat(ready.await(10, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            boolean moved = transfer.get(20, TimeUnit.SECONDS);
+            closing.get(20, TimeUnit.SECONDS);
+            BigDecimal cash = jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+            BigDecimal bank = jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+            assertThat(cash.add(bank)).isEqualByComparingTo("100");
+            assertThat(cash).isEqualByComparingTo(moved ? "99" : "100");
+            assertThat(bank).isEqualByComparingTo(moved ? "1" : "0");
+            assertThat(jdbc.queryForObject(
+                    "SELECT count(*) FROM finance_transfers WHERE id = ?", Integer.class, transferId))
+                    .isEqualTo(moved ? 1 : 0);
+            assertThat(jdbc.queryForObject(
+                    "SELECT count(*) FROM finance_movements WHERE source_type='TRANSFER' AND source_id = ?",
+                    Integer.class, transferId)).isEqualTo(moved ? 2 : 0);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                    .isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                    .isEqualTo(2);
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
     void closingFailureOnSecondAccountRollsBackHeaderAndFirstAccount() {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
