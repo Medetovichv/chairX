@@ -66,7 +66,7 @@ class DailyClosingIntegrationTest {
                 .isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
                 .isEqualTo(2);
-        assertThat(closings.findByDate(today).actor()).isEqualTo("finance-manager");
+        assertThat(closings.findByDate(today).createdBy()).isEqualTo("finance-manager");
     }
 
     @Test
