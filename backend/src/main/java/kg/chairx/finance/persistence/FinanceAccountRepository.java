@@ -102,7 +102,7 @@ public class FinanceAccountRepository {
         boolean closed = Boolean.TRUE.equals(jdbc.sql("""
                 SELECT EXISTS (
                     SELECT 1 FROM finance_daily_closings
-                    WHERE business_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                    WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
                 )
                 """).query(Boolean.class).single());
         if (closed) {
@@ -124,7 +124,7 @@ public class FinanceAccountRepository {
                   AND balance + :amount >= 0
                   AND NOT EXISTS (
                       SELECT 1 FROM finance_daily_closings
-                      WHERE business_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                      WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
                   )
                 """)
                 .param("code", account.name())
@@ -135,7 +135,7 @@ public class FinanceAccountRepository {
             boolean closed = Boolean.TRUE.equals(jdbc.sql("""
                     SELECT EXISTS (
                         SELECT 1 FROM finance_daily_closings
-                        WHERE business_date = (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                        WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
                     )
                     """).query(Boolean.class).single());
             if (closed) {
