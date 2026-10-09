@@ -44,7 +44,7 @@ import java.util.UUID;
 @Service
 @Validated
 @Transactional(readOnly = true)
-public class SaleService {
+public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     private static final ZoneId BUSINESS_ZONE =
             ZoneId.of("Asia/Bishkek");
