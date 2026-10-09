@@ -76,7 +76,7 @@ class DailyClosingIntegrationTest {
                 "SELECT count(*) FROM finance_transfers WHERE id = ?", Integer.class, transferId))
                 .isZero();
         assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM finance_movements WHERE reference_id = ?", Integer.class, transferId))
+                "SELECT count(*) FROM finance_movements WHERE source_type = 'TRANSFER' AND source_id = ?", Integer.class, transferId))
                 .isZero();
     }
 
