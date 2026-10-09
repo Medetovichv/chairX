@@ -317,6 +317,34 @@ class DailyClosingIntegrationTest {
     }
 
     @Test
+    void closingHttpRejectsMissingAmountsAndInvalidDatesWithoutWritingRecords() throws Exception {
+        jdbc.update("DELETE FROM finance_daily_closing_accounts");
+        jdbc.update("DELETE FROM finance_daily_closings");
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var closer = user("finance-manager").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"));
+        mvc.perform(post("/api/finance/closings/" + today)
+                        .with(csrf()).with(closer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actualCash\":0}"))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(post("/api/finance/closings/" + today.minusDays(1))
+                        .with(csrf()).with(closer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actualCash\":0,\"actualBank\":0}"))
+                .andExpect(status().is4xxClientError());
+        mvc.perform(post("/api/finance/closings/" + today)
+                        .with(csrf()).with(closer)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"actualCash\":-1,\"actualBank\":0}"))
+                .andExpect(status().is4xxClientError());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closings", Integer.class))
+                .isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_daily_closing_accounts", Integer.class))
+                .isZero();
+    }
+
+    @Test
     void closingPostRequiresAuthenticationAndFinanceClosePermission() throws Exception {
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
         String url = "/api/finance/closings/" + today;
