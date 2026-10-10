@@ -84,7 +84,7 @@ The user reported that an earlier version of P21 passed `mvn clean verify`; **th
 
 Mandatory follow-up before acceptance:
 1. Perform `cd backend && mvn clean verify` under Java 25 and Docker-enabled Testcontainers.
-2. Exercise Flyway V41–V45 on a clean and existing database snapshot; check migrations and financial balances, especially previously backdated expenses.
+2. Exercise Flyway V41–V46 on a clean and existing database snapshot; check migrations and financial balances, especially previously backdated expenses.
 3. Run and expand the new integration tests for late expense reconciliation (full/partial shortages), idempotency replay/conflicts, rollback on insufficient funds, and audited recalculation of later-closed days.
 4. Run the new concurrent identical-expense and simultaneous-report-edit tests, and add coordinated late-expense-versus-closing and expiry-during-write transaction tests.
 5. Run the full purchase/inventory/FIFO/sales/delivery/return/refund/closing end-to-end business scenario, with DB assertions.
@@ -92,6 +92,14 @@ Mandatory follow-up before acceptance:
 
 Until those gates pass, this is **work in progress**, not Package 21 acceptance. No merge to `main` should take place.
 
+
+### P21 regression fixes after 616-test run (2026-10-10)
+
+The user ran `mvn clean verify`: **616 tests, 17 failures, no test execution errors**. Most new report-access HTTP tests returned 500 instead of 200/403. A likely root cause is binding Java `Instant` directly as a PostgreSQL JDBC parameter for TIMESTAMPTZ in `DailyClosingAccessService`. These parameter binds now use UTC `OffsetDateTime` for queries, grant insertion and revocation. **This diagnosis requires confirmation by rerunning tests and inspecting Surefire exception details if failures persist.**
+
+Legacy test expectations were updated for the approved P21 contract: yesterday can be edited until 13:00 Asia/Bishkek, older days require an unlock, and `ProductPersistenceTests` expects V41/V45 tables. `BusinessRbacMigrationIntegrationTests` now checks V39-to-current migrations rather than assuming only V40. V46 ensures `ADMIN` receives the full permission set, including the managerial unlock permission, while business decisions still prefer `DAILY_CLOSING_UNLOCK_ADMIN` without a five-day age cutoff. Preexisting Flyway scripts V41-V45 remain untouched (checksum-safe).
+
+Mandatory retest: run targeted `DailyClosingBoundaryIntegrationTest,DailyClosingCorrectionIntegrationTest,DailyClosingUnlockIntegrationTest,DailyClosingIntegrationTest,ProductPersistenceTests,BusinessRbacMigrationIntegrationTests,SecurityRoleRepositoryIntegrationTest` under Java 25 + PostgreSQL 17, then `mvn clean verify`. Do not report the suite as passing until actually executed.
 
 ### P21-H/P21-I new test classes
 
