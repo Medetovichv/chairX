@@ -41,6 +41,19 @@ public class FinancePostingService {
         movements.insert(UUID.randomUUID(), account, amount, type, source, sourceId, actor);
     }
 
+    /**
+     * Expense business dates cannot be changed after that period has closed.
+     * Lock the same account row used by the daily closing BEFORE inspecting
+     * the closing dates, so this check and the posting cannot race a close.
+     */
+    public void postExpense(String method, BigDecimal amount, UUID expenseId,
+                            String actor, java.time.LocalDate expenseDate) {
+        FinanceAccount account = account(method);
+        accounts.lockBalance(account);
+        accounts.rejectClosedDocumentDate(expenseDate);
+        post(method, amount, "EXPENSE", "EXPENSE", expenseId, actor);
+    }
+
     public void reversePayment(String method, BigDecimal amount, UUID paymentId, String actor) {
         // Older documents were not posted. Never debit their amount automatically.
         if (!movements.exists("PAYMENT", paymentId, account(method))) {
