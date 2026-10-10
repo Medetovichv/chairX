@@ -179,6 +179,8 @@ public class SecurityConfig {
                         .hasAuthority("DEFECTS_WRITE_OFF")
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/history")
                         .hasAuthority("DAILY_CLOSING_AUDIT_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/sales")
+                        .hasAnyAuthority("DAILY_CLOSING_READ", "FINANCE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/access",
                                 "/api/finance/closings/*/preview")
                         .hasAnyAuthority("DAILY_CLOSING_READ", "FINANCE_READ")

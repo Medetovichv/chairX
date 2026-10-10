@@ -184,6 +184,10 @@ public class DeliveryRepository {
                 .optional();
     }
 
+    public void acquireCompletionGate() {
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+    }
+
     public void updatePlannedDate(UUID deliveryId, LocalDate plannedDate) {
         int updated = jdbc.sql("""
                 UPDATE deliveries SET planned_delivery_date = :plannedDate

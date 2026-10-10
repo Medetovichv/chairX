@@ -287,6 +287,7 @@ public class DeliveryService {
     public DeliveryResponse markDelivered(
             UUID deliveryId
     ) {
+        repository.acquireCompletionGate();
         Delivery delivery = lock(deliveryId);
 
         if (delivery.delivered()) {

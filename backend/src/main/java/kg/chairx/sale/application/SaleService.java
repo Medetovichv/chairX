@@ -323,6 +323,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     @Transactional
     public SaleResponse fulfill(UUID saleId) {
+        repository.acquireCompletionGate();
         Sale sale = lock(saleId);
 
         if (sale.fulfillmentType()

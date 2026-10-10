@@ -110,6 +110,10 @@ public class SaleRepository {
                 .param("customer",customerId,Types.OTHER).query(Long.class).single();
     }
 
+    public void acquireCompletionGate() {
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+    }
+
     public long nextSaleNumber() {
         return jdbc.sql("SELECT nextval('sale_number_seq')")
                 .query(Long.class)

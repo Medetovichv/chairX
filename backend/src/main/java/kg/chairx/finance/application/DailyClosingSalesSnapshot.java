@@ -18,13 +18,12 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  */
 public final class DailyClosingSalesSnapshot {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Bishkek");
-    private static final long COMPLETION_LOCK_ID = 772200921L;
+
     private DailyClosingSalesSnapshot() {}
 
     /** Serialize completed-sale writes and report snapshots before any domain row locks. */
     public static void acquireCompletionGate(JdbcClient jdbc) {
-        jdbc.sql("SELECT count(*) FROM pg_advisory_xact_lock(" + COMPLETION_LOCK_ID + ")")
-                .query(Long.class).single();
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
     }
 
     public record CompletedSale(UUID saleId, String saleNumber, String customerName,
