@@ -284,6 +284,10 @@ class PurchaseTests {
     void p22PurchaseOverviewShowsActualOrderedReceivedAndCargoWithoutWriteEffects() throws Exception {
         var p = confirmed();
         receiving.receive(p.id(), receipt(p,60));
+        // Prepare all writes while the test's mocked security context is active.
+        // MockMvc clears the thread-bound context after an HTTP request.
+        var awaitingCargo = purchases.create(new CreatePurchaseRequest(
+                supplier, List.of(line(otherVariant,1,"25.00")), null, null));
         int movements = count("stock_movements");
         int finance = count("finance_movements");
 
@@ -303,14 +307,9 @@ class PurchaseTests {
                 .andExpect(jsonPath("$.items[0].totalCost").value(1010))
                 .andExpect(jsonPath("$.items[0].lastReceiptAt").exists());
 
-        mvc.perform(get("/api/purchases/overview").param("status","DRAFT")
-                        .param("supplierId",supplier.toString()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
         mvc.perform(get("/api/purchases/overview").param("size","0"))
                 .andExpect(status().isBadRequest());
 
-        var awaitingCargo = purchases.create(new CreatePurchaseRequest(
-                supplier, List.of(line(otherVariant,1,"25.00")), null, null));
         mvc.perform(get("/api/purchases/overview").param("status","DRAFT")
                         .param("supplierId",supplier.toString()))
                 .andExpect(status().isOk())
