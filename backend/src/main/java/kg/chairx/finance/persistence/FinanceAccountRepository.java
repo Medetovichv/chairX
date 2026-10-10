@@ -111,6 +111,27 @@ public class FinanceAccountRepository {
         }
     }
 
+    /**
+     * Called with the affected account row already locked by FinancePostingService.
+     * Protects the accounting period, not just today's financial posting.
+     * A later closed day seals every preceding date as well.
+     */
+    public void rejectClosedDocumentDate(java.time.LocalDate documentDate) {
+        if (documentDate == null) {
+            throw new IllegalArgumentException("Дата финансового документа обязательна");
+        }
+        boolean sealed = Boolean.TRUE.equals(jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM finance_daily_closings
+                    WHERE business_date >= :documentDate
+                )
+                """).param("documentDate", documentDate).query(Boolean.class).single());
+        if (sealed) {
+            throw new kg.chairx.finance.domain.FinanceAccountOperationException(
+                    "Дата расхода относится к закрытому финансовому периоду");
+        }
+    }
+
     public void changeBalance(
             FinanceAccount account,
             BigDecimal amount
