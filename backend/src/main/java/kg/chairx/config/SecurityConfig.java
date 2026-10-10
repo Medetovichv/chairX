@@ -58,10 +58,10 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper, AppUserRepository users, SecurityRoleRepository roles) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            // F02: API authentication failures return JSON without a Basic browser prompt.
+            // Preserve F02 browser UX: API 401 is JSON without native Basic dialog.
             String requestPath = request.getRequestURI().substring(request.getContextPath().length());
             if (!requestPath.startsWith("/api/")) {
                 response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
@@ -74,10 +74,7 @@ public class SecurityConfig {
                         // Only known routes have grants. Unrecognized methods and
                         // new API routes are denied until explicitly reviewed.
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/csrf")
-                        .authenticated()
-                        // F02: the authenticated employee profile used by the frontend.
-                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                        .requestMatchers(HttpMethod.GET, "/api/csrf", "/api/auth/me")
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
                         .hasAnyAuthority("CATALOG_READ", "CATALOG_ACCESS")
@@ -114,6 +111,8 @@ public class SecurityConfig {
                         .hasAuthority("PURCHASE_PAYMENTS_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/purchases/*/receipts")
                         .hasAuthority("INVENTORY_RECEIVE")
+                        .requestMatchers(HttpMethod.GET, "/api/purchases/receiving", "/api/purchases/*/receiving-summary")
+                        .hasAuthority("INVENTORY_RECEIVE")
                         .requestMatchers(HttpMethod.GET, "/api/purchases/overview")
                         .hasAuthority("PURCHASE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/purchases", "/api/purchases/*", "/api/purchases/*/receipts", "/api/purchases/*/receipts/*")
@@ -142,9 +141,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/sales/drafts")
                         .hasAuthority("SALES_CREATE")
                         .requestMatchers(HttpMethod.PUT, "/api/sales/*/draft")
-                        .hasAuthority("SALES_UPDATE")
+                        .hasAuthority("SALES_DRAFT_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/confirm")
-                        .hasAuthority("SALES_UPDATE")
+                        .hasAuthority("SALES_DRAFT_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/fulfill")
                         .hasAuthority("SALES_UPDATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel")
@@ -213,17 +212,23 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/opening-balances")
                         .hasAuthority("FINANCE_INITIALIZE")
                         .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/*")
-                        .hasAuthority("USERS_READ")
+                        .access(systemAdmin(users, roles, "USERS_READ"))
                         .requestMatchers(HttpMethod.POST, "/api/admin/users")
-                        .hasAuthority("USERS_CREATE")
+                        .access(systemAdmin(users, roles, "USERS_CREATE"))
                         .requestMatchers(HttpMethod.PATCH, "/api/admin/users/*/deactivate")
-                        .hasAuthority("USERS_DEACTIVATE")
+                        .access(systemAdmin(users, roles, "USERS_DEACTIVATE"))
                         .requestMatchers(HttpMethod.GET, "/api/admin/roles")
-                        .hasAuthority("ROLES_READ")
+                        .access(systemAdmin(users, roles, "ROLES_READ"))
                         .requestMatchers(HttpMethod.POST, "/api/admin/users/*/roles")
-                        .hasAuthority("ROLES_ASSIGN")
+                        .access(systemAdmin(users, roles, "ROLES_ASSIGN"))
                         .requestMatchers(HttpMethod.DELETE, "/api/admin/users/*/roles/*")
-                        .hasAuthority("ROLES_ASSIGN")
+                        .access(systemAdmin(users, roles, "ROLES_ASSIGN"))
+.requestMatchers(HttpMethod.GET, "/api/admin/roles/*", "/api/admin/permissions", "/api/admin/audit")
+                        .access(systemAdmin(users, roles, "ROLES_READ"))
+                        .requestMatchers(HttpMethod.POST, "/api/admin/roles")
+                        .access(systemAdmin(users, roles, "ROLES_CREATE"))
+                        .requestMatchers(HttpMethod.PUT, "/api/admin/roles/*")
+                        .access(systemAdmin(users, roles, "ROLES_UPDATE"))
                         .anyRequest().denyAll()
                 )
 
@@ -247,6 +252,21 @@ public class SecurityConfig {
                 );
 
         return http.build();
+    }
+
+    private static org.springframework.security.authorization.AuthorizationManager<
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext> systemAdmin(
+            AppUserRepository users, SecurityRoleRepository roles, String permission) {
+        return (authentication, context) -> {
+            var actor = authentication.get();
+            boolean granted = actor != null && actor.isAuthenticated()
+                    && actor.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals(permission))
+                    && users.findByUsername(actor.getName())
+                            .filter(AppUserRepository.AppUserRecord::active)
+                            .map(user -> roles.isActiveSystemAdministrator(user.id()))
+                            .orElse(false);
+            return new org.springframework.security.authorization.AuthorizationDecision(granted);
+        };
     }
 
     private static void writeError(HttpServletResponse response, JsonMapper mapper,

@@ -24,6 +24,21 @@ public class SecurityRoleRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /** Only an active database employee holding the real system ADMIN role is an administrator. */
+    @Transactional(readOnly = true)
+    public boolean isActiveSystemAdministrator(UUID userId) {
+        if (userId == null) return false;
+        return jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM app_users u
+                    JOIN security_user_roles ur ON ur.user_id = u.id
+                    JOIN security_roles r ON r.id = ur.role_id
+                    WHERE u.id = :id AND u.active = TRUE
+                      AND r.code = 'ADMIN' AND r.system_role = TRUE
+                )
+                """).param("id", userId).query(Boolean.class).single();
+    }
+
     public boolean hasActiveAdministrator() {
         return countActiveAdministrators() > 0;
     }
@@ -39,7 +54,15 @@ public class SecurityRoleRepository {
                         FROM security_user_roles ur
                         JOIN security_role_permissions rp
                             ON rp.role_id = ur.role_id
+                        JOIN security_roles r ON r.id = ur.role_id
                         WHERE ur.user_id = :userId
+                          AND rp.permission_code <> 'CATALOG_ACCESS'
+                          AND ((
+                              rp.permission_code <> 'ADMIN_ACCESS'
+                              AND rp.permission_code <> 'DAILY_CLOSING_UNLOCK_ADMIN'
+                              AND LEFT(rp.permission_code,6) <> 'USERS_'
+                              AND LEFT(rp.permission_code,6) <> 'ROLES_'
+                          ) OR (r.code='ADMIN' AND r.system_role=TRUE))
                         """)
                         .param("userId", userId)
                         .query(String.class)
@@ -93,7 +116,15 @@ public class SecurityRoleRepository {
                     ON ur.user_id = u.id
                 JOIN security_role_permissions rp
                     ON rp.role_id = ur.role_id
+                JOIN security_roles r ON r.id = ur.role_id
                 WHERE u.id = :userId
+                  AND rp.permission_code <> 'CATALOG_ACCESS'
+                  AND ((
+                      rp.permission_code <> 'ADMIN_ACCESS'
+                      AND rp.permission_code <> 'DAILY_CLOSING_UNLOCK_ADMIN'
+                      AND LEFT(rp.permission_code,6) <> 'USERS_'
+                      AND LEFT(rp.permission_code,6) <> 'ROLES_'
+                  ) OR (r.code='ADMIN' AND r.system_role=TRUE))
                   AND u.active = TRUE
                   AND rp.permission_code = :permissionCode
             )

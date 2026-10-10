@@ -90,14 +90,6 @@ public class AdminUserController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/roles")
-    public List<RoleResponse> listRoles() {
-        return jdbc.sql("SELECT id, code, name FROM security_roles ORDER BY code")
-                .query((rs, row) -> new RoleResponse(
-                        rs.getObject("id", UUID.class), rs.getString("code"),
-                        rs.getString("name"))).list();
-    }
-
     @PostMapping("/users/{id}/roles")
     public ResponseEntity<Void> assignRole(@PathVariable UUID id, @RequestBody AssignRoleRequest request) {
         if (request.roleId() == null) throw new IllegalArgumentException("roleId is required");

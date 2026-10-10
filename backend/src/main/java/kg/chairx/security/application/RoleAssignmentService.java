@@ -49,7 +49,8 @@ public class RoleAssignmentService {
         roles.lockRoleAssignments();
 
         // Проверяем актуальные права инициатора.
-        if (!roles.userHasPermission(actorUserId, "ROLES_ASSIGN")) {
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "ROLES_ASSIGN")) {
             throw new AccessDeniedException(
                     "Недостаточно прав для изменения ролей"
             );
@@ -126,7 +127,8 @@ public class RoleAssignmentService {
         roles.lockRoleAssignments();
 
         // Проверяем актуальные полномочия инициатора.
-        if (!roles.userHasPermission(actorUserId, "ROLES_ASSIGN")) {
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "ROLES_ASSIGN")) {
             throw new AccessDeniedException(
                     "Недостаточно прав для назначения ролей"
             );

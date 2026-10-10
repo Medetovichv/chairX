@@ -211,3 +211,27 @@ an immutable snapshot; late completions on a closed day are diagnosed using
 closings without a snapshot return `snapshotAvailable=false`, null totals,
 and do **not** invent a historical result. Finance postings remain solely under
 existing FinancePostingService.
+
+
+## P23 endpoints — roles, permissions and receiving
+
+See [P23 role management](p23-role-management.md) for request/response examples,
+admin-only checks, optimistic locking (HTTP 409) and default grants.
+
+| Method | Endpoint | Authorization |
+|---|---|---|
+| GET | `/api/auth/me` | Authenticated active employee (F02) |
+| GET | `/api/admin/roles`, `/api/admin/roles/{id}` | Active system ADMIN + ROLES_READ |
+| POST | `/api/admin/roles` | Active system ADMIN + ROLES_CREATE; CSRF |
+| PUT | `/api/admin/roles/{id}` | Active system ADMIN + ROLES_UPDATE; CSRF |
+| GET | `/api/admin/permissions` | Active system ADMIN + ROLES_READ |
+| GET | `/api/purchases/receiving` | INVENTORY_RECEIVE |
+| GET | `/api/purchases/{id}/receiving-summary` | INVENTORY_RECEIVE |
+| PUT | `/api/sales/{id}/draft` | SALES_DRAFT_MANAGE |
+| POST | `/api/sales/{id}/confirm` | SALES_DRAFT_MANAGE; CSRF |
+
+Existing `POST /api/sales/{id}/fulfill` continues to require SALES_UPDATE.
+Role list responses retain `id`, `code` and `name`, with added
+`systemRole`, `permissions`, `assignedUsersCount` and `version`.
+
+| GET | `/api/admin/audit?targetId=<uuid>&page=0&size=20` | Active system ADMIN + ROLES_READ |
