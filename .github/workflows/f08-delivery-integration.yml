@@ -1,0 +1,51 @@
+name: F08 delivery PostgreSQL integration
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/features/deliveries/**'
+      - 'frontend/src/test/deliveries.test.tsx'
+      - 'docs/f08-deliveries.md'
+      - '.github/workflows/f08-delivery-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  delivery-integration:
+    name: Java 25 / Delivery integration / PostgreSQL 17 Testcontainers
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Verify Docker availability
+        run: docker info --format '{{.ServerVersion}}'
+
+      # These existing SpringBootTest cases use PostgresTestConfiguration,
+      # isolated PostgreSQL Testcontainers, and assert database=chairx_test.
+      # No production database is contacted.
+      - name: Delivery lifecycle, HTTP, concurrency and sale boundaries on real PostgreSQL
+        working-directory: backend
+        run: >-
+          mvn --batch-mode --no-transfer-progress clean verify
+          -Dtest=DeliveryApiTests,DeliveryTests,DeliveryConcurrencyTests,SaleDeliveryBoundaryTests
+
+      - name: Upload test diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f08-delivery-integration-reports
+          path: backend/target/surefire-reports/
+          retention-days: 14
+          if-no-files-found: ignore

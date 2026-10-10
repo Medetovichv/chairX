@@ -230,10 +230,21 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     {isDraft&&!sale.fulfillmentType&&<p className="text-sm text-amber-800">
       Для подтверждения выберите способ получения.</p>}
     {isConfirmed&&sale.fulfillmentType!=='SELF_PICKUP'&&
-      <p className="rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">
-        Для этого заказа требуется процесс доставки. Выдача и отмена через /api/sales недоступны.
-        Подробное управление доставкой будет в F08.
-      </p>}
+      <div className="space-y-2 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">
+        <p>Для этого заказа требуется процесс доставки. Выдача и отмена через /api/sales недоступны.</p>
+        {hasPermission('DELIVERIES_READ')&&
+          (matched?.deliveryStatus?
+            <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
+              Доставка уже указана — найти её в списке</Link> :
+            !matched?
+              <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
+                Сведения о существующей доставке не получены — проверить список</Link>:
+            hasPermission('DELIVERIES_MANAGE')?
+              <Link className="font-semibold text-indigo-700 underline"
+                to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
+                Оформить доставку</Link>:
+              <Link className="font-semibold text-indigo-700 underline" to="/deliveries">Все доставки</Link>)}
+      </div>}
     <section aria-label="Карточка заказа" className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm sm:grid-cols-2">
       <div><p className="text-slate-500">Статус</p><SaleStatusBadge status={sale.status}/></div>
       <div><p className="text-slate-500">Клиент</p><p className="font-semibold break-all">{customerLabel}</p></div>
