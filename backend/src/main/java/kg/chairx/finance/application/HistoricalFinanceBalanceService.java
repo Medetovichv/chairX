@@ -47,9 +47,8 @@ public class HistoricalFinanceBalanceService {
                 WHERE account_code = :account
                 """).param("account", account.name()).query(BigDecimal.class).single();
         if (accounted.compareTo(lockedCurrent) != 0) {
-            throw new FinanceConflictException(
-                    "UNRECONCILED_FINANCIAL_BALANCE: остаток не совпадает с финансовым журналом "
-                    + account.name());
+            throw new FinanceConflictException("UNRECONCILED_FINANCIAL_BALANCE",
+                    "Остаток не совпадает с финансовым журналом " + account.name());
         }
 
         // Prior-to-P21 expenses may have been entered for a different day
