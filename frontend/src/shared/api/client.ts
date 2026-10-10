@@ -1,4 +1,5 @@
 import { ApiClientError, isApiErrorBody } from './api-error';
+import { authSession } from '../../features/auth/session';
 
 export type RequestHeadersProvider = () => HeadersInit | Promise<HeadersInit>;
 export interface ApiClientConfig {
@@ -10,6 +11,8 @@ export interface ApiClientConfig {
   getAuthHeaders?: RequestHeadersProvider;
   /** Supply CSRF headers from F02 for state-changing operations. */
   getCsrfHeaders?: RequestHeadersProvider;
+  /** Authentication failure from a normal authenticated business request. */
+  onUnauthorized?: () => void;
 }
 
 export type ApiRequestOptions = Omit<RequestInit, 'method' | 'body'> & {
@@ -77,6 +80,7 @@ export class ApiClient {
     // Business errors from Spring use ApiError(code, message, details).
     // Never render unchecked response HTML or backend stack traces.
     if (!response.ok) {
+      if (response.status === 401) this.config.onUnauthorized?.();
       const decoded = await decodeJson(response);
       const domain = isApiErrorBody(decoded) ? decoded : undefined;
       throw new ApiClientError(
@@ -117,7 +121,11 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient({
-  baseUrl: import.meta.env.VITE_API_BASE_URL || '',
+  // F02 always sends auth headers and session cookies to our own origin.
+  baseUrl: '',
   credentials: 'same-origin',
+  fetchImpl: (input, init) => authSession.fetchTracked(input, init),
+  getAuthHeaders: () => authSession.authHeaders(),
+  getCsrfHeaders: () => authSession.csrfHeaders(),
+  onUnauthorized: () => authSession.clear(),
 });
-
