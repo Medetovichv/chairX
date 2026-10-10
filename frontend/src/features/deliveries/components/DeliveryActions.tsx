@@ -15,7 +15,9 @@ import {
   type DeliveryAction as Action, type DeliveryIntent as Intent,
 } from '../pending-action';
 function reached(d:DeliveryResponse, x:Intent):boolean{
-  if(x.action==='dispatch')return d.status==='IN_TRANSIT'||d.status==='DELIVERED';
+  // FAILED is reachable only after dispatch: do not strand a recovered
+  // dispatch when another operator already marked the delivery failed.
+  if(x.action==='dispatch')return ['IN_TRANSIT','DELIVERED','FAILED'].includes(d.status);
   if(x.action==='deliver')return d.status==='DELIVERED';
   if(x.action==='fail')return d.status==='FAILED'&&d.failureReason===x.reason;
   if(x.action==='cancel')return d.status==='CANCELLED';
