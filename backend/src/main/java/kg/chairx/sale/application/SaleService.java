@@ -91,6 +91,17 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         this.costPosting = costPosting;
     }
 
+    public SalePageResponse list(int page,int size,SaleStatus status,
+                                 LocalDate from,LocalDate to,String saleNumber) {
+        if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
+            throw new IllegalArgumentException("Некорректные параметры списка продаж");
+        var begin=from==null?null:from.atStartOfDay(BUSINESS_ZONE).toInstant();
+        var until=to==null?null:to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        String query=saleNumber==null||saleNumber.isBlank()?null:saleNumber.strip();
+        return new SalePageResponse(repository.listSummaries(status,begin,until,query,page,size),
+                page,size,repository.countSummaries(status,begin,until,query));
+    }
+
     @Transactional
     public SaleResponse create(
             @Valid CreateSaleRequest request
