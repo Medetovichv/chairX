@@ -147,6 +147,18 @@ function mockBackend(options:Setup={}){
      d.resolutionNote=(JSON.parse(String(init?.body)) as {resolutionNote:string}).resolutionNote;count.writeOff++;}
    return json(d);
   }
+  if(path==='/api/products'&&method==='GET')return json({
+   items:[{id:SALE,name:'Ergo Comfort',category:null,description:null,active:true,createdAt:NOW,updatedAt:NOW}],
+   page:0,size:20,totalElements:1,totalPages:1,
+  });
+  if(path==='/api/products/'+SALE+'/variants'&&method==='GET')return json({
+   items:[{id:VAR,productId:SALE,name:'Чёрный',sku:'ERGO-BLK',color:'Чёрный',
+     recommendedSalePrice:'8500.00',active:true,createdAt:NOW,updatedAt:NOW}],
+   page:0,size:20,totalElements:1,totalPages:1,
+  });
+  if(path.startsWith('/api/inventory/balances/')&&method==='GET')return json({
+   warehouseId:WH,productVariantId:VAR,onHand:10,reserved:0,blocked:0,available:10,
+  });
   if(path.startsWith('/api/product-variants/')&&method==='GET')
    return json({id:VAR,name:'Чёрное кресло',sku:'BLACK',productId:SALE,
     recommendedSalePrice:'8500',active:true});
@@ -245,6 +257,23 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(calls(a,'/api/defects')).toHaveLength(0);
   expect(calls(a,'/api/inventory/transfers')).toHaveLength(0);
  });
+ it('creates full return of two separate SaleItem IDs with SELLABLE quantities',async()=>{
+  const a=mockBackend();renderAt('/returns/new?saleId='+SALE);
+  const f=await screen.findByRole('form',{name:'Создание возврата'});
+  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'3'}});
+  fireEvent.change(within(f).getByRole('textbox',{name:'Количество возврата '+ITEM2}),{target:{value:'1'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
+  fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Полный возврат кресел'}});
+  await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
+  expect(await screen.findByRole('heading',{name:'Карточка возврата'})).toBeInTheDocument();
+  const post=a.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/returns'&&(init as RequestInit).method==='POST');
+  const body=JSON.parse(String((post?.[1] as RequestInit).body)) as ReturnInput;
+  expect(body.items).toEqual([
+   {saleItemId:ITEM,quantity:3,condition:'SELLABLE'},
+   {saleItemId:ITEM2,quantity:1,condition:'SELLABLE'},
+  ]);
+  expect(a.count.returnPOST).toBe(1);
+ });
  it('rejects exceeding remaining quantity before POST',async()=>{
   const a=mockBackend({returns:[returned(2)]});renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
@@ -295,6 +324,31 @@ describe('F09 exchange and settlements boundaries',()=>{
   expect(calls(a,'/api/exchanges/'+EX+'/settlements').filter(([,init])=>(init as RequestInit)?.method==='POST')).toHaveLength(0);
   expect(calls(a,'/api/refunds')).toHaveLength(0);
  });
+ it('creates one linked exchange sale with explicit confirmation, never directly POSTs sales',async()=>{
+  access.permissions.push('CATALOG_READ');
+  const a=mockBackend({returns:[returned()]});
+  renderAt('/returns/exchanges?returnId='+RET);
+  const form=await screen.findByRole('form',{name:'Создать обмен'});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+  fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'9500'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и создать обмен'}));
+  expect(a.count.exchangePOST).toBe(0);
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(/Backend создаст новую продажу/);
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Создать обмен'}));
+  expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
+  expect(a.count.exchangePOST).toBe(1);
+  const post=a.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/exchanges'&&(init as RequestInit).method==='POST');
+  const body=JSON.parse(String((post?.[1] as RequestInit).body)) as {items:{productVariantId:string;warehouseId:string;quantity:number;unitSalePrice:string}[];returnId:string;idempotencyKey:string};
+  expect(body.returnId).toBe(RET);
+  expect(body.items).toEqual([{productVariantId:VAR,warehouseId:WH,quantity:1,unitSalePrice:'9500'}]);
+  expect(body.idempotencyKey).toMatch(/^[a-f0-9]{8}-/);
+  expect(calls(a,'/api/sales/drafts')).toHaveLength(0);
+  expect(calls(a,'/api/exchanges/'+EX+'/settlements').filter(([,init])=>(init as RequestInit)?.method==='POST')).toHaveLength(0);
+ });
  it('allows custom EXCHANGES_CREATE-only employee to access creation without reading protected data',async()=>{
   access.permissions=['EXCHANGES_CREATE'];access.roles=['AFTER_SALES_CREATE_ONLY'];
   const a=mockBackend({returns:[returned()]});renderAt('/returns/exchanges');
@@ -320,6 +374,15 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   expect(screen.getByText(/Не работает механизм наклона/)).toBeInTheDocument();
   expect(calls(a,'/api/product-variants/')).toHaveLength(0);
   expect(screen.queryByRole('button',{name:'Списать товар'})).not.toBeInTheDocument();
+ });
+ it('moves OPEN defect to WAITING_PARTS without manual stock unblocking',async()=>{
+  const a=mockBackend({defects:[defect()]});renderAt('/returns/defects/'+DEF);
+  await screen.findByRole('heading',{name:/Дефект: Открыт/});
+  await userEvent.setup().click(screen.getByRole('button',{name:'Ожидает запчасти'}));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить действие'}));
+  await waitFor(()=>expect(a.count.wait).toBe(1));
+  expect(await screen.findByRole('heading',{name:/Дефект: Ожидает запчасти/})).toBeInTheDocument();
+  expect(calls(a,'/api/inventory')).toHaveLength(0);
  });
  it('write-off needs dedicated DEFECTS_WRITE_OFF, not DEFECTS_MANAGE',async()=>{
   access.permissions=['DEFECTS_READ','DEFECTS_MANAGE'];
