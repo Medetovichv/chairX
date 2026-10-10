@@ -34,6 +34,7 @@ public class PurchaseOverviewService {
         String query = number == null || number.isBlank() ? null : "%" + number.strip() + "%";
         String filter = """
                 FROM purchases p
+                JOIN suppliers s ON s.id = p.supplier_id
                 WHERE (CAST(:status AS varchar) IS NULL OR p.status = :status)
                   AND (CAST(:supplier AS uuid) IS NULL OR p.supplier_id = :supplier)
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR p.created_at >= :fromDate)
@@ -49,7 +50,6 @@ public class PurchaseOverviewService {
                        items.goods_cost + COALESCE(p.cargo_cost,0) AS total_cost,
                        r.last_receipt_at
                 """ + filter + """
-                JOIN suppliers s ON s.id = p.supplier_id
                 LEFT JOIN LATERAL (
                    SELECT COUNT(*) AS item_count,
                           COALESCE(SUM(i.ordered_quantity),0) AS ordered_quantity,
