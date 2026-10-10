@@ -429,6 +429,11 @@ class RefundTests {
         var saleReturn = createReturn(
                 sale.id(), sale.items().getFirst().id(), 1);
 
+        // The current catalog price is deliberately different from the
+        // original sale item price; compensation must use the latter.
+        jdbc.update("update product_variants set recommended_sale_price=50000 where id=?",
+                variant);
+
         assertThatThrownBy(() -> refunds.create(
                 request(sale.id(), saleReturn.id(), "9000", RefundMethod.TRANSFER,
                         "Завышенный возврат денег", UUID.randomUUID())))
