@@ -149,6 +149,12 @@ class InventoryTransferApiTests {
     @Test
     void createsTransferAndRecordsAuthenticatedActor() throws Exception {
         UUID id = UUID.randomUUID();
+        BigDecimal cashBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bankBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        long financialPostingsBefore = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements", Long.class);
 
         mvc.perform(post("/api/inventory/transfers")
                         .with(csrf())
@@ -188,6 +194,16 @@ class InventoryTransferApiTests {
                 FROM inventory_transfer_cost_origins
                 WHERE transfer_id=?
                 """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+        // An inventory transfer preserves valuation but is not a CASH/BANK transaction.
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(cashBefore);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'",
+                BigDecimal.class)).isEqualByComparingTo(bankBefore);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements",
+                Long.class)).isEqualTo(financialPostingsBefore);
     }
 
     @Test
