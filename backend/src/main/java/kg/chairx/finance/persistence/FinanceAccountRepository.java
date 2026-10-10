@@ -79,6 +79,9 @@ public class FinanceAccountRepository {
     ) {}
 
     public void markOpeningBalanceInitialized(FinanceAccount account) {
+        // Closing and opening-balance initialization must serialize on the account row.
+        lockBalance(account);
+        rejectClosedBusinessDay();
         int updated = jdbc.sql("""
             UPDATE finance_accounts
             SET opening_balance_initialized = TRUE
@@ -95,24 +98,52 @@ public class FinanceAccountRepository {
         }
     }
 
+    private void rejectClosedBusinessDay() {
+        boolean closed = Boolean.TRUE.equals(jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM finance_daily_closings
+                    WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
+                )
+                """).query(Boolean.class).single());
+        if (closed) {
+            throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                    "Финансовый день уже закрыт: изменение остатка запрещено");
+        }
+    }
+
     public void changeBalance(
             FinanceAccount account,
             BigDecimal amount
     ) {
+        lockBalance(account);
+        rejectClosedBusinessDay();
         int updated = jdbc.sql("""
                 UPDATE finance_accounts
                 SET balance = balance + :amount
                 WHERE code = :code
                   AND balance + :amount >= 0
+                  AND NOT EXISTS (
+                      SELECT 1 FROM finance_daily_closings
+                      WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
+                  )
                 """)
                 .param("code", account.name())
                 .param("amount", amount)
                 .update();
 
         if (updated != 1) {
-            throw new IllegalStateException(
-                    "Недостаточно средств или счёт не существует"
-            );
+            boolean closed = Boolean.TRUE.equals(jdbc.sql("""
+                    SELECT EXISTS (
+                        SELECT 1 FROM finance_daily_closings
+                        WHERE business_date = (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
+                    )
+                    """).query(Boolean.class).single());
+            if (closed) {
+                throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                        "Финансовый день уже закрыт: изменение остатка запрещено");
+            }
+            throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                    "Недостаточно средств или счёт не существует");
         }
     }
 }
