@@ -1,0 +1,52 @@
+name: Local development stack smoke
+
+on:
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - '.env.example'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'docs/local-development.md'
+      - 'scripts/**'
+      - '.github/workflows/local-dev-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Generate ephemeral local credentials (never checked in)
+        shell: bash
+        run: |
+          bash scripts/init-local-env.sh
+          test -s .env
+          before=$(sha256sum .env)
+          bash scripts/init-local-env.sh
+          test "$before" = "$(sha256sum .env)"
+
+      - name: Validate Compose configuration
+        run: docker compose config --quiet
+
+      - name: Build images and start database, API, UI
+        run: docker compose up -d --build --wait --wait-timeout 240
+
+      - name: Verify healthy stack, RBAC and persistent test users
+        run: bash scripts/ci-local-smoke.sh
+
+      - name: Show diagnostics after failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs --tail=120 postgres backend frontend || true
+
+      - name: Stop without deleting PostgreSQL volume
+        if: always()
+        run: docker compose down || true

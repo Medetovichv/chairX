@@ -154,4 +154,29 @@ public class SecurityRoleRepository {
                         }
         );
     }
+    /**
+     * Resolve an already active ADMIN without relying on its login.
+     * Used by local development seeding with pre-existing databases.
+     * The caller already holds the transaction-wide role assignment lock.
+     */
+    @Transactional(readOnly = true)
+    public java.util.Optional<UUID> findFirstActiveAdministratorId() {
+        return jdbc.sql("""
+                SELECT u.id
+                FROM app_users u
+                WHERE u.active = TRUE
+                  AND EXISTS (
+                    SELECT 1
+                    FROM security_user_roles ur
+                    JOIN security_roles r ON r.id = ur.role_id
+                    WHERE ur.user_id = u.id AND r.code = 'ADMIN'
+                  )
+                ORDER BY u.username
+                LIMIT 1
+                """)
+                .query(UUID.class)
+                .optional();
+    }
+
+
 }

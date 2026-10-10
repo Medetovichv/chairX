@@ -1,25 +1,95 @@
+name: chairx
+
 services:
   postgres:
     image: postgres:17
-    container_name: chairx-postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: chairx
       POSTGRES_USER: chairx
-      POSTGRES_PASSWORD: chairx_dev_password
-
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     ports:
-      - "5432:5432"
-
+      - "127.0.0.1:5432:5432"
     volumes:
       - chairx_postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chairx -d chairx"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 15
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_URL: jdbc:postgresql://postgres:5432/chairx
+      DB_USERNAME: chairx
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      CHAIRX_CATALOG_USERNAME: catalog
+      CHAIRX_CATALOG_PASSWORD: ${CHAIRX_CATALOG_PASSWORD:?Set CHAIRX_CATALOG_PASSWORD in .env}
+      CHAIRX_BOOTSTRAP_ADMIN_USERNAME: admin
+      CHAIRX_BOOTSTRAP_ADMIN_PASSWORD: ${CHAIRX_BOOTSTRAP_ADMIN_PASSWORD:?Set CHAIRX_BOOTSTRAP_ADMIN_PASSWORD in .env}
+      CHAIRX_BOOTSTRAP_ADMIN_DISPLAY_NAME: Local Administrator
+      CHAIRX_DEV_SEED_USERS: "true"
+      CHAIRX_DEV_MANAGER_PASSWORD: ${CHAIRX_DEV_MANAGER_PASSWORD:?Set CHAIRX_DEV_MANAGER_PASSWORD in .env}
+      CHAIRX_DEV_EMPLOYEE_PASSWORD: ${CHAIRX_DEV_EMPLOYEE_PASSWORD:?Set CHAIRX_DEV_EMPLOYEE_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'curl --fail --silent --max-time 5 --user "$${CHAIRX_CATALOG_USERNAME}:$${CHAIRX_CATALOG_PASSWORD}" http://127.0.0.1:8080/api/csrf >/dev/null'
+      interval: 10s
+      timeout: 6s
+      retries: 18
+      start_period: 60s
+    develop:
+      watch:
+        - action: rebuild
+          path: ./backend/src
+        - action: rebuild
+          path: ./backend/pom.xml
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      VITE_BACKEND_TARGET: http://backend:8080
+    ports:
+      - "127.0.0.1:5173:5173"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 6s
+      retries: 15
+      start_period: 20s
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+        - action: sync
+          path: ./frontend/index.html
+          target: /app/index.html
+        - action: sync
+          path: ./frontend/vite.config.ts
+          target: /app/vite.config.ts
+        - action: rebuild
+          path: ./frontend/package.json
+        - action: rebuild
+          path: ./frontend/package-lock.json
 
 volumes:
   chairx_postgres_data:
+

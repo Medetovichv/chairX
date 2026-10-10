@@ -10,17 +10,32 @@
 
 **Проверка перед merge:** `cd backend && mvn clean verify`. Пакет не должен объединяться до полного успешного прогона и ревью матрицы доступа.
 
-## Локальный запуск
 
-Нужны Java 25, Docker и Maven (или `backend/mvnw`).
+## Локальный запуск — F01.1
 
-```sh
-docker compose up -d postgres
-cd backend
-./mvnw clean verify
-```
+Docker Compose запускает PostgreSQL 17, Spring Boot Java 25 и Vite Node.js 24 одной командой.
+Первоначально нужен Docker Desktop и Compose v2.22+.
 
-Для запуска приложения необходимо задать значения из `.env.example`, в том числе `CHAIRX_CATALOG_PASSWORD`, затем выполнить `./mvnw spring-boot:run`. Файл `.env` не загружается Spring Boot автоматически. Интеграционные тесты используют отдельный PostgreSQL 17 Testcontainers (`chairx_test`), а не рабочую БД.
+~~~sh
+bash scripts/init-local-env.sh
+~~~
+
+Скрипт один раз создаёт локальный .env с четырьмя случайными паролями (при существующем файле ничего не меняет). Затем:
+
+~~~sh
+docker compose up -d --build --wait
+~~~
+
+Откройте http://localhost:5173. Для обычных запусков используйте
+docker compose up -d; для HMR/frontend и автоматической пересборки backend —
+docker compose up --watch. Остановка: docker compose down (не добавляйте -v).
+
+При первой инициализации автоматически создаются admin/ADMIN, manager/MANAGER
+и employee/EMPLOYEE. Пароли сохраняются в БД только в виде хешей и не меняются
+при повторных запусках. Режим доступен только для локальной разработки;
+вход через UI появится в F02.
+
+Подробная инструкция: [Локальная разработка](docs/local-development.md).
 
 ## Frontend — F01
 
@@ -53,6 +68,7 @@ cd backend
 - [Разработка, тестирование, миграции и интеграционные риски](docs/development.md)
 - [Особенности пакета 19: CashFlow/сверка](docs/p19-financial-integrity.md)
 
+
 ## Состояние разработки
 
-Пакет 20 реализуется в `feat/p20-backend-mvp` на основе `fix/p19-finance-integrity`; пакет 17 существует отдельно. До сообщения `BUILD SUCCESS` в локальном `mvn clean verify` и проверки объединённых веток нельзя считать пакет готовым к merge. Production readiness дополнительно требует deployment, backup/restore, permission matrix, secrets, monitoring и проверки реальных миграций БД. Frontend в этот пакет не входит.
+Backend P15–P21 уже объединён в main. F01 находится в PR #12; F01.1 построен поверх F01 и ожидает отдельного ревью. Прохождение CI не означает готовность production deployment.
