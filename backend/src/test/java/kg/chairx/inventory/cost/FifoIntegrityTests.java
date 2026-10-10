@@ -398,6 +398,53 @@ class FifoIntegrityTests {
         assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(1);
         assertThat(restored()).isEqualByComparingTo("55");consistent();
     }
+    @Test void dispatchRacingCustomerReturnNeverRestoresUnreceivedGoods() throws Exception {
+        stock(home,variant,1,"55");
+        var sale=sale(home,variant,1,FulfillmentType.CITY_DELIVERY);
+        var delivery=deliveries.create(new CreateDeliveryRequest(
+                sale.id(),"Клиент","+996555444444","Адрес",null,BigDecimal.ZERO,null,null,null));
+        Callable<Boolean> customerReturn=()->{
+            try {returns.create(request(sale,home,1,ReturnCondition.SELLABLE));return true;}
+            catch(ReturnRuleViolationException e) {
+                assertThat(e.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED");return false;
+            }
+        };
+        Callable<Boolean> dispatch=()->{deliveries.dispatch(delivery.id());return true;};
+        assertThat(parallel(customerReturn,dispatch)).containsExactlyInAnyOrder(false,true);
+        assertThat(deliveries.get(delivery.id()).status())
+                .isEqualTo(kg.chairx.delivery.domain.DeliveryStatus.IN_TRANSIT);
+        assertThat(count("returns")).isZero();
+        assertThat(count("return_items")).isZero();
+        assertThat(inventory.getBalance(home,variant).onHand()).isZero();
+        assertThat(restored()).isZero();consistent();
+    }
+
+    @Test void deliveryCompletionRacingCustomerReturnOnlyCreditsDeliveredGoods() throws Exception {
+        stock(home,variant,1,"55");
+        var sale=sale(home,variant,1,FulfillmentType.CITY_DELIVERY);
+        var delivery=deliveries.create(new CreateDeliveryRequest(
+                sale.id(),"Клиент","+996555444444","Адрес",null,BigDecimal.ZERO,null,null,null));
+        deliveries.dispatch(delivery.id());
+        Callable<Boolean> customerReturn=()->{
+            try {returns.create(request(sale,home,1,ReturnCondition.SELLABLE));return true;}
+            catch(ReturnRuleViolationException e) {
+                assertThat(e.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED");return false;
+            }
+        };
+        Callable<Boolean> complete=()->{deliveries.markDelivered(delivery.id());return true;};
+        var results=parallel(customerReturn,complete);
+        assertThat(results).contains(true);
+        assertThat(deliveries.get(delivery.id()).status())
+                .isEqualTo(kg.chairx.delivery.domain.DeliveryStatus.DELIVERED);
+        long accepted=count("returns");
+        assertThat(accepted).isBetween(0L,1L);
+        assertThat(count("return_items")).isEqualTo(accepted);
+        assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(accepted);
+        assertThat(restored()).isEqualByComparingTo(
+                BigDecimal.valueOf(55).multiply(BigDecimal.valueOf(accepted)));
+        consistent();
+    }
+
     <T> List<T> parallel(Callable<T> left,Callable<T> right) throws Exception {
         var barrier=new CyclicBarrier(2);var executor=Executors.newFixedThreadPool(2);
         Callable<T> first=()->{authenticate();try{barrier.await(5,TimeUnit.SECONDS);return left.call();}finally{SecurityContextHolder.clearContext();}};
