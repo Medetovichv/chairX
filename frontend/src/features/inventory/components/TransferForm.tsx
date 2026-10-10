@@ -164,7 +164,7 @@ export function TransferForm({ line, warehouses, preferredWarehouseId, onClose, 
         </div>
       )}
       <ConfirmDialog open={phase === 'confirm' && problem === '' && payload !== null}
-        onOpenChange={(open) => { if (!open && phase === 'confirm') setPhase('editing'); }}
+        onOpenChange={(open) => { if (!open && phase === 'confirm' && !inFlight.current) setPhase('editing'); }}
         title={'Переместить ' + (payload?.quantity ?? '') + ' шт.'}
         description={line.model + ' / ' + line.variation +
           '. Со склада: ' + warehouseLabel(payload?.sourceWarehouseId ?? '', warehouses) +
