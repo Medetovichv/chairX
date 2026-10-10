@@ -432,13 +432,15 @@ class DailyClosingCorrectionIntegrationTest {
             jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?", id);
             jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", id);
         }
-        if (reportDate != null) {
+        Set<LocalDate> affectedDates = new HashSet<>(closingDates);
+        if (reportDate != null) affectedDates.add(reportDate);
+        for (LocalDate day : affectedDates) {
             UUID provisional = UUID.nameUUIDFromBytes(
-                    ("FINANCE_DAILY_CLOSING:" + reportDate).getBytes(StandardCharsets.UTF_8));
+                    ("FINANCE_DAILY_CLOSING:" + day).getBytes(StandardCharsets.UTF_8));
             jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?",
                     provisional);
-            jdbc.update("DELETE FROM finance_daily_closing_unlocks WHERE business_date=?", reportDate);
-            jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?", reportDate);
+            jdbc.update("DELETE FROM finance_daily_closing_unlocks WHERE business_date=?", day);
+            jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?", day);
         }
 
         // All fixture journal entries and late postings are new in this
