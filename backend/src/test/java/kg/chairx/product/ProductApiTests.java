@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "catalog-tester")
+@WithMockUser(username = "catalog-tester", authorities = {"CATALOG_READ","CATALOG_MANAGE"})
 class ProductApiTests {
     @Autowired MockMvc mvc;
     @Autowired JsonMapper mapper;
@@ -209,15 +209,15 @@ class ProductApiTests {
         mvc.perform(post("/api/products").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"X5\",\"active\":false}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-        mvc.perform(get("/api/not-found")).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+        mvc.perform(get("/api/not-found")).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
     }
 
     @Test
     void deleteIsNotExposed() throws Exception {
         String id = createProduct("X5");
-        mvc.perform(delete("/api/products/" + id).with(csrf())).andExpect(status().isMethodNotAllowed())
-                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+        mvc.perform(delete("/api/products/" + id).with(csrf())).andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
         mvc.perform(get("/api/products/" + id)).andExpect(status().isOk());
     }
 
@@ -257,7 +257,8 @@ class ProductApiTests {
 
     @Test
     void auditFailureRollsBackProductCreation() throws Exception {
-        mvc.perform(post("/api/products").with(user("a".repeat(201))).with(csrf())
+        mvc.perform(post("/api/products").with(user("a".repeat(201)).authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("CATALOG_MANAGE"))).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"X5\"}"))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DATA_CONFLICT"));
         assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isZero();
