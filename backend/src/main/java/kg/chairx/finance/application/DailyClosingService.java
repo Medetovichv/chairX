@@ -208,8 +208,9 @@ public class DailyClosingService {
      * Every step belongs to the caller's expense/posting transaction.
      */
     @Transactional
-    public DailyClosingResponse refreshExpectedAfterCorrection(LocalDate date, String actor) {
-        if (date == null || actor == null || actor.isBlank()) {
+    public DailyClosingResponse refreshExpectedAfterCorrection(LocalDate date, String actor,
+                                                               UUID sourceExpenseId) {
+        if (date == null || actor == null || actor.isBlank() || sourceExpenseId == null) {
             throw new FinanceValidationException("Дата и инициатор корректировки обязательны");
         }
         // Preserve global BANK -> CASH ordering. The correction already holds
@@ -252,7 +253,8 @@ public class DailyClosingService {
             audit.recordAs(actor, "FINANCE_DAILY_CLOSING", before.id(),
                     affectedDate.equals(date) ? "REPORT_EXPENSE_CORRECTED"
                                               : "REPORT_EXPECTED_RECALCULATED",
-                    before, after);
+                    Map.of("expenseId", sourceExpenseId.toString(), "closing", before),
+                    Map.of("expenseId", sourceExpenseId.toString(), "closing", after));
         }
         return findByDate(date);
     }
