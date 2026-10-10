@@ -335,6 +335,35 @@ class DailyClosingCorrectionIntegrationTest {
     }
 
     @Test
+    void negativeHistoricalBalanceRollsBackOtherwiseAffordableExpense() throws Exception {
+        // Money received today can finance today's expense but cannot justify
+        // a retroactive debit that makes the preceding date negative.
+        UUID transfer = UUID.randomUUID();
+        transfers.transfer(transfer, FinanceAccount.BANK, FinanceAccount.CASH,
+                amount("5000"), "p21-fixture");
+        newTransfers.add(transfer);
+        unlockAndClose(originalCash, "");
+        UUID key = UUID.randomUUID();
+        BigDecimal live = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class);
+        BigDecimal expense = originalCash.add(amount("1000"));
+        assertThat(live).isGreaterThanOrEqualTo(expense);
+
+        mvc.perform(post(url() + "/expenses").with(httpBasic(employee, "test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content(expenseJson(key, expense)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("UNRECONCILED_FINANCIAL_BALANCE"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM expenses WHERE idempotency_key=?",
+                Long.class, key)).isZero();
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(live);
+        assertThat(closingValue("CASH", "expected_balance")).isEqualByComparingTo(originalCash);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE'",
+                Long.class)).isEqualTo(0);
+    }
+
+    @Test
     void concurrentRetryCreatesExactlyOneExpenseAndJournalMovement() throws Exception {
         unlockAndClose(originalCash.subtract(amount("1000")), "Cash shortage");
         UUID key = UUID.randomUUID();
