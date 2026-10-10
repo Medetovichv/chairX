@@ -1,7 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useAuth } from '../../auth/AuthProvider';
 import { userFacingApiError } from '../../../shared/api/api-error';
-import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 import { CustomerPicker } from './CustomerPicker';
 import { SaleItemsEditor, nextKey, type SaleEditorRow } from './SaleItemsEditor';
