@@ -13,6 +13,7 @@ import kg.chairx.payment.application.PaymentRuleViolationException;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.returning.application.ReturnService;
+import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.returning.api.CreateReturnRequest;
 import kg.chairx.returning.api.CreateReturnItemRequest;
 import kg.chairx.returning.domain.ReturnCondition;
@@ -948,13 +949,21 @@ class DeliveryTests {
         deliveries.dispatch(delivery.id());
         deliveries.markDelivered(delivery.id());
 
-        var returned = returns.create(new CreateReturnRequest(
+        var request = new CreateReturnRequest(
                 sale.id(), home, UUID.randomUUID(),
                 List.of(new CreateReturnItemRequest(
                         sale.items().getFirst().id(), 1, ReturnCondition.SELLABLE)),
-                "Обычный частичный возврат", null));
+                "Обычный частичный возврат", null);
+        var returned = returns.create(request);
 
         assertThat(returned.items()).hasSize(1);
+        // Replaying an already successful Return is allowed and must not
+        // post another receipt or cost restoration.
+        long movementsBeforeReplay = stockMovementCount();
+        long restorationsBeforeReplay = count("inventory_cost_restorations");
+        assertThat(returns.create(request)).isEqualTo(returned);
+        assertThat(stockMovementCount()).isEqualTo(movementsBeforeReplay);
+        assertThat(count("inventory_cost_restorations")).isEqualTo(restorationsBeforeReplay);
         // The existing returnInCount() helper only counts DELIVERY_RETURN,
         // while regular customer returns are recorded as SALE_RETURN.
         assertThat(jdbc.queryForObject(
@@ -979,21 +988,20 @@ class DeliveryTests {
                         sale.items().getFirst().id(), 2, ReturnCondition.SELLABLE)),
                 "Неуспешная доставка", null);
 
-        // FAILED alone does not restore inventory; the separate operation
-        // is needed to confirm the actual physical warehouse receipt.
+        // FAILED alone does not restore inventory. The customer Return
+        // workflow must not pretend that the shipment is back in stock.
         assertThat(returnInCount()).isZero();
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(18);
+        assertRegularReturnRejectedWithoutSideEffects(
+                attempt, "DELIVERY_RETURN_WORKFLOW_REQUIRED");
 
         deliveries.returnToWarehouse(
                 delivery.id(), new ReturnDeliveryToWarehouseRequest(home));
         long onHand = inventory.getBalance(home, firstVariant).onHand();
-        // The original SALE_OUT has already been fully restored by the
-        // delivery receipt, so the shared FIFO budget must reject this path.
-        assertThatThrownBy(() -> returns.create(attempt))
-                .isInstanceOfSatisfying(
-                        kg.chairx.inventory.cost.InventoryCostException.class,
-                        error -> assertThat(error.getCode())
-                                .isEqualTo("RETURN_COST_QUANTITY_EXCEEDED"));
+        // The dedicated warehouse receipt has now fully restored the goods;
+        // a subsequent customer Return must still be rejected.
+        assertRegularReturnRejectedWithoutSideEffects(
+                attempt, "DELIVERY_RETURN_WORKFLOW_REQUIRED");
         assertThat(returnInCount()).isEqualTo(1);
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(onHand);
         assertThat(jdbc.queryForObject("select count(*) from returns", Long.class)).isZero();
@@ -1019,6 +1027,106 @@ class DeliveryTests {
                 "select count(*) from payments where sale_id=?", Long.class, sale.id()))
                 .isZero();
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
+    }
+
+    @Test
+    void selfPickupCanUseRegularReturnAfterFulfillment() {
+        var sale = createSale(FulfillmentType.SELF_PICKUP,
+                item(firstVariant, home, 1, "8500"));
+        sales.fulfill(sale.id());
+        var result = returns.create(regularReturn(sale.id(), sale.items().getFirst().id(), 1));
+        assertThat(result.items()).hasSize(1);
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
+    }
+
+    @Test
+    void cityDeliveryWithoutDeliveryCannotCreateCustomerReturn() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 1, "8500"));
+        assertRegularReturnRejectedWithoutSideEffects(
+                regularReturn(sale.id(), sale.items().getFirst().id(), 1),
+                "DELIVERY_NOT_COMPLETED");
+    }
+
+    @Test
+    void cityDeliveryReadyCannotCreateCustomerReturn() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 1, "8500"));
+        deliveries.create(deliveryRequest(sale.id()));
+        assertRegularReturnRejectedWithoutSideEffects(
+                regularReturn(sale.id(), sale.items().getFirst().id(), 1),
+                "DELIVERY_NOT_COMPLETED");
+    }
+
+    @Test
+    void cityDeliveryInTransitCannotCreateCustomerReturn() {
+        assertNoCustomerReturnDuringTransit(FulfillmentType.CITY_DELIVERY);
+    }
+
+    @Test
+    void regionDeliveryInTransitCannotCreateCustomerReturn() {
+        assertNoCustomerReturnDuringTransit(FulfillmentType.REGION_DELIVERY);
+    }
+
+    private void assertNoCustomerReturnDuringTransit(FulfillmentType fulfillment) {
+        var sale = createSale(fulfillment, item(firstVariant, home, 1, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+        assertThat(deliveries.get(delivery.id()).status()).isEqualTo(DeliveryStatus.IN_TRANSIT);
+        assertRegularReturnRejectedWithoutSideEffects(
+                regularReturn(sale.id(), sale.items().getFirst().id(), 1),
+                "DELIVERY_NOT_COMPLETED");
+    }
+
+    @Test
+    void twoRegularPartialReturnsAfterDeliveryRestoreCostExactly() {
+        var sale = createSale(FulfillmentType.REGION_DELIVERY,
+                item(firstVariant, home, 3, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        deliveries.markDelivered(delivery.id());
+
+        var first = returns.create(regularReturn(sale.id(), sale.items().getFirst().id(), 1));
+        assertThat(first.items()).hasSize(1);
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(18);
+        assertThat(jdbc.queryForObject(
+                "select coalesce(sum(amount), 0) from inventory_cost_restorations",
+                BigDecimal.class)).isEqualByComparingTo("5000");
+
+        var second = returns.create(regularReturn(sale.id(), sale.items().getFirst().id(), 1));
+        assertThat(second.id()).isNotEqualTo(first.id());
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(19);
+        assertThat(count("return_items")).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+                "select coalesce(sum(amount), 0) from inventory_cost_restorations",
+                BigDecimal.class)).isEqualByComparingTo("10000");
+    }
+
+    private CreateReturnRequest regularReturn(UUID saleId, UUID saleItemId, long quantity) {
+        return new CreateReturnRequest(
+                saleId, home, UUID.randomUUID(),
+                List.of(new CreateReturnItemRequest(saleItemId, quantity, ReturnCondition.SELLABLE)),
+                "Возврат клиента", null);
+    }
+
+    private void assertRegularReturnRejectedWithoutSideEffects(
+            CreateReturnRequest request, String expectedCode) {
+        long returnsBefore = count("returns");
+        long itemsBefore = count("return_items");
+        long movementsBefore = stockMovementCount();
+        long restorationsBefore = count("inventory_cost_restorations");
+        var balanceBefore = inventory.getBalance(home, firstVariant);
+
+        assertThatThrownBy(() -> returns.create(request))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(expectedCode));
+
+        assertThat(count("returns")).isEqualTo(returnsBefore);
+        assertThat(count("return_items")).isEqualTo(itemsBefore);
+        assertThat(stockMovementCount()).isEqualTo(movementsBefore);
+        assertThat(count("inventory_cost_restorations")).isEqualTo(restorationsBefore);
+        assertThat(inventory.getBalance(home, firstVariant)).isEqualTo(balanceBefore);
     }
 
     private CreateDeliveryRequest deliveryRequest(
