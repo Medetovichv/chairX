@@ -119,7 +119,15 @@ class P23PrivilegeBoundaryIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"roleId\":\""+role+"\"}"))
                 .andExpect(status().isNoContent());
-        mvc.perform(get("/api/purchases").with(httpBasic(staff.username(),PASSWORD)))
+        // F02 uses a persistent cookie for CSRF, alongside HTTP Basic.
+        // Permission revocation must apply even if the client reuses that cookie.
+        var csrfResult=mvc.perform(get("/api/csrf").with(httpBasic(staff.username(),PASSWORD)))
+                .andExpect(status().isOk()).andReturn();
+        var session=(org.springframework.mock.web.MockHttpSession)
+                csrfResult.getRequest().getSession(false);
+        assertThat(session).isNotNull();
+        mvc.perform(get("/api/purchases").session(session)
+                        .with(httpBasic(staff.username(),PASSWORD)))
                 .andExpect(status().isOk());
         mvc.perform(put("/api/admin/roles/"+role)
                         .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
@@ -130,6 +138,9 @@ class P23PrivilegeBoundaryIntegrationTests {
                                 """))
                 .andExpect(status().isOk());
         mvc.perform(get("/api/purchases").with(httpBasic(staff.username(),PASSWORD)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/purchases").session(session)
+                        .with(httpBasic(staff.username(),PASSWORD)))
                 .andExpect(status().isForbidden());
     }
 
