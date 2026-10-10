@@ -13,6 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -24,6 +27,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 @org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
@@ -31,10 +38,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
+@AutoConfigureMockMvc
 class ExpenseTests {
 
     @Autowired
     ExpenseService expenses;
+
+    @Autowired
+    MockMvc mvc;
 
     @Autowired
     JdbcTemplate jdbc;
@@ -382,6 +393,43 @@ class ExpenseTests {
         assertThat(jdbc.queryForObject(
                 "SELECT idempotency_key FROM expenses WHERE id=?",
                 (rs, row) -> rs.getObject(1), id)).isNull();
+    }
+
+
+    @Test
+    void expenseHttpRequiresKeyAndChangedPayloadReturns409() throws Exception {
+        var authenticated = user("expense-api-tester");
+        mvc.perform(post("/api/expenses").with(authenticated).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"category":"OTHER","amount":200,
+                                 "paymentMethod":"CASH","expenseDate":"2026-10-01"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        UUID key = UUID.randomUUID();
+        String first = """
+                {"idempotencyKey":"%s","category":"OTHER","amount":200,
+                 "paymentMethod":"CASH","expenseDate":"2026-10-01",
+                 "comment":"Paper"}
+                """.formatted(key);
+        String changed = first.replace("\"amount\":200", "\"amount\":300");
+
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(first))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(changed))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject(
+                "select count(*) from expenses where idempotency_key=?", Long.class, key))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from finance_movements where source_type='EXPENSE'", Long.class))
+                .isEqualTo(1);
     }
 
 }
