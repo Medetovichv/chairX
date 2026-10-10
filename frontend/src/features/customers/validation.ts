@@ -46,7 +46,10 @@ export function customerInput(values: CustomerFormValues): CustomerInput {
   ) as CustomerInput;
 }
 
-export function customerTitle(customer: Pick<Customer, 'fullName' | 'phone' | 'secondaryPhone' | 'whatsappPhone' | 'instagramUsername'>): string {
+export function customerTitle(customer: {
+  fullName: string | null; phone: string | null; whatsappPhone: string | null;
+  secondaryPhone?: string | null; instagramUsername?: string | null;
+}): string {
   return customer.fullName || customer.phone || customer.secondaryPhone ||
     customer.whatsappPhone || customer.instagramUsername || 'Клиент без имени';
 }
