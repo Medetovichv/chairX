@@ -98,34 +98,33 @@ including custom P23 roles. Backend SecurityConfig is authoritative. An
 \`INVENTORY_READ\` employee without \`CATALOG_READ\` still sees model/
 variation names in InventoryOverviewPage and can work without querying catalog.
 
-## CRITICAL BACKEND DATA-EXPOSURE FINDING (not fixed by F04)
+## Issue #20 — backend transfer cost confidentiality
 
-Tracked with implementation-ready backend specification in [Issue #20](https://github.com/Medetovichv/chairX/issues/20). The backend security defect remains **open** and must be fixed independently before exposing this workflow to ordinary employees in production.
+F04 originally identified a **P1 backend disclosure**: GET transfer list/detail
+with `INVENTORY_READ`, and POST transfer with `INVENTORY_TRANSFER`,
+previously returned internal FIFO `totalCost` in raw JSON. Hiding it in React
+never constituted a security fix.
 
-**Verified against main SecurityConfig and DTO on 2026-10-10.**
-SecurityConfig allows:
-\`GET /api/inventory/transfers\` and \`GET /api/inventory/transfers/*\`
-with \`INVENTORY_READ\` alone.
-However, \`InventoryTransferDetailsResponse\` has \`totalCost: BigDecimal\`,
-and \`InventoryTransferPageResponse\` embeds that DTO; GET /transfers
-and GET /transfers/{id} compute/return \`totalCost\` from cost allocations.
-The POST \`InventoryTransferResponse\` also includes \`totalCost\`.
-Thus a stock reader **can see internal cost through the HTTP response** even
-though F04 intentionally never displays it in tables, badges or forms.
-Concealing a column in React **does not eliminate this security issue**.
-Do not treat it as resolved by this PR.
+The isolated backend implementation on
+`fix/backend-inventory-transfer-cost-exposure` removes cost components from
+public `InventoryTransferDetailsResponse` / `InventoryTransferResponse`
+and removes the cost-allocation subquery from the history read model.
+The API now has operational transfer IDs, source/destination, variant, quantity,
+actor, time and movement IDs (as applicable), **without a cost property at all**.
+The internal transfer service still records FIFO cost, allocations and origins.
+No public transfer-cost endpoint exists; no additional finance permissions
+have been granted to stock operators.
 
-**Required minimal follow-up backend/security package before production rollout:**
-create a cost-free transfer DTO for inventory-reader APIs (list/detail);
-keep cost fields only in independently authorized finance/cost-specific
-routes (or restrict existing cost routes to an explicit financial permission
-and provide a separate cost-free inventory-reader endpoint). Review the
-POST transfer response as well: it must not reveal cost to a non-financial
-\`INVENTORY_TRANSFER\` user. Add security integration tests that read the raw
-JSON as \`INVENTORY_READ\` and \`INVENTORY_TRANSFER\` roles and assert that
-\`totalCost\` and other cost fields are entirely absent, while any authorized
-finance endpoint retains its intended behavior. No backend code is modified
-in F04.
+See [Issue #20](https://github.com/Medetovichv/chairX/issues/20) for the
+threat model, and [API transfer contract](api.md) for field lists.
+Integration tests must confirm the serialized HTTP JSON is cost-free for
+inventory-only permissions and that persisted FIFO values remain unchanged.
+**Runtime CI/local `mvn clean verify` is required before considering the
+backend fix verified and the issue resolved.**
+
+The F04 frontend regression mock intentionally includes an old-style
+`totalCost` sentinel to verify it is never displayed in the UI. The actual
+backend API after this fix does not transmit that field.
 
 ## Handling errors, tests, limitations
 The existing ApiClient handles 401 (F02 logout), 403 (permissions), 404
