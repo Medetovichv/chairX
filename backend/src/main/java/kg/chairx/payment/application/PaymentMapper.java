@@ -23,7 +23,8 @@ public final class PaymentMapper {
                 payment.paidAt(),
                 payment.cancelledBy(),
                 payment.cancelledAt(),
-                payment.cancellationReason()
+                payment.cancellationReason(),
+                payment.channel()
         );
     }
 }
