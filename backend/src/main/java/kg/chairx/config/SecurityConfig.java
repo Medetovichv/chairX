@@ -66,7 +66,10 @@ public class SecurityConfig {
             // React login page) manage their own UX, so do not send the
             // challenge for /api/* responses. The HTTP Basic authentication
             // filter and the 401 status code remain unchanged.
-            if (!request.getServletPath().startsWith("/api/")) {
+            // getServletPath() may be empty for a MockMvc/default DispatcherServlet
+            // mapping; getRequestURI() consistently includes the requested API path.
+            String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+            if (!requestPath.startsWith("/api/")) {
                 response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
             }
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
