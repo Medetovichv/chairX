@@ -36,6 +36,7 @@ import static kg.chairx.purchase.domain.PurchaseStatus.*;
 @Transactional(readOnly = true)
 public class PurchaseService {
     private final PurchaseRepository repository;
+    private final kg.chairx.purchase.persistence.PurchasePaymentRepository payments;
     private final SupplierService suppliers;
     private final ProductVariantService variants;
     private final WarehouseService warehouses;
@@ -43,8 +44,10 @@ public class PurchaseService {
     private final JsonMapper mapper;
 
     public PurchaseService(PurchaseRepository repository, SupplierService suppliers, ProductVariantService variants,
-            WarehouseService warehouses, AuditService audit, JsonMapper mapper) {
+            WarehouseService warehouses, AuditService audit, JsonMapper mapper,
+            kg.chairx.purchase.persistence.PurchasePaymentRepository payments) {
         this.repository=repository;
+        this.payments=payments;
         this.suppliers=suppliers;
         this.variants=variants;
         this.warehouses=warehouses;
@@ -99,6 +102,10 @@ public class PurchaseService {
         var purchase=lock(id);
         if (purchase.status()==CANCELLED) { return response(purchase); }
         requireStatus(purchase,DRAFT,CONFIRMED);
+        if (payments.existsByPurchase(id)) {
+            throw rule("PAID_PURCHASE_CANNOT_CANCEL",
+                    "Нельзя отменить закупку с проведёнными выплатами");
+        }
         if (repository.items(id).stream().anyMatch(item -> item.receivedQuantity()!=0)) {
             throw rule("PURCHASE_ALREADY_RECEIVED","Закупку с поступлениями нельзя отменить");
         }
@@ -114,6 +121,10 @@ public class PurchaseService {
         var purchase=lock(id);
         requireStatus(purchase,DRAFT,CONFIRMED);
         if (purchase.costsLockedAt()!=null) { throw rule("PURCHASE_COSTS_LOCKED","Себестоимость уже зафиксирована поступлением"); }
+        if (payments.total(id,PurchasePaymentKind.CARGO).compareTo(request.cargoCost())>0) {
+            throw rule("PURCHASE_CARGO_BELOW_PAID",
+                    "Стоимость карго не может быть меньше уже выплаченной суммы");
+        }
         var before=response(purchase);
         if (purchase.cargoCost()!=null && purchase.cargoCost().compareTo(request.cargoCost())==0) { return before; }
         repository.setCargo(id,request.cargoCost());
