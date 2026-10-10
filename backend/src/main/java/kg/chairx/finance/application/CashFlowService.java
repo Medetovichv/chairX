@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
@@ -28,20 +27,17 @@ public class CashFlowService {
     public CashFlowSummaryResponse summary(Instant from, Instant to) {
 
         if (from == null || to == null || !from.isBefore(to)) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Период отчёта должен быть корректным: from < to"
             );
         }
 
         if (!from.atZone(BUSINESS_ZONE).toLocalTime().equals(LocalTime.MIDNIGHT)
                 || !to.atZone(BUSINESS_ZONE).toLocalTime().equals(LocalTime.MIDNIGHT)) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Границы периода должны соответствовать полуночи по Бишкеку"
             );
         }
-
-        LocalDate fromDate = from.atZone(BUSINESS_ZONE).toLocalDate();
-        LocalDate toDate = to.atZone(BUSINESS_ZONE).toLocalDate();
 
         BigDecimal payments = repository.payments(from, to);
         BigDecimal corrections = repository.paymentCorrections(from, to);
@@ -54,19 +50,18 @@ public class CashFlowService {
                 repository.exchangeRefunds(from, to);
 
         BigDecimal expenses =
-                repository.operatingExpenses(fromDate, toDate);
+                repository.operatingExpenses(from, to);
 
         BigDecimal totalIn = payments.add(exchangePayments);
 
+        // Payment reversals are actual withdrawals, not just accounting
+        // corrections. Count them in gross outflow exactly once.
         BigDecimal totalOut = refunds
                 .add(exchangeRefunds)
-                .add(expenses);
+                .add(expenses)
+                .add(corrections);
 
-// Корректировки уменьшают итог зарегистрированных операций,
-// но не считаются реальными выплатами.
-        BigDecimal netCashFlow = totalIn
-                .subtract(totalOut)
-                .subtract(corrections);
+        BigDecimal netCashFlow = totalIn.subtract(totalOut);
 
         return new CashFlowSummaryResponse(
                 from,

@@ -55,6 +55,37 @@ public class ExpenseRepository {
         );
     }
 
+    // PostgreSQL's unique partial index serializes concurrent requests with
+    // the same key. The financial posting happens only when insertion wins.
+    public boolean tryInsert(Expense expense, UUID key, String fingerprint) {
+        return jdbc.update("""
+                INSERT INTO expenses (
+                    id, category, amount, payment_method, expense_date,
+                    comment, created_by, created_at, idempotency_key,
+                    request_fingerprint
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                expense.id(), expense.category().name(), expense.amount(),
+                expense.paymentMethod().name(), Date.valueOf(expense.expenseDate()),
+                expense.comment(), expense.createdBy(), Timestamp.from(expense.createdAt()),
+                key, fingerprint
+        ) == 1;
+    }
+
+    public Optional<Expense> findByIdempotencyKey(UUID key) {
+        return jdbc.query("""
+                SELECT * FROM expenses WHERE idempotency_key = ?
+                """, MAPPER, key).stream().findFirst();
+    }
+
+    public Optional<String> requestFingerprint(UUID expenseId) {
+        return jdbc.query("""
+                SELECT request_fingerprint FROM expenses WHERE id = ?
+                """, (rs, row) -> rs.getString(1), expenseId).stream().findFirst();
+    }
+
     public Optional<Expense> find(UUID id) {
         return jdbc.query("""
                 SELECT *

@@ -9,8 +9,12 @@ import kg.chairx.expense.domain.ExpensePaymentMethod;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record CreateExpenseRequest(
+
+        @NotNull
+        UUID idempotencyKey,
 
         @NotNull
         ExpenseCategory category,
@@ -28,4 +32,13 @@ public record CreateExpenseRequest(
         @Size(max = 1000)
         String comment
 ) {
+    // Source-level compatibility for existing Java callers. The HTTP API
+    // requires an explicit key through the record component above.
+    public CreateExpenseRequest(
+            ExpenseCategory category, BigDecimal amount,
+            ExpensePaymentMethod paymentMethod, LocalDate expenseDate,
+            String comment
+    ) {
+        this(UUID.randomUUID(), category, amount, paymentMethod, expenseDate, comment);
+    }
 }

@@ -94,6 +94,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(kg.chairx.expense.application.ExpenseConflictException.class)
+    ResponseEntity<ApiError> expenseIdempotencyConflict(
+            kg.chairx.expense.application.ExpenseConflictException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of(exception.getCode(), exception.getMessage()));
+    }
+
     @ExceptionHandler(ExpenseNotFoundException.class)
     ResponseEntity<ApiError> expenseNotFound(
             ExpenseNotFoundException exception

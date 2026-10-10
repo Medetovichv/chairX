@@ -40,13 +40,13 @@ public class FinanceTransferService {
         // 1. Проверяем входные данные
 
         if (transferId == null) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Необходимо указать ID перевода"
             );
         }
 
         if (from == null || to == null || from == to) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Некорректные счета"
             );
         }
@@ -54,7 +54,7 @@ public class FinanceTransferService {
         if (amount == null
                 || amount.signum() <= 0
                 || amount.stripTrailingZeros().scale() > 0) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Сумма должна быть положительной и целой"
             );
         }
@@ -62,7 +62,7 @@ public class FinanceTransferService {
         if (actor == null
                 || actor.isBlank()
                 || actor.length() > 200) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Некорректный сотрудник"
             );
         }
@@ -107,10 +107,9 @@ public class FinanceTransferService {
 
             if (existing.from() != from
                     || existing.to() != to
-                    || existing.amount().compareTo(amount) != 0
-                    || !existing.actor().equals(actor)) {
+                    || existing.amount().compareTo(amount) != 0) {
 
-                throw new IllegalStateException(
+                throw new FinanceConflictException(
                         "ID перевода уже используется с другими параметрами"
                 );
             }
@@ -125,7 +124,7 @@ public class FinanceTransferService {
         if (!accounts.isOpeningBalanceInitialized(from)
                 || !accounts.isOpeningBalanceInitialized(to)) {
 
-            throw new IllegalStateException(
+            throw new FinanceConflictException(
                     "Сначала необходимо инициализировать оба счёта"
             );
         }

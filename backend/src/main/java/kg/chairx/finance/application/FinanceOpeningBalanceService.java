@@ -52,13 +52,13 @@ public class FinanceOpeningBalanceService {
         BigDecimal currentBalance = accounts.lockBalance(account);
 
         if (accounts.isOpeningBalanceInitialized(account)) {
-            throw new IllegalStateException(
+            throw new FinanceConflictException(
                     "Начальный остаток уже зарегистрирован"
             );
         }
 
         if (currentBalance.signum() != 0) {
-            throw new IllegalStateException(
+            throw new FinanceConflictException(
                     "Нельзя установить начальный остаток: счёт уже содержит средства"
             );
         }

@@ -1,6 +1,7 @@
 package kg.chairx.finance;
 
 import kg.chairx.finance.application.CashFlowService;
+import kg.chairx.finance.application.FinanceValidationException;
 import kg.chairx.finance.infrastructure.CashFlowRepository;
 
 import org.junit.jupiter.api.Test;
@@ -11,7 +12,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,12 +32,6 @@ class CashFlowServiceTests {
     private static final Instant TO =
             Instant.parse("2026-10-31T18:00:00Z");
 
-    private static final LocalDate FROM_DATE =
-            LocalDate.of(2026, 10, 1);
-
-    private static final LocalDate TO_DATE =
-            LocalDate.of(2026, 11, 1);
-
     @Test
     void calculatesCashFlowIncludingExpenses() {
         when(repository.payments(FROM, TO))
@@ -54,7 +48,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(new BigDecimal("2000"));
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("30000"));
 
         var result = service.summary(FROM, TO);
@@ -76,6 +70,25 @@ class CashFlowServiceTests {
     }
 
     @Test
+    void reversalsAreIncludedInTotalOutOnlyOnce() {
+        when(repository.payments(FROM, TO)).thenReturn(new BigDecimal("20000"));
+        when(repository.paymentCorrections(FROM, TO)).thenReturn(new BigDecimal("5000"));
+        when(repository.refunds(FROM, TO)).thenReturn(new BigDecimal("3000"));
+        when(repository.exchangePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
+        when(repository.exchangeRefunds(FROM, TO)).thenReturn(BigDecimal.ZERO);
+        when(repository.operatingExpenses(FROM, TO)).thenReturn(new BigDecimal("2000"));
+
+        var result = service.summary(FROM, TO);
+        assertThat(result.payments()).isEqualByComparingTo("20000");
+        assertThat(result.paymentCorrections()).isEqualByComparingTo("5000");
+        assertThat(result.refunds()).isEqualByComparingTo("3000");
+        assertThat(result.operatingExpenses()).isEqualByComparingTo("2000");
+        assertThat(result.totalIn()).isEqualByComparingTo("20000");
+        assertThat(result.totalOut()).isEqualByComparingTo("10000");
+        assertThat(result.netCashFlow()).isEqualByComparingTo("10000");
+    }
+
+    @Test
     void negativeCashFlowIsAllowed() {
         when(repository.payments(FROM, TO))
                 .thenReturn(new BigDecimal("10000"));
@@ -91,7 +104,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
 
         var result = service.summary(FROM, TO);
@@ -116,7 +129,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
         var result = service.summary(FROM, TO);
@@ -134,10 +147,10 @@ class CashFlowServiceTests {
     @Test
     void rejectsInvalidPeriod() {
         assertThatThrownBy(() -> service.summary(TO, FROM))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(FinanceValidationException.class);
 
         assertThatThrownBy(() -> service.summary(FROM, FROM))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(FinanceValidationException.class);
     }
 
     @Test
@@ -146,6 +159,6 @@ class CashFlowServiceTests {
                 Instant.parse("2026-10-01T00:00:00Z");
 
         assertThatThrownBy(() -> service.summary(invalidFrom, TO))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(FinanceValidationException.class);
     }
 }
