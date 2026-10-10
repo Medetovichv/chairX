@@ -145,8 +145,10 @@ public class FinanceTransferService {
         accounts.changeBalance(from, amount.negate());
         accounts.changeBalance(to, amount);
 
-        // 9. Записываем списание в финансовый журнал.
-
+        // 9. Both sides of the same transfer must share one business date,
+        // even if the requests happen to cross midnight.
+        java.time.LocalDate transferDate = java.time.LocalDate.now(
+                java.time.ZoneId.of("Asia/Bishkek"));
         movements.insert(
                 UUID.randomUUID(),
                 from,
@@ -154,7 +156,9 @@ public class FinanceTransferService {
                 "TRANSFER",
                 "TRANSFER",
                 transferId,
-                actor
+                actor,
+                transferDate,
+                "POSTING_DATE"
         );
 
         // 10. Записываем зачисление в финансовый журнал.
