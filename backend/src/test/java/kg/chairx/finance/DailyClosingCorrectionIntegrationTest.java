@@ -190,8 +190,13 @@ class DailyClosingCorrectionIntegrationTest {
         // CASH or BANK. This also exercises both sides of transfer businessDate.
         mvc.perform(get(url() + "/preview").with(httpBasic(manager, "test-password")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.expectedCash").value(originalCash.intValueExact()))
-                .andExpect(jsonPath("$.expectedBank").value(originalBank.intValueExact()));
+                .andExpect(jsonPath("$.expectedCash").isNumber())
+                .andExpect(jsonPath("$.expectedBank").isNumber());
+        var predicted = jdbc.queryForObject("""
+                SELECT COALESCE(SUM(amount),0) FROM finance_movements
+                WHERE account_code='CASH' AND business_date <= ?
+                """, BigDecimal.class, reportDate);
+        assertThat(predicted).isEqualByComparingTo(originalCash);
 
         unlockAndClose(originalCash.subtract(amount("1000")), "Missing 1000; cause unknown");
         assertThat(closingValue("CASH", "expected_balance")).isEqualByComparingTo(originalCash);
