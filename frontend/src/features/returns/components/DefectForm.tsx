@@ -3,6 +3,7 @@ import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { inventoryApi,inventoryKeys } from '../../inventory/api';
 import { SaleVariantPicker } from '../../sales/components/SaleVariantPicker';
+import {supplierApi,purchaseKeys} from '../../purchases/api';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 import { ApiClientError,userFacingApiError } from '../../../shared/api/api-error';
@@ -20,6 +21,9 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
  const busy=useRef(false);
  const allowed=hasPermission('DEFECTS_MANAGE'),warehouseRead=hasPermission('INVENTORY_READ');
  const warehouses=useQuery({queryKey:inventoryKeys.warehouses,queryFn:inventoryApi.warehouses,enabled:allowed&&warehouseRead});
+ const supplierRead=hasPermission('SUPPLIERS_READ');
+ const suppliers=useQuery({queryKey:purchaseKeys.supplierAll,queryFn:supplierApi.all,
+   enabled:allowed&&supplierRead});
  async function submit(e:FormEvent){
   e.preventDefault();if(busy.current||blocked||!allowed)return;
   const data:OpenDefectInput={warehouseId,productVariantId:variantId,
@@ -71,9 +75,18 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
    <textarea aria-label="Описание брака" value={description} maxLength={4000} disabled={blocked}
     onChange={e=>setDescription(e.target.value)} className="w-full rounded-xl border p-3" rows={3}/>
   </label>
-  <label className="block space-y-1 text-sm font-semibold">UUID поставщика (необязательно)
-   <Input aria-label="UUID поставщика брака" value={supplierId} disabled={blocked} onChange={e=>setSupplierId(e.target.value)}/>
+  <label className="block space-y-1 text-sm font-semibold">Поставщик (необязательно)
+   {supplierRead?<select aria-label="Поставщик брака" value={supplierId} disabled={blocked||suppliers.isPending}
+     onChange={e=>setSupplierId(e.target.value)}
+     className="min-h-11 w-full rounded-xl border bg-white p-2">
+     <option value="">Происхождение не указано</option>
+     {suppliers.data?.filter(x=>x.active).map(x=><option key={x.id} value={x.id}>{x.name}</option>)}
+   </select>:<Input aria-label="UUID поставщика брака" value={supplierId} disabled={blocked}
+     onChange={e=>setSupplierId(e.target.value.trim())} placeholder="Реальный UUID поставщика"/>}
   </label>
+  {supplierRead&&suppliers.isError&&<p role="alert" className="text-sm text-red-700">
+    Список поставщиков не загружен. <Button type="button" variant="outline" onClick={()=>void suppliers.refetch()}>Повторить</Button>
+  </p>}
   <label className="block space-y-1 text-sm font-semibold">UUID позиции поступления (необязательно)
    <Input aria-label="UUID поступления брака" value={receiptId} disabled={blocked} onChange={e=>setReceiptId(e.target.value)}/>
   </label>
