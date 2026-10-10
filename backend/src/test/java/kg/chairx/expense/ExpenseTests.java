@@ -398,7 +398,8 @@ class ExpenseTests {
 
     @Test
     void expenseHttpRequiresKeyAndChangedPayloadReturns409() throws Exception {
-        var authenticated = user("expense-api-tester");
+        var authenticated = user("expense-api-tester").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_CREATE"));
         mvc.perform(post("/api/expenses").with(authenticated).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
