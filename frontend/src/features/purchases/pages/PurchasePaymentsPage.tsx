@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -17,7 +17,8 @@ const validId = (value:string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 export function PurchasePaymentsPage() {
   const { hasPermission } = useAuth();
   const allowed = hasPermission('PURCHASE_PAYMENTS_READ');
-  const query = new URLSearchParams(window.location.search).get('purchaseId') ?? '';
+  const [params] = useSearchParams();
+  const query = params.get('purchaseId') ?? '';
   const [input, setInput] = useState(query);
   const [purchaseId, setPurchaseId] = useState(validId(query) ? query : '');
   const summary = useQuery({ queryKey: purchaseKeys.payments(purchaseId),
@@ -25,7 +26,7 @@ export function PurchasePaymentsPage() {
   function submit(e: FormEvent) { e.preventDefault(); setPurchaseId(input.trim()); }
   if (!allowed || summary.error instanceof ApiClientError && summary.error.status===403) return <ForbiddenPage />;
   return <div className="space-y-6">
-    <PageHeader title="Оплаты закупок" description="Только чтение: выберите конкретную закупку по UUID. Глобального списка платежей в API нет." />
+    <PageHeader title="Оплаты" description="Только чтение: выберите конкретную закупку по UUID. Глобального списка платежей в API нет." />
     <PurchaseTabs />
     <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-4">
       <label className="block space-y-2 text-sm font-semibold">UUID закупки
