@@ -36,13 +36,23 @@ export interface ReceivingLine {
 export interface ReceivingSummary { purchaseId: string; status: PurchaseStatus; items: ReceivingLine[] }
 export interface ReceiptLine { purchaseItemId: string; quantity: number }
 export interface ReceiptInput { idempotencyKey: string; warehouseId: string; items: ReceiptLine[]; comment: string | null }
+export type PurchasePaymentKind = 'SUPPLIER' | 'CARGO';
+export type PaymentAccount = 'CASH' | 'BANK';
+export interface CreatePurchasePayment {
+  idempotencyKey: string;
+  paymentKind: PurchasePaymentKind;
+  account: PaymentAccount;
+  amount: string;
+  reference: string | null;
+  comment: string | null;
+}
 export interface Payment {
-  id: string; purchaseId: string; paymentKind: 'SUPPLIER' | 'CARGO';
-  account: string; amount: Money; idempotencyKey: string;
+  id: string; purchaseId: string; paymentKind: PurchasePaymentKind;
+  account: PaymentAccount; amount: Money; idempotencyKey: string;
   reference: string | null; comment: string | null; createdBy: string; createdAt: string;
 }
 export interface PaymentSummary {
-  purchaseId: string; supplierTotal: Money; cargoTotal: Money;
+  purchaseId: string; supplierTotal: Money; cargoTotal: Money | null;
   paidSupplier: Money; paidCargo: Money; remainingSupplier: Money;
-  remainingCargo: Money; payments: Payment[];
+  remainingCargo: Money | null; payments: Payment[];
 }

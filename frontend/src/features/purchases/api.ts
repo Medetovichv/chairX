@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared/api/client';
 import type { Page, Purchase, PurchaseFilters, PurchaseInput, PurchaseLine, ReceivingLine,
-  ReceivingSummary, ReceiptInput, Supplier, SupplierInput, SupplierPage, PaymentSummary } from './types';
+  ReceivingSummary, ReceiptInput, Supplier, SupplierInput, SupplierPage, PaymentSummary, Payment, CreatePurchasePayment } from './types';
 
 export const PAGE_SIZE = 20;
 const id = (value: string) => encodeURIComponent(value);
@@ -49,6 +49,8 @@ export const purchaseApi = {
   },
   payments: (purchaseId: string) =>
     apiClient.get<PaymentSummary>('/api/purchases/' + id(purchaseId) + '/payments'),
+  postPayment: (purchaseId: string, request: CreatePurchasePayment) =>
+    apiClient.post<Payment>('/api/purchases/' + id(purchaseId) + '/payments', request),
 };
 export const supplierApi = {
   page: (page: number) => apiClient.get<SupplierPage>('/api/suppliers?' +
