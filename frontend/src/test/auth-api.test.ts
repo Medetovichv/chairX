@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '../shared/api/client';
 import { authSession, makeBasicHeader, validateUser } from '../features/auth/session';
+import { ApiClientError } from '../shared/api/api-error';
 
 afterEach(() => {
   authSession.clear();
@@ -43,8 +44,21 @@ describe('F02 same-origin HTTP Basic and CSRF API', () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
     await expect(apiClient.post('/api/finance/transfers', { amount: 5 }))
+      .rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED', status: 401 });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+
+  it('never issues a mutating request when an active account has no valid CSRF header', async () => {
+    authSession.activate('Basic secret-in-memory', { headerName: 'X-CSRF-TOKEN', token: 'csrf' });
+    const csrfUnavailable = vi.spyOn(authSession, 'csrfHeaders')
+      .mockImplementation(() => { throw new ApiClientError('http', 'CSRF_REQUIRED', 403); });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(apiClient.post('/api/sales', { amount: 5 }))
       .rejects.toMatchObject({ code: 'CSRF_REQUIRED', status: 403 });
     expect(fetchMock).not.toHaveBeenCalled();
+    csrfUnavailable.mockRestore();
   });
 
   it('does not send Authorization headers after logout or clear private CSRF', async () => {
@@ -54,7 +68,7 @@ describe('F02 same-origin HTTP Basic and CSRF API', () => {
     authSession.clear();
     expect(authSession.authHeaders()).toEqual({});
     await expect(apiClient.put('/api/sales/1', { a: 1 }))
-      .rejects.toMatchObject({ code: 'CSRF_REQUIRED' });
+      .rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' });
     await expect(apiClient.get('/api/sales'))
       .rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED', status: 401 });
     expect(fetchMock).not.toHaveBeenCalled();
