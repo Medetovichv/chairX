@@ -5,10 +5,9 @@ import { inventoryApi,inventoryKeys } from '../../inventory/api';
 import { SaleVariantPicker } from '../../sales/components/SaleVariantPicker';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
-import { ErrorState } from '../../../shared/components/ErrorState';
 import { ApiClientError,userFacingApiError } from '../../../shared/api/api-error';
 import { defectsApi,returnKeys } from '../api';
-import { uuid,positive,validateDefect } from '../validation';
+import { positive,validateDefect } from '../validation';
 import type { OpenDefectInput } from '../types';
 export function DefectForm({onCreated}:{onCreated:()=>void}){
  const {hasPermission}=useAuth(),client=useQueryClient();
