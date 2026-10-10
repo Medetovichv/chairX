@@ -80,14 +80,14 @@ class CustomerTests {
     }
 
     @Test
-    void customerCanBeCreatedWithoutPhoneOrOtherOptionalContacts() {
+    void customerCanBeCreatedWithInstagramOnly() {
         var created = customers.create(
                 request(
                         "Клиент без телефона",
                         null,
                         null,
                         null,
-                        null,
+                        "chairx_unnamed",
                         null,
                         null,
                         null
@@ -100,7 +100,7 @@ class CustomerTests {
         assertThat(created.phone()).isNull();
         assertThat(created.secondaryPhone()).isNull();
         assertThat(created.whatsappPhone()).isNull();
-        assertThat(created.instagramUsername()).isNull();
+        assertThat(created.instagramUsername()).isEqualTo("chairx_unnamed");
         assertThat(created.address()).isNull();
         assertThat(created.cityRegion()).isNull();
         assertThat(created.comment()).isNull();
@@ -117,7 +117,7 @@ class CustomerTests {
                         "   ",
                         "",
                         " ",
-                        "   ",
+                        "nur_contact",
                         " ",
                         "",
                         "    "
@@ -127,7 +127,7 @@ class CustomerTests {
         assertThat(created.phone()).isNull();
         assertThat(created.secondaryPhone()).isNull();
         assertThat(created.whatsappPhone()).isNull();
-        assertThat(created.instagramUsername()).isNull();
+        assertThat(created.instagramUsername()).isEqualTo("nur_contact");
         assertThat(created.address()).isNull();
         assertThat(created.cityRegion()).isNull();
         assertThat(created.comment()).isNull();
@@ -263,7 +263,7 @@ class CustomerTests {
         var created = customers.create(
                 request(
                         "Клиент",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -439,7 +439,7 @@ class CustomerTests {
         var inactive = customers.create(
                 request(
                         "Алексей неактивный",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -454,7 +454,7 @@ class CustomerTests {
         customers.create(
                 request(
                         "Алексей активный",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -476,7 +476,7 @@ class CustomerTests {
         customers.create(
                 request(
                         "Алексей",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -489,7 +489,7 @@ class CustomerTests {
         customers.create(
                 request(
                         "Бакыт",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -502,7 +502,7 @@ class CustomerTests {
         customers.create(
                 request(
                         "Чынгыз",
-                        null,
+                        "05551111222",
                         null,
                         null,
                         null,
@@ -562,26 +562,32 @@ class CustomerTests {
     }
 
     @Test
-    void blankCustomerNameIsRejectedWithoutDatabaseChange() {
-        assertThatThrownBy(
-                () -> customers.create(
-                        request(
-                                "   ",
-                                "0555123456",
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null
-                        )
-                )
-        )
-                .isInstanceOf(
-                        CustomerRuleViolationException.class
-                );
+    void blankCustomerNameIsSavedAsNullWhenContactPresent() {
+        var created = customers.create(request("   ", "0555123456", null, null,
+                null, null, null, null));
+        assertThat(created.fullName()).isNull();
+        assertThat(customers.get(created.id()).phone()).isEqualTo("0555123456");
+    }
 
+    @Test
+    void missingNameAndContactsAreRejected() {
+        assertThatThrownBy(() -> customers.create(
+                request(null, null, null, null, null, null, null, null)))
+                .isInstanceOf(CustomerRuleViolationException.class);
         assertThat(countCustomers()).isZero();
+    }
+
+    @Test
+    void customerWithPhoneOnlyCanBeUpdatedWithoutName() {
+        var created = customers.create(request(null, "0555123456", null, null,
+                null, null, "Ош", null));
+        assertThat(created.fullName()).isNull();
+        assertThat(customers.search("123456")).hasSize(1);
+        var updated = customers.update(created.id(),
+                new UpdateCustomerRequest("", "0555987654", null, null,
+                        null, null, "Ош", null));
+        assertThat(updated.fullName()).isNull();
+        assertThat(updated.phone()).isEqualTo("0555987654");
     }
 
     @Test
