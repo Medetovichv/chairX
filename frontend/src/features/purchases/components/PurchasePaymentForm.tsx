@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { purchaseApi, purchaseKeys } from '../api';
 import { formatMoney } from '../validation';
 import { matchesCommittedPayment, paymentRemaining, preparePayment } from '../payment-validation';
+import { clearPendingPayment, readPendingPayment, savePendingPayment } from '../payment-pending';
 import type { CreatePurchasePayment, Money, Payment, PaymentAccount, PurchasePaymentKind, PaymentSummary } from '../types';
 
 interface FinanceAccountResponse { code: PaymentAccount; balance: Money; initialized: boolean }
@@ -30,7 +31,7 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
   summary: PaymentSummary;
   onPosted: (payment: Payment) => void;
 }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const client = useQueryClient();
   const canCreate = hasPermission('PURCHASE_PAYMENTS_CREATE') &&
     hasPermission('PURCHASE_PAYMENTS_READ');
@@ -47,19 +48,23 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
   const [reference, setReference] = useState('');
   const [comment, setComment] = useState('');
   const [candidate, setCandidate] = useState<CreatePurchasePayment | null>(null);
-  const [uncertain, setUncertain] = useState<CreatePurchasePayment | null>(null);
+  const [restored] = useState(() => readPendingPayment(user?.id, purchaseId));
+  const [uncertain, setUncertain] = useState<CreatePurchasePayment | null>(
+    restored.kind === 'pending' ? restored.payload : null,
+  );
+  const [restoreInvalid, setRestoreInvalid] = useState(restored.kind === 'invalid');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
   const remaining = paymentRemaining(summary, kind);
   const activeAccount = finance.data?.find(value => value.code === account);
   const blockedAccount = canSeeFinance && activeAccount?.initialized === false;
-  const locked = busy || !!candidate || !!uncertain;
+  const locked = busy || !!candidate || !!uncertain || restoreInvalid;
 
-  // A browser refresh during an unresolved payment loses the in-memory key.
-  // Warn instead of silently allowing a new payment with another UUID.
+  // The pending UUID/payload survives navigation and reload within this tab.
+  // Warn also while the POST is still in-flight.
   useEffect(() => {
-    if (!uncertain) return;
+    if (!uncertain && !busy) return;
     const warn = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
@@ -87,6 +92,7 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
   }
 
   function completed(saved: Payment) {
+    if (user?.id) clearPendingPayment(user.id, purchaseId);
     setUncertain(null);
     setCandidate(null);
     setError('');
@@ -98,7 +104,15 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
   }
 
   async function post(payload: CreatePurchasePayment) {
-    if (pending.current || !canCreate) return;
+    if (pending.current || !canCreate || restoreInvalid) return;
+    // Persist the exact idempotency key BEFORE sending the irreversible POST.
+    // Never send if session storage is unavailable or contains a different
+    // unresolved request for this user and purchase.
+    if (!user?.id || !savePendingPayment(user.id, purchaseId, payload)) {
+      setRestoreInvalid(true);
+      setError('Не удалось безопасно сохранить ключ операции. Платёж не отправлен. Проверьте хранилище вкладки и обратитесь к администратору.');
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError('');
@@ -110,8 +124,9 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
         setUncertain(payload);
         setError(userFacingApiError(cause) + ' Результат неизвестен: не создавайте платёж с новым ключом.');
       } else {
-        // If an earlier POST was ambiguous, even a definitive replay error
-        // cannot establish whether that first money posting committed.
+        // Clear only for a definite failure of the original operation.
+        // A 4xx during a replay must NOT unlock a previously ambiguous POST.
+        if (!uncertain && user?.id) clearPendingPayment(user.id, purchaseId);
         setError(userFacingApiError(cause) + (uncertain ?
           ' Первую операцию необходимо проверить по истории. Новый платёж запрещён.' : ''));
       }
@@ -199,8 +214,13 @@ export function PurchasePaymentForm({ purchaseId, summary, onPosted }: {
           className="w-full rounded-xl border border-slate-200 p-3 text-sm" />
       </label>
       {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+      {restoreInvalid && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+        Хранилище незавершённого платежа недоступно или повреждено.
+        Новые списания в этой вкладке заблокированы до финансовой сверки.
+      </p>}
       {uncertain && <div role="alert" className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-bold">Результат оплаты неизвестен. Не создавайте вторую операцию.</p>
+        <p>Исходный ключ сохранён для восстановления после обновления страницы или возврата в этот раздел.</p>
         <p>Операция: {nameForKind(uncertain.paymentKind)} · {uncertain.account} · {uncertain.amount} сом.</p>
         <p className="break-all text-xs">Ключ повторного запроса: {uncertain.idempotencyKey}</p>
         <p>Если платёж уже был проведён, повтор с тем же ключом не должен списать деньги второй раз.</p>
