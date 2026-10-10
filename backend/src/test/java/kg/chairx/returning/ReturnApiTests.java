@@ -53,6 +53,9 @@ class ReturnApiTests {
     JdbcTemplate jdbc;
 
     @Autowired
+    kg.chairx.delivery.application.DeliveryService deliveries;
+
+    @Autowired
     SaleService sales;
 
     @Autowired
@@ -756,6 +759,38 @@ class ReturnApiTests {
                                         "AUTHENTICATION_REQUIRED"
                                 )
                 );
+    }
+
+    @Test
+    void inTransitCustomerReturnUsesHttp409AndDoesNotTouchStock() throws Exception {
+        var sale = sales.create(new CreateSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.CITY_DELIVERY,
+                List.of(new CreateSaleItemRequest(variant, home, 1, new BigDecimal("8500")))));
+        var delivery = deliveries.create(new kg.chairx.delivery.api.CreateDeliveryRequest(
+                sale.id(), "Клиент", "+996555444444", "Адрес",
+                null, BigDecimal.ZERO, null, null, null));
+        deliveries.dispatch(delivery.id());
+
+        var beforeBalance = inventory.getBalance(home, variant);
+        long beforeMovements = jdbc.queryForObject(
+                "select count(*) from stock_movements", Long.class);
+        long beforeRestorations = jdbc.queryForObject(
+                "select count(*) from inventory_cost_restorations", Long.class);
+
+        mvc.perform(post("/api/returns").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(returnJson(sale.id(), home, UUID.randomUUID(),
+                                sale.items().getFirst().id(), 1, "SELLABLE")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_NOT_COMPLETED"));
+
+        assertThat(jdbc.queryForObject("select count(*) from returns", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from return_items", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from stock_movements", Long.class))
+                .isEqualTo(beforeMovements);
+        assertThat(jdbc.queryForObject("select count(*) from inventory_cost_restorations", Long.class))
+                .isEqualTo(beforeRestorations);
+        assertThat(inventory.getBalance(home, variant)).isEqualTo(beforeBalance);
     }
 
     private String returnJson(

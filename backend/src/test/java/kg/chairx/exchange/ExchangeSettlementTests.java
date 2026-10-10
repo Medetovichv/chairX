@@ -496,6 +496,51 @@ class ExchangeSettlementTests {
                 });
     }
 
+
+    @Test
+    void settlementReplayRejectsNullToEmptyReferenceChange() {
+        Exchange exchange = createExchange("8500", "10000");
+        UUID key = UUID.randomUUID();
+
+        var posted = service.settle(
+                exchange.id(), key, "IN", "CASH",
+                new BigDecimal("500"), null, "exchange-test");
+
+        assertThatThrownBy(() -> service.settle(
+                exchange.id(), key, "IN", "CASH",
+                new BigDecimal("500"), "", "exchange-test"))
+                .isInstanceOfSatisfying(ExchangeRuleViolationException.class,
+                        ex -> assertThat(ex.getCode())
+                                .isEqualTo("EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT"));
+
+        assertThat(settlements.findByExchange(exchange.id())).hasSize(1);
+        assertThat(settlements.findByExchange(exchange.id()).getFirst().id())
+                .isEqualTo(posted.id());
+    }
+
+    @Test
+    void settlementReplayWithNewlinesIsStableButChangedPayloadConflicts() {
+        Exchange exchange = createExchange("8500", "10000");
+        UUID key = UUID.randomUUID();
+        String reference = "order\\nref:42|special";
+
+        var posted = service.settle(
+                exchange.id(), key, "IN", "CASH",
+                new BigDecimal("500"), reference, "exchange-test");
+        var retry = service.settle(
+                exchange.id(), key, "IN", "CASH",
+                new BigDecimal("500"), reference, "exchange-test");
+
+        assertThat(retry.id()).isEqualTo(posted.id());
+        assertThatThrownBy(() -> service.settle(
+                exchange.id(), key, "IN", "CASH",
+                new BigDecimal("500"), reference + "!", "exchange-test"))
+                .isInstanceOfSatisfying(ExchangeRuleViolationException.class,
+                        ex -> assertThat(ex.getCode())
+                                .isEqualTo("EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT"));
+        assertThat(settlements.findByExchange(exchange.id())).hasSize(1);
+    }
+
     @Test
     void cheaperExchangeRecordsActualRefund() {
         Exchange exchange = createExchange("10000", "8500");

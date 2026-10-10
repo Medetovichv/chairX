@@ -21,6 +21,7 @@ import kg.chairx.inventory.cost.InventoryCostPostingService;
 import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.persistence.SaleRepository;
+import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.warehouse.application.WarehouseService;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -55,6 +56,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                     );
 
     private final SaleRepository repository;
+    private final PaymentRepository payments;
     private final CustomerService customers;
     private final ProductVariantService variants;
     private final WarehouseService warehouses;
@@ -66,6 +68,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     public SaleService(
             SaleRepository repository,
+            PaymentRepository payments,
             CustomerService customers,
             ProductVariantService variants,
             WarehouseService warehouses,
@@ -76,6 +79,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
             InventoryCostPostingService costPosting
     ) {
         this.repository = repository;
+        this.payments = payments;
         this.customers = customers;
         this.variants = variants;
         this.warehouses = warehouses;
@@ -273,6 +277,14 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
             throw rule(
                     "INVALID_SALE_STATUS",
                     "Продажу нельзя отменить в текущем состоянии"
+            );
+        }
+        // PaymentService.create() takes the same Sale row lock before inserting
+        // a PAID payment, serializing payment creation and sale cancellation.
+        if (payments.findActiveBySale(sale.id()).isPresent()) {
+            throw rule(
+                    "SALE_HAS_ACTIVE_PAYMENT",
+                    "Перед отменой продажи необходимо урегулировать активную оплату"
             );
         }
         exchangeSaleGuard.requireCancellationAllowed(sale.id());

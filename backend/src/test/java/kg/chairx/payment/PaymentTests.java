@@ -12,6 +12,8 @@ import kg.chairx.payment.domain.PaymentStatus;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
+import kg.chairx.sale.application.SaleRuleViolationException;
+import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.domain.FulfillmentType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -669,6 +671,113 @@ class PaymentTests {
 
         assertThat(active.status())
                 .isEqualTo(PaymentStatus.PAID);
+    }
+
+
+    @Test
+    void paidSaleCancellationIsRejectedWithoutSideEffects() {
+        var sale = createSale(2, "8500");
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null));
+        long reservedBefore = inventory.getBalance(home, variant).reserved();
+        Long movementsBefore = jdbc.queryForObject(
+                "select count(*) from finance_movements", Long.class);
+
+        assertThatThrownBy(() -> sales.cancel(sale.id()))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
+
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.PAID);
+        assertThat(inventory.getBalance(home, variant).reserved()).isEqualTo(reservedBefore);
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                .isEqualTo(movementsBefore);
+    }
+
+    @Test
+    void saleMayBeCancelledOncePaymentWasReversed() {
+        var sale = createSale(1, "8500");
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null));
+        payments.cancel(payment.id(), new CancelPaymentRequest("Ошибочная оплата"));
+
+        assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.CANCELLED);
+    }
+
+    @Test
+    void repeatedCancellationDoesNotReleaseStockTwice() {
+        var sale = createSale(2, "8500");
+        assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+        long remaining = inventory.getBalance(home, variant).reserved();
+        assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(remaining).isZero();
+        assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+    }
+
+    @Test
+    void concurrentPaymentAndCancellationAreSerializedBySaleLock() throws Exception {
+        var sale = createSale(1, "8500");
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<String> paymentTask = executor.submit(() -> {
+                authenticate("p18-payment");
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) return "TIMEOUT";
+                    payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, null));
+                    return "PAID";
+                } catch (PaymentRuleViolationException e) {
+                    return e.getCode();
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            });
+            Future<String> cancelTask = executor.submit(() -> {
+                authenticate("p18-cancel");
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) return "TIMEOUT";
+                    sales.cancel(sale.id());
+                    return "CANCELLED";
+                } catch (SaleRuleViolationException e) {
+                    return e.getCode();
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            });
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            String paymentResult = paymentTask.get(15, TimeUnit.SECONDS);
+            String cancelResult = cancelTask.get(15, TimeUnit.SECONDS);
+            assertThat(List.of(paymentResult, cancelResult)).containsAnyOf("PAID", "CANCELLED");
+            assertThat(List.of(paymentResult, cancelResult))
+                    .satisfies(results -> {
+                        if ("PAID".equals(paymentResult)) {
+                            assertThat(cancelResult).isEqualTo("SALE_HAS_ACTIVE_PAYMENT");
+                        } else {
+                            assertThat(paymentResult).isEqualTo("SALE_CANCELLED");
+                            assertThat(cancelResult).isEqualTo("CANCELLED");
+                        }
+                    });
+            int active = jdbc.queryForObject(
+                    "select count(*) from payments where sale_id=? and status='PAID'",
+                    Integer.class, sale.id());
+            if (sales.get(sale.id()).status() == SaleStatus.CANCELLED) {
+                assertThat(active).isZero();
+                assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+            } else {
+                assertThat(active).isEqualTo(1);
+                assertThat(inventory.getBalance(home, variant).reserved()).isEqualTo(1);
+            }
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+            assertThat(executor.awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     private PaymentAttempt attemptConcurrentPayment(
