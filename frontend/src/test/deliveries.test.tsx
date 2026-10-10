@@ -191,7 +191,7 @@ describe('F08 backend DTOs, filters and list',()=>{
   it('real list shows saleNumber, phone, city, plan and mobile summary without N+1',async()=>{
     const api=mockBackend();
     renderAt();
-    await screen.findByRole('heading',{name:'Доставки'});
+    await screen.findByRole('heading',{name:'Доставки',level:2});
     expect((await screen.findAllByText('CHX-2026-0101')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('+996700123456').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Тестовая 12/).length).toBeGreaterThan(0);
@@ -212,7 +212,7 @@ describe('F08 backend DTOs, filters and list',()=>{
   it('quick READY + planned dates + city search go to actual GET query with page=0',async()=>{
     const api=mockBackend();
     renderAt();
-    await screen.findByRole('heading',{name:'Доставки'});
+    await screen.findByRole('heading',{name:'Доставки',level:2});
     await userEvent.setup().click(screen.getByRole('button',{name:'Готовые'}));
     fireEvent.change(screen.getByRole('searchbox',{name:'Поиск города или региона'}),
       {target:{value:'Бишкек'}});
@@ -242,7 +242,7 @@ describe('F08 backend DTOs, filters and list',()=>{
     access.permissions=['DELIVERIES_READ'];access.roles=['LOGISTICS_VIEWER'];
     const api=mockBackend();
     renderAt();
-    await screen.findByRole('heading',{name:'Доставки'});
+    await screen.findByRole('heading',{name:'Доставки',level:2});
     expect(screen.queryByRole('link',{name:'+ Оформить доставку'})).not.toBeInTheDocument();
     expect(requests(api,'/api/sales')).toHaveLength(0);
   });
