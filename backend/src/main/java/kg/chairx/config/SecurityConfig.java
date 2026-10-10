@@ -61,7 +61,11 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper, AppUserRepository users, SecurityRoleRepository roles) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            // Preserve F02 browser UX: API 401 is JSON without native Basic dialog.
+            String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+            if (!requestPath.startsWith("/api/")) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            }
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
         };
 
