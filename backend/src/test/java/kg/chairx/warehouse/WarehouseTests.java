@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "warehouse-tester")
+@WithMockUser(username = "warehouse-tester", authorities = {"INVENTORY_READ","WAREHOUSES_MANAGE"})
 class WarehouseTests {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
@@ -93,7 +93,7 @@ class WarehouseTests {
         mvc.perform(put("/api/warehouses/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Склад\",\"code\":\"NEW_CODE\"}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
-        mvc.perform(delete("/api/warehouses/" + id).with(csrf())).andExpect(status().isMethodNotAllowed());
+        mvc.perform(delete("/api/warehouses/" + id).with(csrf())).andExpect(status().isForbidden());
         mvc.perform(get("/api/warehouses/" + id)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("BRANCH"));
     }
@@ -163,7 +163,8 @@ class WarehouseTests {
 
     @Test
     void auditFailureRollsBackCreation() throws Exception {
-        mvc.perform(post("/api/warehouses").with(user("a".repeat(201))).with(csrf())
+        mvc.perform(post("/api/warehouses").with(user("a".repeat(201)).authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("WAREHOUSES_MANAGE"))).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(body("ROLLBACK")))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject("select count(*) from warehouses where code='ROLLBACK'", Integer.class)).isZero();
@@ -190,7 +191,8 @@ class WarehouseTests {
         try (var executor = Executors.newFixedThreadPool(2)) {
             java.util.concurrent.Callable<Integer> create = () -> {
                 barrier.await(10, TimeUnit.SECONDS);
-                return mvc.perform(post("/api/warehouses").with(user("worker")).with(csrf())
+                return mvc.perform(post("/api/warehouses").with(user("worker").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("WAREHOUSES_MANAGE"))).with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON).content(body("RACE")))
                         .andReturn().getResponse().getStatus();
             };
