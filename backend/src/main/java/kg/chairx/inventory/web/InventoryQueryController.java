@@ -3,7 +3,7 @@ package kg.chairx.inventory.web;
 import kg.chairx.inventory.api.InventoryBalancePage;
 import kg.chairx.inventory.api.StockMovementPage;
 import kg.chairx.inventory.application.InventoryService;
-import kg.chairx.inventory.domain.InventoryBalance;
+import kg.chairx.inventory.api.InventoryBalanceResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.web.bind.annotation.*;
@@ -23,8 +23,8 @@ public class InventoryQueryController {
     }
 
     @GetMapping("/balances/{warehouseId}/{variantId}")
-    public InventoryBalance balance(@PathVariable UUID warehouseId,@PathVariable UUID variantId) {
-        return inventory.getBalance(warehouseId,variantId);
+    public InventoryBalanceResponse balance(@PathVariable UUID warehouseId,@PathVariable UUID variantId) {
+        return InventoryBalanceResponse.from(inventory.getBalance(warehouseId,variantId));
     }
 
     @GetMapping("/movements")
