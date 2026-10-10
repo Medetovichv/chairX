@@ -21,7 +21,7 @@ export function validateMoney(value: string): string | null {
   if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) {
     return 'Введите неотрицательную цену с максимум двумя знаками после запятой.';
   }
-  if (normalized.split('.')[0].length > 17) return 'Цена слишком велика (максимум 17 цифр до запятой).';
+  if ((normalized.split('.')[0]?.length ?? 0) > 17) return 'Цена слишком велика (максимум 17 цифр до запятой).';
   return null;
 }
 export function validateVariant(input: { name: string; color: string; sku: string; price: string }): string | null {
@@ -45,7 +45,7 @@ export function formatCatalogPrice(value: string | number): string {
   const raw = String(value);
   if (!/^\d+(?:\.\d+)?$/.test(raw)) return '—';
   const [integral, fraction] = raw.split('.');
-  const grouped = integral.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
+  const grouped = (integral ?? '').replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0');
   const decimals = fraction ? ',' + fraction.slice(0, 2) : '';
   return grouped + decimals + '\u00a0сом';
 }
