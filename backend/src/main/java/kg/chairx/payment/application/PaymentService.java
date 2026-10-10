@@ -4,6 +4,7 @@ import kg.chairx.finance.application.FinancePostingService;
 import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
 import kg.chairx.exchange.infrastructure.ExchangeRepository;
+import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.api.PaymentResponse;
@@ -34,6 +35,7 @@ public class PaymentService {
     private final PaymentRepository repository;
     private final SaleRepository sales;
     private final RefundRepository refunds;
+    private final DeliveryRepository deliveries;
     private final ExchangeRepository exchanges;
     private final AuditService audit;
 
@@ -42,6 +44,7 @@ public class PaymentService {
             PaymentRepository repository,
             SaleRepository sales,
             RefundRepository refunds,
+            DeliveryRepository deliveries,
             ExchangeRepository exchanges,
             AuditService audit
     ) {
@@ -49,6 +52,7 @@ public class PaymentService {
         this.repository = repository;
         this.sales = sales;
         this.refunds = refunds;
+        this.deliveries = deliveries;
         this.exchanges = exchanges;
         this.audit = audit;
     }
@@ -93,6 +97,17 @@ public class PaymentService {
                     "INVALID_SALE_STATUS",
                     "Нельзя зарегистрировать оплату для продажи "
                             + "в текущем состоянии"
+            );
+        }
+
+        // Return of a failed delivery also takes the Sale row lock.
+        // This check therefore observes the serialized business outcome.
+        if (deliveries.findBySaleId(sale.id())
+                .filter(delivery -> delivery.failed() && delivery.returnedToWarehouse())
+                .isPresent()) {
+            throw rule(
+                    "FAILED_DELIVERY_ALREADY_RETURNED",
+                    "Нельзя принимать оплату за неуспешную доставку после возврата товара"
             );
         }
 
