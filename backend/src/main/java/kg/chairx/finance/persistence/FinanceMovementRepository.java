@@ -21,6 +21,17 @@ public class FinanceMovementRepository {
         this.jdbc = jdbc;
     }
 
+    /**
+     * Capture the operational posting date using the same PostgreSQL clock
+     * and Asia/Bishkek zone as the daily-closing financial guard.
+     * Multi-leg operations must reuse ONE captured date for every leg.
+     */
+    public LocalDate currentBusinessDate() {
+        return jdbc.sql("""
+                SELECT (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date
+                """).query((rs, row) -> rs.getDate(1).toLocalDate()).single();
+    }
+
     public void insert(
             UUID id,
             FinanceAccount account,
