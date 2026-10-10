@@ -84,6 +84,9 @@ public class SecurityConfig {
                         .hasAuthority("SUPPLIERS_MANAGE")
                         .requestMatchers(HttpMethod.PUT, "/api/suppliers/*")
                         .hasAuthority("SUPPLIERS_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/customers/overview")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('CUSTOMERS_READ') and hasAuthority('SALES_READ')"))
                         .requestMatchers(HttpMethod.GET, "/api/customers", "/api/customers/search", "/api/customers/*")
                         .hasAuthority("CUSTOMERS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/customers")
