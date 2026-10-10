@@ -173,6 +173,7 @@ class PurchasePaymentTests {
                  "amount":3000,"reference":"MBANK-123","comment":"Advance"}
                 """.formatted(UUID.randomUUID());
         mvc.perform(post("/api/purchases/"+p.id()+"/payments")
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/purchases/"+p.id()+"/payments")
