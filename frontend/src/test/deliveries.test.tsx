@@ -469,6 +469,25 @@ describe('F08 detail, dispatch/deliver/fail/return and authorizations',()=>{
     expect(api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/deliveries/'+ID+'/dispatch'&&
       (init as RequestInit).method==='POST')).toHaveLength(1);
   });
+  it('reconciles a lost dispatch after another employee has already marked delivery FAILED',async()=>{
+    const api=mockBackend({afterDispatchNetwork:true});
+    const first=renderAt('/deliveries/'+ID);
+    await screen.findByRole('heading',{name:/Доставка/});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Отправить доставку'}));
+    await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+      .getByRole('button',{name:'Подтвердить действие'}));
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    first.unmount();
+    api.data[0]!.status='FAILED';
+    api.data[0]!.failureReason='Клиент отсутствует';
+    api.data[0]!.failedAt=BASE;
+    renderAt('/deliveries/'+ID);
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальное состояние'}));
+    expect(await screen.findByText(/операция уже выполнена/)).toBeInTheDocument();
+    expect(api.counts().dispatches).toBe(1);
+    expect(api.counts().saleOut).toBe(1);
+  });
   it('refuses dispatch if the operation cannot be saved before POST',async()=>{
     const api=mockBackend();
     vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage unavailable');});
