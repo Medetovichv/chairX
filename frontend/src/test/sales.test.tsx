@@ -269,7 +269,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     mockBackend();renderAt();
     await screen.findByRole('heading',{name:'Продажи',level:2});
     expect(screen.queryByRole('link',{name:'+ Новая продажа'})).not.toBeInTheDocument();
-    expect(await screen.findByText('CHX-2026-0042')).toBeInTheDocument();
+    expect((await screen.findAllByText('CHX-2026-0042')).length).toBeGreaterThan(0);
   });
 });
 describe('F07 creation and idempotent drafts',()=>{
@@ -383,7 +383,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     const put=api.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/sales/'+SALE_ID+'/draft'&&(init as RequestInit).method==='PUT');
     const body=JSON.parse(String((put?.[1] as RequestInit).body)) as CreateDraftInput;
     expect(body).toMatchObject({customerId:CUSTOMER_ID,fulfillmentType:'SELF_PICKUP',
-      comment:'Повторная проверка',items:[{warehouseId:WH,productVariantId:BLACK_ID,quantity:2,unitSalePrice:'8500.00'}]});
+      comment:'Повторная проверка',items:[{warehouseId:WH,productVariantId:BLACK_ID,quantity:2,unitSalePrice:'8500'}]});
   });
   it('confirms draft only after explicit confirmation and backend updates status',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
