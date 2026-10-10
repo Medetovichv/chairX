@@ -11,7 +11,7 @@ const limits: Record<keyof CustomerInput, number> = {
   instagramUsername: 100, address: 500, cityRegion: 200, comment: 2000,
 };
 const labels: Record<keyof CustomerInput, string> = {
-  fullName: 'Имя', phone: 'Телефон', secondaryPhone: 'Дополнительный телефон',
+  fullName: 'Имя', phone: 'Основной телефон', secondaryPhone: 'Дополнительный телефон',
   whatsappPhone: 'WhatsApp', instagramUsername: 'Instagram',
   address: 'Адрес', cityRegion: 'Город / регион', comment: 'Комментарий',
 };

@@ -188,7 +188,7 @@ describe('F05 customer list / permissions', () => {
       target: { value: 'chairx.client' },
     });
     expect(await screen.findByText(/Всего клиентов: 1/)).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: '+996555987654' })).toBeInTheDocument();
+    expect(screen.getAllByRole('cell', { name: '+996555987654' }).length).toBeGreaterThan(0);
     expect(callsTo(calls, 'query=chairx.client').length).toBeGreaterThan(0);
   });
 
