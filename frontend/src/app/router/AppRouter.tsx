@@ -23,6 +23,13 @@ import { CreateSalePage } from '../../features/sales/pages/CreateSalePage';
 import { DeliveriesPage } from '../../features/deliveries/pages/DeliveriesPage';
 import { CreateDeliveryPage } from '../../features/deliveries/pages/CreateDeliveryPage';
 import { DeliveryDetailPage } from '../../features/deliveries/pages/DeliveryDetailPage';
+import { ReturnsPage } from '../../features/returns/pages/ReturnsPage';
+import { CreateReturnPage } from '../../features/returns/pages/CreateReturnPage';
+import { ReturnDetailPage } from '../../features/returns/pages/ReturnDetailPage';
+import { ExchangesPage } from '../../features/returns/pages/ExchangesPage';
+import { ExchangeDetailPage } from '../../features/returns/pages/ExchangeDetailPage';
+import { DefectsPage } from '../../features/returns/pages/DefectsPage';
+import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -66,6 +73,11 @@ function DeliveryDetailGate() {
   return hasPermission('DELIVERIES_READ') ? <DeliveryDetailPage/> : <ForbiddenPage/>;
 }
 
+function ReturnCreateGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_CREATE')?<CreateReturnPage/>:<ForbiddenPage/>;}
+function ReturnDetailGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_READ')?<ReturnDetailPage/>:<ForbiddenPage/>;}
+function ExchangeDetailGate(){const {hasPermission}=useAuth();return hasPermission('EXCHANGES_READ')?<ExchangeDetailPage/>:<ForbiddenPage/>;}
+function DefectDetailGate(){const {hasPermission}=useAuth();return hasPermission('DEFECTS_READ')?<DefectDetailPage/>:<ForbiddenPage/>;}
+
 function PurchaseDetailGate() {
   const { hasPermission } = useAuth();
   return hasPermission('PURCHASE_READ') ? <PurchaseDetailPage /> : <ForbiddenPage />;
@@ -88,6 +100,10 @@ function ProtectedSection({ path }: { path: string }) {
   }
   if (path === '/sales') return <SalesPage />;
   if (path === '/deliveries') return <DeliveriesPage />;
+  if (path === '/returns') return <ReturnsPage />;
+  // EXCHANGES_CREATE can open creation without implying EXCHANGES_READ.
+  if (path === '/returns/exchanges') return <ExchangesPage />;
+  if (path === '/returns/defects') return <DefectsPage />;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/purchases') return <PurchasesPage />;
@@ -115,6 +131,10 @@ export function AppRouter() {
           {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
+          <Route path="returns/new" element={<ReturnCreateGate/>}/>
+          <Route path="returns/exchanges/:exchangeId" element={<ExchangeDetailGate/>}/>
+          <Route path="returns/defects/:defectId" element={<DefectDetailGate/>}/>
+          <Route path="returns/:returnId" element={<ReturnDetailGate/>}/>
           <Route path="sales/new" element={<SaleCreateGate />} />
           <Route path="sales/:saleId" element={<SaleDetailGate />} />
           <Route path="deliveries/new" element={<DeliveryCreateGate />} />
