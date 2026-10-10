@@ -9,6 +9,7 @@ import { LoginPage, safeRedirect } from '../../pages/LoginPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import { CatalogPage } from '../../features/catalog/pages/CatalogPage';
 import { ProductDetailPage } from '../../features/catalog/pages/ProductDetailPage';
+import { InventoryPage } from '../../features/inventory/pages/InventoryPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -40,6 +41,7 @@ function ProtectedSection({ path }: { path: string }) {
     return <ForbiddenPage />;
   }
   if (path === '/catalog') return <CatalogPage />;
+  if (path === '/inventory') return <InventoryPage />;
   return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
 
