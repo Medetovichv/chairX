@@ -59,7 +59,7 @@ const confirmedSale:SaleResponse={
 interface Options {
   deliveries?:DeliveryResponse[]; afterCreateNetwork?:boolean; errorOnce?:Record<string,number>;
   saleType?:'CITY_DELIVERY'|'REGION_DELIVERY'|'SELF_PICKUP'; saleStatus?:'CONFIRMED'|'DRAFT';
-  mutateBeforeAction?:boolean;
+  mutateBeforeAction?:boolean; afterDispatchNetwork?:boolean; afterDateNetwork?:boolean;
 }
 function mockBackend(options:Options={}){
   const data=[...(options.deliveries??[delivery()])];
@@ -67,6 +67,8 @@ function mockBackend(options:Options={}){
   let creates=0,dispatches=0,saleFulfilled=0,saleCancelled=0;
   let saleOut=0,returnIn=0,deliverCount=0,failCount=0,dateChanges=0;
   let detailGets=0;
+  let dispatchNetwork=Boolean(options.afterDispatchNetwork);
+  let dateNetwork=Boolean(options.afterDateNetwork);
   const fetchMock=vi.fn(async(raw:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
     const url=new URL(String(raw),'http://chairx.test');
     const path=url.pathname,method=init?.method??'GET';
@@ -107,7 +109,9 @@ function mockBackend(options:Options={}){
       if(!d)return json({},404);
       if(d.status!=='READY'&&d.status!=='IN_TRANSIT')return json({code:'INVALID_DELIVERY_STATUS',message:'',details:{}},409);
       const payload=JSON.parse(String(init?.body)) as {plannedDeliveryDate:string|null};
-      d.plannedDeliveryDate=payload.plannedDeliveryDate;dateChanges++;return json(d);
+      d.plannedDeliveryDate=payload.plannedDeliveryDate;dateChanges++;
+      if(dateNetwork){dateNetwork=false;throw new TypeError('PUT committed but response lost');}
+      return json(d);
     }
     const action=/^\/api\/deliveries\/([^/]+)\/(dispatch|deliver|fail|cancel|return-to-warehouse)$/.exec(path);
     if(action&&method==='POST'){
@@ -138,6 +142,10 @@ function mockBackend(options:Options={}){
           d.returnedToWarehouseAt=BASE;d.returnedToWarehouseBy='logistics';
           d.returnWarehouseId=(JSON.parse(String(init?.body)) as {warehouseId:string}).warehouseId;returnIn++;
         }
+      }
+      if(op==='dispatch'&&dispatchNetwork){
+        dispatchNetwork=false;
+        throw new TypeError('POST committed but response lost');
       }
       return json(d);
     }
@@ -175,7 +183,7 @@ beforeEach(()=>{
   sessionStorage.clear();
   authSession.activate('Basic logistics-user',{headerName:'X-CSRF-TOKEN',token:'test-csrf'});
 });
-afterEach(()=>{authSession.clear();sessionStorage.clear();vi.unstubAllGlobals();});
+afterEach(()=>{authSession.clear();sessionStorage.clear();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe('F08 backend DTOs, filters and list',()=>{
   it('honors exactly five statuses and accurate Bishkek local date',()=>{
@@ -438,6 +446,55 @@ describe('F08 detail, dispatch/deliver/fail/return and authorizations',()=>{
     expect(await screen.findByRole('alert')).toHaveTextContent(/изменена другим сотрудником/);
     expect(api.counts().dispatches).toBe(0);
     expect(requests(api,'/api/deliveries/'+ID+'/dispatch')).toHaveLength(0);
+  });
+  it('restores unknown dispatch after reload and reconciles with one SALE_OUT',async()=>{
+    const api=mockBackend({afterDispatchNetwork:true});
+    const first=renderAt('/deliveries/'+ID);
+    await screen.findByRole('heading',{name:/Доставка/});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Отправить доставку'}));
+    await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+      .getByRole('button',{name:'Подтвердить действие'}));
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    expect(api.counts().dispatches).toBe(1);
+    first.unmount();
+    renderAt('/deliveries/'+ID);
+    await screen.findByRole('heading',{name:/Доставка/});
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Подтвердить вручение'})).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальное состояние'}));
+    expect(await screen.findByText(/операция уже выполнена/)).toBeInTheDocument();
+    expect(api.counts().dispatches).toBe(1);
+    expect(api.counts().saleOut).toBe(1);
+    expect(api.counts().saleFulfilled).toBe(1);
+    expect(api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/deliveries/'+ID+'/dispatch'&&
+      (init as RequestInit).method==='POST')).toHaveLength(1);
+  });
+  it('refuses dispatch if the operation cannot be saved before POST',async()=>{
+    const api=mockBackend();
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('storage unavailable');});
+    renderAt('/deliveries/'+ID);
+    await screen.findByRole('heading',{name:/Доставка/});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Отправить доставку'}));
+    await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+      .getByRole('button',{name:'Подтвердить действие'}));
+    expect(await screen.findByText(/POST не отправлен/)).toBeInTheDocument();
+    expect(api.counts().dispatches).toBe(0);
+    expect(screen.getByRole('button',{name:'Отправить доставку'})).toBeDisabled();
+  });
+  it('recovers planned-date change after lost response across page reload',async()=>{
+    const api=mockBackend({afterDateNetwork:true});
+    const first=renderAt('/deliveries/'+ID);
+    await screen.findByRole('heading',{name:/Доставка/});
+    fireEvent.change(screen.getByLabelText('Изменить плановую дату'),{target:{value:'2026-10-19'}});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Сохранить плановую дату'}));
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    expect(api.counts().dateChanges).toBe(1);
+    first.unmount();
+    renderAt('/deliveries/'+ID);
+    expect(await screen.findByText(/Исход операции неизвестен/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальное состояние'}));
+    expect(await screen.findByText(/Плановая дата проверена/)).toBeInTheDocument();
+    expect(api.counts().dateChanges).toBe(1);
   });
   it('backend 403 renders forbidden and does not leak data',async()=>{
     const api=mockBackend({errorOnce:{['GET /api/deliveries/'+ID]:403}});
