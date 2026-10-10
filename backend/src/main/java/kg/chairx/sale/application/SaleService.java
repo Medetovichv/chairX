@@ -13,6 +13,7 @@ import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleMapper;
 import kg.chairx.sale.api.SaleResponse;
+import kg.chairx.sale.api.SalePageResponse;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
