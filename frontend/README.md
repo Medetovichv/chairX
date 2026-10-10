@@ -52,3 +52,12 @@ npm run build
 GitHub Actions runs the same frontend gates and a full Docker stack smoke
 check on the PR. Runtime network and backend errors use existing safe API
 error messages.
+
+## F04 Inventory & Warehouse Operations
+
+`/inventory` now provides real warehouse selection, stock by model/variation,
+server-backed search and filters, movement and transfer history, plus guarded
+idempotent cross-warehouse transfers. `INVENTORY_READ` grants views;
+`INVENTORY_TRANSFER` alongside read grants the transfer action. No direct
+manual stock adjustments. See [F04 inventory documentation](../docs/f04-inventory.md)
+for API contracts, error handling and **unresolved backend cost-data exposure**.
