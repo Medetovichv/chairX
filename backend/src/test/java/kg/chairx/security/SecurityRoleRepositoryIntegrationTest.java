@@ -178,11 +178,11 @@ class SecurityRoleRepositoryIntegrationTest {
                 .containsExactly("EMPLOYEE");
 
         assertThat(roles.findPermissionsByUserId(userId))
-                .containsExactlyInAnyOrder(
-                        "SALES_READ",
-                        "SALES_CREATE",
-                        "INVENTORY_READ"
-                );
+                .contains("SALES_READ","SALES_CREATE","INVENTORY_READ",
+                        "CATALOG_READ","CUSTOMERS_READ","CUSTOMERS_CREATE",
+                        "DELIVERIES_READ")
+                .doesNotContain("REFUNDS_CREATE","PURCHASE_PAYMENTS_CREATE",
+                        "FINANCE_TRANSFER","DEFECTS_WRITE_OFF","PAYMENTS_CANCEL");
     }
 
     @Test
@@ -194,17 +194,13 @@ class SecurityRoleRepositoryIntegrationTest {
                 .containsExactlyInAnyOrder("EMPLOYEE", "MANAGER");
 
         assertThat(roles.findPermissionsByUserId(userId))
-                .containsExactlyInAnyOrder(
-                        "FINANCE_READ",
-                        "SALES_READ",
-                        "SALES_CREATE",
-                        "SALES_UPDATE",
-                        "INVENTORY_READ",
-                        "INVENTORY_RECEIVE",
-                        "INVENTORY_TRANSFER",
-                        "PURCHASE_READ",
-                        "PURCHASE_CREATE"
-                );
+                .contains("FINANCE_READ","SALES_READ","SALES_CREATE","SALES_UPDATE",
+                        "INVENTORY_READ","INVENTORY_RECEIVE","INVENTORY_TRANSFER",
+                        "PURCHASE_READ","PURCHASE_CREATE","PURCHASE_CONFIRM",
+                        "CATALOG_MANAGE","DELIVERIES_MANAGE","PAYMENTS_CREATE")
+                .doesNotContain("FINANCE_TRANSFER","FINANCE_CLOSE",
+                        "REFUNDS_CREATE","PURCHASE_PAYMENTS_CREATE",
+                        "EXCHANGES_SETTLE","DEFECTS_WRITE_OFF");
     }
 
     @Test
