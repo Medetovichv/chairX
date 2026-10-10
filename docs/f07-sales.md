@@ -38,9 +38,12 @@ quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate`.
 total,createdBy,createdAt,fulfilledBy,fulfilledAt,cancelledBy,cancelledAt,comment`.
 `SaleItemResponse`: `id,productVariantId,warehouseId,quantity,unitSalePrice,total`.
 **В SaleResponse нет paymentStatus/deliveryStatus/plannedDeliveryDate.**
-Поэтому карточка показывает краткие статусы только если реальный
-`SaleSummary` был передан из списка/Kanban через навигационное состояние;
-при открытии URL напрямую никаких статусов не выдумывает.
+Карточка получает соответствующий `SaleSummary` отдельным серверным
+`GET /api/sales?number=<saleNumber>&page=0&size=20` под SALES_READ,
+ищет совпадающий UUID и показывает только фактические значения.
+При недоступном ответе может использовать соответствующий SaleSummary
+из навигации; если данных нет — сообщает, что статус недоступен.
+Это один запрос на карточку, а не N+1 запросы списка.
 
 ## Продажи: таблица и Kanban
 
