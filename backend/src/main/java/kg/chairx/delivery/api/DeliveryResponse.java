@@ -4,6 +4,7 @@ import kg.chairx.delivery.domain.DeliveryStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record DeliveryResponse(
@@ -31,6 +32,12 @@ public record DeliveryResponse(
         Instant cancelledAt,
         String returnedToWarehouseBy,
         Instant returnedToWarehouseAt,
-        UUID returnWarehouseId
+        UUID returnWarehouseId,
+        LocalDate plannedDeliveryDate
 ) {
+
+    public DeliveryResponse(UUID id, UUID saleId, DeliveryStatus status, String recipientName, String recipientPhone, String address, String cityRegion, BigDecimal deliveryCost, String carrierName, String trackingNumber, String comment, String createdBy, Instant createdAt, String dispatchedBy, Instant dispatchedAt, String deliveredBy, Instant deliveredAt, String failedBy, Instant failedAt, String failureReason, String cancelledBy, Instant cancelledAt, String returnedToWarehouseBy, Instant returnedToWarehouseAt, UUID returnWarehouseId) {
+        this(id, saleId, status, recipientName, recipientPhone, address, cityRegion, deliveryCost, carrierName, trackingNumber, comment, createdBy, createdAt, dispatchedBy, dispatchedAt, deliveredBy, deliveredAt, failedBy, failedAt, failureReason, cancelledBy, cancelledAt, returnedToWarehouseBy, returnedToWarehouseAt, returnWarehouseId, null);
+    }
+
 }

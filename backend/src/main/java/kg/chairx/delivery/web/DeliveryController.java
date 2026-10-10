@@ -29,9 +29,12 @@ public class DeliveryController {
     public DeliveryPageResponse list(@RequestParam(required=false) DeliveryStatus status,
             @RequestParam(required=false) LocalDate from,
             @RequestParam(required=false) LocalDate to,
+            @RequestParam(required=false) LocalDate plannedFrom,
+            @RequestParam(required=false) LocalDate plannedTo,
+            @RequestParam(required=false) String cityRegion,
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size) {
-        return service.list(status,from,to,page,size);
+        return service.list(status,from,to,plannedFrom,plannedTo,cityRegion,page,size);
     }
 
     @PostMapping
@@ -54,6 +57,14 @@ public class DeliveryController {
             @PathVariable UUID id
     ) {
         return service.get(id);
+    }
+
+    @PutMapping("/{id}/planned-date")
+    public DeliveryResponse changePlannedDate(
+            @PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.delivery.api.UpdatePlannedDeliveryDateRequest request
+    ) {
+        return service.changePlannedDate(id, request.plannedDeliveryDate());
     }
 
     @PostMapping("/{id}/dispatch")

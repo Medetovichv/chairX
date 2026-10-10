@@ -59,6 +59,8 @@ public class DailyClosingService {
         validate(request.actualCash(), request.cashNote());
         validate(request.actualBank(), request.bankNote());
 
+        // Serialize completion events and snapshots. P21 BANK -> CASH ordering stays intact.
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
         // Existing lock order is BANK, then CASH. Never reverse it.
         BigDecimal liveBank = accounts.lockBalance(FinanceAccount.BANK);
         BigDecimal liveCash = accounts.lockBalance(FinanceAccount.CASH);
@@ -81,6 +83,8 @@ public class DailyClosingService {
                 .param("id", id).param("day", date).param("actor", actor).update();
         insertAccount(id, FinanceAccount.CASH, cash, request.actualCash(), request.cashNote());
         insertAccount(id, FinanceAccount.BANK, bank, request.actualBank(), request.bankNote());
+        // Durable completed-sales snapshot shares this exact P21 database transaction.
+        DailyClosingSalesSnapshot.capture(jdbc, id, date);
         DailyClosingResponse created = findByDate(date);
         audit.recordAs(actor, "FINANCE_DAILY_CLOSING", id, "REPORT_CLOSED", null, created);
         return created;

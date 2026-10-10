@@ -85,3 +85,129 @@ Resolve or write off: `{"resolutionNote":"Ремонт выполнен"}`. Resp
 Page is zero-based, `size` 1–100. Invalid page/date ranges return HTTP 400 `INVALID_QUERY`. Validation of request bodies uses HTTP 400 `VALIDATION_ERROR`. Business-state conflicts are HTTP 409 with the specific domain code; missing object uses HTTP 404. Duplicate-operation UUID keys never permit different payloads. No query endpoint mutates stock or finance journals.
 
 **Compatibility:** CashFlow adds the field `purchasePayments` and changes `totalOut` to include purchase payouts. Clients of prior response DTOs must accommodate the extra field. No frontend is included in P20.
+
+
+## P22 — Operational lists and daily sales (2026-10-10)
+
+All timestamps are UTC instants; business-date parameters are interpreted in `Asia/Bishkek`.
+Lists are independent of financial closings. Unless noted, `page` is zero-based,
+`size` is 1–100 and invalid filters return HTTP 400.
+
+| Endpoint | Permission | Purpose |
+|---|---|---|
+| `POST /api/sales/drafts` | SALES_CREATE | Create DRAFT without stock reservation |
+| `PUT /api/sales/{id}/draft` | SALES_UPDATE | Replace DRAFT fields/items, no stock reservation |
+| `POST /api/sales/{id}/confirm` | SALES_UPDATE | Atomically validate and reserve inventory |
+| `POST /api/sales/{id}/cancel` | SALES_CANCEL | Cancel DRAFT or existing confirmed pickup |
+| `GET /api/sales` | SALES_READ | Paginated list with quantity, products, payment/delivery status |
+| `GET /api/sales/customer/{customerId}` | SALES_READ + CUSTOMERS_READ | Paginated client-specific sales |
+| `GET /api/customers/overview` | SALES_READ + CUSTOMERS_READ | Paginated contacts with order count and most recent sale |
+| `GET /api/deliveries` | DELIVERIES_READ | Paginated deliveries, status/date/region |
+| `PUT /api/deliveries/{id}/planned-date` | DELIVERIES_MANAGE | Change plan in READY / IN_TRANSIT only |
+| `GET /api/inventory/overview` | INVENTORY_READ | Paginated stock across all or a selected warehouse |
+| `GET /api/purchases/overview` | PURCHASE_READ | Paginated quantities, cargo and receipts |
+| `GET /api/finance/closings/{date}/sales` | DAILY_CLOSING_READ or FINANCE_READ | Completed sales and immutable snapshot |
+
+**Sale workflow**: `POST /api/sales` remains an immediate CONFIRMED sale with its
+existing idempotency key and inventory reservation. Use the *new* endpoint for work
+lasting multiple days. Draft creation supports `customerId=null`,
+`fulfillmentType=null`, `items=[]`. Each create requires a UUID
+`idempotencyKey`; same key + identical payload returns the original order,
+while different payload returns 409. Draft edit is a full replacement, including
+empty fields; confirmation requires fulfillmentType, >=1 valid line, active
+references and available stock. Confirmation commits or rolls back as a unit.
+Repeated confirmation is safe. Draft cancellation never touches inventory.
+
+Example draft request:
+```json
+{
+  "idempotencyKey": "06fa4001-e9e2-4e72-910b-6a63bf2fb39c",
+  "customerId": null, "fulfillmentType": null,
+  "items": [], "comment": "Клиент выбирает цвет"
+}
+```
+
+Example draft update:
+```json
+{
+  "customerId": "00000000-0000-0000-0000-000000000001",
+  "fulfillmentType": "CITY_DELIVERY",
+  "items": [{"productVariantId": "00000000-0000-0000-0000-000000000002",
+             "warehouseId": "00000000-0000-0000-0000-000000000003",
+             "quantity": 2, "unitSalePrice": 8500}],
+  "comment": "Доставка завтра"
+}
+```
+
+**Sales query**: `GET /api/sales?page=0&size=20&status=DRAFT&from=2026-10-01&to=2026-10-31&number=SALE-`.
+The existing page and fields remain; `SaleSummary` adds `quantity`,
+`products` (human-readable text), `paymentStatus` (`UNPAID`, `PARTIAL`,
+`PAID`), `deliveryStatus`, `plannedDeliveryDate`.
+These fields come from joined SQL (no per-row fetch), do not depend on
+closed-day reports and include old DRAFT orders. Null customer names are
+returned as JSON null. `GET /api/sales/customer/{customerId}?page=0&size=20`
+returns only that customer's order history, requiring both permissions.
+
+**Customers**: `GET /api/customers/overview?query=0555&page=0&size=20` searches name, phone, secondary/WhatsApp numbers and Instagram handle; returns `orderCount`, `lastSaleNumber`, and `lastOrderAt` for authorized readers. This combined projection requires both `CUSTOMERS_READ` and `SALES_READ`.
+
+`CreateCustomerRequest.fullName` / `UpdateCustomerRequest.fullName`
+may be JSON null or blank (stored as null). At least one contact is needed:
+`phone`, `secondaryPhone`, `whatsappPhone` or `instagramUsername`.
+No dummy "Без имени" is persisted. Existing name-bearing requests still
+work; phone numbers remain non-unique. Example:
+```json
+{"fullName": null, "phone": "0555123456", "secondaryPhone": null,
+ "whatsappPhone": null, "instagramUsername": null,
+ "address": null, "cityRegion": "Бишкек", "comment": null}
+```
+
+**Deliveries**: creating a delivery accepts `recipientName: null` while
+required phone/address validation stays in place. `plannedDeliveryDate`
+is an optional ISO date (e.g. `"2026-10-15"`); existing deliveries report null.
+For rescheduling, `PUT /api/deliveries/{id}/planned-date`:
+```json
+{"plannedDeliveryDate": "2026-10-17"}
+```
+A null date clears the plan, but only in READY or IN_TRANSIT. The update
+is audited. New list filters `plannedFrom`, `plannedTo`, `cityRegion`
+are distinct from original `from` and `to` (which filter creation date).
+`DeliverySummary` adds sale number, recipient phone/address, fulfillment
+type and actual `deliveredAt`.
+
+**Stock overview**: `GET /api/inventory/overview?warehouseId=<UUID>&model=...&variation=...&includeZero=false&onlyAvailable=true&page=0&size=20`.
+`warehouseId` optional means all warehouses. Each result has onHand,
+reserved, blocked, available and `warehouses[]` with real UUID and code,
+so UI can draw HOME/OFFICE columns without hardcoded UUIDs. No mutation of
+stock or FIFO happens in GETs.
+
+**Purchase overview**: `GET /api/purchases/overview?status=PARTIALLY_RECEIVED&supplierId=<UUID>&from=2026-10-01&to=2026-10-31&page=0&size=20`.
+Each row includes `itemCount`, `orderedQuantity`, `receivedQuantity`,
+`remainingQuantity`, `goodsCost`, `cargoCost`, `totalCost`,
+`lastReceiptAt`, supplier name, date and existing status. If cargo is not yet known, both `cargoCost` and `totalCost` are null (not a fabricated 0); `goodsCost` remains available. No invented
+shipment statuses or expected-arrival dates.
+
+**Daily completed sales**: `GET /api/finance/closings/2026-10-10/sales`.
+Response contains:
+```json
+{
+ "businessDate": "2026-10-10", "closed": true,
+ "snapshotAvailable": true, "preliminary": false,
+ "items": [{"saleId":"...","saleNumber":"...","customerName":null,
+   "phone":"0555123456","products":"Office chair / Black ×2",
+   "quantity":2,"address":null,"fulfillmentType":"SELF_PICKUP",
+   "completedAt":"2026-10-10T08:30:00Z",
+   "total":17000,"paymentStatus":"PAID"}],
+ "totals":{"orders":1,"chairs":2,"value":17000},
+ "lateCompletionCount":0
+}
+```
+This is an operational result, **not actual CASH/BANK or daily revenue
+received**. For self-pickup, completion is Sale.FULFILLED at fulfilledAt.
+For CITY_DELIVERY and REGION_DELIVERY, completion is
+Delivery.DELIVERED at deliveredAt; Sale.FULFILLED during dispatch is **not**
+enough. Before closure, values are preliminary. P21 closing atomically captures
+an immutable snapshot; late completions on a closed day are diagnosed using
+`lateCompletionCount`, never silently added retroactively. Historic P21
+closings without a snapshot return `snapshotAvailable=false`, null totals,
+and do **not** invent a historical result. Finance postings remain solely under
+existing FinancePostingService.

@@ -61,13 +61,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            // Browsers show their native username/password dialog for a 401
-            // carrying a Basic challenge. JSON API clients (including the F02
-            // React login page) manage their own UX, so do not send the
-            // challenge for /api/* responses. The HTTP Basic authentication
-            // filter and the 401 status code remain unchanged.
-            // getServletPath() may be empty for a MockMvc/default DispatcherServlet
-            // mapping; getRequestURI() consistently includes the requested API path.
+            // F02: API authentication failures return JSON without a Basic browser prompt.
             String requestPath = request.getRequestURI().substring(request.getContextPath().length());
             if (!requestPath.startsWith("/api/")) {
                 response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
@@ -82,7 +76,7 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/csrf")
                         .authenticated()
-                        // F02: authenticated staff profile; technical catalog rejected by controller.
+                        // F02: the authenticated employee profile used by the frontend.
                         .requestMatchers(HttpMethod.GET, "/api/auth/me")
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
@@ -97,6 +91,9 @@ public class SecurityConfig {
                         .hasAuthority("SUPPLIERS_MANAGE")
                         .requestMatchers(HttpMethod.PUT, "/api/suppliers/*")
                         .hasAuthority("SUPPLIERS_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/customers/overview")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('CUSTOMERS_READ') and hasAuthority('SALES_READ')"))
                         .requestMatchers(HttpMethod.GET, "/api/customers", "/api/customers/search", "/api/customers/*")
                         .hasAuthority("CUSTOMERS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/customers")
@@ -117,6 +114,8 @@ public class SecurityConfig {
                         .hasAuthority("PURCHASE_PAYMENTS_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/purchases/*/receipts")
                         .hasAuthority("INVENTORY_RECEIVE")
+                        .requestMatchers(HttpMethod.GET, "/api/purchases/overview")
+                        .hasAuthority("PURCHASE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/purchases", "/api/purchases/*", "/api/purchases/*/receipts", "/api/purchases/*/receipts/*")
                         .hasAuthority("PURCHASE_READ")
                         .requestMatchers(HttpMethod.POST, "/api/purchases")
@@ -127,14 +126,25 @@ public class SecurityConfig {
                         .hasAuthority("PURCHASE_CONFIRM")
                         .requestMatchers(HttpMethod.POST, "/api/purchases/*/cancel")
                         .hasAuthority("PURCHASE_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory/overview")
+                        .hasAuthority("INVENTORY_READ")
                         .requestMatchers(HttpMethod.GET, "/api/inventory/balances", "/api/inventory/balances/*/*", "/api/inventory/movements", "/api/inventory/transfers", "/api/inventory/transfers/*")
                         .hasAuthority("INVENTORY_READ")
                         .requestMatchers(HttpMethod.POST, "/api/inventory/transfers")
                         .hasAuthority("INVENTORY_TRANSFER")
                         .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*")
                         .hasAuthority("SALES_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('SALES_READ') and hasAuthority('CUSTOMERS_READ')"))
                         .requestMatchers(HttpMethod.POST, "/api/sales")
                         .hasAuthority("SALES_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/drafts")
+                        .hasAuthority("SALES_CREATE")
+                        .requestMatchers(HttpMethod.PUT, "/api/sales/*/draft")
+                        .hasAuthority("SALES_UPDATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/confirm")
+                        .hasAuthority("SALES_UPDATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/fulfill")
                         .hasAuthority("SALES_UPDATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel")
@@ -145,6 +155,8 @@ public class SecurityConfig {
                         .hasAuthority("DELIVERIES_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel")
                         .hasAuthority("SALES_CANCEL")
+                        .requestMatchers(HttpMethod.PUT, "/api/deliveries/*/planned-date")
+                        .hasAuthority("DELIVERIES_MANAGE")
                         .requestMatchers(HttpMethod.GET, "/api/returns", "/api/returns/*")
                         .hasAuthority("RETURNS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/returns")
@@ -177,6 +189,8 @@ public class SecurityConfig {
                         .hasAuthority("DEFECTS_WRITE_OFF")
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/history")
                         .hasAuthority("DAILY_CLOSING_AUDIT_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/sales")
+                        .hasAnyAuthority("DAILY_CLOSING_READ", "FINANCE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/access",
                                 "/api/finance/closings/*/preview")
                         .hasAnyAuthority("DAILY_CLOSING_READ", "FINANCE_READ")

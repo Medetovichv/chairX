@@ -7,13 +7,13 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record CreateDeliveryRequest(
         @NotNull
         UUID saleId,
 
-        @NotBlank
         @Size(max = 200)
         String recipientName,
 
@@ -40,6 +40,14 @@ public record CreateDeliveryRequest(
         String trackingNumber,
 
         @Size(max = 2000)
-        String comment
+        String comment,
+
+        LocalDate plannedDeliveryDate
 ) {
+    public CreateDeliveryRequest(UUID saleId, String recipientName, String recipientPhone,
+                                 String address, String cityRegion, BigDecimal deliveryCost,
+                                 String carrierName, String trackingNumber, String comment) {
+        this(saleId, recipientName, recipientPhone, address, cityRegion, deliveryCost,
+                carrierName, trackingNumber, comment, null);
+    }
 }

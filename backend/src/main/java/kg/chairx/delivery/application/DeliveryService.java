@@ -122,7 +122,8 @@ public class DeliveryService {
                 null,
                 null,
                 null,
-                null
+                null,
+                request.plannedDeliveryDate()
         );
 
         boolean inserted =
@@ -150,14 +151,36 @@ public class DeliveryService {
     }
 
     public DeliveryPageResponse list(
-            DeliveryStatus status,LocalDate from,LocalDate to,int page,int size) {
-        if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
+            DeliveryStatus status, LocalDate from, LocalDate to, int page, int size) {
+        return list(status, from, to, null, null, page, size);
+    }
+
+    public DeliveryPageResponse list(
+            DeliveryStatus status, LocalDate from, LocalDate to,
+            LocalDate plannedFrom, LocalDate plannedTo, int page, int size) {
+        return list(status, from, to, plannedFrom, plannedTo, null, page, size);
+    }
+
+    public DeliveryPageResponse list(
+            DeliveryStatus status, LocalDate from, LocalDate to,
+            LocalDate plannedFrom, LocalDate plannedTo, String cityRegion,
+            int page, int size) {
+        if (page < 0 || size < 1 || size > 100
+                || (from != null && to != null && from.isAfter(to))
+                || (plannedFrom != null && plannedTo != null && plannedFrom.isAfter(plannedTo))) {
             throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка доставок");
-        var zone=ZoneId.of("Asia/Bishkek");
-        var begin=from==null?null:from.atStartOfDay(zone).toInstant();
-        var end=to==null?null:to.plusDays(1).atStartOfDay(zone).toInstant();
-        return new DeliveryPageResponse(repository.list(status,begin,end,page,size),
-                page,size,repository.count(status,begin,end));
+        }
+        if (cityRegion != null && cityRegion.length() > 200) {
+            throw new kg.chairx.common.web.InvalidQueryException("Слишком длинный регион");
+        }
+        var zone = ZoneId.of("Asia/Bishkek");
+        var begin = from == null ? null : from.atStartOfDay(zone).toInstant();
+        var end = to == null ? null : to.plusDays(1).atStartOfDay(zone).toInstant();
+        return new DeliveryPageResponse(
+                repository.list(status, begin, end, plannedFrom, plannedTo,
+                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip(), page, size),
+                page, size, repository.count(status, begin, end, plannedFrom, plannedTo,
+                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip()));
     }
 
     public DeliveryResponse get(
@@ -180,6 +203,24 @@ public class DeliveryService {
                                 DeliveryNotFoundException::new
                         )
         );
+    }
+
+    @Transactional
+    public DeliveryResponse changePlannedDate(UUID deliveryId, LocalDate plannedDate) {
+        Delivery delivery = lock(deliveryId);
+        if (!delivery.ready() && !delivery.inTransit()) {
+            throw rule("INVALID_DELIVERY_STATUS",
+                    "Плановую дату можно изменить только до завершения доставки");
+        }
+        if (java.util.Objects.equals(delivery.plannedDeliveryDate(), plannedDate)) {
+            return DeliveryMapper.toResponse(delivery);
+        }
+
+        DeliveryResponse before = DeliveryMapper.toResponse(delivery);
+        repository.updatePlannedDate(deliveryId, plannedDate);
+        DeliveryResponse after = get(deliveryId);
+        audit.record("DELIVERY", deliveryId, "PLANNED_DATE_CHANGED", before, after);
+        return after;
     }
 
     @Transactional
@@ -246,6 +287,7 @@ public class DeliveryService {
     public DeliveryResponse markDelivered(
             UUID deliveryId
     ) {
+        repository.acquireCompletionGate();
         Delivery delivery = lock(deliveryId);
 
         if (delivery.delivered()) {

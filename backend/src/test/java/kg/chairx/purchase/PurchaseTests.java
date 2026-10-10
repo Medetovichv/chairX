@@ -281,6 +281,51 @@ class PurchaseTests {
     }
 
     @Test
+    void p22PurchaseOverviewShowsActualOrderedReceivedAndCargoWithoutWriteEffects() throws Exception {
+        var p = confirmed();
+        receiving.receive(p.id(), receipt(p,60));
+        // Prepare all writes while the test's mocked security context is active.
+        // MockMvc clears the thread-bound context after an HTTP request.
+        var awaitingCargo = purchases.create(new CreatePurchaseRequest(
+                supplier, List.of(line(otherVariant,1,"25.00")), null, null));
+        int movements = count("stock_movements");
+        int finance = count("finance_movements");
+
+        mvc.perform(get("/api/purchases/overview")
+                        .param("status","PARTIALLY_RECEIVED")
+                        .param("supplierId",supplier.toString())
+                        .param("size","10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(p.id().toString()))
+                .andExpect(jsonPath("$.items[0].supplierName").value("Purchase fixture"))
+                .andExpect(jsonPath("$.items[0].orderedQuantity").value(100))
+                .andExpect(jsonPath("$.items[0].receivedQuantity").value(60))
+                .andExpect(jsonPath("$.items[0].remainingQuantity").value(40))
+                .andExpect(jsonPath("$.items[0].goodsCost").value(1000))
+                .andExpect(jsonPath("$.items[0].cargoCost").value(10))
+                .andExpect(jsonPath("$.items[0].totalCost").value(1010))
+                .andExpect(jsonPath("$.items[0].lastReceiptAt").exists());
+
+        mvc.perform(get("/api/purchases/overview").param("size","0"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/purchases/overview").param("status","DRAFT")
+                        .param("supplierId",supplier.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(awaitingCargo.id().toString()))
+                .andExpect(jsonPath("$.items[0].goodsCost").value(25))
+                .andExpect(jsonPath("$.items[0].cargoCost")
+                        .value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].totalCost")
+                        .value(org.hamcrest.Matchers.nullValue()));
+
+        assertThat(count("stock_movements")).isEqualTo(movements);
+        assertThat(count("finance_movements")).isEqualTo(finance);
+    }
+
+    @Test
     void createsAndUpdatesDraftThroughApi() throws Exception {
         var request = new CreatePurchaseRequest(supplier, List.of(line(variant,100,"10.00")), null," Draft ");
         var response = mvc.perform(post("/api/purchases").with(csrf()).contentType(MediaType.APPLICATION_JSON)

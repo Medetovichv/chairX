@@ -102,6 +102,120 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                 page,size,repository.countSummaries(status,begin,until,query));
     }
 
+    /** Customer-specific paginated history; customer data cannot leak from unrelated sales. */
+    public SalePageResponse listForCustomer(UUID customerId, int page, int size) {
+        customers.get(customerId);
+        if (page < 0 || size <= 0 || size > 100) {
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка продаж");
+        }
+        return new SalePageResponse(
+                repository.listSummaries(null, null, null, null, customerId, page, size),
+                page, size, repository.countSummaries(null, null, null, null, customerId));
+    }
+
+    @Transactional
+    public SaleResponse createDraft(@Valid kg.chairx.sale.api.CreateDraftSaleRequest request) {
+        if (request == null || request.idempotencyKey() == null) {
+            throw rule("INVALID_DRAFT", "Укажите ключ идемпотентности черновика");
+        }
+        String requestHash = fingerprint.fingerprintDraft(request);
+        var previous = repository.findByIdempotencyKey(request.idempotencyKey());
+        if (previous.isPresent()) return existingSale(previous.get(), requestHash);
+
+        validateDraftCustomer(request.customerId());
+        UUID id = UUID.randomUUID();
+        boolean inserted = repository.tryInsertDraft(
+                id, saleNumber(repository.nextSaleNumber()), request.customerId(),
+                request.fulfillmentType(), request.idempotencyKey(), requestHash,
+                draftComment(request.comment()), actor());
+        if (!inserted) {
+            Sale previousSale = repository.findByIdempotencyKey(request.idempotencyKey())
+                    .orElseThrow(() -> new IllegalStateException("Черновик не найден после конфликта"));
+            return existingSale(previousSale, requestHash);
+        }
+        for (var item : draftItems(request.items())) {
+            repository.insertItem(new SaleItem(UUID.randomUUID(), id,
+                    item.productVariantId(), item.warehouseId(),
+                    item.quantity(), item.unitSalePrice()));
+        }
+        SaleResponse result = get(id);
+        audit.record("SALE", id, "DRAFT_CREATED", null, result);
+        return result;
+    }
+
+    @Transactional
+    public SaleResponse updateDraft(UUID id, @Valid kg.chairx.sale.api.UpdateDraftSaleRequest request) {
+        if (request == null) throw rule("INVALID_DRAFT", "Данные черновика обязательны");
+        Sale sale = lock(id);
+        if (sale.status() != SaleStatus.DRAFT) {
+            throw rule("INVALID_SALE_STATUS", "Редактировать можно только черновик");
+        }
+        validateDraftCustomer(request.customerId());
+        SaleResponse before = SaleMapper.toResponse(sale);
+        repository.updateDraft(id, request.customerId(), request.fulfillmentType(),
+                draftComment(request.comment()));
+        repository.deleteDraftItems(id);
+        for (var item : draftItems(request.items())) {
+            repository.insertItem(new SaleItem(UUID.randomUUID(), id,
+                    item.productVariantId(), item.warehouseId(),
+                    item.quantity(), item.unitSalePrice()));
+        }
+        SaleResponse after = get(id);
+        audit.record("SALE", id, "DRAFT_UPDATED", before, after);
+        return after;
+    }
+
+    @Transactional
+    public SaleResponse confirmDraft(UUID id) {
+        Sale sale = lock(id);
+        if (sale.status() == SaleStatus.CONFIRMED) {
+            return SaleMapper.toResponse(sale);
+        }
+        if (sale.status() != SaleStatus.DRAFT) {
+            throw rule("INVALID_SALE_STATUS", "Подтвердить можно только черновик");
+        }
+        if (sale.fulfillmentType() == null || sale.items().isEmpty()) {
+            throw rule("INCOMPLETE_DRAFT", "Укажите способ получения и товары перед подтверждением");
+        }
+
+        List<CreateSaleItemRequest> requested = sale.items().stream()
+                .map(item -> new CreateSaleItemRequest(
+                        item.productVariantId(), item.warehouseId(),
+                        item.quantity(), item.unitSalePrice()))
+                .toList();
+        validateReferences(new CreateSaleRequest(UUID.randomUUID(),
+                sale.customerId(), sale.fulfillmentType(), requested));
+        SaleResponse before = SaleMapper.toResponse(sale);
+        for (SaleItem item : sale.items().stream().sorted(INVENTORY_ORDER).toList()) {
+            inventory.reserve(new ChangeReservedStock(
+                    item.warehouseId(), item.productVariantId(), item.quantity()));
+        }
+        repository.confirmDraft(id);
+        SaleResponse after = get(id);
+        audit.record("SALE", id, "CONFIRMED", before, after);
+        return after;
+    }
+
+    private void validateDraftCustomer(UUID customerId) {
+        if (customerId == null) return;
+        if (!customers.get(customerId).active()) {
+            throw rule("CUSTOMER_INACTIVE", "Нельзя указать неактивного клиента");
+        }
+    }
+
+    private List<CreateSaleItemRequest> draftItems(List<CreateSaleItemRequest> items) {
+        return items == null ? List.of() : items;
+    }
+
+    private String draftComment(String text) {
+        if (text == null || text.isBlank()) return null;
+        String result = text.strip();
+        if (result.length() > 2000) {
+            throw rule("INVALID_DRAFT_COMMENT", "Комментарий превышает 2000 символов");
+        }
+        return result;
+    }
+
     @Transactional
     public SaleResponse create(
             @Valid CreateSaleRequest request
@@ -209,6 +323,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     @Transactional
     public SaleResponse fulfill(UUID saleId) {
+        repository.acquireCompletionGate();
         Sale sale = lock(saleId);
 
         if (sale.fulfillmentType()
@@ -243,6 +358,10 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     public SaleResponse cancel(UUID saleId) {
         Sale sale = lock(saleId);
 
+        if (sale.status() == SaleStatus.DRAFT) {
+            return cancelLocked(sale);
+        }
+
         if (sale.fulfillmentType()
                 != FulfillmentType.SELF_PICKUP) {
             throw rule(
@@ -274,6 +393,13 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     private SaleResponse cancelLocked(
             Sale sale
     ) {
+        if (sale.status() == SaleStatus.DRAFT) {
+            SaleResponse before = SaleMapper.toResponse(sale);
+            repository.cancelDraft(sale.id(), actor());
+            SaleResponse after = get(sale.id());
+            audit.record("SALE", sale.id(), "CANCELLED", before, after);
+            return after;
+        }
         if (sale.status() == SaleStatus.CANCELLED) {
             return SaleMapper.toResponse(sale);
         }

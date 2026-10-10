@@ -12,6 +12,8 @@ import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.InsufficientStockException;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CreateDraftSaleRequest;
+import kg.chairx.sale.api.UpdateDraftSaleRequest;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
@@ -26,6 +28,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,6 +54,12 @@ class SaleTests {
     JdbcTemplate jdbc;
     @Autowired
     InventoryAdjustmentService adjustments;
+
+    @Autowired
+    org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+
+    @Autowired
+    org.springframework.transaction.support.TransactionTemplate transactions;
 
     UUID home;
     UUID office;
@@ -166,6 +176,183 @@ class SaleTests {
         );
         SecurityContextHolder.clearContext();
 
+    }
+
+    @Test
+    void draftWithoutItemsDoesNotReserveStockAndCanBeCancelled() {
+        long before = stockMovementCount();
+        UUID key = UUID.randomUUID();
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                key, customer, null, List.of(), "Клиент думает"));
+        assertThat(created.status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(created.fulfillmentType()).isNull();
+        assertThat(created.items()).isEmpty();
+        assertThat(created.comment()).isEqualTo("Клиент думает");
+        assertThat(sales.createDraft(new CreateDraftSaleRequest(
+                key, customer, null, List.of(), "Клиент думает")).id()).isEqualTo(created.id());
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(stockMovementCount()).isEqualTo(before);
+        assertThat(count("payments")).isZero();
+        assertThat(sales.list(0, 20, SaleStatus.DRAFT, null, null, null).items())
+                .extracting(kg.chairx.sale.api.SaleSummary::id).contains(created.id());
+
+        var cancelled = sales.cancel(created.id());
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(stockMovementCount()).isEqualTo(before);
+        assertThatThrownBy(() -> sales.confirmDraft(created.id()))
+                .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void simultaneousDraftConfirmationsReserveOnce() throws Exception {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 3, "8500")), "Reserve once"));
+        long beforeMovements = stockMovementCount();
+        var start = new CountDownLatch(1);
+        var ready = new CountDownLatch(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var task = (java.util.concurrent.Callable<kg.chairx.sale.api.SaleResponse>) () -> {
+                SecurityContextHolder.getContext().setAuthentication(
+                        UsernamePasswordAuthenticationToken.authenticated(
+                                "p22-parallel-confirm", null, List.of()));
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("Draft confirmation workers not ready");
+                    }
+                    return sales.confirmDraft(draft.id());
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            };
+            Future<kg.chairx.sale.api.SaleResponse> first = pool.submit(task);
+            Future<kg.chairx.sale.api.SaleResponse> second = pool.submit(task);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(first.get(15, TimeUnit.SECONDS).status()).isEqualTo(SaleStatus.CONFIRMED);
+            assertThat(second.get(15, TimeUnit.SECONDS).status()).isEqualTo(SaleStatus.CONFIRMED);
+        }
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(3);
+        assertThat(count("sales")).isEqualTo(1);
+        assertThat(stockMovementCount()).isEqualTo(beforeMovements);
+        assertThat(saleAuditCount()).isEqualTo(2); // DRAFT_CREATED + CONFIRMED
+    }
+
+    @Test
+    void draftCanBeEditedAndConfirmedAtomically() {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), null, null, null, null));
+        assertThat(draft.items()).isEmpty();
+        assertThat(draft.customerId()).isNull();
+
+        var edited = sales.updateDraft(draft.id(), new UpdateDraftSaleRequest(
+                customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 2, "8500")),
+                "Покупатель подтвердил цену"));
+        assertThat(edited.status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(edited.items()).hasSize(1);
+        assertThat(edited.comment()).isEqualTo("Покупатель подтвердил цену");
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+
+        var confirmed = sales.confirmDraft(draft.id());
+        assertThat(confirmed.status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+        assertThat(sales.confirmDraft(draft.id()).id()).isEqualTo(confirmed.id());
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+        assertThatThrownBy(() -> sales.updateDraft(draft.id(),
+                new UpdateDraftSaleRequest(customer, null, null, null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void draftConfirmationFailureRollsBackAllReserves() {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 2, "8500"),
+                        item(secondVariant, office, 99, "9500")), null));
+        assertThatThrownBy(() -> sales.confirmDraft(draft.id()))
+                .isInstanceOf(InsufficientStockException.class);
+        assertThat(sales.get(draft.id()).status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(inventory.getBalance(office, secondVariant).reserved()).isZero();
+        assertThat(count("payments")).isZero();
+    }
+
+    @Test
+    void draftCreateRejectsIdempotencyKeyWithDifferentData() {
+        UUID key = UUID.randomUUID();
+        sales.createDraft(new CreateDraftSaleRequest(key, customer, null, List.of(), "A"));
+        assertThatThrownBy(() -> sales.createDraft(
+                new CreateDraftSaleRequest(key, customer, null, List.of(), "B")))
+                .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void closingSalesSnapshotFreezesFulfilledPickupAndDiagnosesLateCompletion() {
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 1, "8500")), null));
+        var pending = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        var done = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
+                .isEmpty();
+
+        sales.fulfill(done.id());
+        var before = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+        assertThat(before.closed()).isFalse();
+        assertThat(before.preliminary()).isTrue();
+        assertThat(before.totals().orders()).isEqualTo(1);
+        assertThat(before.items()).extracting(
+                kg.chairx.finance.application.DailyClosingSalesSnapshot.CompletedSale::saleId)
+                .containsExactly(done.id());
+
+        UUID closingId = UUID.randomUUID();
+        jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'sale-test')",
+                closingId, java.sql.Date.valueOf(date));
+        try {
+            transactions.executeWithoutResult(tx ->
+                    kg.chairx.finance.application.DailyClosingSalesSnapshot.capture(
+                            jdbcClient, closingId, date));
+            var frozen = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(frozen.snapshotAvailable()).isTrue();
+            assertThat(frozen.closed()).isTrue();
+            assertThat(frozen.preliminary()).isFalse();
+            assertThat(frozen.totals().orders()).isEqualTo(1);
+            assertThat(frozen.totals().chairs()).isEqualTo(1);
+            assertThat(frozen.totals().value()).isEqualByComparingTo("8500");
+            assertThat(frozen.lateCompletionCount()).isZero();
+
+            sales.fulfill(pending.id());
+            var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(later.items()).hasSize(1);
+            assertThat(later.totals().value()).isEqualByComparingTo("8500");
+            assertThat(later.lateCompletionCount()).isEqualTo(1);
+            assertThat(sales.get(draft.id()).status()).isEqualTo(SaleStatus.DRAFT);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", closingId);
+        }
+    }
+
+    @Test
+    void historicClosingWithoutSnapshotIsExplicitlyUnavailable() {
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'legacy')",
+                id, java.sql.Date.valueOf(date));
+        try {
+            var historic = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(historic.closed()).isTrue();
+            assertThat(historic.snapshotAvailable()).isFalse();
+            assertThat(historic.totals().value()).isNull();
+            assertThat(historic.lateCompletionCount()).isNull();
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",id);
+        }
     }
 
     @Test

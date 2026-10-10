@@ -35,6 +35,13 @@ public class SaleController {
         return service.list(page,size,status,from,to,number);
     }
 
+    @GetMapping("/customer/{customerId}")
+    public SalePageResponse customerSales(@PathVariable UUID customerId,
+            @RequestParam(defaultValue="0") @Min(0) int page,
+            @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
+        return service.listForCustomer(customerId, page, size);
+    }
+
     @PostMapping
     public ResponseEntity<SaleResponse> create(
             @Valid @RequestBody CreateSaleRequest request
@@ -48,6 +55,25 @@ public class SaleController {
                         )
                 )
                 .body(response);
+    }
+
+    @PostMapping("/drafts")
+    public ResponseEntity<SaleResponse> createDraft(
+            @Valid @RequestBody kg.chairx.sale.api.CreateDraftSaleRequest request) {
+        SaleResponse response = service.createDraft(request);
+        return ResponseEntity.created(URI.create("/api/sales/" + response.id()))
+                .body(response);
+    }
+
+    @PutMapping("/{id}/draft")
+    public SaleResponse updateDraft(@PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.sale.api.UpdateDraftSaleRequest request) {
+        return service.updateDraft(id, request);
+    }
+
+    @PostMapping("/{id}/confirm")
+    public SaleResponse confirmDraft(@PathVariable UUID id) {
+        return service.confirmDraft(id);
     }
 
     @GetMapping("/{id}")

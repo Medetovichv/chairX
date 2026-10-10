@@ -67,6 +67,46 @@ class BusinessAuthorizationIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void p22RelatedDataAndMutationEndpointsEnforceExplicitPermissions() throws Exception {
+        String id = UUID.randomUUID().toString();
+        for (String path: List.of("/api/customers/overview",
+                "/api/sales/customer/"+id)) {
+            mvc.perform(get(path).with(permission("CUSTOMERS_READ")))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get(path).with(permission("SALES_READ")))
+                    .andExpect(status().isForbidden());
+        }
+        for (String path: List.of("/api/inventory/overview",
+                "/api/purchases/overview", "/api/finance/closings/2026-10-10/sales")) {
+            mvc.perform(get(path).with(permission("SALES_READ")))
+                    .andExpect(status().isForbidden());
+        }
+
+        mvc.perform(post("/api/sales/drafts").with(permission("SALES_READ"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/sales/"+id+"/draft").with(permission("SALES_CREATE"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/sales/"+id+"/confirm").with(permission("SALES_CREATE"))
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
+        mvc.perform(put("/api/deliveries/"+id+"/planned-date")
+                        .with(permission("DELIVERIES_READ")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plannedDeliveryDate\":\"2026-10-15\"}"))
+                .andExpect(status().isForbidden());
+
+        mvc.perform(post("/api/sales/drafts").with(permission("SALES_CREATE"))
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden()); // CSRF still mandatory
+        mvc.perform(put("/api/deliveries/"+id+"/planned-date")
+                        .with(permission("DELIVERIES_MANAGE")).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"plannedDeliveryDate\":\"2026-10-15\"}"))
+                .andExpect(status().isNotFound());
+    }
+
     @Test void catalogCanReadButCannotChangeCatalogOrReadBusinessData() throws Exception {
         mvc.perform(get("/api/products").with(httpBasic("catalog","integration-test-password")))
                 .andExpect(status().isOk());
