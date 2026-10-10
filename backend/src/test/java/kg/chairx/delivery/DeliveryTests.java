@@ -13,7 +13,6 @@ import kg.chairx.payment.application.PaymentRuleViolationException;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.returning.application.ReturnService;
-import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.returning.api.CreateReturnRequest;
 import kg.chairx.returning.api.CreateReturnItemRequest;
 import kg.chairx.returning.domain.ReturnCondition;
@@ -988,10 +987,13 @@ class DeliveryTests {
         deliveries.returnToWarehouse(
                 delivery.id(), new ReturnDeliveryToWarehouseRequest(home));
         long onHand = inventory.getBalance(home, firstVariant).onHand();
+        // The original SALE_OUT has already been fully restored by the
+        // delivery receipt, so the shared FIFO budget must reject this path.
         assertThatThrownBy(() -> returns.create(attempt))
-                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                .isInstanceOfSatisfying(
+                        kg.chairx.inventory.cost.InventoryCostException.class,
                         error -> assertThat(error.getCode())
-                                .isEqualTo("DELIVERY_ALREADY_RETURNED_TO_WAREHOUSE"));
+                                .isEqualTo("RETURN_COST_QUANTITY_EXCEEDED"));
         assertThat(returnInCount()).isEqualTo(1);
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(onHand);
         assertThat(jdbc.queryForObject("select count(*) from returns", Long.class)).isZero();
