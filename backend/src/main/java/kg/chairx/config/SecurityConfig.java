@@ -104,6 +104,8 @@ public class SecurityConfig {
                         .hasAuthority("PURCHASE_PAYMENTS_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/purchases/*/receipts")
                         .hasAuthority("INVENTORY_RECEIVE")
+                        .requestMatchers(HttpMethod.GET, "/api/purchases/overview")
+                        .hasAuthority("PURCHASE_READ")
                         .requestMatchers(HttpMethod.GET, "/api/purchases", "/api/purchases/*", "/api/purchases/*/receipts", "/api/purchases/*/receipts/*")
                         .hasAuthority("PURCHASE_READ")
                         .requestMatchers(HttpMethod.POST, "/api/purchases")
