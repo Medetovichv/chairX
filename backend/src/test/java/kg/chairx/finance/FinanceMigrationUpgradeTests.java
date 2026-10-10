@@ -38,8 +38,9 @@ class FinanceMigrationUpgradeTests {
             after.validate();
             assertThat(jdbc.queryForObject("SELECT balance FROM " + schema + ".finance_accounts WHERE code='CASH'", BigDecimal.class)).isEqualByComparingTo("100");
             assertThat(jdbc.queryForObject("SELECT amount FROM " + schema + ".finance_movements WHERE id=?", BigDecimal.class, id)).isEqualByComparingTo("100");
-            assertThat(jdbc.queryForObject("SELECT idempotency_key FROM " + schema
-                    + ".expenses WHERE id=?", (rs, row) -> rs.getObject(1), legacyExpense)).isNull();
+            UUID historicalKey = jdbc.queryForObject("SELECT idempotency_key FROM " + schema
+                    + ".expenses WHERE id=?", UUID.class, legacyExpense);
+            assertThat(historicalKey).isNull();
             assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema
                     + ".finance_document_posting_issues WHERE document_id=?",
                     Long.class, legacyExpense)).isEqualTo(1);
