@@ -7,6 +7,7 @@ import kg.chairx.expense.domain.ExpenseCategory;
 import kg.chairx.expense.domain.ExpensePaymentMethod;
 import kg.chairx.finance.application.FinanceReconciliationService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -25,13 +26,17 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
-@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @Transactional
 @WithMockUser(username = "reconciliation-tester")
 class FinanceReconciliationIntegrationTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired FinanceReconciliationService diagnostics;
     @Autowired ExpenseService expenses;
+
+    @BeforeEach
+    void fundAccountsInRollbackOnlyFixture() {
+        jdbc.update("UPDATE finance_accounts SET balance=1000000, opening_balance_initialized=true");
+    }
 
     @Test
     void findsUnpostedHistoricalExpenseButDoesNotCreateMovements() {
