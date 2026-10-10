@@ -124,7 +124,7 @@ public class FinanceTransferService {
         if (!accounts.isOpeningBalanceInitialized(from)
                 || !accounts.isOpeningBalanceInitialized(to)) {
 
-            throw new IllegalStateException(
+            throw new FinanceConflictException(
                     "Сначала необходимо инициализировать оба счёта"
             );
         }
