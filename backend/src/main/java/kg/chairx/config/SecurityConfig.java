@@ -132,6 +132,8 @@ public class SecurityConfig {
                         .hasAuthority("DELIVERIES_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel")
                         .hasAuthority("SALES_CANCEL")
+                        .requestMatchers(HttpMethod.PUT, "/api/deliveries/*/planned-date")
+                        .hasAuthority("DELIVERIES_MANAGE")
                         .requestMatchers(HttpMethod.GET, "/api/returns", "/api/returns/*")
                         .hasAuthority("RETURNS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/returns")
