@@ -159,7 +159,8 @@ public record Payment(
                 paidAt,
                 normalizedActor,
                 time,
-                normalizedReason
+                normalizedReason,
+                channel
         );
     }
 
