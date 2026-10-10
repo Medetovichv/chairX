@@ -54,7 +54,7 @@ class FinanceApiIntegrationTests {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value("CASH"))
                 .andExpect(jsonPath("$.initialized").value(true))
-                .andExpect(jsonPath("$.balance").value(100000));
+                .andExpect(jsonPath("$.balance").value(100000.0));
         mvc.perform(post("/api/finance/opening-balances")
                         .with(user("accountant").authorities(
                                 new org.springframework.security.core.authority.SimpleGrantedAuthority(
