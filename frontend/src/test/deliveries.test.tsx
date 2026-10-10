@@ -6,7 +6,6 @@ import { MemoryRouter } from 'react-router';
 import { AppRouter } from '../app/router/AppRouter';
 import { createQueryClient } from '../shared/api/query';
 import { authSession } from '../features/auth/session';
-import { deliveryApi } from '../features/deliveries/api';
 import { applyQuick } from '../features/deliveries/components/DeliveryFilters';
 import { bishkekToday, nextBishkekDay, validateCreate, deliveryStatuses } from '../features/deliveries/validation';
 import { readPendingCreate } from '../features/deliveries/pending-create';
