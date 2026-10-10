@@ -114,6 +114,8 @@ public class SecurityConfig {
                         .hasAuthority("PURCHASE_CONFIRM")
                         .requestMatchers(HttpMethod.POST, "/api/purchases/*/cancel")
                         .hasAuthority("PURCHASE_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory/overview")
+                        .hasAuthority("INVENTORY_READ")
                         .requestMatchers(HttpMethod.GET, "/api/inventory/balances", "/api/inventory/balances/*/*", "/api/inventory/movements", "/api/inventory/transfers", "/api/inventory/transfers/*")
                         .hasAuthority("INVENTORY_READ")
                         .requestMatchers(HttpMethod.POST, "/api/inventory/transfers")
