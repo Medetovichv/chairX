@@ -1,0 +1,28 @@
+# CHAIRX PACKAGE 17 — COMPLETE BUSINESS RBAC REPORT
+
+**Status:** NOT READY FOR MERGE until the user's local Maven/Testcontainers run succeeds and resulting failures have been triaged. Source changes are committed to GitHub.
+
+1. **Base branch and SHA:** `feat/p20-backend-mvp` at `2fb06d3a66eb405c2733bc189a3aabd6ab4998dc` (P20 previously passed user-reported BUILD SUCCESS).
+2. **Working branch:** `fix/p17-complete-business-rbac`. Current commit after completing this report appears in PR #8.
+3. **Initial vulnerabilities:** `SecurityConfig` initially protected finance/admin but ended in `.anyRequest().authenticated()`. Any successfully authenticated identity, including `catalog`, could invoke unprotected business endpoints with CSRF.
+4. **API inventory:** 24 `@RestController` classes, 102 `@Get/Post/Put/Patch/DeleteMapping` routes in P20 source. All routes were matched at static review by HTTP method plus URL to an explicit permission rule. See `docs/security-rbac.md`.
+5. **Permissions:** 29 new values seeded by V40; V29/V30/V33 existing grants reused and not duplicated. Payments/returns/refunds, financial settlement and defect write-off have separate authorities.
+6. **ADMIN:** retains existing grants and obtains every new permission in V40. Business validation rules still apply.
+7. **MANAGER:** obtains operational catalog/customer/supplier/purchase/delivery/return/payment-create/defect-manage permissions; also existing `PURCHASE_CONFIRM`. No supplier payment, refund, payment cancellation, settlement, write-off, financial transfer/init/close or user management by default.
+8. **EMPLOYEE:** existing `SALES_READ`, `SALES_CREATE`, `INVENTORY_READ` plus catalog/customer read, customer create, delivery read. Cannot spend cash or change privileged documents.
+9. **Technical catalog account:** `CATALOG_ACCESS` allows only GET products, variants and nested variant lists. No write, client/finance/staff or inventory access. Valid CSRF token does not change permissions.
+10. **Changed Java production classes:** only `backend/src/main/java/kg/chairx/config/SecurityConfig.java`. Existing `ChairxUserDetailsService`, `CompositeUserDetailsService`, user management, services, repositories and all business algorithms remain unchanged.
+11. **Database migration:** `V40__complete_business_rbac.sql`. Inserts missing permissions and selected grants without overwriting existing users, password hashes, role assignments, existing grants, audit, custom roles or history.
+12. **Authentication verification:** code inspection preserved HTTP Basic; tests added for real PostgreSQL users/permissions, catalog service account, inactive user, no-role user, incorrect password and fresh authentication after role changes. **Automated execution pending.**
+13. **CSRF:** not disabled. Positive permission without CSRF returns 403; CSRF with insufficient permission also returns 403. Added requests for both cases. **Automated execution pending.**
+14. **Unauthorized-access tests:** `BusinessAuthorizationIntegrationTests` + existing finance/admin tests exercise HTTP 401/403, unknown business route, unsupported methods and catalog denials. **Automated execution pending.**
+15. **Cross-module bypass tests:** delivery.cancel is explicitly mapped to `SALES_CANCEL`, payments.cancel requires `PAYMENTS_CANCEL`, purchase payment requires `PURCHASE_PAYMENTS_CREATE`, refund requires `REFUNDS_CREATE`, exchange settlement requires `EXCHANGES_SETTLE`, defect write-off requires `DEFECTS_WRITE_OFF`.
+16. **Negative data-integrity tests:** denied state-changing requests assert unchanged CASH/BANK balances, financial and stock journals, payments, refunds, expenses, purchase payments, sales, inventory transfer rows, business audit and role assignments. No service method called on rejection. **Automated execution pending.**
+17. **Existing test compatibility:** updated business @WithMockUser authorities only where legitimate operations need them; corrected former catalog technical account create/CSRF test to expect 403; updated authentication and role-repository regression expectations. No test disabled.
+18. **Flyway verification:** new tests create disposable PostgreSQL schemas for clean migrate and migration from V39 preserving custom role, user, password hash, audit history and grants. Existing V1–V39 untouched. **Automated execution pending.**
+19. **Maven clean verify:** NOT EXECUTED through GitHub connector, which cannot run Java/Maven/Docker or Testcontainers. Required locally: `git fetch origin && git switch --track origin/fix/p17-complete-business-rbac && cd backend && mvn clean verify`. Existing local branch: `git switch fix/p17-complete-business-rbac && git pull --ff-only`. Do not report green until confirmed by user.
+20. **Remaining risks:** runtime compilation/MockMvc regression failures are possible; practical auth smoke tests need running; deployment must check any previously explicitly granted custom roles; require secure backups, HTTPS, secrets, role review and monitoring before exposing to employees. No additional security system was built.
+21. **Pull Request:** draft PR from `fix/p17-complete-business-rbac` into `feat/p20-backend-mvp`. No merge to P20 or main.
+22. **Final verdict:** NOT READY (awaiting build/test). Full 102-route coverage was **VERIFIED BY CODE INSPECTION**; real HTTP/DB tests were **IMPLEMENTED, NOT EXECUTED**; no manual production test was performed.
+
+**Definition of Done after tests:** no unsecured business route, no unauthorized side effects, role migration compatible with existing DB, all ~579+ preexisting/new tests pass, role policy reviewed, and no conflicts with P20. Only after that mark PR ready and plan explicit integration.

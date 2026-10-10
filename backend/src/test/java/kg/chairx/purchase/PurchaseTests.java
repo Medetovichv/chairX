@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"})
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "purchase-tester")
+@WithMockUser(username = "purchase-tester", authorities = {"PURCHASE_READ","PURCHASE_CREATE","PURCHASE_UPDATE","PURCHASE_CANCEL","PURCHASE_CONFIRM","INVENTORY_RECEIVE"})
 @Timeout(30)
 class PurchaseTests {
     @Autowired PurchaseService purchases;

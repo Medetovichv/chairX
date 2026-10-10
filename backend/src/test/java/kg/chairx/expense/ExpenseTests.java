@@ -398,7 +398,8 @@ class ExpenseTests {
 
     @Test
     void expenseHttpRequiresKeyAndChangedPayloadReturns409() throws Exception {
-        var authenticated = user("expense-api-tester");
+        var authenticated = user("expense-api-tester").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_CREATE"));
         mvc.perform(post("/api/expenses").with(authenticated).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -415,13 +416,13 @@ class ExpenseTests {
                 """.formatted(key);
         String changed = first.replace("\"amount\":200", "\"amount\":300");
 
-        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_CREATE"))).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(first))
                 .andExpect(status().isCreated());
-        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_CREATE"))).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(first))
                 .andExpect(status().isCreated());
-        mvc.perform(post("/api/expenses").with(user("expense-api-tester")).with(csrf())
+        mvc.perform(post("/api/expenses").with(user("expense-api-tester").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_CREATE"))).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(changed))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject(

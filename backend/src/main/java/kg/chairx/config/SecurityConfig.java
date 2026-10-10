@@ -67,32 +67,109 @@ public class SecurityConfig {
 
         http
                 .authorizeHttpRequests(auth -> auth
-
+                        // Only known routes have grants. Unrecognized methods and
+                        // new API routes are denied until explicitly reviewed.
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/csrf")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
+                        .hasAnyAuthority("CATALOG_READ", "CATALOG_ACCESS")
+                        .requestMatchers(HttpMethod.POST, "/api/products", "/api/products/*/variants", "/api/products/*/activate", "/api/products/*/deactivate", "/api/product-variants/*/activate", "/api/product-variants/*/deactivate")
+                        .hasAuthority("CATALOG_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/*", "/api/product-variants/*")
+                        .hasAuthority("CATALOG_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/suppliers", "/api/suppliers/*")
+                        .hasAuthority("SUPPLIERS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/suppliers", "/api/suppliers/*/activate", "/api/suppliers/*/deactivate")
+                        .hasAuthority("SUPPLIERS_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/suppliers/*")
+                        .hasAuthority("SUPPLIERS_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/customers", "/api/customers/search", "/api/customers/*")
+                        .hasAuthority("CUSTOMERS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/customers")
+                        .hasAuthority("CUSTOMERS_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/customers/*/activate", "/api/customers/*/deactivate")
+                        .hasAuthority("CUSTOMERS_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/customers/*")
+                        .hasAuthority("CUSTOMERS_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/warehouses", "/api/warehouses/*")
+                        .hasAuthority("INVENTORY_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/warehouses", "/api/warehouses/*/activate", "/api/warehouses/*/deactivate")
+                        .hasAuthority("WAREHOUSES_MANAGE")
+                        .requestMatchers(HttpMethod.PUT, "/api/warehouses/*")
+                        .hasAuthority("WAREHOUSES_MANAGE")
+                        .requestMatchers(HttpMethod.GET, "/api/purchases/*/payments")
+                        .hasAuthority("PURCHASE_PAYMENTS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/purchases/*/payments")
+                        .hasAuthority("PURCHASE_PAYMENTS_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/purchases/*/receipts")
+                        .hasAuthority("INVENTORY_RECEIVE")
+                        .requestMatchers(HttpMethod.GET, "/api/purchases", "/api/purchases/*", "/api/purchases/*/receipts", "/api/purchases/*/receipts/*")
+                        .hasAuthority("PURCHASE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/purchases")
+                        .hasAuthority("PURCHASE_CREATE")
+                        .requestMatchers(HttpMethod.PUT, "/api/purchases/*", "/api/purchases/*/cargo")
+                        .hasAuthority("PURCHASE_UPDATE")
+                        .requestMatchers(HttpMethod.POST, "/api/purchases/*/confirm")
+                        .hasAuthority("PURCHASE_CONFIRM")
+                        .requestMatchers(HttpMethod.POST, "/api/purchases/*/cancel")
+                        .hasAuthority("PURCHASE_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/inventory/balances", "/api/inventory/balances/*/*", "/api/inventory/movements", "/api/inventory/transfers", "/api/inventory/transfers/*")
+                        .hasAuthority("INVENTORY_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/inventory/transfers")
+                        .hasAuthority("INVENTORY_TRANSFER")
+                        .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*")
+                        .hasAuthority("SALES_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/sales")
+                        .hasAuthority("SALES_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/fulfill")
+                        .hasAuthority("SALES_UPDATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel")
+                        .hasAuthority("SALES_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/deliveries", "/api/deliveries/*")
+                        .hasAuthority("DELIVERIES_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/deliveries", "/api/deliveries/*/dispatch", "/api/deliveries/*/deliver", "/api/deliveries/*/fail", "/api/deliveries/*/return-to-warehouse")
+                        .hasAuthority("DELIVERIES_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel")
+                        .hasAuthority("SALES_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/returns", "/api/returns/*")
+                        .hasAuthority("RETURNS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/returns")
+                        .hasAuthority("RETURNS_CREATE")
+                        .requestMatchers(HttpMethod.GET, "/api/payments/*", "/api/payments/sale/*", "/api/payments/sale/*/active")
+                        .hasAuthority("PAYMENTS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/payments")
+                        .hasAuthority("PAYMENTS_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/payments/*/cancel")
+                        .hasAuthority("PAYMENTS_CANCEL")
+                        .requestMatchers(HttpMethod.GET, "/api/refunds/*", "/api/refunds/sale/*")
+                        .hasAuthority("REFUNDS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/refunds")
+                        .hasAuthority("REFUNDS_CREATE")
+                        .requestMatchers(HttpMethod.GET, "/api/exchanges/*", "/api/exchanges/*/settlements")
+                        .hasAuthority("EXCHANGES_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/exchanges")
+                        .hasAuthority("EXCHANGES_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/exchanges/*/settlements")
+                        .hasAuthority("EXCHANGES_SETTLE")
+                        .requestMatchers(HttpMethod.GET, "/api/expenses", "/api/expenses/*", "/api/expenses/total")
+                        .hasAuthority("EXPENSES_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/expenses")
+                        .hasAuthority("EXPENSES_CREATE")
+                        .requestMatchers(HttpMethod.GET, "/api/defects", "/api/defects/*")
+                        .hasAuthority("DEFECTS_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/defects", "/api/defects/*/wait-for-parts", "/api/defects/*/resolve")
+                        .hasAuthority("DEFECTS_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/defects/*/write-off")
+                        .hasAuthority("DEFECTS_WRITE_OFF")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/accounts", "/api/finance/cash-flow", "/api/finance/closings", "/api/finance/closings/*")
+                        .hasAuthority("FINANCE_READ")
+                        .requestMatchers(HttpMethod.POST, "/api/finance/transfers")
+                        .hasAuthority("FINANCE_TRANSFER")
+                        .requestMatchers(HttpMethod.POST, "/api/finance/opening-balances")
+                        .hasAuthority("FINANCE_INITIALIZE")
                         .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
                         .hasAuthority("FINANCE_CLOSE")
-
-                        // Просмотр финансов
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/finance/**"
-                        ).hasAuthority("FINANCE_READ")
-
-                        // Переводы между счетами
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/finance/transfers"
-                        ).hasAuthority("FINANCE_TRANSFER")
-
-                        // Установка начальных остатков
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/api/finance/opening-balances"
-                        ).hasAuthority("FINANCE_INITIALIZE")
-
-                        // Остальные финансовые маршруты запрещены
-                        .requestMatchers("/api/finance/**").denyAll()
-
-                        // Разрешения для административного API
                         .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/*")
                         .hasAuthority("USERS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/admin/users")
@@ -105,8 +182,7 @@ public class SecurityConfig {
                         .hasAuthority("ROLES_ASSIGN")
                         .requestMatchers(HttpMethod.DELETE, "/api/admin/users/*/roles/*")
                         .hasAuthority("ROLES_ASSIGN")
-                        .requestMatchers("/api/admin/**").denyAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().denyAll()
                 )
 
                 // Сохраняем HTTP Basic
