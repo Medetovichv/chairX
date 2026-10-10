@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -120,6 +121,38 @@ class BusinessRolePermissionsIntegrationTests {
         mvc.perform(get("/api/finance/accounts")
                         .with(httpBasic(admin.username(),"p17-test-password")))
                 .andExpect(status().isOk());
+    }
+
+    @Test void realBasicUsersRequirePermissionsForStateChangesEvenWithCsrf() throws Exception {
+        Employee employee=createEmployee(EMPLOYEE);
+        Employee manager=createEmployee(MANAGER);
+        Employee admin=createEmployee(ADMIN);
+        String purchases="/api/purchases/"+UUID.randomUUID()+"/payments";
+
+        mvc.perform(post("/api/sales")
+                        .with(httpBasic(employee.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/expenses")
+                        .with(httpBasic(employee.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/purchases")
+                        .with(httpBasic(manager.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post(purchases)
+                        .with(httpBasic(manager.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post(purchases)
+                        .with(httpBasic(admin.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/finance/transfers")
+                        .with(httpBasic(admin.username(),"p17-test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test void changingRolesChangesEffectiveAccessOnFreshBasicAuthentication() throws Exception {
