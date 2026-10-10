@@ -13,6 +13,24 @@ catalog_status=$(curl --silent --output /tmp/chairx-catalog.json --write-out '%{
   http://127.0.0.1:5173/api/products)
 test "$catalog_status" = "200"
 
+# F02 full-stack authentication through the Vite same-origin proxy.
+# Reuse the same cookie jar for CSRF so browser-equivalent session behavior is tested.
+cookie_jar=$(mktemp)
+trap 'rm -f "$cookie_jar"' EXIT
+profile_json=$(curl --fail --silent --show-error -c "$cookie_jar" -b "$cookie_jar" \
+  --user "manager:$CHAIRX_DEV_MANAGER_PASSWORD" http://127.0.0.1:5173/api/auth/me)
+printf '%s' "$profile_json" | grep -q '"username":"manager"'
+printf '%s' "$profile_json" | grep -q '"roles":\["MANAGER"\]'
+csrf_json=$(curl --fail --silent --show-error -c "$cookie_jar" -b "$cookie_jar" \
+  --user "manager:$CHAIRX_DEV_MANAGER_PASSWORD" http://127.0.0.1:5173/api/csrf)
+printf '%s' "$csrf_json" | grep -q '"headerName"'
+printf '%s' "$csrf_json" | grep -q '"token"'
+
+catalog_me_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  --user "catalog:$CHAIRX_CATALOG_PASSWORD" http://127.0.0.1:5173/api/auth/me)
+test "$catalog_me_status" = "403"
+
+
 admin_status=$(curl --silent --output /tmp/chairx-admin.json --write-out '%{http_code}' \
   --user "admin:$CHAIRX_BOOTSTRAP_ADMIN_PASSWORD" \
   http://127.0.0.1:8080/api/admin/users)

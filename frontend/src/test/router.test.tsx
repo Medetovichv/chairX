@@ -1,9 +1,23 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AppRouter } from '../app/router/AppRouter';
 import { navigationItems } from '../shared/lib/navigation';
+
+// F01 navigation regression: authenticated account with all permissions.
+vi.mock('../features/auth/AuthProvider', () => ({
+  useAuth: () => ({
+    isAuthenticated: true,
+    status: 'authenticated',
+    user: { id: 'test-admin', username: 'test', displayName: 'Test Admin',
+      roles: ['ADMIN'], permissions: [] },
+    hasAnyPermission: () => true,
+    hasPermission: () => true,
+    logout: vi.fn(),
+    login: vi.fn(),
+  }),
+}));
 
 function renderAt(path = '/') {
   return render(
