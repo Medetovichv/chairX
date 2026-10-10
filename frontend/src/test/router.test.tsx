@@ -75,7 +75,7 @@ describe('F02.1 navigation structure', () => {
     expect(screen.getByRole('button', { name: 'Черновики' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByText('Данные пока не загружены')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '+ Новая продажа' })).toBeDisabled();
-    await user.click(screen.getByRole('link', { name: 'Главная' }));
+    await user.click(within(screen.getByRole('navigation', { name: 'Разделы ChairX' })).getByRole('link', { name: 'Главная' }));
     expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument();
   });
 
@@ -128,13 +128,12 @@ describe('F02.1 RBAC and legacy paths', () => {
   it('lets expense-only employee reach finance/expenses but not finance overview or cash flow', async () => {
     mockProfile.roles = ['EMPLOYEE'];
     mockProfile.permissions = ['EXPENSES_READ'];
-    const user = userEvent.setup();
     renderAt('/finance');
     expect(screen.getByRole('heading', { name: 'Расходы', level: 2 })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     expect(within(nav).getByRole('link', { name: 'Финансы' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Движение денег' })).not.toBeInTheDocument();
-    await user.click(within(nav).getByRole('button', { name: 'Развернуть Финансы' }));
+    expect(within(nav).getByRole('button', { name: 'Свернуть Финансы' })).toHaveAttribute('aria-expanded', 'true');
     expect(within(nav).getByRole('link', { name: 'Расходы' })).toBeInTheDocument();
   });
 
