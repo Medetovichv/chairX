@@ -301,7 +301,7 @@ describe('F05 customer creation and validation', () => {
     await waitFor(() => expect(calls.mock.calls.filter(([url, req]) =>
       String(url) === '/api/customers' && (req as RequestInit).method === 'POST')).toHaveLength(1));
     release();
-    expect(await screen.findByRole('heading', { name: '+996222123456' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('heading', { name: '+996222123456' })).toBeInTheDocument());
   });
 
   it('shows HTTP 409 and keeps entered data', async () => {
