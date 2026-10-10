@@ -68,6 +68,12 @@ class EmployeeAuthenticationIntegrationTest {
                 encoder.encode("secure-test-password"),
                 "Authentication Test Employee"
         );
+        // Authorization is permission-based; an active user without any role
+        // authenticates but must not read the business catalog.
+        jdbc.update("""
+                INSERT INTO security_user_roles(user_id,role_id)
+                VALUES (?, '00000000-0000-0000-0000-000000000003')
+                """, id);
     }
 
     @Test
