@@ -45,6 +45,10 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
 ];
 
+const returnCreate:RouteMeta={path:'/returns/new',label:'Оформить возврат',parent:'/returns',permissions:['RETURNS_CREATE']};
+const returnDetail:RouteMeta={path:'/returns/:returnId',label:'Карточка возврата',parent:'/returns',permissions:['RETURNS_READ']};
+const exchangeDetail:RouteMeta={path:'/returns/exchanges/:exchangeId',label:'Карточка обмена',parent:'/returns/exchanges',permissions:['EXCHANGES_READ']};
+const defectDetail:RouteMeta={path:'/returns/defects/:defectId',label:'Карточка брака',parent:'/returns/defects',permissions:['DEFECTS_READ']};
 const deliveryCreate: RouteMeta={path:'/deliveries/new',label:'Оформить доставку',parent:'/deliveries',permissions:['DELIVERIES_READ','DELIVERIES_MANAGE']};
 const deliveryDetail: RouteMeta={path:'/deliveries/:deliveryId',label:'Карточка доставки',parent:'/deliveries',permissions:['DELIVERIES_READ']};
 const saleCreate: RouteMeta = {path:'/sales/new', label:'Новая продажа',parent:'/sales',permissions:['SALES_CREATE']};
@@ -66,6 +70,10 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 };
 
 export function routeFor(path: string): RouteMeta | undefined {
+  if(path==='/returns/new')return returnCreate;
+  if(/^\/returns\/exchanges\/[^/]+$/.test(path))return {...exchangeDetail,path};
+  if(/^\/returns\/defects\/[^/]+$/.test(path))return {...defectDetail,path};
+  if(/^\/returns\/[^/]+$/.test(path)&&!childRoutes.some(x=>x.path===path))return {...returnDetail,path};
   if (path==='/deliveries/new') return deliveryCreate;
   if (/^\/deliveries\/[^/]+$/.test(path)) return {...deliveryDetail,path};
   if (path==='/sales/new') return saleCreate;
