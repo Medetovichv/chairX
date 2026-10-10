@@ -27,10 +27,22 @@ class FinanceMigrationUpgradeTests {
             jdbc.update("UPDATE " + schema + ".finance_accounts SET balance=100, opening_balance_initialized=TRUE WHERE code='CASH'");
             UUID id = UUID.randomUUID();
             jdbc.update("INSERT INTO " + schema + ".finance_movements(id,account_code,amount,movement_type,source_type,source_id,created_by) VALUES (?, 'CASH', 100, 'SALE_PAYMENT', 'PAYMENT', ?, 'audit')", id, id);
-            assertThat(after.migrate().migrationsExecuted).isEqualTo(1);
+            UUID legacyExpense = UUID.randomUUID();
+            jdbc.update("INSERT INTO " + schema
+                    + ".expenses(id, category, amount, payment_method, expense_date, created_by, created_at)"
+                    + " VALUES (?, 'OTHER', 150, 'CASH', CURRENT_DATE, 'legacy', now())", legacyExpense);
+
+            // Upgrade from V33 through V34, V35 and V36 without touching
+            // the existing financial balance, journal or legacy expense.
+            assertThat(after.migrate().migrationsExecuted).isGreaterThanOrEqualTo(3);
             after.validate();
             assertThat(jdbc.queryForObject("SELECT balance FROM " + schema + ".finance_accounts WHERE code='CASH'", BigDecimal.class)).isEqualByComparingTo("100");
             assertThat(jdbc.queryForObject("SELECT amount FROM " + schema + ".finance_movements WHERE id=?", BigDecimal.class, id)).isEqualByComparingTo("100");
+            assertThat(jdbc.queryForObject("SELECT idempotency_key FROM " + schema
+                    + ".expenses WHERE id=?", (rs, row) -> rs.getObject(1), legacyExpense)).isNull();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM " + schema
+                    + ".finance_document_posting_issues WHERE document_id=?",
+                    Long.class, legacyExpense)).isEqualTo(1);
             jdbc.update("INSERT INTO " + schema + ".finance_movements(id,account_code,amount,movement_type,source_type,source_id,created_by) VALUES (?, 'CASH', -100, 'PAYMENT_REVERSAL', 'PAYMENT_REVERSAL', ?, 'audit')", UUID.randomUUID(), id);
             assertThat(after.migrate().migrationsExecuted).isZero();
         } finally { after.clean(); }
