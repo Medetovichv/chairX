@@ -20,7 +20,7 @@ Routes: `/returns`, `/returns/new`, `/returns/:returnId`, `/returns/exchanges`, 
 ```
 **Use `saleItemId`, NOT variant UUID.** Each return has >=1 unique saleItemId and positive integer quantity, required reason 1..500 characters, optional comment <=1000.
 
-For user-facing eligible quantities, load SaleResponse under SALES_READ, then ALL pages of `GET /api/returns?saleId=<UUID>` under RETURNS_READ and full return detail for each summary. Guard inconsistent pages/count and cap the advisory history at 1000 return records. If larger, the form fails closed instead of issuing excessive HTTP requests; backend remains authoritative. Available = original sale item quantity minus all previous returns for that `saleItemId`; never advertise an unproven remaining quantity. The backend holds the Sale row lock and verifies maximum again, including concurrent returns.
+For user-facing eligible quantities, load SaleResponse under SALES_READ, then ALL pages of `GET /api/returns?saleId=<UUID>` under RETURNS_READ and full return detail for each summary. Guard inconsistent pages/count and cap the advisory history at 1000 return records, retrieving details in batches of at most six concurrent requests. If larger, the form fails closed instead of issuing excessive HTTP requests; backend remains authoritative. Available = original sale item quantity minus all previous returns for that `saleItemId`; never advertise an unproven remaining quantity. The backend holds the Sale row lock and verifies maximum again, including concurrent returns.
 
 Customer return is permitted by backend only after actual fulfillment: SELF_PICKUP => SaleStatus FULFILLED; CITY_DELIVERY or REGION_DELIVERY => Sale FULFILLED AND **DeliveryStatus DELIVERED**. The frontend uses a real server `SaleSummary.deliveryStatus` obtained via `GET /api/sales?number=<saleNumber>` and exact sale UUID match, not inferred merely from Sale FULFILLED. READY, IN_TRANSIT and FAILED never produce a customer Return. FAILED physical goods use F08 `POST /api/deliveries/{id}/return-to-warehouse` and no second `POST /api/returns`.
 
@@ -62,8 +62,10 @@ Backend record fields: `id,warehouseId,productVariantId,supplierId,purchaseRecei
 
 Neither defect creation nor write-off has an idempotencyKey field. A safe pending-operation marker is persisted before mutation, and a network/409/5xx uncertainty blocks blind retries; manual reconciliation of backend state and inventory movements is required. Only IDs and random operation marker are persisted, no problem description or resolution note. Write-off does not derive authority from DEFECTS_MANAGE.
 
+**Review improvement:** Lifecycle markers for wait/resolve/write-off are scoped to the authenticated user **and individual defect UUID**; an uncertain write-off of one item does not disable other independent defect records. On reload, `GET /api/defects/{id}` can safely reconcile a pending request only when the target transition is observed (WAITING_PARTS for wait, terminal RESOLVED/WRITTEN_OFF for resolved/write-off) or any terminal status means no additional action is possible. It then clears the exact per-defect marker; otherwise it keeps actions locked and directs the operator to manually verify stock movements. This workflow never replays an irreversible POST.
+
 ## Permissions / security
-All permissions are **effective permissions**, not role names:
+All permissions are **effective permissions**, not role names. Create-only custom roles can open the shared Returns/Defects section without gaining list-read permissions; a DEFECTS_MANAGE-only operator can register a defect while no GET /api/defects list is sent:
 | Operation | Required |
 |---|---|
 | Return list/detail | RETURNS_READ |
