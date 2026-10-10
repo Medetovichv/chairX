@@ -710,7 +710,7 @@ class PaymentTests {
     void repeatedCancellationDoesNotReleaseStockTwice() {
         var sale = createSale(2, "8500");
         assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
-        int remaining = inventory.getBalance(home, variant).reserved();
+        long remaining = inventory.getBalance(home, variant).reserved();
         assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
         assertThat(remaining).isZero();
         assertThat(inventory.getBalance(home, variant).reserved()).isZero();
