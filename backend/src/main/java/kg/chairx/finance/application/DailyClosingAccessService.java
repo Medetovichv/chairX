@@ -104,7 +104,7 @@ public class DailyClosingAccessService {
                 .param("day", date).query(UUID.class).optional().orElse(null);
         Grant grant = activeGrant(date, now);
         boolean normal = policy.normalWriteWindow(date, now);
-        boolean writable = has(auth, "DAILY_CLOSING_WRITE");
+        boolean writable = has(auth, "DAILY_CLOSING_WRITE") || has(auth, "FINANCE_CLOSE");
         boolean mayUnlock = has(auth, "DAILY_CLOSING_UNLOCK_ADMIN") && policy.adminMayUnlock(date, now)
                 || has(auth, "DAILY_CLOSING_UNLOCK_MANAGER") && policy.managerMayUnlock(date, now);
         String status = normal ? "OPEN"
@@ -122,7 +122,7 @@ public class DailyClosingAccessService {
     @Transactional
     public void assertCanEdit(LocalDate date) {
         Authentication auth = currentUser();
-        if (!has(auth, "DAILY_CLOSING_WRITE")) {
+        if (!has(auth, "DAILY_CLOSING_WRITE") && !has(auth, "FINANCE_CLOSE")) {
             throw new AccessDeniedException("Недостаточно прав на изменение отчёта");
         }
         Instant now = policy.now();
