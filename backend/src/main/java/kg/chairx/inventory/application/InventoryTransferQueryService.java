@@ -7,7 +7,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -35,12 +34,7 @@ public class InventoryTransferQueryService {
                     t.actor,
                     t.created_at,
                     t.out_movement_id,
-                    t.in_movement_id,
-                    COALESCE((
-                        SELECT SUM(a.allocated_cost)
-                        FROM inventory_cost_allocations a
-                        WHERE a.stock_movement_id = t.out_movement_id
-                    ), 0) AS total_cost
+                    t.in_movement_id
                 FROM inventory_transfers t
                 WHERE t.id = :id
                   AND t.out_movement_id IS NOT NULL
@@ -140,12 +134,7 @@ public class InventoryTransferQueryService {
                 t.actor,
                 t.created_at,
                 t.out_movement_id,
-                t.in_movement_id,
-                COALESCE((
-                    SELECT SUM(a.allocated_cost)
-                    FROM inventory_cost_allocations a
-                    WHERE a.stock_movement_id = t.out_movement_id
-                ), 0) AS total_cost
+                t.in_movement_id
             """ + filter + """
             ORDER BY t.created_at DESC, t.id DESC
             LIMIT :limit OFFSET :offset
@@ -182,7 +171,6 @@ public class InventoryTransferQueryService {
                 rs.getObject("destination_warehouse_id", UUID.class),
                 rs.getObject("product_variant_id", UUID.class),
                 rs.getLong("quantity"),
-                rs.getBigDecimal("total_cost"),
                 rs.getString("actor"),
                 rs.getObject("created_at", OffsetDateTime.class),
                 rs.getObject("out_movement_id", UUID.class),
