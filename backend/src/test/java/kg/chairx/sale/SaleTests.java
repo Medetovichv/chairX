@@ -12,6 +12,8 @@ import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.InsufficientStockException;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CreateDraftSaleRequest;
+import kg.chairx.sale.api.UpdateDraftSaleRequest;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
@@ -166,6 +168,81 @@ class SaleTests {
         );
         SecurityContextHolder.clearContext();
 
+    }
+
+    @Test
+    void draftWithoutItemsDoesNotReserveStockAndCanBeCancelled() {
+        long before = stockMovementCount();
+        UUID key = UUID.randomUUID();
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                key, customer, null, List.of(), "Клиент думает"));
+        assertThat(created.status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(created.fulfillmentType()).isNull();
+        assertThat(created.items()).isEmpty();
+        assertThat(created.comment()).isEqualTo("Клиент думает");
+        assertThat(sales.createDraft(new CreateDraftSaleRequest(
+                key, customer, null, List.of(), "Клиент думает")).id()).isEqualTo(created.id());
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(stockMovementCount()).isEqualTo(before);
+        assertThat(count("payments")).isZero();
+        assertThat(sales.list(0, 20, SaleStatus.DRAFT, null, null, null).items())
+                .extracting(kg.chairx.sale.api.SaleSummary::id).contains(created.id());
+
+        var cancelled = sales.cancel(created.id());
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(stockMovementCount()).isEqualTo(before);
+        assertThatThrownBy(() -> sales.confirmDraft(created.id()))
+                .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void draftCanBeEditedAndConfirmedAtomically() {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), null, null, null, null));
+        assertThat(draft.items()).isEmpty();
+        assertThat(draft.customerId()).isNull();
+
+        var edited = sales.updateDraft(draft.id(), new UpdateDraftSaleRequest(
+                customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 2, "8500")),
+                "Покупатель подтвердил цену"));
+        assertThat(edited.status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(edited.items()).hasSize(1);
+        assertThat(edited.comment()).isEqualTo("Покупатель подтвердил цену");
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+
+        var confirmed = sales.confirmDraft(draft.id());
+        assertThat(confirmed.status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+        assertThat(sales.confirmDraft(draft.id()).id()).isEqualTo(confirmed.id());
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+        assertThatThrownBy(() -> sales.updateDraft(draft.id(),
+                new UpdateDraftSaleRequest(customer, null, null, null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void draftConfirmationFailureRollsBackAllReserves() {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 2, "8500"),
+                        item(secondVariant, office, 99, "9500")), null));
+        assertThatThrownBy(() -> sales.confirmDraft(draft.id()))
+                .isInstanceOf(InsufficientStockException.class);
+        assertThat(sales.get(draft.id()).status()).isEqualTo(SaleStatus.DRAFT);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(inventory.getBalance(office, secondVariant).reserved()).isZero();
+        assertThat(count("payments")).isZero();
+    }
+
+    @Test
+    void draftCreateRejectsIdempotencyKeyWithDifferentData() {
+        UUID key = UUID.randomUUID();
+        sales.createDraft(new CreateDraftSaleRequest(key, customer, null, List.of(), "A"));
+        assertThatThrownBy(() -> sales.createDraft(
+                new CreateDraftSaleRequest(key, customer, null, List.of(), "B")))
+                .isInstanceOf(SaleRuleViolationException.class);
     }
 
     @Test
