@@ -43,28 +43,43 @@ public class DailyClosingAccessService {
         return auth.getAuthorities().stream().anyMatch(a -> permission.equals(a.getAuthority()));
     }
 
-    private UUID closingId(LocalDate date, boolean lock) {
-        return jdbc.sql("SELECT id FROM finance_daily_closings WHERE business_date = :day"
-                        + (lock ? " FOR UPDATE" : ""))
-                .param("day", date)
-                .query(UUID.class)
-                .optional()
-                .orElseThrow(() -> new ClosingNotFoundException("Отчёт за дату не найден"));
+    /**
+     * Lock before reading/modifying a date's grant, even if the report has
+     * not yet been created. Call from each report write transaction.
+     */
+    @Transactional
+    public void lockDate(LocalDate date) {
+        jdbc.sql("""
+                INSERT INTO finance_daily_closing_access_locks(business_date)
+                VALUES (:day) ON CONFLICT DO NOTHING
+                """).param("day", date).update();
+        jdbc.sql("""
+                SELECT business_date FROM finance_daily_closing_access_locks
+                WHERE business_date = :day FOR UPDATE
+                """).param("day", date).query(LocalDate.class).single();
     }
 
-    private Grant activeGrant(UUID closingId, Instant now) {
+    private UUID auditEntity(LocalDate date) {
+        UUID existing = jdbc.sql("SELECT id FROM finance_daily_closings WHERE business_date = :day")
+                .param("day", date).query(UUID.class).optional().orElse(null);
+        return existing == null ? UUID.nameUUIDFromBytes(
+                ("FINANCE_DAILY_CLOSING:" + date).getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                : existing;
+    }
+
+    private Grant activeGrant(LocalDate businessDate, Instant now) {
         List<Grant> grants = jdbc.sql("""
-                SELECT id, closing_id, unlocked_by, unlocked_at, expires_at,
+                SELECT id, business_date, unlocked_by, unlocked_at, expires_at,
                        reason, revoked_at, revoked_by
                 FROM finance_daily_closing_unlocks
-                WHERE closing_id = :id
+                WHERE business_date = :day
                   AND revoked_at IS NULL AND expires_at > :now
                 ORDER BY unlocked_at DESC
                 """)
-                .param("id", closingId).param("now", now)
+                .param("day", businessDate).param("now", now)
                 .query((rs, row) -> new Grant(
                         rs.getObject("id", UUID.class),
-                        rs.getObject("closing_id", UUID.class),
+                        rs.getDate("business_date").toLocalDate(),
                         rs.getString("unlocked_by"),
                         rs.getTimestamp("unlocked_at").toInstant(),
                         rs.getTimestamp("expires_at").toInstant(),
@@ -87,7 +102,7 @@ public class DailyClosingAccessService {
         Instant now = policy.now();
         UUID id = jdbc.sql("SELECT id FROM finance_daily_closings WHERE business_date = :day")
                 .param("day", date).query(UUID.class).optional().orElse(null);
-        Grant grant = id == null ? null : activeGrant(id, now);
+        Grant grant = activeGrant(date, now);
         boolean normal = policy.normalWriteWindow(date, now);
         boolean writable = has(auth, "DAILY_CLOSING_WRITE");
         boolean mayUnlock = has(auth, "DAILY_CLOSING_UNLOCK_ADMIN") && policy.adminMayUnlock(date, now)
@@ -95,7 +110,7 @@ public class DailyClosingAccessService {
         String status = normal ? "OPEN"
                 : grant != null ? "TEMPORARILY_UNLOCKED" : "LOCKED";
         return new AccessState(date, id != null, id == null ? "NOT_CREATED" : "CLOSED",
-                status, writable && (normal || grant != null), mayUnlock && id != null,
+                status, writable && (normal || grant != null), mayUnlock,
                 grant == null ? null : grant.expiresAt(),
                 grant == null ? 0 : Math.max(0, grant.expiresAt().getEpochSecond() - now.getEpochSecond()));
     }
@@ -114,7 +129,7 @@ public class DailyClosingAccessService {
         if (policy.normalWriteWindow(date, now)) {
             return;
         }
-        if (activeGrant(closingId(date, false), now) == null) {
+        if (activeGrant(date, now) == null) {
             throw new AccessDeniedException("REPORT_LOCKED: обратитесь к менеджеру");
         }
     }
@@ -125,7 +140,7 @@ public class DailyClosingAccessService {
             throw new FinanceValidationException("Причина разблокировки обязательна (до 2000 символов)");
         }
         Authentication auth = currentUser();
-        UUID reportId = closingId(date, true); // serializes concurrent unlocks
+        lockDate(date); // also permits unlocking not-yet-created reports
         Instant now = policy.now();            // recheck date after waiting on lock
         boolean admin = has(auth, "DAILY_CLOSING_UNLOCK_ADMIN");
         if (!admin && !has(auth, "DAILY_CLOSING_UNLOCK_MANAGER")) {
@@ -134,22 +149,22 @@ public class DailyClosingAccessService {
         if (!(admin ? policy.adminMayUnlock(date, now) : policy.managerMayUnlock(date, now))) {
             throw new AccessDeniedException("UNLOCK_NOT_ALLOWED: срок менеджера истёк");
         }
-        Grant prior = activeGrant(reportId, now);
+        Grant prior = activeGrant(date, now);
         if (prior != null) {
             return prior; // a retry NEVER extends an active unlock
         }
         Instant until = policy.expiry(date, now, admin);
-        Grant created = new Grant(UUID.randomUUID(), reportId, auth.getName(), now,
+        Grant created = new Grant(UUID.randomUUID(), date, auth.getName(), now,
                 until, reason.trim(), null, null);
         jdbc.sql("""
                 INSERT INTO finance_daily_closing_unlocks
-                  (id, closing_id, unlocked_by, unlocked_at, expires_at, reason)
-                VALUES (:id, :closing, :actor, :at, :until, :reason)
+                  (id, business_date, unlocked_by, unlocked_at, expires_at, reason)
+                VALUES (:id, :day, :actor, :at, :until, :reason)
                 """)
-                .param("id", created.id()).param("closing", reportId)
+                .param("id", created.id()).param("day", date)
                 .param("actor", created.unlockedBy()).param("at", created.unlockedAt())
                 .param("until", created.expiresAt()).param("reason", created.reason()).update();
-        audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", reportId,
+        audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", auditEntity(date),
                 "REPORT_UNLOCKED", null, Map.of("businessDate", date.toString(),
                         "grantId", created.id().toString(), "expiresAt", until.toString(),
                         "reason", created.reason()));
@@ -163,9 +178,9 @@ public class DailyClosingAccessService {
         if (!has(auth, "DAILY_CLOSING_UNLOCK_ADMIN")) {
             throw new AccessDeniedException("Только администратор может отозвать разблокировку");
         }
-        UUID reportId = closingId(date, true);
+        lockDate(date);
         Instant now = policy.now();
-        Grant existing = activeGrant(reportId, now);
+        Grant existing = activeGrant(date, now);
         if (existing == null) {
             return false;
         }
@@ -180,7 +195,7 @@ public class DailyClosingAccessService {
         return true;
     }
 
-    public record Grant(UUID id, UUID closingId, String unlockedBy, Instant unlockedAt,
+    public record Grant(UUID id, LocalDate businessDate, String unlockedBy, Instant unlockedAt,
                         Instant expiresAt, String reason, Instant revokedAt, String revokedBy) {}
 
     public record AccessState(LocalDate businessDate, boolean reportExists,
