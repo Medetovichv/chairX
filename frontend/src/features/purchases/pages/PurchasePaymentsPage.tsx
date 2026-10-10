@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
@@ -12,15 +12,23 @@ import { Button } from '../../../shared/ui/button';
 import { purchaseApi, purchaseKeys } from '../api';
 import { formatDate, formatMoney } from '../validation';
 import { PurchaseTabs } from '../components/PurchaseTabs';
+import { PurchasePaymentForm } from '../components/PurchasePaymentForm';
+import type { Payment } from '../types';
 
 const validId = (value:string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export function PurchasePaymentsPage() {
   const { hasPermission } = useAuth();
   const allowed = hasPermission('PURCHASE_PAYMENTS_READ');
+  const canCreate = hasPermission('PURCHASE_PAYMENTS_CREATE');
+  const client = useQueryClient();
+  const [notice, setNotice] = useState('');
   const [params, setParams] = useSearchParams();
   const query = params.get('purchaseId') ?? '';
   const [input, setInput] = useState(query);
-  useEffect(() => setInput(query), [query]);
+  useEffect(() => {
+    setInput(query);
+    setNotice('');
+  }, [query]);
   const purchaseId = validId(query) ? query : '';
   const summary = useQuery({ queryKey: purchaseKeys.payments(purchaseId),
     queryFn: () => purchaseApi.payments(purchaseId), enabled: allowed && !!purchaseId });
@@ -28,10 +36,20 @@ export function PurchasePaymentsPage() {
     e.preventDefault();
     if (validId(input.trim())) setParams({ purchaseId: input.trim() });
   }
+  async function paymentPosted(payment: Payment) {
+    setNotice('Оплата проведена: ' + payment.amount + ' сом, операция ' + payment.id + '.');
+    await Promise.all([
+      client.invalidateQueries({ queryKey: purchaseKeys.payments(payment.purchaseId) }),
+      client.invalidateQueries({ queryKey: purchaseKeys.overviews }),
+      client.invalidateQueries({ queryKey: ['finance'] }),
+      client.invalidateQueries({ queryKey: ['daily-closing'] }),
+    ]);
+  }
   if (!allowed || summary.error instanceof ApiClientError && summary.error.status===403) return <ForbiddenPage />;
   return <div className="space-y-6">
-    <PageHeader title="Оплаты" description="Только чтение: выберите конкретную закупку по UUID. Глобального списка платежей в API нет." />
+    <PageHeader title="Оплаты" description="Просмотр задолженности и проведение выплат поставщику/за карго по конкретной закупке." />
     <PurchaseTabs />
+    {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-4">
       <label className="block space-y-2 text-sm font-semibold">UUID закупки
         <Input value={input} aria-label="UUID закупки для оплат" onChange={e=>setInput(e.target.value)}
@@ -43,10 +61,15 @@ export function PurchasePaymentsPage() {
       </p>}
     </form>
     {!purchaseId ? <p className="text-sm text-slate-600">
-      Введите UUID конкретной закупки. Создание выплат относится к F06.1.
+      Введите UUID конкретной закупки, чтобы посмотреть выплаты и провести новую операцию при наличии прав.
     </p> : summary.isPending ? <LoadingState label="Загружаем оплаты закупки…" /> :
       summary.isError ? <ErrorState error={summary.error} onRetry={() => void summary.refetch()} /> :
       summary.data ? <section aria-label="Оплаты выбранной закупки" className="space-y-4">
+        {canCreate && <PurchasePaymentForm key={purchaseId} purchaseId={purchaseId}
+          summary={summary.data} onPosted={payment => { void paymentPosted(payment); }} />}
+        {!canCreate && <p className="text-sm text-slate-600">
+          Просмотр доступен. Для проведения оплаты требуется разрешение PURCHASE_PAYMENTS_CREATE.
+        </p>}
         <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-5 sm:grid-cols-2 xl:grid-cols-3">
           {([
             ['Обязательства перед поставщиком',summary.data.supplierTotal],

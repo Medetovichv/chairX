@@ -9,7 +9,11 @@ export function isValidPaymentAmount(value: string): boolean {
 
 function exactCents(value: Money | null): bigint | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number' && !Number.isSafeInteger(value)) return null;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0 ||
+        !Number.isSafeInteger(Math.round(value * 100)) ||
+        Math.abs(value - Math.round(value * 100) / 100) > 1e-7) return null;
+  }
   const raw = String(value);
   if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(raw)) return null;
   const [whole, frac = ''] = raw.split('.');
