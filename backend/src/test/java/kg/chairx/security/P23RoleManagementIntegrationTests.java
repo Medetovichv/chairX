@@ -259,4 +259,36 @@ class P23RoleManagementIntegrationTests {
                         .with(httpBasic(admin.username(),PASSWORD)).with(csrf()))
                 .andExpect(status().isForbidden());
     }
+
+    @Test void builtInManagerAndEmployeeCanBeEditedWithoutChangingTheirIdentity() throws Exception {
+        User admin=user(ADMIN);
+        for (UUID id : new UUID[]{MANAGER, EMPLOYEE}) {
+            String original=jdbc.queryForObject("SELECT name FROM security_roles WHERE id=?",String.class,id);
+            Long version=jdbc.queryForObject("SELECT version FROM security_roles WHERE id=?",Long.class,id);
+            var permissionCodes=jdbc.queryForList(
+                    "SELECT permission_code FROM security_role_permissions WHERE role_id=? ORDER BY permission_code",
+                    String.class,id);
+            String encoded=permissionCodes.stream().map(p -> "\\\""+p+"\\\"")
+                    .collect(java.util.stream.Collectors.joining(",","[","]"));
+            try {
+                mvc.perform(put("/api/admin/roles/"+id)
+                                .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\\"name\\":\\"P23 temporary name\\",\\"permissions\\":"
+                                        + encoded + ",\\"expectedVersion\\":"+version
+                                        +",\\"reason\\":\\"Test default role edit\\"}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.version").value(version+1));
+                assertThat(jdbc.queryForObject(
+                        "SELECT code FROM security_roles WHERE id=?",String.class,id))
+                        .isIn("MANAGER","EMPLOYEE");
+                assertThat(jdbc.queryForObject(
+                        "SELECT system_role FROM security_roles WHERE id=?",Boolean.class,id))
+                        .isTrue();
+            } finally {
+                jdbc.update("UPDATE security_roles SET name=? WHERE id=?",original,id);
+            }
+        }
+    }
+
 }
