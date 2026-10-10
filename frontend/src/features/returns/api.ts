@@ -17,7 +17,7 @@ export const returnsApi={
   // Fail closed if the server returns inconsistent pagination or an excessive dataset.
   history:async(saleId:string):Promise<ReturnResponse[]>=>{
     const first=await returnsApi.list(saleId,0);
-    if(first.total>20000||first.size!==20)throw Error('История слишком велика для предварительной проверки. Обратитесь к администратору.');
+    if(first.total>1000||first.size!==20)throw Error('История слишком велика для предварительной проверки. Обратитесь к администратору.');
     const pages=Math.ceil(first.total/20),summaries=[...first.items];
     for(let page=1;page<pages;page++){
       const next=await returnsApi.list(saleId,page);
