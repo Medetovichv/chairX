@@ -160,6 +160,42 @@ class BackendReadApiIntegrationTests {
         assertThat(stock.getBalance(warehouse,variant).onHand()).isEqualTo(10);
     }
 
+    @Test void defectWriteOffConsumesValuedStockAndCannotBeRepeated() throws Exception {
+        String body="""
+                {"warehouseId":"%s","productVariantId":"%s",
+                 "quantity":1,"description":"Unrepairable damage"}
+                """.formatted(warehouse,variant);
+        String saved=mvc.perform(post("/api/defects").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        UUID id=UUID.fromString(mapper.readTree(saved).get("id").asText());
+        assertThat(stock.getBalance(warehouse,variant).blocked()).isEqualTo(1);
+        mvc.perform(post("/api/defects/"+id+"/write-off").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"resolutionNote":"Written off"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("WRITTEN_OFF"));
+        assertThat(stock.getBalance(warehouse,variant).blocked()).isZero();
+        assertThat(stock.getBalance(warehouse,variant).onHand()).isEqualTo(9);
+        assertThat(jdbc.queryForObject("""
+                select count(*) from stock_movements
+                where source_type='DEFECT' and source_id=? and movement_type='WRITE_OFF'
+                """,Long.class,id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from inventory_cost_write_offs",Long.class))
+                .isEqualTo(1);
+        mvc.perform(post("/api/defects/"+id+"/write-off").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"resolutionNote":"Again"}
+                                """))
+                .andExpect(status().isConflict());
+        assertThat(stock.getBalance(warehouse,variant).onHand()).isEqualTo(9);
+    }
+
     private void clear() {
         jdbc.execute("""
                 TRUNCATE TABLE inventory_transfer_cost_origins,
