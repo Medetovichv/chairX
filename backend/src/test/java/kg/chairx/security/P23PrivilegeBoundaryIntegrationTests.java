@@ -189,4 +189,37 @@ class P23PrivilegeBoundaryIntegrationTests {
             jdbc.update("DELETE FROM suppliers WHERE id=?",supplier);
         }
     }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void realEmployeeCanCreateAndEditDraftButNotFulfillOrConfirmIncompleteDraft() throws Exception {
+        TestUser employee=user(EMPLOYEE);
+        UUID key=UUID.randomUUID();
+        String created=mvc.perform(post("/api/sales/drafts")
+                        .with(httpBasic(employee.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"idempotencyKey":"%s","items":[],"comment":"Phone enquiry"}
+                                """.formatted(key)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andReturn().getResponse().getHeader("Location");
+        UUID saleId=UUID.fromString(created.substring(created.lastIndexOf('/')+1));
+        mvc.perform(put("/api/sales/"+saleId+"/draft")
+                        .with(httpBasic(employee.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"items":[],"comment":"Updated phone enquiry"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("DRAFT"));
+        mvc.perform(post("/api/sales/"+saleId+"/confirm")
+                        .with(httpBasic(employee.username(),PASSWORD)).with(csrf()))
+                .andExpect(status().isConflict());
+        mvc.perform(post("/api/sales/"+saleId+"/fulfill")
+                        .with(httpBasic(employee.username(),PASSWORD)).with(csrf()))
+                .andExpect(status().isForbidden());
+        // Test-scoped transaction rolls back the DRAFT and its audit records.
+    }
+
 }
