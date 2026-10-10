@@ -410,7 +410,7 @@ describe('F04 idempotent and guarded transfer workflow', () => {
 
 describe('F04 contracts and regression', () => {
   it.each([['1', 5, null], ['5', 5, null], ['6', 5, 'превышает'], ['0', 5, 'положительное'],
-    ['-1', 5, 'положительное'], ['1.5', 5, 'положительное'], ['9007199254740992', 9999999999999999, 'слишком велико']] as const)(
+    ['-1', 5, 'положительное'], ['1.5', 5, 'положительное'], ['9007199254740992', Number.MAX_SAFE_INTEGER + 10, 'слишком велико']] as const)(
       'validates quantity %s', (value, stock, expected) => {
         if (expected === null) expect(positiveQuantity(value, stock)).toBeNull();
         else expect(positiveQuantity(value, stock)).toContain(expected);
