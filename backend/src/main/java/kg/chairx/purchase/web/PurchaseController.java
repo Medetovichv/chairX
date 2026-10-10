@@ -43,10 +43,11 @@ public class PurchaseController {
         return service.setCargo(id,request);
     }
     @PostMapping("/{id}/receipts")
-    public ResponseEntity<PurchaseReceiptResponse> receive(@PathVariable UUID id,
+    public ResponseEntity<WarehouseReceiptResponse> receive(@PathVariable UUID id,
             @Valid @RequestBody CreatePurchaseReceiptRequest request) {
         var result=receivePurchase.receive(id,request);
-        return ResponseEntity.created(URI.create("/api/purchases/"+id+"/receipts/"+result.id())).body(result);
+        return ResponseEntity.created(URI.create("/api/purchases/"+id+"/receipts/"+result.id()))
+                .body(WarehouseReceiptResponse.from(result));
     }
     @GetMapping("/{id}/receipts/{receiptId}")
     public PurchaseReceiptResponse receipt(@PathVariable UUID id,@PathVariable UUID receiptId) {
