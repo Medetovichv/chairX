@@ -1,7 +1,7 @@
 -- Split actual registration timestamp from the date to which cash movements
 -- belong. Never change immutable created_at or overwrite existing movements.
 ALTER TABLE finance_movements ADD COLUMN business_date DATE;
-ALTER TABLE finance_movements ADD COLUMN business_date_source VARCHAR(20);
+ALTER TABLE finance_movements ADD COLUMN business_date_source VARCHAR(32);
 
 -- Existing movements were historically dated only by created_at. Explicitly
 -- mark these dates as inferred rather than silently claiming document accuracy.
