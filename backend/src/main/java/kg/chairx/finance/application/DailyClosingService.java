@@ -174,12 +174,23 @@ public class DailyClosingService {
     }
 
     private void updateObservation(UUID report, FinanceAccount account, BigDecimal actual, String note) {
-        BigDecimal expected = jdbc.sql("""
-                SELECT expected_balance FROM finance_daily_closing_accounts
-                WHERE closing_id = :id AND account_code = :account
+        var balances = jdbc.sql("""
+                SELECT a.expected_balance,
+                       COALESCE(revised.expected_balance, a.expected_balance) AS effective_balance
+                FROM finance_daily_closing_accounts a
+                LEFT JOIN finance_daily_closing_adjustments revised
+                  ON revised.closing_id = a.closing_id
+                 AND revised.account_code = a.account_code
+                WHERE a.closing_id = :id AND a.account_code = :account
                 """).param("id", report).param("account", account.name())
-                .query(BigDecimal.class).single();
-        if (expected.compareTo(actual) != 0 && (note == null || note.isBlank())) {
+                .query((rs, row) -> new BigDecimal[] {
+                        rs.getBigDecimal("expected_balance"),
+                        rs.getBigDecimal("effective_balance")
+                }).single();
+        // Keep the original snapshot constraint valid, while also ensuring
+        // that new discrepancies caused by revisions have an explicit note.
+        if ((balances[0].compareTo(actual) != 0 || balances[1].compareTo(actual) != 0)
+                && (note == null || note.isBlank())) {
             throw new FinanceValidationException("При расхождении необходимо указать причину");
         }
         jdbc.sql("""
@@ -190,32 +201,70 @@ public class DailyClosingService {
                 .param("id", report).param("account", account.name()).update();
     }
 
-    /** Called only inside a controlled, serialized historical-expense transaction. */
+    /**
+     * Reconcile ALL closed reports on/after the historical expense date.
+     * Original snapshots remain immutable. Recalculated expectations live in
+     * a separate table, and each changed report gets a revision plus audit.
+     * Every step belongs to the caller's expense/posting transaction.
+     */
     @Transactional
     public DailyClosingResponse refreshExpectedAfterCorrection(LocalDate date, String actor) {
-        DailyClosingResponse before = findByDate(date);
-        boolean laterClosed = jdbc.sql("""
-                SELECT EXISTS (SELECT 1 FROM finance_daily_closings WHERE business_date > :date)
-                """).param("date", date).query(Boolean.class).single();
-        if (laterClosed) {
-            throw new FinanceConflictException(
-                    "HISTORICAL_POSTING_NOT_ALLOWED", "Более поздние отчёты уже закрыты");
+        if (date == null || actor == null || actor.isBlank()) {
+            throw new FinanceValidationException("Дата и инициатор корректировки обязательны");
         }
-        BigDecimal bank = historical.expectedAtEndOf(date, FinanceAccount.BANK,
-                accounts.lockBalance(FinanceAccount.BANK));
-        BigDecimal cash = historical.expectedAtEndOf(date, FinanceAccount.CASH,
-                accounts.lockBalance(FinanceAccount.CASH));
+        // Preserve global BANK -> CASH ordering. The correction already holds
+        // these account locks; reacquisition in this transaction is harmless.
+        accounts.lockBalance(FinanceAccount.BANK);
+        accounts.lockBalance(FinanceAccount.CASH);
+
+        List<LocalDate> affected = jdbc.sql("""
+                SELECT business_date FROM finance_daily_closings
+                WHERE business_date >= :day ORDER BY business_date ASC
+                """).param("day", date)
+                .query((rs, row) -> rs.getDate(1).toLocalDate()).list();
+        if (affected.isEmpty() || !affected.getFirst().equals(date)) {
+            throw new ClosingNotFoundException("Исправляемый отчёт не найден");
+        }
+        for (LocalDate affectedDate : affected) {
+            // Serialize with manual updates and parallel unlocks on every
+            // affected date; late postings are globally serialized by cash
+            // account locks.
+            access.lockDate(affectedDate);
+            DailyClosingResponse before = findByDate(affectedDate);
+            BigDecimal bank = historical.expectedAtEndOf(affectedDate, FinanceAccount.BANK,
+                    accounts.balance(FinanceAccount.BANK));
+            BigDecimal cash = historical.expectedAtEndOf(affectedDate, FinanceAccount.CASH,
+                    accounts.balance(FinanceAccount.CASH));
+
+            if (before.cash().expected().compareTo(cash) == 0
+                    && before.bank().expected().compareTo(bank) == 0) {
+                continue;
+            }
+            upsertAdjustedExpected(before.id(), FinanceAccount.CASH, cash, actor);
+            upsertAdjustedExpected(before.id(), FinanceAccount.BANK, bank, actor);
+            jdbc.sql("UPDATE finance_daily_closings SET version = version + 1 WHERE id = :id")
+                    .param("id", before.id()).update();
+            DailyClosingResponse after = findByDate(affectedDate);
+            audit.recordAs(actor, "FINANCE_DAILY_CLOSING", before.id(),
+                    affectedDate.equals(date) ? "REPORT_EXPENSE_CORRECTED"
+                                              : "REPORT_EXPECTED_RECALCULATED",
+                    before, after);
+        }
+        return findByDate(date);
+    }
+
+    private void upsertAdjustedExpected(UUID reportId, FinanceAccount account,
+                                        BigDecimal amount, String actor) {
         jdbc.sql("""
-                UPDATE finance_daily_closing_accounts
-                SET expected_balance = CASE account_code WHEN 'CASH' THEN :cash ELSE :bank END
-                WHERE closing_id = :id
-                """).param("id", before.id()).param("cash", cash).param("bank", bank).update();
-        jdbc.sql("UPDATE finance_daily_closings SET version = version + 1 WHERE id = :id")
-                .param("id", before.id()).update();
-        DailyClosingResponse after = findByDate(date);
-        audit.recordAs(actor, "FINANCE_DAILY_CLOSING", before.id(), "REPORT_EXPENSE_CORRECTED",
-                before, after);
-        return after;
+                INSERT INTO finance_daily_closing_adjustments
+                     (closing_id, account_code, expected_balance, adjusted_at, adjusted_by)
+                VALUES (:closing, :account, :expected, clock_timestamp(), :actor)
+                ON CONFLICT (closing_id, account_code)
+                DO UPDATE SET expected_balance = EXCLUDED.expected_balance,
+                              adjusted_at = EXCLUDED.adjusted_at,
+                              adjusted_by = EXCLUDED.adjusted_by
+                """).param("closing", reportId).param("account", account.name())
+                .param("expected", amount).param("actor", actor).update();
     }
 
     /** Preview acquires account locks so balances cannot race an actual posting. */
@@ -234,16 +283,28 @@ public class DailyClosingService {
     public DailyClosingResponse findByDate(LocalDate date) {
         var rows = jdbc.sql("""
                 SELECT c.id, c.business_date, c.created_at, c.created_by, c.version,
-                       a.account_code, a.expected_balance, a.actual_balance, a.difference, a.note
+                       a.account_code, a.expected_balance AS original_expected,
+                       COALESCE(revised.expected_balance, a.expected_balance) AS effective_expected,
+                       a.actual_balance,
+                       a.actual_balance - COALESCE(revised.expected_balance, a.expected_balance)
+                           AS effective_difference,
+                       a.note,
+                       revised.closing_id IS NOT NULL AS recalculated,
+                       (revised.closing_id IS NOT NULL
+                           AND a.actual_balance <> revised.expected_balance) AS requires_review
                 FROM finance_daily_closings c
                 JOIN finance_daily_closing_accounts a ON a.closing_id = c.id
+                LEFT JOIN finance_daily_closing_adjustments revised
+                  ON revised.closing_id = a.closing_id AND revised.account_code = a.account_code
                 WHERE c.business_date = :date ORDER BY a.account_code
                 """).param("date", date).query((rs, row) -> new ClosingRow(
                 (UUID) rs.getObject("id"), rs.getDate("business_date").toLocalDate(),
                 rs.getTimestamp("created_at").toInstant(), rs.getString("created_by"),
                 rs.getLong("version"), rs.getString("account_code"), new DailyClosingResponse.Account(
-                        rs.getBigDecimal("expected_balance"), rs.getBigDecimal("actual_balance"),
-                        rs.getBigDecimal("difference"), rs.getString("note")))).list();
+                        rs.getBigDecimal("effective_expected"), rs.getBigDecimal("actual_balance"),
+                        rs.getBigDecimal("effective_difference"), rs.getString("note"),
+                        rs.getBigDecimal("original_expected"), rs.getBoolean("recalculated"),
+                        rs.getBoolean("requires_review")))).list();
         if (rows.size() != 2) {
             throw new ClosingNotFoundException("Закрытие дня не найдено");
         }
