@@ -100,6 +100,8 @@ variation names in InventoryOverviewPage and can work without querying catalog.
 
 ## CRITICAL BACKEND DATA-EXPOSURE FINDING (not fixed by F04)
 
+Tracked with implementation-ready backend specification in [Issue #20](https://github.com/Medetovichv/chairX/issues/20). The backend security defect remains **open** and must be fixed independently before exposing this workflow to ordinary employees in production.
+
 **Verified against main SecurityConfig and DTO on 2026-10-10.**
 SecurityConfig allows:
 \`GET /api/inventory/transfers\` and \`GET /api/inventory/transfers/*\`
