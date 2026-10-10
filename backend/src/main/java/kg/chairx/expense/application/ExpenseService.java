@@ -1,6 +1,7 @@
 package kg.chairx.expense.application;
 
 import kg.chairx.finance.application.FinancePostingService;
+import kg.chairx.finance.application.DailyClosingService;
 import kg.chairx.expense.api.CreateExpenseRequest;
 import kg.chairx.expense.api.ExpenseResponse;
 import kg.chairx.expense.domain.Expense;
@@ -22,12 +23,19 @@ public class ExpenseService {
 
     private final FinancePostingService finance;
     private final ExpenseRepository repository;
+    private final DailyClosingService closing;
 
-    public ExpenseService(
-            FinancePostingService finance,
-            ExpenseRepository repository) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ExpenseService(FinancePostingService finance, ExpenseRepository repository,
+                          DailyClosingService closing) {
         this.finance = finance;
         this.repository = repository;
+        this.closing = closing;
+    }
+
+    /** Compatibility for standalone unit tests of ordinary expenses. */
+    public ExpenseService(FinancePostingService finance, ExpenseRepository repository) {
+        this(finance, repository, null);
     }
 
     /**
@@ -35,6 +43,20 @@ public class ExpenseService {
      */
     @Transactional
     public ExpenseResponse create(CreateExpenseRequest request) {
+        return createInternal(request, false);
+    }
+
+    /** Only callable through the date-scoped daily-closing permission path. */
+    @Transactional
+    public ExpenseResponse createForClosing(LocalDate closingDate, CreateExpenseRequest request) {
+        if (request == null || closingDate == null || !closingDate.equals(request.expenseDate())) {
+            throw new ExpenseValidationException("Дата расхода не совпадает с отчётной датой");
+        }
+        finance.assertCorrectionPermitted(closingDate, actor());
+        return createInternal(request, true);
+    }
+
+    private ExpenseResponse createInternal(CreateExpenseRequest request, boolean reportCorrection) {
         if (request == null || request.idempotencyKey() == null
                 || request.category() == null || request.paymentMethod() == null
                 || request.expenseDate() == null) {
@@ -72,8 +94,18 @@ public class ExpenseService {
             return replay(committed, request, normalizedAmount, comment, fingerprint);
         }
 
-        finance.postExpense(expense.paymentMethod().name(), expense.amount().negate(),
-                expense.id(), expense.createdBy(), expense.expenseDate());
+        if (reportCorrection) {
+            finance.postHistoricalExpense(expense.paymentMethod().name(), expense.amount().negate(),
+                    expense.id(), expense.createdBy(), expense.expenseDate());
+            if (closing == null) {
+                throw new IllegalStateException("Daily closing service not configured");
+            }
+            closing.refreshExpectedAfterCorrection(expense.expenseDate(), expense.createdBy());
+            finance.assertCorrectionPermitted(expense.expenseDate(), expense.createdBy());
+        } else {
+            finance.postExpense(expense.paymentMethod().name(), expense.amount().negate(),
+                    expense.id(), expense.createdBy(), expense.expenseDate());
+        }
 
         return ExpenseResponse.from(expense);
     }
