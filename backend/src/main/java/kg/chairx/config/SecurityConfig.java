@@ -61,7 +61,17 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            // Browsers show their native username/password dialog for a 401
+            // carrying a Basic challenge. JSON API clients (including the F02
+            // React login page) manage their own UX, so do not send the
+            // challenge for /api/* responses. The HTTP Basic authentication
+            // filter and the 401 status code remain unchanged.
+            // getServletPath() may be empty for a MockMvc/default DispatcherServlet
+            // mapping; getRequestURI() consistently includes the requested API path.
+            String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+            if (!requestPath.startsWith("/api/")) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            }
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
         };
 
@@ -71,6 +81,9 @@ public class SecurityConfig {
                         // new API routes are denied until explicitly reviewed.
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/csrf")
+                        .authenticated()
+                        // F02: authenticated staff profile; technical catalog rejected by controller.
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
                         .hasAnyAuthority("CATALOG_READ", "CATALOG_ACCESS")
