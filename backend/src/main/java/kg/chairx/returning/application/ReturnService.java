@@ -118,15 +118,18 @@ public class ReturnService {
 
         requireFulfilledSale(sale);
 
-        // Dispatch marks the sale FULFILLED before a delivery is successful.
-        // A failed delivery must be returned only via DeliveryService;
-        // otherwise both workflows could restore the same stock and FIFO.
+        // A failed delivery can already have a customer return before the
+        // carrier brings the remaining goods back. FIFO restoration shares the
+        // sale-out budget across both workflows and rejects duplicate units.
+        //
+        // Once DeliveryService has physically returned the complete shipment,
+        // however, no customer return may post another receipt for this sale.
         if (deliveryRepository.findBySaleId(sale.id())
-                .filter(delivery -> !delivery.delivered())
+                .filter(delivery -> delivery.returnedToWarehouse())
                 .isPresent()) {
             throw new ReturnRuleViolationException(
-                    "DELIVERY_NOT_COMPLETED",
-                    "Обычный возврат возможен только после успешной доставки"
+                    "DELIVERY_ALREADY_RETURNED_TO_WAREHOUSE",
+                    "Товар этой доставки уже возвращён на склад"
             );
         }
         requireActiveWarehouse(request.warehouseId());
