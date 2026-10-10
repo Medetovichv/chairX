@@ -16,6 +16,7 @@ import { salesApi, salesKeys } from '../api';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { inventoryKeys } from '../../inventory/api';
+import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import type { DraftInput, SaleResponse, SaleSummary } from '../types';
 
@@ -267,6 +268,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         sale.items.map(i=><ItemLine key={i.id} item={i}/>)}
       <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
     </section>
+    <SaleFinancialSection sale={sale}/>
     <ConfirmDialog open={!!action} onOpenChange={open=>{if(!open)setAction(null);}}
       title={action==='confirm'?'Подтвердить заказ?':
         action==='fulfill'?'Завершить выдачу кресел?':'Отменить заказ?'}

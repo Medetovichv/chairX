@@ -29,7 +29,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: '/catalog', label: 'Каталог товаров', icon: Package, group: 'Управление', permissions: ['CATALOG_READ'] },
   { path: '/purchases', label: 'Закупки', tabLabel: 'Все закупки', icon: ClipboardList, group: 'Управление', permissions: ['PURCHASE_READ', 'INVENTORY_RECEIVE', 'PURCHASE_PAYMENTS_READ', 'SUPPLIERS_READ'] },
   { path: '/returns', label: 'Возвраты и брак', tabLabel: 'Возвраты', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'RETURNS_CREATE', 'EXCHANGES_READ', 'EXCHANGES_CREATE', 'DEFECTS_READ', 'DEFECTS_MANAGE'] },
-  { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ'] },
+  { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ', 'EXPENSES_CREATE', 'FINANCE_TRANSFER', 'FINANCE_INITIALIZE'] },
   { path: '/admin', label: 'Администрирование', icon: Settings2, group: 'Система', permissions: ['USERS_READ', 'ROLES_READ'] },
 ];
 
@@ -39,7 +39,9 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/purchases/suppliers', parent: '/purchases', label: 'Поставщики', permissions: ['SUPPLIERS_READ'] },
   { path: '/returns/exchanges', parent: '/returns', label: 'Обмены', permissions: ['EXCHANGES_READ','EXCHANGES_CREATE'] },
   { path: '/returns/defects', parent: '/returns', label: 'Брак', permissions: ['DEFECTS_READ','DEFECTS_MANAGE'] },
-  { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ'] },
+  { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ','EXPENSES_CREATE'] },
+  { path: '/finance/transfers', parent: '/finance', label: 'Переводы', permissions: ['FINANCE_TRANSFER'] },
+  { path: '/finance/opening-balances', parent: '/finance', label: 'Начальные остатки', permissions: ['FINANCE_INITIALIZE'] },
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },
   { path: '/admin/users', parent: '/admin', label: 'Сотрудники', permissions: ['USERS_READ'] },
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },

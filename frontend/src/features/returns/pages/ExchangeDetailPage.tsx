@@ -8,6 +8,7 @@ import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { NotFoundPage } from '../../../pages/NotFoundPage';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { exchangesApi,returnKeys } from '../api';
+import { ExchangeSettlementForm } from '../../finance/components/ExchangeSettlementForm';
 import { som,uuid } from '../validation';
 export function ExchangeDetailPage(){
  const {exchangeId=''}=useParams(),{hasPermission}=useAuth();
@@ -55,7 +56,8 @@ export function ExchangeDetailPage(){
     settlements.data.map(s=><p key={s.id} className="border-b py-2 text-sm">
       {s.direction} · {s.method} · {som(s.amount)} · {s.createdAt} · {s.createdBy}
     </p>)}
-   <p className="text-xs text-slate-600">F09 только читает расчёты. Денежные проводки CASH/BANK выполняются отдельно в F10.</p>
+   <p className="text-xs text-slate-600">История отображает только подтверждённые backend расчёты CASH/BANK.</p>
   </section>
+  {hasPermission('EXCHANGES_SETTLE')&&<ExchangeSettlementForm exchange={d}/>}
  </div>;
 }

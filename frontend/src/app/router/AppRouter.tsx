@@ -30,6 +30,11 @@ import { ExchangesPage } from '../../features/returns/pages/ExchangesPage';
 import { ExchangeDetailPage } from '../../features/returns/pages/ExchangeDetailPage';
 import { DefectsPage } from '../../features/returns/pages/DefectsPage';
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
+import { FinanceOverviewPage } from '../../features/finance/pages/FinanceOverviewPage';
+import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
+import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
+import { FinanceTransferPage } from '../../features/finance/pages/FinanceTransferPage';
+import { OpeningBalancesPage } from '../../features/finance/pages/OpeningBalancesPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -104,6 +109,11 @@ function ProtectedSection({ path }: { path: string }) {
   // EXCHANGES_CREATE can open creation without implying EXCHANGES_READ.
   if (path === '/returns/exchanges') return <ExchangesPage />;
   if (path === '/returns/defects') return <DefectsPage />;
+  if (path === '/finance') return <FinanceOverviewPage />;
+  if (path === '/finance/expenses') return <ExpensesPage />;
+  if (path === '/finance/cash-flow') return <CashFlowPage />;
+  if (path === '/finance/transfers') return <FinanceTransferPage />;
+  if (path === '/finance/opening-balances') return <OpeningBalancesPage />;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/purchases') return <PurchasesPage />;
