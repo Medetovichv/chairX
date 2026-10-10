@@ -140,7 +140,7 @@ class FinanceApiIntegrationTests {
                 .isZero();
     }
 
-    private org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.UserRequestPostProcessor authority(
+    private org.springframework.test.web.servlet.request.RequestPostProcessor authority(
             String permission, String actor) {
         return user(actor).authorities(
                 new org.springframework.security.core.authority.SimpleGrantedAuthority(permission));
