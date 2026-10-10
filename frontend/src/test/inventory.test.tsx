@@ -389,6 +389,18 @@ describe('F04 idempotent and guarded transfer workflow', () => {
     expect(calls.mock.calls.some((c) => String(c[0]) ===
       '/api/inventory/transfers/' + records[0]?.transferId)).toBe(true);
   });
+  it('blocks competing operations, row changes and filters while a transfer is unresolved', async () => {
+    fakeBackend({ mode: 'network-after-save' }); renderAt();
+    await submitTransfer();
+    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Подтвердить' }));
+    await screen.findByText(/Ответ сервера не получен/);
+    expect(stockAction('Переместить')).toBeDisabled();
+    expect(stockAction('Подробнее')).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Выбор склада' })).toBeDisabled();
+    expect(screen.getByRole('searchbox', { name: 'Поиск модели' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Только доступные' })).toBeDisabled();
+    expect(transferForm().getByRole('button', { name: 'Закрыть форму' })).toBeDisabled();
+  });
   it('resends exactly same payload and ID after ambiguous network error', async () => {
     const { calls, records } = fakeBackend({ mode: 'network-after-save' }); renderAt();
     await submitTransfer();
