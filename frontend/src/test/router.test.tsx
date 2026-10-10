@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '../shared/api/query';
 import { AppRouter } from '../app/router/AppRouter';
+import { authSession } from '../features/auth/session';
 import { childRoutes, navigationItems, routeFor } from '../shared/lib/navigation';
 
 // Control ONLY the authenticated profile; the real router/layout/RBAC checks run.
@@ -73,6 +74,7 @@ describe('F02.1 navigation structure', () => {
         {status:200,headers:{'Content-Type':'application/json'}});
     });
     vi.stubGlobal('fetch',fetchMock);
+    authSession.activate('Basic router-test',{headerName:'X-CSRF-TOKEN',token:'csrf'});
     const user = userEvent.setup();
     renderAt();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
@@ -87,6 +89,7 @@ describe('F02.1 navigation structure', () => {
     expect(await screen.findByRole('region', { name: 'Канбан: Черновик' })).toBeInTheDocument();
     await user.click(within(screen.getByRole('navigation', { name: 'Разделы ChairX' })).getByRole('link', { name: 'Главная' }));
     expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument();
+    authSession.clear();
     vi.unstubAllGlobals();
   });
 
