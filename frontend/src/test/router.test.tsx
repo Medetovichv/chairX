@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createQueryClient } from '../shared/api/query';
 import { AppRouter } from '../app/router/AppRouter';
 import { childRoutes, navigationItems, routeFor } from '../shared/lib/navigation';
 
@@ -26,7 +28,7 @@ vi.mock('../features/auth/AuthProvider', () => ({
 }));
 
 function renderAt(path = '/') {
-  return render(<MemoryRouter initialEntries={[path]}><AppRouter /></MemoryRouter>);
+  return render(<QueryClientProvider client={createQueryClient()}><MemoryRouter initialEntries={[path]}><AppRouter /></MemoryRouter></QueryClientProvider>);
 }
 
 beforeEach(() => {

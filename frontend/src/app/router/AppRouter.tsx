@@ -10,6 +10,11 @@ import { NotFoundPage } from '../../pages/NotFoundPage';
 import { CatalogPage } from '../../features/catalog/pages/CatalogPage';
 import { ProductDetailPage } from '../../features/catalog/pages/ProductDetailPage';
 import { InventoryPage } from '../../features/inventory/pages/InventoryPage';
+import { PurchasesPage } from '../../features/purchases/pages/PurchasesPage';
+import { PurchaseDetailPage } from '../../features/purchases/pages/PurchaseDetailPage';
+import { ReceivingPage } from '../../features/purchases/pages/ReceivingPage';
+import { SuppliersPage } from '../../features/purchases/pages/SuppliersPage';
+import { PurchasePaymentsPage } from '../../features/purchases/pages/PurchasePaymentsPage';
 import { CustomersPage } from '../../features/customers/pages/CustomersPage';
 import { CustomerDetailPage } from '../../features/customers/pages/CustomerDetailPage';
 import {
@@ -35,6 +40,11 @@ function CustomerDetailGate() {
   return hasPermission('CUSTOMERS_READ') ? <CustomerDetailPage /> : <ForbiddenPage />;
 }
 
+function PurchaseDetailGate() {
+  const { hasPermission } = useAuth();
+  return hasPermission('PURCHASE_READ') ? <PurchaseDetailPage /> : <ForbiddenPage />;
+}
+
 function ProtectedSection({ path }: { path: string }) {
   const { hasPermission } = useAuth();
   const route = routeDefinitions.find((item) => item.path === path);
@@ -49,6 +59,10 @@ function ProtectedSection({ path }: { path: string }) {
   }
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
+  if (path === '/purchases') return <PurchasesPage />;
+  if (path === '/purchases/receipts') return <ReceivingPage />;
+  if (path === '/purchases/suppliers') return <SuppliersPage />;
+  if (path === '/purchases/payments') return <PurchasePaymentsPage />;
   if (path === '/customers') return <CustomersPage />;
   return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
@@ -72,6 +86,7 @@ export function AppRouter() {
           ))}
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
           <Route path="customers/:customerId" element={<CustomerDetailGate />} />
+          <Route path="purchases/:purchaseId" element={<PurchaseDetailGate />} />
           {Object.entries(legacyRedirects).map(([oldPath, target]) => (
             <Route key={oldPath} path={oldPath.slice(1)} element={<Navigate to={target} replace />} />
           ))}

@@ -46,6 +46,9 @@ export const childRoutes: readonly RouteMeta[] = [
 ];
 
 const catalogDetail: RouteMeta = { path: '/catalog/:productId', label: 'Карточка модели', parent: '/catalog', permissions: ['CATALOG_READ'] };
+const purchaseDetail: RouteMeta = {
+  path: '/purchases/:purchaseId', label: 'Карточка закупки', parent: '/purchases', permissions: ['PURCHASE_READ'],
+};
 const customerDetail: RouteMeta = { path: '/customers/:customerId', label: 'Карточка клиента', parent: '/customers', permissions: ['CUSTOMERS_READ'] };
 export const routeDefinitions: readonly RouteMeta[] = [...navigationItems, ...childRoutes];
 export const navigationGroups = (['Обзор', 'Ежедневная работа', 'Управление', 'Система'] as const)
@@ -61,6 +64,9 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 export function routeFor(path: string): RouteMeta | undefined {
   if (/^\/catalog\/[^/]+$/.test(path)) return { ...catalogDetail, path };
   if (/^\/customers\/[^/]+$/.test(path)) return { ...customerDetail, path };
+  if (/^\/purchases\/[^/]+$/.test(path) && !childRoutes.some(route => route.path === path)) {
+    return { ...purchaseDetail, path };
+  }
   return routeDefinitions.find((route) => route.path === path);
 }
 
