@@ -28,7 +28,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: '/daily-closing', label: 'Закрытие дня', icon: CalendarCheck2, group: 'Ежедневная работа', permissions: ['DAILY_CLOSING_READ', 'FINANCE_READ'] },
   { path: '/catalog', label: 'Каталог товаров', icon: Package, group: 'Управление', permissions: ['CATALOG_READ'] },
   { path: '/purchases', label: 'Закупки', tabLabel: 'Все закупки', icon: ClipboardList, group: 'Управление', permissions: ['PURCHASE_READ', 'INVENTORY_RECEIVE', 'PURCHASE_PAYMENTS_READ', 'SUPPLIERS_READ'] },
-  { path: '/returns', label: 'Возвраты и брак', tabLabel: 'Возвраты', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'EXCHANGES_READ', 'DEFECTS_READ'] },
+  { path: '/returns', label: 'Возвраты и брак', tabLabel: 'Возвраты', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'RETURNS_CREATE', 'EXCHANGES_READ', 'EXCHANGES_CREATE', 'DEFECTS_READ', 'DEFECTS_MANAGE'] },
   { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ'] },
   { path: '/admin', label: 'Администрирование', icon: Settings2, group: 'Система', permissions: ['USERS_READ', 'ROLES_READ'] },
 ];
@@ -38,7 +38,7 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/purchases/payments', parent: '/purchases', label: 'Оплаты', permissions: ['PURCHASE_PAYMENTS_READ'] },
   { path: '/purchases/suppliers', parent: '/purchases', label: 'Поставщики', permissions: ['SUPPLIERS_READ'] },
   { path: '/returns/exchanges', parent: '/returns', label: 'Обмены', permissions: ['EXCHANGES_READ','EXCHANGES_CREATE'] },
-  { path: '/returns/defects', parent: '/returns', label: 'Брак', permissions: ['DEFECTS_READ'] },
+  { path: '/returns/defects', parent: '/returns', label: 'Брак', permissions: ['DEFECTS_READ','DEFECTS_MANAGE'] },
   { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ'] },
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },
   { path: '/admin/users', parent: '/admin', label: 'Сотрудники', permissions: ['USERS_READ'] },
@@ -106,7 +106,10 @@ export function firstAccessiblePath(parent: string, hasPermission: (code: string
     parent === '/returns' ? ['RETURNS_READ'] :
     parent === '/finance' ? ['FINANCE_READ'] : route.permissions;
   if (parent !== '/admin' && hasRoutePermission(direct, hasPermission)) return parent;
-  return childrenOf(parent).find((child) => hasRoutePermission(child.permissions, hasPermission))?.path ?? null;
+  const firstChild=childrenOf(parent).find((child)=>hasRoutePermission(child.permissions,hasPermission));
+  if(firstChild)return firstChild.path;
+  if(parent==='/returns'&&hasPermission('RETURNS_CREATE'))return '/returns/new';
+  return null;
 }
 
 export function breadcrumbsFor(pathname: string): RouteMeta[] {
