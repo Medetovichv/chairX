@@ -213,6 +213,18 @@ and do **not** invent a historical result. Finance postings remain solely under
 existing FinancePostingService.
 
 
+## Inventory transfer response security (Issue #20)
+
+All public warehouse transfer responses are **operational, cost-free JSON**. This is enforced in the backend DTO and SELECT projection, not by hiding frontend columns. Role with `INVENTORY_READ` can read history/details; `INVENTORY_TRANSFER` is required for POST and CSRF remains mandatory.
+
+| Endpoint | Success | JSON fields; no purchase/FIFO cost |
+|---|---|---|
+| `GET /api/inventory/transfers/{id}` | 200 | `id, sourceWarehouseId, destinationWarehouseId, variantId, quantity, actor, createdAt, outMovementId, inMovementId` |
+| `GET /api/inventory/transfers` | 200 | `items[]` with the above fields; `page, size, totalElements, totalPages`; existing `warehouseId`, `variantId`, `from`, `to` filters |
+| `POST /api/inventory/transfers` | 201 + `Location: /api/inventory/transfers/{id}` | `transferId, outMovementId, inMovementId, quantity` |
+
+No `totalCost`, `unitCost`, `purchasePrice`, `costAllocations` or other cost figures are returned on these routes, including for privileged callers. FIFO valuation, allocation and origins still exist **inside** the backend and PostgreSQL and are validated by inventory-cost tests; there is no public transfer-cost endpoint in this version. Do not derive cost from quantity or publish the internal `InventoryTransferService.TransferResult` on an inventory API. Separate permission-protected finance read models require an independently reviewed future API contract.
+
 ## P23 endpoints — roles, permissions and receiving
 
 See [P23 role management](p23-role-management.md) for request/response examples,
