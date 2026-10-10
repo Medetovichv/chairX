@@ -10,6 +10,15 @@ export const fulfillmentNames: Record<FulfillmentType,string> = {
 export const uuidValid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 export const salePriceValid = (price: string) => /^(0|[1-9][0-9]{0,18})$/.test(price.trim());
+/** BigDecimal from PostgreSQL can serialize whole-som prices as "8500.00".
+ * Normalize only exact integers, never round fractional prices.
+ */
+export function integerSom(value: Money): string | null {
+  const raw=String(value);
+  if(!/^[0-9]+(?:\.0+)?$/.test(raw)) return null;
+  const normalized=BigInt(raw.split('.')[0]!).toString();
+  return salePriceValid(normalized)?normalized:null;
+}
 export const countValid = (value: string) => /^[1-9][0-9]*$/.test(value.trim()) &&
   Number.isSafeInteger(Number(value.trim()));
 export function money(value: Money | null | undefined): string {

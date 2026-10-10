@@ -4,7 +4,7 @@ import { userFacingApiError } from '../../../shared/api/api-error';
 import { Button } from '../../../shared/ui/button';
 import { CustomerPicker } from './CustomerPicker';
 import { SaleItemsEditor, nextKey, type SaleEditorRow } from './SaleItemsEditor';
-import { checkDraft, countValid, fulfillmentNames, salePriceValid } from '../validation';
+import { checkDraft, countValid, fulfillmentNames, integerSom, salePriceValid } from '../validation';
 import type { DraftInput, FulfillmentType, SaleResponse } from '../types';
 
 export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel}:{
@@ -18,7 +18,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel}:{
   const [rows,setRows]=useState<SaleEditorRow[]>(()=>{
     return initial?.items.map(i=>({
       key:nextKey(),productVariantId:i.productVariantId,warehouseId:i.warehouseId,
-      quantity:String(i.quantity),unitSalePrice:String(i.unitSalePrice),recommended:null,
+      quantity:String(i.quantity),unitSalePrice:integerSom(i.unitSalePrice)??String(i.unitSalePrice),recommended:null,
     }))??[];
   });
   const [error,setError]=useState('');

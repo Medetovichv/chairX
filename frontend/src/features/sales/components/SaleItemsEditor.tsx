@@ -4,7 +4,7 @@ import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { SaleVariantPicker } from './SaleVariantPicker';
-import { money } from '../validation';
+import { integerSom, money } from '../validation';
 import type { Money } from '../types';
 
 export interface SaleEditorRow {
@@ -69,8 +69,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
       </div>
       {row.recommended!==null&&<div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
         <span>Рекомендованная цена: {money(row.recommended)}</span>
-        <Button type="button" size="sm" variant="outline" disabled={disabled}
-          onClick={()=>patch(row.key,{unitSalePrice:String(row.recommended)})}>
+        <Button type="button" size="sm" variant="outline" disabled={disabled||integerSom(row.recommended)===null}
+          onClick={()=>patch(row.key,{unitSalePrice:integerSom(row.recommended!)??''})}>
           Использовать рекомендованную
         </Button>
       </div>}
