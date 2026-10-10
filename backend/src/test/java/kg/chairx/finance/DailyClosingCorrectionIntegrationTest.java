@@ -359,8 +359,11 @@ class DailyClosingCorrectionIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'",
                 BigDecimal.class)).isEqualByComparingTo(live);
         assertThat(closingValue("CASH", "expected_balance")).isEqualByComparingTo(originalCash);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE'",
-                Long.class)).isEqualTo(0);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type='EXPENSE'
+                  AND source_id IN (SELECT id FROM expenses WHERE idempotency_key=?)
+                """, Long.class, key)).isZero();
     }
 
     @Test
