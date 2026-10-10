@@ -75,7 +75,7 @@ A zero or nonzero discrepancy is never a reason to change `finance_accounts.bala
 * Original `actual` and `note` observations are never silently changed. If a historical posting introduces a mismatch in a later report, `requiresReview=true` signals that staff must reconcile it. The original note may need to be kept until the original snapshot remains valid.
 * A correction for day D locks BANK and CASH, then date-specific rows in ascending date order, updates all closed reports with `businessDate >= D`, increments each changed report version, and records `REPORT_EXPENSE_CORRECTED` (D) or `REPORT_EXPECTED_RECALCULATED` (later reports). All occurs within the same transaction as expense + journal + live balance.
 * A correction remains blocked if the *current physical posting day* is already financially closed; a historical report unlock never disables that global protection.
-* The audit trail allows viewing before/after effective and original values. Repeating an expense request with its original idempotency key cannot create another movement.
+* The audit trail allows viewing before/after effective and original values and now records the originating `expenseId` for every affected report. Repeating an expense request with its original idempotency key cannot create another movement.
 * V45 does **not** modify older Flyway scripts and the adjustment table is cascade-cleaned with its original report account, supporting test fixture teardown and preserving all old data on upgrade.
 
 ### Not yet validated / completion blockers
@@ -95,7 +95,8 @@ Until those gates pass, this is **work in progress**, not Package 21 acceptance.
 
 ### P21-H/P21-I new test classes
 
-- `DailyClosingCorrectionIntegrationTest`: PostgreSQL business-date transfer replay, full and partial shortage correction, exactly-once idempotency (including concurrent requests), rollback on insufficient money, preservation of signed snapshots and audited recalculation of later closed reports, concurrent versioned edits.
+- `DailyClosingCorrectionIntegrationTest`: PostgreSQL business-date transfer replay, full and partial shortage correction, exactly-once idempotency (including concurrent requests), rollback on insufficient money, rollback on negative historical balances, preservation of original snapshots, audited recalculation of later closed reports, concurrent versioned edits, and race between next-day close and backdated posting.
 - `DailyClosingBoundaryIntegrationTest`: fixed Clock with real HTTP Basic employees, 12:59:59 vs 13:00:00 boundary, 59:59 vs 60:00 expiry, manager day-five cutoff and day-six administrator grant.
+- `DailyClosingMigrationUpgradeTest`: isolated PostgreSQL schema migration from Flyway V40 to V45, preservation of existing movements, dates, cash and closing snapshots, successful creation of a separate recalculated expected amount.
 
 These tests have been **committed, not reported as passing**. No merge before an actual `mvn clean verify` after P21-I.
