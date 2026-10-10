@@ -8,7 +8,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
@@ -40,9 +39,6 @@ public class CashFlowService {
             );
         }
 
-        LocalDate fromDate = from.atZone(BUSINESS_ZONE).toLocalDate();
-        LocalDate toDate = to.atZone(BUSINESS_ZONE).toLocalDate();
-
         BigDecimal payments = repository.payments(from, to);
         BigDecimal corrections = repository.paymentCorrections(from, to);
         BigDecimal refunds = repository.refunds(from, to);
@@ -54,7 +50,7 @@ public class CashFlowService {
                 repository.exchangeRefunds(from, to);
 
         BigDecimal expenses =
-                repository.operatingExpenses(fromDate, toDate);
+                repository.operatingExpenses(from, to);
 
         BigDecimal totalIn = payments.add(exchangePayments);
 
@@ -62,8 +58,8 @@ public class CashFlowService {
                 .add(exchangeRefunds)
                 .add(expenses);
 
-// Корректировки уменьшают итог зарегистрированных операций,
-// но не считаются реальными выплатами.
+        // Payment reversal lowers net cash flow in the posting period,
+        // while remaining separate from customer refunds and operating costs.
         BigDecimal netCashFlow = totalIn
                 .subtract(totalOut)
                 .subtract(corrections);
