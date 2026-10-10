@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
@@ -17,13 +17,17 @@ const validId = (value:string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 export function PurchasePaymentsPage() {
   const { hasPermission } = useAuth();
   const allowed = hasPermission('PURCHASE_PAYMENTS_READ');
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const query = params.get('purchaseId') ?? '';
   const [input, setInput] = useState(query);
-  const [purchaseId, setPurchaseId] = useState(validId(query) ? query : '');
+  useEffect(() => setInput(query), [query]);
+  const purchaseId = validId(query) ? query : '';
   const summary = useQuery({ queryKey: purchaseKeys.payments(purchaseId),
     queryFn: () => purchaseApi.payments(purchaseId), enabled: allowed && !!purchaseId });
-  function submit(e: FormEvent) { e.preventDefault(); setPurchaseId(input.trim()); }
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    if (validId(input.trim())) setParams({ purchaseId: input.trim() });
+  }
   if (!allowed || summary.error instanceof ApiClientError && summary.error.status===403) return <ForbiddenPage />;
   return <div className="space-y-6">
     <PageHeader title="Оплаты" description="Только чтение: выберите конкретную закупку по UUID. Глобального списка платежей в API нет." />
