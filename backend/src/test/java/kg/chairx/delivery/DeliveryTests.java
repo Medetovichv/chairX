@@ -956,7 +956,12 @@ class DeliveryTests {
                 "Обычный частичный возврат", null));
 
         assertThat(returned.items()).hasSize(1);
-        assertThat(returnInCount()).isEqualTo(1);
+        // The existing returnInCount() helper only counts DELIVERY_RETURN,
+        // while regular customer returns are recorded as SALE_RETURN.
+        assertThat(jdbc.queryForObject(
+                "select count(*) from stock_movements "
+                        + "where movement_type='RETURN_IN' and source_type='SALE_RETURN'",
+                Long.class)).isEqualTo(1);
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(19);
         assertThat(deliveries.get(delivery.id()).status()).isEqualTo(DeliveryStatus.DELIVERED);
     }
@@ -975,19 +980,18 @@ class DeliveryTests {
                         sale.items().getFirst().id(), 2, ReturnCondition.SELLABLE)),
                 "Неуспешная доставка", null);
 
-        // FAILED alone never restores inventory. ReturnService cannot
-        // duplicate the dedicated delivery return workflow.
-        assertThatThrownBy(() -> returns.create(attempt))
-                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
-                        error -> assertThat(error.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED"));
+        // FAILED alone does not restore inventory; the separate operation
+        // is needed to confirm the actual physical warehouse receipt.
         assertThat(returnInCount()).isZero();
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(18);
 
         deliveries.returnToWarehouse(
                 delivery.id(), new ReturnDeliveryToWarehouseRequest(home));
         long onHand = inventory.getBalance(home, firstVariant).onHand();
         assertThatThrownBy(() -> returns.create(attempt))
                 .isInstanceOfSatisfying(ReturnRuleViolationException.class,
-                        error -> assertThat(error.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED"));
+                        error -> assertThat(error.getCode())
+                                .isEqualTo("DELIVERY_ALREADY_RETURNED_TO_WAREHOUSE"));
         assertThat(returnInCount()).isEqualTo(1);
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(onHand);
         assertThat(jdbc.queryForObject("select count(*) from returns", Long.class)).isZero();
