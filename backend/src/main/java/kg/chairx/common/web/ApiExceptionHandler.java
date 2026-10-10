@@ -588,8 +588,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler(kg.chairx.finance.application.FinanceConflictException.class)
-    ResponseEntity<ApiError> financeBusinessConflict() {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция недоступна в текущем состоянии"));
+    ResponseEntity<ApiError> financeBusinessConflict(
+            kg.chairx.finance.application.FinanceConflictException exception) {
+        String code = exception.getCode();
+        String message = "FINANCE_OPERATION_CONFLICT".equals(code)
+                ? "Финансовая операция недоступна в текущем состоянии"
+                : exception.getMessage();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(code, message));
     }
 
     @ExceptionHandler(kg.chairx.finance.application.ClosingNotFoundException.class)
