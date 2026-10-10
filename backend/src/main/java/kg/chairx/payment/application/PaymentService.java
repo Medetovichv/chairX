@@ -137,7 +137,7 @@ public class PaymentService {
                 request.reference(),
                 request.comment(),
                 actor(),
-                Instant.now(),
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS),
                 null,
                 null,
                 null,
@@ -223,7 +223,7 @@ public class PaymentService {
                 PaymentMapper.toResponse(payment);
 
         String actor = actor();
-        Instant cancelledAt = Instant.now();
+        Instant cancelledAt = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
 
         Payment cancelled = payment.cancel(
                 actor,
