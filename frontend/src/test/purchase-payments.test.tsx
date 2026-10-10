@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '../shared/api/query';
 import { authSession } from '../features/auth/session';
 import { PurchasePaymentForm } from '../features/purchases/components/PurchasePaymentForm';
+import { readPendingPayment } from '../features/purchases/payment-pending';
 import {
   isValidPaymentAmount, matchesCommittedPayment, preparePayment, validatePaymentAmount,
 } from '../features/purchases/payment-validation';
@@ -19,7 +20,7 @@ vi.mock('../features/auth/AuthProvider', () => ({
     hasAnyPermission: (ps: readonly string[]) => ps.some(p => access.permissions.includes(p)),
     isAuthenticated: true,
     status: 'authenticated',
-    user: { roles: ['CUSTOM_FINANCE_OPERATOR'], permissions: access.permissions },
+    user: { id: 'finance-tester-1', username: 'finance-tester', roles: ['CUSTOM_FINANCE_OPERATOR'], permissions: access.permissions },
   }),
 }));
 
@@ -129,10 +130,11 @@ async function accept() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   access.permissions = ['PURCHASE_PAYMENTS_READ', 'PURCHASE_PAYMENTS_CREATE'];
   authSession.activate('Basic payment-test-user', { headerName: 'X-CSRF-TOKEN', token: 'csrf-test' });
 });
-afterEach(() => { authSession.clear(); vi.unstubAllGlobals(); });
+afterEach(() => { authSession.clear(); sessionStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('F06.1 exact validation and money safety', () => {
   it('requires positive integer som and max 17 digits', () => {
@@ -287,6 +289,58 @@ describe('F06.1 UI permission and payment posting', () => {
     expect(api.paymentPosts()).toHaveLength(2);
     expect((api.paymentPosts()[0]?.[1] as RequestInit).body)
       .toEqual((api.paymentPosts()[1]?.[1] as RequestInit).body);
+  });
+  it('restores uncertain money posting after page reload and reconciles original key',async()=>{
+    const api = simulate({failAfterCommitOnce:true});
+    const first = renderPayment();
+    await inputAndConfirm({amount:'11000'}); await accept();
+    await screen.findByRole('button',{name:'Повторить исходную операцию'});
+    const previous=api.paymentPosts();
+    expect(previous).toHaveLength(1);
+    const original=JSON.parse(String((previous[0]?.[1] as RequestInit).body)) as CreatePurchasePayment;
+    expect(readPendingPayment('finance-tester-1',PID)).toEqual({kind:'pending',payload:original});
+    first.unmount();
+
+    const restored=renderPayment();
+    expect(await screen.findByRole('button',{name:'Повторить исходную операцию'})).toBeInTheDocument();
+    expect(screen.getByRole('textbox',{name:'Сумма оплаты в сомах'})).toBeDisabled();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить по истории'}));
+    await waitFor(()=>expect(restored.posted).toHaveBeenCalledTimes(1));
+    expect(api.debits()).toBe(1);
+    expect(api.paymentPosts()).toHaveLength(1);
+    expect(readPendingPayment('finance-tester-1',PID)).toEqual({kind:'missing'});
+  });
+  it('retries exactly same payment and key after 5xx and page reload',async()=>{
+    const api=simulate({httpStatusOnce:500});
+    const first=renderPayment();
+    await inputAndConfirm({amount:'4000'});await accept();
+    await screen.findByRole('button',{name:'Повторить исходную операцию'});
+    const body=String((api.paymentPosts()[0]?.[1] as RequestInit).body);
+    first.unmount();
+    const second=renderPayment();
+    await userEvent.setup().click(await screen.findByRole('button',{name:'Повторить исходную операцию'}));
+    await waitFor(()=>expect(second.posted).toHaveBeenCalledTimes(1));
+    expect(api.paymentPosts()).toHaveLength(2);
+    expect(String((api.paymentPosts()[1]?.[1] as RequestInit).body)).toBe(body);
+    expect(api.debits()).toBe(1);
+    expect(readPendingPayment('finance-tester-1',PID).kind).toBe('missing');
+  });
+  it('fails closed and sends no payment if session storage cannot persist the key',async()=>{
+    const api=simulate();
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('quota exceeded');});
+    renderPayment();
+    await inputAndConfirm({amount:'2000'});await accept();
+    expect(await screen.findByText(/Новые списания в этой вкладке заблокированы/)).toBeInTheDocument();
+    expect(api.paymentPosts()).toHaveLength(0);
+    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
+  });
+  it('refuses to overwrite malformed pending key from the same user and purchase',async()=>{
+    sessionStorage.setItem('chairx:purchase-payment:pending:v1:finance-tester-1:'+PID,'{badjson');
+    const api=simulate();
+    renderPayment();
+    expect(screen.getByText(/Новые списания в этой вкладке заблокированы/)).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
+    expect(api.paymentPosts()).toHaveLength(0);
   });
   it('locks duplicate action while an unresolved payment request is pending',async()=>{
     let release!:()=>void;
