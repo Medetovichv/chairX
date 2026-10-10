@@ -7,7 +7,6 @@ import { AppRouter } from '../app/router/AppRouter';
 import { authSession } from '../features/auth/session';
 import { createQueryClient } from '../shared/api/query';
 import { positiveQuantity, movementNames, warehouseStock } from '../features/inventory/lib';
-import { inventoryApi } from '../features/inventory/api';
 import type { InventoryBalance, StockLine, StockMovement, TransferInput, Warehouse } from '../features/inventory/types';
 
 const access = vi.hoisted(() => ({
@@ -473,13 +472,15 @@ describe('F04 contracts and regression', () => {
     expect(local).not.toHaveBeenCalled();
     local.mockRestore();
   });
-  it('backend transfer history includes totalCost even though UI hides it (risk documented)', async () => {
+  it('never shows inventory costs when a legacy backend exposes totalCost in JSON', async () => {
     const { calls } = fakeBackend(); renderAt();
     await screen.findByRole('columnheader', { name: 'Модель' });
-    const listReq = calls.mock.calls.find((c) => String(c[0]).startsWith('/api/inventory/transfers?'));
-    expect(listReq).toBeTruthy();
-    const raw = await inventoryApi.transfers({ warehouseId: null, variantId: null, page: 0, size: 20 });
-    expect((raw.items[0] as unknown as { totalCost?: number }).totalCost).toBe(987654321);
-    expect(screen.getByRole('region', { name: 'История перемещений' })).not.toHaveTextContent('987654321');
+    const history = await screen.findByRole('region', { name: 'История перемещений' });
+    expect(calls.mock.calls.some((c) => String(c[0]).startsWith('/api/inventory/transfers?'))).toBe(true);
+    expect(history).toHaveTextContent('Домашний');
+    expect(history).not.toHaveTextContent('987654321');
+    // The HTTP fixture includes totalCost to prove UI output stays cost-free.
+    // This test must NOT require totalCost to exist in the real backend API.
+    // Backend exposure is tracked separately in Issue #20.
   });
 });
