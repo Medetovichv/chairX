@@ -89,8 +89,15 @@ public class ExchangeSettlementService {
                 .orElse(null);
 
         if (previous != null) {
+            // Hashing alone conflates null and empty references in legacy
+            // fingerprints. Compare stored structured values as well to
+            // reject changed payloads without invalidating historical hashes.
             if (!previous.exchangeId().equals(exchangeId)
-                    || !previous.requestFingerprint().equals(fingerprint)) {
+                    || !previous.requestFingerprint().equals(fingerprint)
+                    || !previous.direction().equals(direction)
+                    || !previous.method().equals(method)
+                    || previous.amount().compareTo(amount) != 0
+                    || !java.util.Objects.equals(previous.reference(), reference)) {
                 throw rule(
                         "EXCHANGE_SETTLEMENT_IDEMPOTENCY_CONFLICT",
                         "Ключ идемпотентности уже использован с другими данными"
