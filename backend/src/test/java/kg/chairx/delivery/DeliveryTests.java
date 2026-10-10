@@ -1137,6 +1137,8 @@ class DeliveryTests {
                 where entity_type in (
                     'SALE',
                     'DELIVERY',
+                    'PAYMENT',
+                    'RETURN',
                     'STOCK_MOVEMENT'
                 )
                 """);
