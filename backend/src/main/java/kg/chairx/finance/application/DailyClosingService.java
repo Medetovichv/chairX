@@ -71,7 +71,7 @@ public class DailyClosingService {
         }
         if (jdbc.sql("SELECT EXISTS (SELECT 1 FROM finance_daily_closings WHERE business_date = :day)")
                 .param("day", date).query(Boolean.class).single()) {
-            throw new FinanceConflictException("REPORT_ALREADY_EXISTS: день уже закрыт");
+            throw new FinanceConflictException("REPORT_ALREADY_EXISTS", "День уже закрыт");
         }
 
         BigDecimal bank = expected(date, FinanceAccount.BANK, liveBank);
@@ -153,14 +153,14 @@ public class DailyClosingService {
         access.assertCanEdit(date);
         DailyClosingResponse before = findByDate(date);
         if (before.version() != request.expectedVersion()) {
-            throw new FinanceConflictException("REPORT_VERSION_CONFLICT: отчёт изменён другим сотрудником");
+            throw new FinanceConflictException("REPORT_VERSION_CONFLICT", "Отчёт изменён другим сотрудником");
         }
         int count = jdbc.sql("""
                 UPDATE finance_daily_closings SET version = version + 1
                 WHERE id = :id AND version = :version
                 """).param("id", before.id()).param("version", request.expectedVersion()).update();
         if (count != 1) {
-            throw new FinanceConflictException("REPORT_VERSION_CONFLICT");
+            throw new FinanceConflictException("REPORT_VERSION_CONFLICT", "Отчёт изменён другим сотрудником");
         }
         updateObservation(before.id(), FinanceAccount.CASH, request.actualCash(), request.cashNote());
         updateObservation(before.id(), FinanceAccount.BANK, request.actualBank(), request.bankNote());
@@ -199,7 +199,7 @@ public class DailyClosingService {
                 """).param("date", date).query(Boolean.class).single();
         if (laterClosed) {
             throw new FinanceConflictException(
-                    "HISTORICAL_POSTING_NOT_ALLOWED: более поздние отчёты уже закрыты");
+                    "HISTORICAL_POSTING_NOT_ALLOWED", "Более поздние отчёты уже закрыты");
         }
         BigDecimal bank = historical.expectedAtEndOf(date, FinanceAccount.BANK,
                 accounts.lockBalance(FinanceAccount.BANK));
