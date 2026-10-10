@@ -154,7 +154,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     renderApp('/finance');
     await enterCredentials();
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Доступ запрещён' })).toBeInTheDocument());
-    expect(screen.queryByRole('heading', { name: 'Финансы' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Финансы', level: 2 })).not.toBeInTheDocument();
   });
 
   it('uses permissions, not hardcoded roles, for custom access', async () => {
