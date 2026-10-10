@@ -20,6 +20,9 @@ import { CustomerDetailPage } from '../../features/customers/pages/CustomerDetai
 import { SalesPage } from '../../features/sales/pages/SalesPage';
 import { SaleDetailPage } from '../../features/sales/pages/SaleDetailPage';
 import { CreateSalePage } from '../../features/sales/pages/CreateSalePage';
+import { DeliveriesPage } from '../../features/deliveries/pages/DeliveriesPage';
+import { CreateDeliveryPage } from '../../features/deliveries/pages/CreateDeliveryPage';
+import { DeliveryDetailPage } from '../../features/deliveries/pages/DeliveryDetailPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -53,6 +56,16 @@ function SaleCreateGate() {
   return hasPermission('SALES_CREATE') ? <CreateSalePage /> : <ForbiddenPage />;
 }
 
+function DeliveryCreateGate() {
+  const {hasPermission}=useAuth();
+  return hasPermission('DELIVERIES_READ')&&hasPermission('DELIVERIES_MANAGE')
+    ? <CreateDeliveryPage/> : <ForbiddenPage/>;
+}
+function DeliveryDetailGate() {
+  const {hasPermission}=useAuth();
+  return hasPermission('DELIVERIES_READ') ? <DeliveryDetailPage/> : <ForbiddenPage/>;
+}
+
 function PurchaseDetailGate() {
   const { hasPermission } = useAuth();
   return hasPermission('PURCHASE_READ') ? <PurchaseDetailPage /> : <ForbiddenPage />;
@@ -74,6 +87,7 @@ function ProtectedSection({ path }: { path: string }) {
     return hasPermission('SALES_CREATE') ? <Navigate to="/sales/new" replace /> : <ForbiddenPage />;
   }
   if (path === '/sales') return <SalesPage />;
+  if (path === '/deliveries') return <DeliveriesPage />;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/purchases') return <PurchasesPage />;
@@ -103,6 +117,8 @@ export function AppRouter() {
           ))}
           <Route path="sales/new" element={<SaleCreateGate />} />
           <Route path="sales/:saleId" element={<SaleDetailGate />} />
+          <Route path="deliveries/new" element={<DeliveryCreateGate />} />
+          <Route path="deliveries/:deliveryId" element={<DeliveryDetailGate />} />
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
           <Route path="customers/:customerId" element={<CustomerDetailGate />} />
           <Route path="purchases/:purchaseId" element={<PurchaseDetailGate />} />

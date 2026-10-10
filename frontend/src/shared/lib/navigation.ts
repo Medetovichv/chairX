@@ -45,6 +45,8 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
 ];
 
+const deliveryCreate: RouteMeta={path:'/deliveries/new',label:'Оформить доставку',parent:'/deliveries',permissions:['DELIVERIES_READ','DELIVERIES_MANAGE']};
+const deliveryDetail: RouteMeta={path:'/deliveries/:deliveryId',label:'Карточка доставки',parent:'/deliveries',permissions:['DELIVERIES_READ']};
 const saleCreate: RouteMeta = {path:'/sales/new', label:'Новая продажа',parent:'/sales',permissions:['SALES_CREATE']};
 const saleDetail: RouteMeta = {path:'/sales/:saleId',label:'Карточка продажи',parent:'/sales',permissions:['SALES_READ']};
 const catalogDetail: RouteMeta = { path: '/catalog/:productId', label: 'Карточка модели', parent: '/catalog', permissions: ['CATALOG_READ'] };
@@ -64,6 +66,8 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 };
 
 export function routeFor(path: string): RouteMeta | undefined {
+  if (path==='/deliveries/new') return deliveryCreate;
+  if (/^\/deliveries\/[^/]+$/.test(path)) return {...deliveryDetail,path};
   if (path==='/sales/new') return saleCreate;
   if (/^\/sales\/[^/]+$/.test(path)) return {...saleDetail,path};
   if (/^\/catalog\/[^/]+$/.test(path)) return { ...catalogDetail, path };
