@@ -10,6 +10,7 @@ import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.api.PaymentResponse;
 import kg.chairx.payment.domain.Payment;
 import kg.chairx.payment.domain.PaymentStatus;
+import kg.chairx.payment.domain.PaymentChannel;
 import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.refund.persistence.RefundRepository;
 import kg.chairx.sale.application.SaleNotFoundException;
@@ -118,6 +119,15 @@ public class PaymentService {
             );
         }
 
+        PaymentChannel channel = request.channel() == null
+                ? PaymentChannel.defaultFor(request.method()) : request.channel();
+        if (!channel.compatibleWith(request.method())) {
+            throw rule("PAYMENT_CHANNEL_MISMATCH",
+                    "Канал оплаты не соответствует выбранному финансовому счёту");
+        }
+
+        // Bank installment is registered only after actual bank settlement,
+        // exactly like any other successful TRANSFER.
         Payment payment = new Payment(
                 UUID.randomUUID(),
                 sale.id(),
@@ -130,7 +140,8 @@ public class PaymentService {
                 Instant.now(),
                 null,
                 null,
-                null
+                null,
+                channel
         );
 
         repository.insert(payment);
