@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { inventoryApi, inventoryKeys } from '../../inventory/api';
-import { apiClient } from '../../../shared/api/client';
 import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
