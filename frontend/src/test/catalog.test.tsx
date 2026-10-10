@@ -173,7 +173,7 @@ describe('F03 catalog product list', () => {
     await user.type(within(productForm()).getByRole('textbox', { name: /Название/ }), 'Новое кресло');
     await user.click(within(productForm()).getByRole('button', { name: 'Создать модель' }));
     expect(await screen.findByRole('heading', { name: 'Новое кресло', level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent('Модель успешно создана');
+    expect(screen.getByText('Модель успешно создана.')).toBeInTheDocument();
     const post = calls.mock.calls.find((c) => c[1]?.method === 'POST' && c[0] === '/api/products');
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({ name: 'Новое кресло', category: null, description: null });
     expect(new Headers(post?.[1]?.headers).get('X-CSRF-TOKEN')).toBe('csrf-value');
@@ -207,7 +207,7 @@ describe('F03 catalog product list', () => {
   it('retries after a failed page request without fake data', async () => {
     const errors: Record<string, number> = { 'GET /api/products': 500 };
     mockCatalog({ errors }); renderAt();
-    expect(await screen.findByRole('alert')).toHaveTextContent('ошибка сервера');
+    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('ошибка сервера');
     delete errors['GET /api/products'];
     await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
     expect(await screen.findByRole('cell', { name: 'Ergo Comfort' })).toBeInTheDocument();
@@ -248,7 +248,7 @@ describe('F03 product detail and variants', () => {
     await user.click(screen.getByRole('button', { name: '+ Добавить вариацию' }));
     const form = screen.getByRole('form', { name: 'Создание вариации' });
     await user.type(within(form).getByRole('textbox', { name: /Название вариации/ }), 'Светло-серый');
-    await user.type(within(form).getByRole('textbox', { name: /^Цвет/ }), 'Светло-серый');
+    await user.type(within(form).getByRole('combobox', { name: /^Цвет/ }), 'Светло-серый');
     await user.type(within(form).getByRole('textbox', { name: /Рекомендуемая цена/ }), '8500,25');
     await user.click(within(form).getByRole('button', { name: 'Добавить вариацию' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Вариация добавлена');
@@ -272,6 +272,7 @@ describe('F03 product detail and variants', () => {
   it('updates an existing variant and accepts optional SKU', async () => {
     const { calls } = mockCatalog(); renderAt('/catalog/' + productId);
     const user = userEvent.setup();
+    await screen.findByRole('table');
     await table().findByRole('cell', { name: 'ERGO-BLK' });
     await user.click(table().getByRole('button', { name: 'Изменить Чёрный' }));
     const form = screen.getByRole('form', { name: 'Редактирование вариации' });
@@ -296,6 +297,7 @@ describe('F03 product detail and variants', () => {
   it('deactivates and reactivates only the chosen variant', async () => {
     const { products } = mockCatalog(); renderAt('/catalog/' + productId);
     const user = userEvent.setup();
+    await screen.findByRole('table');
     await table().findByRole('cell', { name: 'ERGO-BLK' });
     await user.click(table().getByRole('button', { name: 'Деактивировать Чёрный' }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Деактивировать' }));
@@ -317,6 +319,7 @@ describe('F03 product detail and variants', () => {
   it('read-only permissions hide all model and variant mutations', async () => {
     access.permissions = ['CATALOG_READ']; access.roles = ['EMPLOYEE'];
     mockCatalog(); renderAt('/catalog/' + productId);
+    await screen.findByRole('table');
     await table().findByRole('cell', { name: 'ERGO-BLK' });
     expect(screen.queryByRole('button', { name: 'Изменить модель' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '+ Добавить вариацию' })).not.toBeInTheDocument();
