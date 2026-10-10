@@ -134,6 +134,12 @@ Test both clean PostgreSQL 17 and upgrade V39→V40 preserving a custom role and
 When creating a new business endpoint, add its explicit HTTP method+URL matcher **before denyAll**, map it to a seeded permission and system-role policy, add a negative/no-side-effects test, and update this document. Never loosen the default matcher to `authenticated()` or disable CSRF to make a test pass.
 
 
+## Inventory transfer cost confidentiality (Issue #20)
+
+The `INVENTORY_READ` and `INVENTORY_TRANSFER` permissions intentionally do **not** imply access to procurement/FIFO cost. All of `GET /api/inventory/transfers`, `GET /api/inventory/transfers/{id}` and `POST /api/inventory/transfers` now serialize cost-free operational DTOs. Financial amount is not returned even to ADMIN through these operational endpoints; internally `InventoryTransferService.TransferResult.totalCost` is still used to preserve FIFO cost allocation and replay integrity.
+
+Threat model: browser/UI hiding is insufficient because any authorized stock user can inspect raw HTTP JSON. Queries for stock history must not fetch `inventory_cost_allocations` simply to return cost. POST transfer keeps `INVENTORY_TRANSFER`, CSRF, 201/Location and idempotency; GET keeps `INVENTORY_READ`, filters and pagination. Negative HTTP tests and persisted-cost SQL tests protect this boundary. No `FINANCE_READ` grant is added to stock roles, no security matcher is relaxed and no new financial cost API exists.
+
 ## P23 extension — active ADMIN, mutable role grants and read models
 
 See [P23 role management](p23-role-management.md). P23 is dependent on PR #14 and
