@@ -147,8 +147,7 @@ public class FinanceTransferService {
 
         // 9. Both sides of the same transfer must share one business date,
         // even if the requests happen to cross midnight.
-        java.time.LocalDate transferDate = java.time.LocalDate.now(
-                java.time.ZoneId.of("Asia/Bishkek"));
+        java.time.LocalDate transferDate = movements.currentBusinessDate();
         movements.insert(
                 UUID.randomUUID(),
                 from,
@@ -170,7 +169,9 @@ public class FinanceTransferService {
                 "TRANSFER",
                 "TRANSFER",
                 transferId,
-                actor
+                actor,
+                transferDate,
+                "POSTING_DATE"
         );
 
         // 11. Возвращаем идентификатор перевода.
