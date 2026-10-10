@@ -254,7 +254,7 @@ describe('F06.1 UI permission and payment posting', () => {
     await inputAndConfirm({amount:'14000'}); await accept();
     const retry=await screen.findByRole('button',{name:'Повторить исходную операцию'});
     expect(screen.getByRole('textbox',{name:'Сумма оплаты в сомах'})).toBeDisabled();
-    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Проводим…'})).toBeDisabled();
     expect(api.debits()).toBe(1);
     await userEvent.setup().click(retry);
     await waitFor(()=>expect(posted).toHaveBeenCalledTimes(1));
