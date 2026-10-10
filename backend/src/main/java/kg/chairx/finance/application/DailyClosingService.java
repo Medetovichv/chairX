@@ -142,7 +142,7 @@ public class DailyClosingService {
     @Transactional
     public DailyClosingResponse update(LocalDate date, DailyClosingUpdateRequest request, String actor) {
         validateCommon(date, actor);
-        if (request == null || request.expectedVersion() < 0
+        if (request == null || request.expectedVersion() == null || request.expectedVersion() < 0
                 || request.reason() == null || request.reason().isBlank()
                 || request.reason().length() > 2000) {
             throw new FinanceValidationException("Укажите версию отчёта и причину исправления");
