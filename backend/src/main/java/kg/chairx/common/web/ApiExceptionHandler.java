@@ -575,6 +575,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция отклонена: проверьте остаток, инициализацию счёта и закрытие дня"));
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ResponseEntity<ApiError> reportAccessDenied(
+            org.springframework.security.access.AccessDeniedException exception) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiError.of("REPORT_LOCKED", exception.getMessage()));
+    }
+
     @ExceptionHandler(kg.chairx.finance.application.FinanceValidationException.class)
     ResponseEntity<ApiError> financeValidation() {
         return ResponseEntity.badRequest().body(ApiError.of("INVALID_REQUEST", "Некорректные параметры финансовой операции"));
