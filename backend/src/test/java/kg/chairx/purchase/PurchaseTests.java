@@ -309,6 +309,19 @@ class PurchaseTests {
         mvc.perform(get("/api/purchases/overview").param("size","0"))
                 .andExpect(status().isBadRequest());
 
+        var awaitingCargo = purchases.create(new CreatePurchaseRequest(
+                supplier, List.of(line(otherVariant,1,"25.00")), null, null));
+        mvc.perform(get("/api/purchases/overview").param("status","DRAFT")
+                        .param("supplierId",supplier.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(awaitingCargo.id().toString()))
+                .andExpect(jsonPath("$.items[0].goodsCost").value(25))
+                .andExpect(jsonPath("$.items[0].cargoCost")
+                        .value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.items[0].totalCost")
+                        .value(org.hamcrest.Matchers.nullValue()));
+
         assertThat(count("stock_movements")).isEqualTo(movements);
         assertThat(count("finance_movements")).isEqualTo(finance);
     }
