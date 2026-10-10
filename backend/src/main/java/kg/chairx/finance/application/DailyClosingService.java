@@ -240,8 +240,12 @@ public class DailyClosingService {
                     && before.bank().expected().compareTo(bank) == 0) {
                 continue;
             }
-            upsertAdjustedExpected(before.id(), FinanceAccount.CASH, cash, actor);
-            upsertAdjustedExpected(before.id(), FinanceAccount.BANK, bank, actor);
+            if (before.cash().expected().compareTo(cash) != 0) {
+                upsertAdjustedExpected(before.id(), FinanceAccount.CASH, cash, actor);
+            }
+            if (before.bank().expected().compareTo(bank) != 0) {
+                upsertAdjustedExpected(before.id(), FinanceAccount.BANK, bank, actor);
+            }
             jdbc.sql("UPDATE finance_daily_closings SET version = version + 1 WHERE id = :id")
                     .param("id", before.id()).update();
             DailyClosingResponse after = findByDate(affectedDate);
