@@ -11,7 +11,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,12 +31,6 @@ class CashFlowServiceTests {
     private static final Instant TO =
             Instant.parse("2026-10-31T18:00:00Z");
 
-    private static final LocalDate FROM_DATE =
-            LocalDate.of(2026, 10, 1);
-
-    private static final LocalDate TO_DATE =
-            LocalDate.of(2026, 11, 1);
-
     @Test
     void calculatesCashFlowIncludingExpenses() {
         when(repository.payments(FROM, TO))
@@ -54,7 +47,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(new BigDecimal("2000"));
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("30000"));
 
         var result = service.summary(FROM, TO);
@@ -91,7 +84,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
 
         var result = service.summary(FROM, TO);
@@ -116,7 +109,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
-        when(repository.operatingExpenses(FROM_DATE, TO_DATE))
+        when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
         var result = service.summary(FROM, TO);
