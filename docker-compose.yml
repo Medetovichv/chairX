@@ -79,15 +79,12 @@ services:
         - action: sync
           path: ./frontend/src
           target: /app/src
-          initial_sync: true
         - action: sync
           path: ./frontend/index.html
           target: /app/index.html
-          initial_sync: true
         - action: sync
           path: ./frontend/vite.config.ts
           target: /app/vite.config.ts
-          initial_sync: true
         - action: rebuild
           path: ./frontend/package.json
         - action: rebuild
