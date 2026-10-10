@@ -20,7 +20,7 @@ Routes: `/returns`, `/returns/new`, `/returns/:returnId`, `/returns/exchanges`, 
 ```
 **Use `saleItemId`, NOT variant UUID.** Each return has >=1 unique saleItemId and positive integer quantity, required reason 1..500 characters, optional comment <=1000.
 
-For user-facing eligible quantities, load SaleResponse under SALES_READ, then ALL pages of `GET /api/returns?saleId=<UUID>` under RETURNS_READ and full return detail for each summary. Guard inconsistent pages/count and an excessive history. Available = original sale item quantity minus all previous returns for that `saleItemId`; never advertise an unproven remaining quantity. The backend holds the Sale row lock and verifies maximum again, including concurrent returns.
+For user-facing eligible quantities, load SaleResponse under SALES_READ, then ALL pages of `GET /api/returns?saleId=<UUID>` under RETURNS_READ and full return detail for each summary. Guard inconsistent pages/count and cap the advisory history at 1000 return records. If larger, the form fails closed instead of issuing excessive HTTP requests; backend remains authoritative. Available = original sale item quantity minus all previous returns for that `saleItemId`; never advertise an unproven remaining quantity. The backend holds the Sale row lock and verifies maximum again, including concurrent returns.
 
 Customer return is permitted by backend only after actual fulfillment: SELF_PICKUP => SaleStatus FULFILLED; CITY_DELIVERY or REGION_DELIVERY => Sale FULFILLED AND **DeliveryStatus DELIVERED**. The frontend uses a real server `SaleSummary.deliveryStatus` obtained via `GET /api/sales?number=<saleNumber>` and exact sale UUID match, not inferred merely from Sale FULFILLED. READY, IN_TRANSIT and FAILED never produce a customer Return. FAILED physical goods use F08 `POST /api/deliveries/{id}/return-to-warehouse` and no second `POST /api/returns`.
 
@@ -53,7 +53,7 @@ Creation uses the same safe-key sessionStorage pattern as physical returns. If r
 
 ## Defects: statuses and real inventory effects
 `GET /api/defects?status=OPEN|WAITING_PARTS|RESOLVED|WRITTEN_OFF&page=<n>&size=20`, `GET /api/defects/{id}` (DEFECTS_READ).
-Backend record fields: `id,warehouseId,productVariantId,supplierId,purchaseReceiptItemId,quantity,status,description,resolutionNote,createdBy,createdAt,resolvedBy,resolvedAt`. No invented SKU/category/name. When CATALOG_READ exists, detail may read the variant name; list remains N+1 free and uses the truthful UUID instead. Supplier and receipt item references are optional; manual UUID input is accepted, backend validates any linked receipt against the warehouse/variant/supplier. Never infer purchaseReceiptItemId from ReturnItem.id.
+Backend record fields: `id,warehouseId,productVariantId,supplierId,purchaseReceiptItemId,quantity,status,description,resolutionNote,createdBy,createdAt,resolvedBy,resolvedAt`. No invented SKU/category/name. When CATALOG_READ exists, detail may read the variant name; list remains N+1 free and uses the truthful UUID instead. Supplier and receipt item references are optional; manual UUID input is accepted, backend validates any linked receipt against the warehouse/variant/supplier. Never infer purchaseReceiptItemId from ReturnItem.id. With SUPPLIERS_READ, supplier selection uses the existing paginated F06 supplierApi.all() (only active suppliers); otherwise a known supplier UUID may be provided manually. No supplier read calls are sent without permission.
 
 `POST /api/defects` (DEFECTS_MANAGE) blocks the existing on-hand quantity; never creates RETURN_IN, never increases onHand. No duplicate block on previously BLOCKED returns. Request: `{warehouseId,productVariantId,supplierId|null,purchaseReceiptItemId|null,quantity,description}`; description 1..4000, quantity positive integer.
 `POST /api/defects/{id}/wait-for-parts` (DEFECTS_MANAGE) OPEN→WAITING_PARTS (remains blocked).
@@ -76,6 +76,7 @@ All permissions are **effective permissions**, not role names:
 | Defect create/wait/resolve | DEFECTS_MANAGE |
 | Defect FIFO write-off | DEFECTS_WRITE_OFF |
 | Product details | CATALOG_READ |
+| Supplier selection | SUPPLIERS_READ |
 
 Without source read permission, the form shows a clear limitation and does not query protected endpoints. Backend authorization remains the final security boundary. Errors 401/403/404/409 and network use existing ApiClientError and page conventions; no stack traces, cost prices, purchase margins, or optimistic money writes.
 
