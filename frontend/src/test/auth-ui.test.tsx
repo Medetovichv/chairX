@@ -6,6 +6,9 @@ import { MemoryRouter } from 'react-router';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { authSession } from '../features/auth/session';
 import { AppRouter } from '../app/router/AppRouter';
+import { apiClient } from '../shared/api/client';
+import { safeRedirect } from '../pages/LoginPage';
+import { navigationItems } from '../shared/lib/navigation';
 import { createQueryClient } from '../shared/api/query';
 
 const profile = {
@@ -165,6 +168,51 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     expect(within(nav).getByRole('link', { name: 'Финансы' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Продажи' })).not.toBeInTheDocument();
+  });
+
+
+  it.each([
+    {
+      role: 'ADMIN', permissions: navigationItems.flatMap((item) => [...item.permissions]),
+      shown: ['Администрирование', 'Закупки', 'Продажи', 'Финансы'],
+      hidden: [] as string[],
+    },
+    {
+      role: 'MANAGER', permissions: ['SALES_READ', 'PURCHASE_READ', 'FINANCE_READ', 'INVENTORY_READ'],
+      shown: ['Закупки', 'Продажи', 'Финансы'],
+      hidden: ['Администрирование', 'Расходы'],
+    },
+    {
+      role: 'EMPLOYEE', permissions: ['SALES_READ', 'INVENTORY_READ'],
+      shown: ['Продажи', 'Склады'],
+      hidden: ['Закупки', 'Финансы', 'Администрирование'],
+    },
+  ])('$role menu is controlled by returned permissions', async ({ role, permissions, shown, hidden }) => {
+    mockBackend({ ...profile, roles: [role], permissions });
+    renderApp();
+    await enterCredentials();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
+    for (const name of shown) expect(within(nav).getByRole('link', { name })).toBeInTheDocument();
+    for (const name of hidden) expect(within(nav).queryByRole('link', { name })).not.toBeInTheDocument();
+  });
+
+  it('clears current user and returns to login on 401 from an authenticated API request', async () => {
+    mockBackend();
+    renderApp();
+    await enterCredentials();
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    vi.stubGlobal('fetch', vi.fn(async () => json({ code: 'AUTHENTICATION_REQUIRED', details: {} }, 401)));
+    await expect(apiClient.get('/api/sales')).rejects.toMatchObject({ status: 401 });
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Вход для сотрудников' })).toBeInTheDocument());
+    expect(authSession.authHeaders()).toEqual({});
+  });
+
+  it('rejects external redirects and malformed paths', () => {
+    for (const path of ['https://evil.example', '//evil.example', '/\\evil', '/login']) {
+      expect(safeRedirect(path)).toBe('/');
+    }
+    expect(safeRedirect('/sales')).toBe('/sales');
   });
 
   it('logout removes authorization/CSRF, clears query cache and returns to login', async () => {
