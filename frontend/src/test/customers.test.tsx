@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
@@ -237,7 +237,7 @@ describe('F05 customer creation and validation', () => {
       await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
       setField(label, value);
       await userEvent.setup().click(form().getByRole('button', { name: 'Сохранить клиента' }));
-      expect(await screen.findByRole('heading', { name: value })).toBeInTheDocument();
+      await waitFor(() => expect(screen.getByRole('heading', { name: value })).toBeInTheDocument());
       const savedCall = calls.mock.calls.find(([url, req]) =>
         String(url) === '/api/customers' && (req as RequestInit).method === 'POST');
       const body = JSON.parse(String((savedCall?.[1] as RequestInit)?.body)) as Record<string, unknown>;
@@ -298,8 +298,8 @@ describe('F05 customer creation and validation', () => {
     setField('Основной телефон', '+996222123456');
     fireEvent.click(form().getByRole('button', { name: 'Сохранить клиента' }));
     fireEvent.click(form().getByRole('button', { name: /Сохраняем/ }));
-    expect(calls.mock.calls.filter(([url, req]) =>
-      String(url) === '/api/customers' && (req as RequestInit).method === 'POST')).toHaveLength(1);
+    await waitFor(() => expect(calls.mock.calls.filter(([url, req]) =>
+      String(url) === '/api/customers' && (req as RequestInit).method === 'POST')).toHaveLength(1));
     release();
     expect(await screen.findByRole('heading', { name: '+996222123456' })).toBeInTheDocument();
   });
