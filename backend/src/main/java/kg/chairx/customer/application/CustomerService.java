@@ -33,11 +33,13 @@ public class CustomerService {
             );
         }
 
+        requireContact(request.phone(), request.secondaryPhone(), request.whatsappPhone(), request.instagramUsername());
+
         Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
 
         Customer customer = new Customer(
                 UUID.randomUUID(),
-                requiredName(request.fullName()),
+                optional(request.fullName(), 200, "Имя клиента"),
                 optional(request.phone(), 50, "Телефон"),
                 optional(request.secondaryPhone(), 50, "Дополнительный телефон"),
                 optional(request.whatsappPhone(), 50, "WhatsApp"),
@@ -120,6 +122,8 @@ public class CustomerService {
             );
         }
 
+        requireContact(request.phone(), request.secondaryPhone(), request.whatsappPhone(), request.instagramUsername());
+
         Customer current = repository.lock(customerId)
                 .orElseThrow(
                         () -> new CustomerNotFoundException(customerId)
@@ -127,7 +131,7 @@ public class CustomerService {
 
         Customer changed = new Customer(
                 current.id(),
-                requiredName(request.fullName()),
+                optional(request.fullName(), 200, "Имя клиента"),
                 optional(request.phone(), 50, "Телефон"),
                 optional(request.secondaryPhone(), 50, "Дополнительный телефон"),
                 optional(request.whatsappPhone(), 50, "WhatsApp"),
@@ -198,22 +202,13 @@ public class CustomerService {
         }
     }
 
-    private String requiredName(String value) {
-        if (value == null || value.isBlank()) {
-            throw new CustomerRuleViolationException(
-                    "Имя клиента обязательно"
-            );
+    private void requireContact(String phone, String secondaryPhone, String whatsappPhone, String instagramUsername) {
+        if ((phone == null || phone.isBlank())
+                && (secondaryPhone == null || secondaryPhone.isBlank())
+                && (whatsappPhone == null || whatsappPhone.isBlank())
+                && (instagramUsername == null || instagramUsername.isBlank())) {
+            throw new CustomerRuleViolationException("Укажите хотя бы один контакт клиента");
         }
-
-        String normalized = value.trim();
-
-        if (normalized.length() > 200) {
-            throw new CustomerRuleViolationException(
-                    "Имя клиента не должно превышать 200 символов"
-            );
-        }
-
-        return normalized;
     }
 
     private String optional(

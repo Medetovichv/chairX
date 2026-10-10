@@ -25,13 +25,13 @@ public record Customer(
             );
         }
 
-        if (fullName == null || fullName.isBlank()) {
+        if (fullName != null && fullName.isBlank()) {
             throw new IllegalArgumentException(
                     "Имя клиента обязательно"
             );
         }
 
-        if (fullName.length() > 200) {
+        if (fullName != null && fullName.length() > 200) {
             throw new IllegalArgumentException(
                     "Имя клиента не должно превышать 200 символов"
             );

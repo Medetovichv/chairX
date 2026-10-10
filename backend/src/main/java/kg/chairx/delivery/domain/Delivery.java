@@ -45,11 +45,7 @@ public record Delivery(
             throw new IllegalArgumentException("Статус доставки обязателен");
         }
 
-        recipientName = requireText(
-                recipientName,
-                "Имя получателя обязательно",
-                200
-        );
+        recipientName = optionalText(recipientName, 200);
 
         recipientPhone = requireText(
                 recipientPhone,

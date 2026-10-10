@@ -94,7 +94,7 @@ public class DeliveryRepository {
                 .param("id", delivery.id())
                 .param("saleId", delivery.saleId())
                 .param("status", delivery.status().name())
-                .param("recipientName", delivery.recipientName())
+                .param("recipientName", delivery.recipientName(), Types.VARCHAR)
                 .param("recipientPhone", delivery.recipientPhone())
                 .param("address", delivery.address())
                 .param("cityRegion", delivery.cityRegion())

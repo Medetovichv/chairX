@@ -57,7 +57,7 @@ public class CustomerRepository {
                 )
                 """)
                 .param("id", customer.id())
-                .param("fullName", customer.fullName())
+                .param("fullName", customer.fullName(), Types.VARCHAR)
                 .param("phone", customer.phone(), Types.VARCHAR)
                 .param("secondaryPhone", customer.secondaryPhone(), Types.VARCHAR)
                 .param("whatsappPhone", customer.whatsappPhone(), Types.VARCHAR)
@@ -119,7 +119,7 @@ public class CustomerRepository {
                 WHERE id = :id
                 """)
                 .param("id", customer.id())
-                .param("fullName", customer.fullName())
+                .param("fullName", customer.fullName(), Types.VARCHAR)
                 .param("phone", customer.phone(), Types.VARCHAR)
                 .param("secondaryPhone", customer.secondaryPhone(), Types.VARCHAR)
                 .param("whatsappPhone", customer.whatsappPhone(), Types.VARCHAR)
@@ -143,7 +143,7 @@ public class CustomerRepository {
         return jdbc.sql("""
                 SELECT *
                 FROM customers
-                ORDER BY full_name, id
+                ORDER BY full_name NULLS LAST, id
                 LIMIT :size
                 OFFSET :offset
                 """)
@@ -168,7 +168,7 @@ public class CustomerRepository {
                     OR lower(coalesce(instagram_username, '')) LIKE :query
                 ORDER BY
                     active DESC,
-                    full_name,
+                    full_name NULLS LAST,
                     id
                 LIMIT :limit
                 """)

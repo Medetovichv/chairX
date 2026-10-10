@@ -13,7 +13,6 @@ public record CreateDeliveryRequest(
         @NotNull
         UUID saleId,
 
-        @NotBlank
         @Size(max = 200)
         String recipientName,
 
