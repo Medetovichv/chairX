@@ -1,6 +1,7 @@
 package kg.chairx.security;
 
 import kg.chairx.PostgresTestConfiguration;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,22 @@ class BusinessRolePermissionsIntegrationTests {
     @BeforeEach void dbIsTestOnly() {
         assertThat(jdbc.queryForObject("select current_database()",String.class))
                 .isEqualTo("chairx_test");
+    }
+
+    @AfterEach void cleanupOnlyCreatedAccounts() {
+        // Our real-auth tests share chairx_test with existing security suites.
+        // Never remove application users if this is not the isolated test DB.
+        assertThat(jdbc.queryForObject("select current_database()",String.class))
+                .isEqualTo("chairx_test");
+        jdbc.update("""
+                DELETE FROM security_user_roles
+                WHERE user_id IN (SELECT id FROM app_users
+                                  WHERE username LIKE 'p17\\_role\\_%' ESCAPE '\\')
+                """);
+        jdbc.update("""
+                DELETE FROM app_users
+                WHERE username LIKE 'p17\\_role\\_%' ESCAPE '\\'
+                """);
     }
 
     private record Employee(UUID id,String username) {}
