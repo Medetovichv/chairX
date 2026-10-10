@@ -61,6 +61,19 @@ class FinanceTransferIntegrationTest {
     }
 
     @Test
+    void implicitPostingDateMatchesExactlyTheJournalRegistrationDate() {
+        // Both opening balances use the default single-entry insert path.
+        // PostgreSQL must derive business_date from the SAME instant as
+        // created_at, including for entries registered at midnight.
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type = 'OPENING_BALANCE'
+                  AND business_date = (created_at AT TIME ZONE 'Asia/Bishkek')::date
+                  AND business_date_source = 'POSTING_DATE'
+                """, Long.class)).isEqualTo(2);
+    }
+
+    @Test
     void concurrentRequestsWithSameIdTransferOnlyOnce() throws Exception {
         UUID id = UUID.randomUUID();
 
@@ -223,6 +236,19 @@ class FinanceTransferIntegrationTest {
         assertThat(balance("BANK")).isEqualByComparingTo("120000");
 
         assertThat(movementCount(id)).isEqualTo(2);
+
+        // Both journal legs must have exactly one effective date even when
+        // the transfer crosses a business-day boundary during execution.
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(DISTINCT business_date)
+                FROM finance_movements
+                WHERE source_type = 'TRANSFER' AND source_id = ?
+                """, Integer.class, id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM finance_movements
+                WHERE source_type = 'TRANSFER' AND source_id = ?
+                  AND business_date_source = 'POSTING_DATE'
+                """, Integer.class, id)).isEqualTo(2);
 
         assertThat(movementSum(id))
                 .isEqualByComparingTo(BigDecimal.ZERO);

@@ -162,7 +162,7 @@ public class RefundService {
                 normalize(request.reference()),
                 normalize(request.comment()),
                 actor(),
-                Instant.now()
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)
         );
 
         boolean inserted = repository.tryInsert(

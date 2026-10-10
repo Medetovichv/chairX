@@ -93,7 +93,10 @@ class ProductPersistenceTests {
                         "security_audit_log",
                         "security_bootstrap_state",
                 "finance_daily_closings",
-                "finance_daily_closing_accounts"
+                "finance_daily_closing_accounts",
+                "finance_daily_closing_access_locks",
+                "finance_daily_closing_unlocks",
+                "finance_daily_closing_adjustments"
         );
         // A second migration run must leave the existing schema alone.
         assertThat(flyway.migrate().migrationsExecuted).isZero();

@@ -33,7 +33,7 @@ public class CustomerService {
             );
         }
 
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
 
         Customer customer = new Customer(
                 UUID.randomUUID(),
@@ -137,7 +137,7 @@ public class CustomerService {
                 optional(request.comment(), 2000, "Комментарий"),
                 current.active(),
                 current.createdAt(),
-                Instant.now()
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)
         );
 
         repository.update(changed);
@@ -182,7 +182,7 @@ public class CustomerService {
                 current.comment(),
                 active,
                 current.createdAt(),
-                Instant.now()
+                Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)
         );
 
         repository.update(changed);

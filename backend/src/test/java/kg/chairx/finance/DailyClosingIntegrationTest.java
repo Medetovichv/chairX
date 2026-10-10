@@ -374,12 +374,14 @@ class DailyClosingIntegrationTest {
         jdbc.update("DELETE FROM finance_daily_closings");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
         var valid = new DailyClosingRequest(BigDecimal.ZERO, null, BigDecimal.ZERO, null);
-        assertThatThrownBy(() -> closings.close(today.minusDays(1), valid, "admin"))
+        // Yesterday may be legitimately closed before 13:00 Bishkek.
+        // Two days ago is always outside the normal writing window.
+        assertThatThrownBy(() -> closings.close(today.minusDays(2), valid, "admin"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("только текущий день");
+                .hasMessageContaining("REPORT_LOCKED");
         assertThatThrownBy(() -> closings.close(today.plusDays(1), valid, "admin"))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("только текущий день");
+                .hasMessageContaining("будущую дату");
         assertThatThrownBy(() -> closings.close(today,
                 new DailyClosingRequest(new BigDecimal("-1"), null, BigDecimal.ZERO, null), "admin"))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -474,9 +476,9 @@ class DailyClosingIntegrationTest {
         mvc.perform(post("/api/finance/closings/" + today).with(writer).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":-1,\"actualBank\":0}"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/finance/closings/" + today.minusDays(1)).with(writer).with(csrf())
+        mvc.perform(post("/api/finance/closings/" + today.minusDays(2)).with(writer).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":0,\"actualBank\":0}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isForbidden());
         BigDecimal cash = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
         BigDecimal bank = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
         closings.close(today, new DailyClosingRequest(cash, null, bank, null), "admin");

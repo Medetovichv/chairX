@@ -575,14 +575,31 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 .body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция отклонена: проверьте остаток, инициализацию счёта и закрытие дня"));
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    ResponseEntity<ApiError> reportAccessDenied(
+            org.springframework.security.access.AccessDeniedException exception) {
+        String message = exception.getMessage();
+        String code = message != null && message.startsWith("REPORT_LOCKED")
+                ? "REPORT_LOCKED"
+                : message != null && message.startsWith("UNLOCK_NOT_ALLOWED")
+                    ? "UNLOCK_NOT_ALLOWED" : "ACCESS_DENIED";
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(ApiError.of(code, message));
+    }
+
     @ExceptionHandler(kg.chairx.finance.application.FinanceValidationException.class)
     ResponseEntity<ApiError> financeValidation() {
         return ResponseEntity.badRequest().body(ApiError.of("INVALID_REQUEST", "Некорректные параметры финансовой операции"));
     }
 
     @ExceptionHandler(kg.chairx.finance.application.FinanceConflictException.class)
-    ResponseEntity<ApiError> financeBusinessConflict() {
-        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция недоступна в текущем состоянии"));
+    ResponseEntity<ApiError> financeBusinessConflict(
+            kg.chairx.finance.application.FinanceConflictException exception) {
+        String code = exception.getCode();
+        String message = "FINANCE_OPERATION_CONFLICT".equals(code)
+                ? "Финансовая операция недоступна в текущем состоянии"
+                : exception.getMessage();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(code, message));
     }
 
     @ExceptionHandler(kg.chairx.finance.application.ClosingNotFoundException.class)
