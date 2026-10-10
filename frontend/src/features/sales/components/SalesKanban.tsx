@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
-import { salesApi, salesKeys, SALES_PAGE_SIZE } from '../api';
+import { salesApi, salesKeys } from '../api';
 import { saleStatuses, saleStatusNames, saleDate, money } from '../validation';
 import { Button } from '../../../shared/ui/button';
 import { LoadingState } from '../../../shared/components/LoadingState';
