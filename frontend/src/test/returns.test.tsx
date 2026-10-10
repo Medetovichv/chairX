@@ -34,6 +34,7 @@ const WH='66666666-6666-4666-8666-666666666666';
 const RET='77777777-7777-4777-8777-777777777777';
 const EX='88888888-8888-4888-8888-888888888888';
 const DEF='99999999-9999-4999-8999-999999999999';
+const DEF2='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab';
 const NOW='2026-10-10T08:00:00Z';
 const json=(value:unknown,status=200)=>new Response(JSON.stringify(value),
  {status,headers:{'Content-Type':'application/json'}});
@@ -56,7 +57,7 @@ interface Setup {
  returns?:ReturnResponse[];defects?:Defect[];
  fulfillment?:'SELF_PICKUP'|'CITY_DELIVERY';deliveryStatus?:string;
  afterReturnNetwork?:boolean;returnConflict?:boolean;
- afterExchangeNetwork?:boolean;afterDefectNetwork?:boolean;
+ afterExchangeNetwork?:boolean;afterDefectNetwork?:boolean;afterWriteOffNetwork?:boolean;
 }
 function mockBackend(options:Setup={}){
  const returns=[...(options.returns??[])];
@@ -64,7 +65,7 @@ function mockBackend(options:Setup={}){
  const exchanges:ExchangeResponse[]=[];
  const idempotent=new Map<string,ReturnResponse>();
  let afterReturn=!!options.afterReturnNetwork,afterExchange=!!options.afterExchangeNetwork;
- let afterDefect=!!options.afterDefectNetwork;
+ let afterDefect=!!options.afterDefectNetwork,afterWriteOff=!!options.afterWriteOffNetwork;
  const count={returnPOST:0,exchangePOST:0,defectPOST:0,writeOff:0,resolve:0,wait:0};
  const fetchMock=vi.fn(async (input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
   const url=new URL(String(input),'http://chairx.test'),path=url.pathname,method=init?.method??'GET';
@@ -145,6 +146,9 @@ function mockBackend(options:Setup={}){
      d.resolutionNote=(JSON.parse(String(init?.body)) as {resolutionNote:string}).resolutionNote;count.resolve++;}
    if(act[2]==='write-off'){d.status='WRITTEN_OFF';d.resolvedAt=NOW;d.resolvedBy='operator';
      d.resolutionNote=(JSON.parse(String(init?.body)) as {resolutionNote:string}).resolutionNote;count.writeOff++;}
+   if(act[2]==='write-off'&&afterWriteOff){
+     afterWriteOff=false;throw new TypeError('Write-off committed but HTTP response lost');
+   }
    return json(d);
   }
   if(path==='/api/products'&&method==='GET')return json({
@@ -437,6 +441,51 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
   expect(screen.getByRole('button',{name:'Зарегистрировать брак'})).toBeDisabled();
   expect(a.count.defectPOST).toBe(1);
+ });
+ it('recovers lost write-off by defect ID after reload without repeating FIFO stock movement',async()=>{
+   const a=mockBackend({defects:[defect(),{...defect(),id:DEF2}],afterWriteOffNetwork:true});
+   const first=renderAt('/returns/defects/'+DEF);
+   await screen.findByRole('heading',{name:/Дефект: Открыт/});
+   fireEvent.change(screen.getByRole('textbox',{name:'Результат обработки брака'}),
+    {target:{value:'Ремонту не подлежит'}});
+   await userEvent.setup().click(screen.getByRole('button',{name:'Списать товар'}));
+   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+    .getByRole('button',{name:'Подтвердить действие'}));
+   expect(await screen.findByText(/Результат операции неизвестен/)).toBeInTheDocument();
+   expect(a.count.writeOff).toBe(1);
+   expect(readPending('after-sales-operator','writeoff',DEF).kind).toBe('pending');
+   first.unmount();
+   const second=renderAt('/returns/defects/'+DEF2);
+   await screen.findByRole('heading',{name:/Дефект: Открыт/});
+   expect(screen.getByRole('button',{name:'Списать товар'})).toBeEnabled();
+   second.unmount();
+   renderAt('/returns/defects/'+DEF);
+   expect(await screen.findByText(/Действия заблокированы/)).toBeInTheDocument();
+   await userEvent.setup().click(screen.getByRole('button',{name:'Загрузить актуальный статус'}));
+   expect(await screen.findByText(/Сверка подтверждена backend/)).toBeInTheDocument();
+   expect(readPending('after-sales-operator','writeoff',DEF).kind).toBe('missing');
+   expect(a.count.writeOff).toBe(1);
+   expect(calls(a,'/api/inventory/')).toHaveLength(0);
+ });
+ it('create-only defect operator can register without triggering restricted list GET',async()=>{
+   access.permissions=['DEFECTS_MANAGE','INVENTORY_READ'];
+   const a=mockBackend({defects:[]});
+   renderAt('/returns');
+   expect(await screen.findByRole('heading',{name:'Брак',level:2})).toBeInTheDocument();
+   expect(screen.getByText(/Для списка и карточек дефектов требуется DEFECTS_READ/)).toBeInTheDocument();
+   expect(calls(a,'/api/defects?')).toHaveLength(0);
+   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+   expect(screen.getByRole('form',{name:'Регистрация дефекта'})).toBeInTheDocument();
+   expect(calls(a,'/api/defects?')).toHaveLength(0);
+ });
+ it('return-create-only operator gets creation route rather than hidden menu or forbidden list',async()=>{
+   access.permissions=['RETURNS_CREATE'];
+   const a=mockBackend();
+   renderAt('/returns');
+   expect(await screen.findByRole('heading',{name:'Новый возврат'})).toBeInTheDocument();
+   expect(screen.getByText(/Необходимо SALES_READ/)).toBeInTheDocument();
+   expect(calls(a,'/api/sales')).toHaveLength(0);
+   expect(calls(a,'/api/returns')).toHaveLength(0);
  });
  it('legacy /exchanges and /defects redirects remain valid, no extra sidebar link',async()=>{
   mockBackend({defects:[],returns:[]});renderAt('/defects');
