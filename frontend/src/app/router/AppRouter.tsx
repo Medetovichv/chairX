@@ -2,11 +2,15 @@ import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { AppLayout } from '../../layouts/AppLayout';
 import { HomePage } from '../../pages/HomePage';
-import { ComingSoonPage } from '../../pages/ComingSoonPage';
+import { OperationalPage } from '../../pages/OperationalPage';
+import { DailyClosingPage } from '../../pages/DailyClosingPage';
 import { ForbiddenPage } from '../../pages/ForbiddenPage';
 import { LoginPage, safeRedirect } from '../../pages/LoginPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
-import { navigationItems } from '../../shared/lib/navigation';
+import {
+  firstAccessiblePath, hasRoutePermission, legacyRedirects,
+  navigationItems, routeDefinitions,
+} from '../../shared/lib/navigation';
 
 function RequireAuthentication() {
   const { isAuthenticated } = useAuth();
@@ -16,9 +20,19 @@ function RequireAuthentication() {
     : <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
 }
 
-function ProtectedSection({ permissions }: { permissions: readonly string[] }) {
-  const { hasAnyPermission } = useAuth();
-  return hasAnyPermission(permissions) ? <ComingSoonPage /> : <ForbiddenPage />;
+function ProtectedSection({ path }: { path: string }) {
+  const { hasPermission } = useAuth();
+  const route = routeDefinitions.find((item) => item.path === path);
+  if (!route) return <NotFoundPage />;
+  if (['/purchases', '/returns', '/finance', '/admin'].includes(path)) {
+    const target = firstAccessiblePath(path, hasPermission);
+    if (!target) return <ForbiddenPage />;
+    if (target !== path) return <Navigate to={target} replace />;
+    if (path === '/admin') return <ForbiddenPage />; // admin always resolves to a child
+  } else if (!hasRoutePermission(route.permissions, hasPermission)) {
+    return <ForbiddenPage />;
+  }
+  return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
 
 function LoginRoute() {
@@ -35,9 +49,11 @@ export function AppRouter() {
       <Route element={<RequireAuthentication />}>
         <Route element={<AppLayout />}>
           <Route index element={<HomePage />} />
-          {navigationItems.filter((item) => item.path !== '/').map((item) => (
-            <Route key={item.path} path={item.path.slice(1)}
-              element={<ProtectedSection permissions={item.permissions} />} />
+          {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
+            <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
+          ))}
+          {Object.entries(legacyRedirects).map(([oldPath, target]) => (
+            <Route key={oldPath} path={oldPath.slice(1)} element={<Navigate to={target} replace />} />
           ))}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
@@ -46,3 +62,6 @@ export function AppRouter() {
   );
 }
 
+// Keep navigationItems imported at this boundary to make the 11 top-level
+// sections a reviewable contract for F02.1 and later business packages.
+export const mainMenuPaths = navigationItems.map((item) => item.path);
