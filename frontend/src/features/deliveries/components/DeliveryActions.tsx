@@ -10,8 +10,10 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { deliveryApi } from '../api';
 import { sameDelivery, validLocalDate } from '../validation';
 import type { DeliveryResponse } from '../types';
-type Action='dispatch'|'deliver'|'fail'|'cancel'|'return';
-interface Intent {action:Action;reason?:string;warehouseId?:string}
+import {
+  readPendingDelivery, savePendingDelivery, clearPendingDelivery,
+  type DeliveryAction as Action, type DeliveryIntent as Intent,
+} from '../pending-action';
 function reached(d:DeliveryResponse, x:Intent):boolean{
   if(x.action==='dispatch')return d.status==='IN_TRANSIT'||d.status==='DELIVERED';
   if(x.action==='deliver')return d.status==='DELIVERED';
@@ -22,13 +24,20 @@ function reached(d:DeliveryResponse, x:Intent):boolean{
 export function DeliveryActions({delivery:d,onChanged}:{
   delivery:DeliveryResponse;onChanged:(d:DeliveryResponse)=>Promise<void>;
 }){
-  const {hasPermission}=useAuth();
+  const {hasPermission,user}=useAuth();
   const manage=hasPermission('DELIVERIES_MANAGE');
   const canCancel=hasPermission('SALES_CANCEL');
   const canInventory=hasPermission('INVENTORY_READ');
   const [intent,setIntent]=useState<Intent|null>(null);
-  const [uncertain,setUncertain]=useState<Intent|null>(null);
-  const [pendingDate,setPendingDate]=useState<string|null|undefined>(undefined);
+  const [recovered]=useState(()=>readPendingDelivery(user?.id,d.id));
+  const [uncertain,setUncertain]=useState<Intent|null>(
+    recovered.kind==='pending'&&recovered.mutation.kind==='action'?recovered.mutation.intent:null,
+  );
+  const [pendingDate,setPendingDate]=useState<string|null|undefined>(
+    recovered.kind==='pending'&&recovered.mutation.kind==='date'?
+      recovered.mutation.plannedDate:undefined,
+  );
+  const [storageInvalid,setStorageInvalid]=useState(recovered.kind==='invalid');
   const [date,setDate]=useState(d.plannedDeliveryDate??'');
   const [reason,setReason]=useState('');
   const [warehouse,setWarehouse]=useState('');
@@ -60,7 +69,7 @@ export function DeliveryActions({delivery:d,onChanged}:{
     return:'Физический возврат на выбранный склад создаст RETURN_IN и восстановит cost layers на сервере. Это не возврат денег.',
   };
   async function send(action:Intent){
-    if(running.current||uncertain)return;
+    if(running.current||uncertain||pendingDate!==undefined||storageInvalid)return;
     running.current=true;setBusy(true);setError('');setNotice('');setIntent(null);
     try{
       // Fail closed if another employee updated the status since it was read.
@@ -70,11 +79,22 @@ export function DeliveryActions({delivery:d,onChanged}:{
         setError('Доставка изменена другим сотрудником. Проверьте новые данные и повторно подтвердите действие.');
         return;
       }
+      // Save the exact intended action before the irreversible POST.
+      // No backend idempotency key exists for this request; never replay blindly.
+      if(!user?.id||!savePendingDelivery(user.id,d.id,{kind:'action',intent:action})){
+        setStorageInvalid(true);
+        setError('Не удалось безопасно сохранить операцию. POST не отправлен.');
+        return;
+      }
       const result=action.action==='dispatch'?await deliveryApi.dispatch(d.id):
         action.action==='deliver'?await deliveryApi.deliver(d.id):
         action.action==='cancel'?await deliveryApi.cancel(d.id):
         action.action==='fail'?await deliveryApi.fail(d.id,action.reason!):
         await deliveryApi.returnToWarehouse(d.id,action.warehouseId!);
+      if(!clearPendingDelivery(user.id,d.id)){
+        setStorageInvalid(true);
+        setError('Сервер подтвердил успех, но запись восстановления не удалось очистить. Новые действия заблокированы.');
+      }
       await onChanged(result);
       setNotice('Операция подтверждена сервером.');
       setReason('');setWarehouse('');
@@ -85,6 +105,9 @@ export function DeliveryActions({delivery:d,onChanged}:{
       }else if(cause instanceof ApiClientError&&cause.status===409){
         // A competing operation may have completed. Force an explicit reread.
         setUncertain(action);
+      }else if(user?.id){
+        // Only a definite non-conflict 4xx proves the POST was rejected.
+        if(!clearPendingDelivery(user.id,d.id))setStorageInvalid(true);
       }
     }finally{running.current=false;setBusy(false);}
   }
@@ -95,19 +118,25 @@ export function DeliveryActions({delivery:d,onChanged}:{
       const fresh=await deliveryApi.get(d.id);
       await onChanged(fresh);
       if(uncertain&&reached(fresh,uncertain)){
-        setNotice('По данным backend операция уже выполнена.');
-        setUncertain(null);setError('');
+        if(user?.id&&clearPendingDelivery(user.id,d.id)){
+          setNotice('По данным backend операция уже выполнена.');
+          setUncertain(null);setError('');
+        }else{
+          setStorageInvalid(true);
+          setError('Операция подтверждена, но очистить запись восстановления невозможно. Новые действия заблокированы.');
+        }
       }else setError('Результат не подтверждён. Не повторяйте необратимый POST без ручной сверки.');
       if(pendingDate!==undefined){
-        if(fresh.plannedDeliveryDate===pendingDate){setPendingDate(undefined);setUncertain(null);
-          setError('');setNotice('Плановая дата проверена по данным backend.');}
+        if(fresh.plannedDeliveryDate===pendingDate&&user?.id&&clearPendingDelivery(user.id,d.id)){
+          setPendingDate(undefined);setError('');setNotice('Плановая дата проверена по данным backend.');
+        }
         else setError('Изменение даты не подтверждено. Сначала проверьте журнал и сверьте данные.');
       }
     }catch(cause){setError(userFacingApiError(cause));}
     finally{running.current=false;setBusy(false);}
   }
   async function changeDate(){
-    if(running.current||uncertain||pendingDate!==undefined||!canPlan)return;
+    if(running.current||uncertain||pendingDate!==undefined||!canPlan||storageInvalid)return;
     if(date&&!validLocalDate(date)){setError('Некорректная плановая дата.');return;}
     const target=date||null;
     running.current=true;setBusy(true);setError('');setNotice('');
@@ -116,23 +145,32 @@ export function DeliveryActions({delivery:d,onChanged}:{
       if(!sameDelivery(d,fresh)){
         await onChanged(fresh);setError('Данные доставки изменились. Проверьте новую плановую дату.');return;
       }
+      if(!user?.id||!savePendingDelivery(user.id,d.id,{kind:'date',plannedDate:target})){
+        setStorageInvalid(true);
+        setError('Не удалось безопасно сохранить изменение даты. PUT не отправлен.');
+        return;
+      }
       const result=await deliveryApi.plannedDate(d.id,target);
+      if(!clearPendingDelivery(user.id,d.id))setStorageInvalid(true);
       await onChanged(result);setNotice('Плановая дата изменена.');
     }catch(cause){
       setError(userFacingApiError(cause));
-      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||cause.status===undefined||cause.status>=500){
+      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||cause.status===undefined||cause.status>=500||
+        cause.status===409){
         setPendingDate(target);
-      }
+      }else if(user?.id&&!clearPendingDelivery(user.id,d.id))setStorageInvalid(true);
     }finally{running.current=false;setBusy(false);}
   }
   if(!manage&&!canCancel)return null;
-  const disabled=busy||uncertain!==null||pendingDate!==undefined;
+  const disabled=busy||uncertain!==null||pendingDate!==undefined||storageInvalid;
   return <section aria-label="Управление доставкой" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
     <h3 className="text-lg font-bold">Действия</h3>
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    {(uncertain||pendingDate!==undefined)&&<div className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-      <p>Исход операции неизвестен. Кнопки других изменений заблокированы до проверки backend.</p>
+    {(uncertain||pendingDate!==undefined||storageInvalid)&&<div className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+      <p>{storageInvalid?
+        'Хранилище незавершённой операции недоступно или повреждено. Новые операции заблокированы; нужна ручная сверка.':
+        'Исход операции неизвестен. Кнопки других изменений заблокированы до проверки backend. Состояние восстанавливается в текущей вкладке после обновления.'}</p>
       <Button variant="outline" disabled={busy} onClick={()=>void check()}>Проверить актуальное состояние</Button>
     </div>}
     {canPlan&&<div className="space-y-2">
