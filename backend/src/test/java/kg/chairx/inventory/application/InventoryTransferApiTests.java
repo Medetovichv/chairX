@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "transfer-api-tester")
+@WithMockUser(username = "transfer-api-tester", authorities = {"INVENTORY_TRANSFER"})
 class InventoryTransferApiTests {
 
     @Autowired MockMvc mvc;
