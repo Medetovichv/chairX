@@ -170,12 +170,19 @@ class DailyClosingCorrectionIntegrationTest {
     }
 
     private BigDecimal closingValue(String account, String column) {
-        assertThat(column).isIn("expected_balance", "actual_balance", "difference");
+        String expr = switch (column) {
+            case "expected_balance" -> "COALESCE(r.expected_balance,a.expected_balance)";
+            case "actual_balance" -> "a.actual_balance";
+            case "difference" -> "a.actual_balance - COALESCE(r.expected_balance,a.expected_balance)";
+            default -> throw new IllegalArgumentException("Unsupported column");
+        };
         return jdbc.queryForObject("""
-                SELECT a.%s FROM finance_daily_closing_accounts a
+                SELECT %s FROM finance_daily_closing_accounts a
                 JOIN finance_daily_closings c ON c.id=a.closing_id
+                LEFT JOIN finance_daily_closing_adjustments r
+                  ON r.closing_id=a.closing_id AND r.account_code=a.account_code
                 WHERE c.business_date=? AND a.account_code=?
-                """.formatted(column), BigDecimal.class, reportDate, account);
+                """.formatted(expr), BigDecimal.class, reportDate, account);
     }
 
     @Test
