@@ -27,14 +27,14 @@ public class CashFlowService {
     public CashFlowSummaryResponse summary(Instant from, Instant to) {
 
         if (from == null || to == null || !from.isBefore(to)) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Период отчёта должен быть корректным: from < to"
             );
         }
 
         if (!from.atZone(BUSINESS_ZONE).toLocalTime().equals(LocalTime.MIDNIGHT)
                 || !to.atZone(BUSINESS_ZONE).toLocalTime().equals(LocalTime.MIDNIGHT)) {
-            throw new IllegalArgumentException(
+            throw new FinanceValidationException(
                     "Границы периода должны соответствовать полуночи по Бишкеку"
             );
         }
@@ -54,15 +54,14 @@ public class CashFlowService {
 
         BigDecimal totalIn = payments.add(exchangePayments);
 
+        // Payment reversals are actual withdrawals, not just accounting
+        // corrections. Count them in gross outflow exactly once.
         BigDecimal totalOut = refunds
                 .add(exchangeRefunds)
-                .add(expenses);
+                .add(expenses)
+                .add(corrections);
 
-        // Payment reversal lowers net cash flow in the posting period,
-        // while remaining separate from customer refunds and operating costs.
-        BigDecimal netCashFlow = totalIn
-                .subtract(totalOut)
-                .subtract(corrections);
+        BigDecimal netCashFlow = totalIn.subtract(totalOut);
 
         return new CashFlowSummaryResponse(
                 from,
