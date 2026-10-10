@@ -41,7 +41,13 @@ class ProductPersistenceTests {
     @Test
     void cleanMigrationAndSchemaValidationSucceed() {
         flyway.validate();
-        assertThat(flyway.info().applied()).hasSize(34);
+        // Migration count grows as new business modules are added. Verify
+        // the expected finance migrations are applied without coupling this
+        // product test to a fixed global migration count.
+        assertThat(java.util.Arrays.stream(flyway.info().applied())
+                .map(migration -> migration.getVersion().getVersion())
+                .toList())
+                .contains("34", "35", "36");
         assertThat(jdbc.queryForList("select tablename from pg_tables where schemaname='public'", String.class))
                 .containsExactlyInAnyOrder(
                 "products",
