@@ -291,7 +291,7 @@ class DailyClosingCorrectionIntegrationTest {
     }
 
     @Test
-    void closedLaterDayRejectsBackdatingAtomically() throws Exception {
+    void laterClosedDayHasAuditedRevisionButKeepsOriginalSnapshot() throws Exception {
         unlockAndClose(originalCash.subtract(amount("1000")), "Unexplained shortage");
         LocalDate later = reportDate.plusDays(1);
         UUID laterId = UUID.randomUUID();
@@ -303,15 +303,35 @@ class DailyClosingCorrectionIntegrationTest {
                  (closing_id, account_code, expected_balance, actual_balance)
                 VALUES (?,'CASH',?,?), (?,'BANK',?,?)
                 """, laterId, originalCash, originalCash, laterId, originalBank, originalBank);
-        UUID key = UUID.randomUUID();
-        mvc.perform(post(url() + "/expenses").with(httpBasic(employee, "test-password"))
-                        .with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                        .content(expenseJson(key, amount("1000"))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("HISTORICAL_POSTING_NOT_ALLOWED"));
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM expenses WHERE idempotency_key=?",
-                Long.class, key)).isZero();
-        assertThat(closingValue("CASH", "difference")).isEqualByComparingTo("-1000");
+        UUID expense = correct(UUID.randomUUID(), amount("1000"));
+        assertThat(closingValue("CASH", "difference")).isEqualByComparingTo("0");
+
+        assertThat(jdbc.queryForObject("""
+                SELECT expected_balance FROM finance_daily_closing_accounts
+                WHERE closing_id=? AND account_code='CASH'
+                """, BigDecimal.class, laterId)).isEqualByComparingTo(originalCash);
+        assertThat(jdbc.queryForObject("""
+                SELECT expected_balance FROM finance_daily_closing_adjustments
+                WHERE closing_id=? AND account_code='CASH'
+                """, BigDecimal.class, laterId))
+                .isEqualByComparingTo(originalCash.subtract(amount("1000")));
+        assertThat(jdbc.queryForObject("SELECT version FROM finance_daily_closings WHERE id=?",
+                Long.class, laterId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM audit_entries
+                WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?
+                  AND action='REPORT_EXPECTED_RECALCULATED'
+                """, Long.class, laterId)).isEqualTo(1);
+        mvc.perform(get("/api/finance/closings/" + later)
+                        .with(httpBasic(manager, "test-password")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cash.recalculated").value(true))
+                .andExpect(jsonPath("$.cash.requiresReview").value(true))
+                .andExpect(jsonPath("$.bank.recalculated").value(false));
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type='EXPENSE' AND source_id=?
+                """, Long.class, expense)).isEqualTo(1);
     }
 
     @Test
