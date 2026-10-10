@@ -54,13 +54,16 @@ function summary(s:SaleResponse):SaleSummary {
     paymentStatus:'UNPAID',deliveryStatus:null,plannedDeliveryDate:null};
 }
 function mockBackend(options:{
-  sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean; stockFailure?:boolean;
+  sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
+  draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
   deny?:Record<string,number>;
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
   let networkOnce=Boolean(options.draftNetworkOnce);
   let updateNetworkOnce=Boolean(options.draftUpdateNetworkOnce);
+  let updateFailsBeforeCommit=Boolean(options.draftUpdateFailBeforeCommit);
+  let detailGets=0;
   let creates=0,confirms=0,fulfills=0,cancels=0;
   const fetchMock=vi.fn(async(raw:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
     const url=new URL(String(raw),'http://chairx.test');
@@ -99,6 +102,13 @@ function mockBackend(options:{
     const saleId=/^\/api\/sales\/([^/]+)$/.exec(path);
     if(saleId&&method==='GET'){
       const s=rows.find(r=>r.id===saleId[1]);
+      detailGets++;
+      if(s&&options.changeBeforeAction&&detailGets===2){
+        // Another employee changed the order after the operator opened it.
+        s.items[0]!.quantity=3;
+        s.items[0]!.total='25500.00';
+        s.total='25500.00';
+      }
       return s?json(s):json({code:'NOT_FOUND',message:'',details:{}},404);
     }
     const draft=/^\/api\/sales\/([^/]+)\/draft$/.exec(path);
@@ -106,6 +116,7 @@ function mockBackend(options:{
       const s=rows.find(r=>r.id===draft[1]);
       if(!s)return json({},404);
       if(s.status!=='DRAFT')return json({code:'INVALID_STATUS',message:'',details:{}},409);
+      if(updateFailsBeforeCommit){updateFailsBeforeCommit=false;throw new TypeError('Socket closed before PUT');}
       const payload=JSON.parse(String(init?.body)) as CreateDraftInput;
       s.customerId=payload.customerId;
       s.fulfillmentType=payload.fulfillmentType;
@@ -407,6 +418,41 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальный статус'}));
     await waitFor(()=>expect(screen.queryByRole('form',{name:'Редактирование черновика'})).not.toBeInTheDocument());
     expect(posted).toHaveLength(1);
+  });
+  it('never confirms a stale DRAFT whose contents changed before irreversible POST',async()=>{
+    const api=mockBackend({sales:[sale('DRAFT')],changeBeforeAction:true});
+    renderAt('/sales/'+SALE_ID);
+    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/Заказ изменён другим сотрудником/);
+    expect(api.count().confirms).toBe(0);
+    const posts=api.fetchMock.mock.calls.filter(([url,opts])=>
+      String(url)==='/api/sales/'+SALE_ID+'/confirm'&&(opts as RequestInit).method==='POST');
+    expect(posts).toHaveLength(0);
+    expect(api.rows[0]?.status).toBe('DRAFT');
+  });
+  it('does not discard local form data when uncertain PUT never reached the backend',async()=>{
+    const api=mockBackend({sales:[sale('DRAFT')],draftUpdateFailBeforeCommit:true});
+    renderAt('/sales/'+SALE_ID);
+    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать черновик'}));
+    const form=within(screen.getByRole('form',{name:'Редактирование черновика'}));
+    fireEvent.change(form.getByRole('textbox',{name:'Комментарий продажи'}),
+      {target:{value:'Неотправленный комментарий'}});
+    await userEvent.setup().click(form.getByRole('button',{name:'Сохранить черновик'}));
+    expect(await screen.findByText(/Данные формы сохранены на экране/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальный статус'}));
+    expect(await screen.findByText(/Сервер не подтвердил сохранение введённых изменений/)).toBeInTheDocument();
+    expect(screen.getByRole('textbox',{name:'Комментарий продажи'})).toHaveValue('Неотправленный комментарий');
+    expect(form.getByRole('button',{name:'Сохранить черновик'})).toBeDisabled();
+    expect(api.rows[0]?.comment).toBe('Самовывоз');
+    expect(api.fetchMock.mock.calls.filter(([url,init])=>
+      String(url)==='/api/sales/'+SALE_ID+'/draft'&&(init as RequestInit).method==='PUT')).toHaveLength(1);
+    await userEvent.setup().click(screen.getByRole('button',{
+      name:'Отказаться от локальных правок и загрузить версию сервера',
+    }));
+    await waitFor(()=>expect(screen.queryByRole('form',{name:'Редактирование черновика'})).not.toBeInTheDocument());
   });
   it('confirms draft only after explicit confirmation and backend updates status',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
