@@ -72,6 +72,9 @@ public class SecurityConfig {
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/csrf")
                         .authenticated()
+                        // F02: authenticated staff profile; technical catalog rejected by controller.
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                        .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
                         .hasAnyAuthority("CATALOG_READ", "CATALOG_ACCESS")
                         .requestMatchers(HttpMethod.POST, "/api/products", "/api/products/*/variants", "/api/products/*/activate", "/api/products/*/deactivate", "/api/product-variants/*/activate", "/api/product-variants/*/deactivate")
