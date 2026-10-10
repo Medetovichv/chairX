@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -76,7 +78,7 @@ public class DailyClosingAccessService {
                   AND revoked_at IS NULL AND expires_at > :now
                 ORDER BY unlocked_at DESC
                 """)
-                .param("day", businessDate).param("now", now)
+                .param("day", businessDate).param("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
                 .query((rs, row) -> new Grant(
                         rs.getObject("id", UUID.class),
                         rs.getDate("business_date").toLocalDate(),
@@ -162,8 +164,10 @@ public class DailyClosingAccessService {
                 VALUES (:id, :day, :actor, :at, :until, :reason)
                 """)
                 .param("id", created.id()).param("day", date)
-                .param("actor", created.unlockedBy()).param("at", created.unlockedAt())
-                .param("until", created.expiresAt()).param("reason", created.reason()).update();
+                .param("actor", created.unlockedBy())
+                .param("at", OffsetDateTime.ofInstant(created.unlockedAt(), ZoneOffset.UTC))
+                .param("until", OffsetDateTime.ofInstant(created.expiresAt(), ZoneOffset.UTC))
+                .param("reason", created.reason()).update();
         audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", auditEntity(date),
                 "REPORT_UNLOCKED", null, Map.of("businessDate", date.toString(),
                         "grantId", created.id().toString(), "expiresAt", until.toString(),
@@ -187,7 +191,8 @@ public class DailyClosingAccessService {
         jdbc.sql("""
                 UPDATE finance_daily_closing_unlocks SET revoked_at = :at, revoked_by = :actor
                 WHERE id = :id AND revoked_at IS NULL
-                """).param("id", existing.id()).param("at", now)
+                """).param("id", existing.id())
+                .param("at", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
                 .param("actor", auth.getName()).update();
         audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", auditEntity(date),
                 "REPORT_RELOCKED", Map.of("grantId", existing.id().toString()),
