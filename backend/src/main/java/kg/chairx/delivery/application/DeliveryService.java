@@ -152,7 +152,7 @@ public class DeliveryService {
     public DeliveryPageResponse list(
             DeliveryStatus status,LocalDate from,LocalDate to,int page,int size) {
         if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
-            throw rule("INVALID_DELIVERY_QUERY","Некорректные параметры списка доставок");
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка доставок");
         var zone=ZoneId.of("Asia/Bishkek");
         var begin=from==null?null:from.atStartOfDay(zone).toInstant();
         var end=to==null?null:to.plusDays(1).atStartOfDay(zone).toInstant();
