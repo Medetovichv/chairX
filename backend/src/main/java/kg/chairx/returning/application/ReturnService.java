@@ -20,6 +20,7 @@ import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
 import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.persistence.SaleRepository;
+import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.warehouse.persistence.WarehouseRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,6 +45,7 @@ public class ReturnService {
 
     private final ReturnRepository returnRepository;
     private final SaleRepository saleRepository;
+    private final DeliveryRepository deliveryRepository;
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
@@ -52,6 +54,7 @@ public class ReturnService {
     public ReturnService(
             ReturnRepository returnRepository,
             SaleRepository saleRepository,
+            DeliveryRepository deliveryRepository,
             WarehouseRepository warehouseRepository,
             InventoryService inventoryService,
             AuditService auditService,
@@ -59,6 +62,7 @@ public class ReturnService {
     ) {
         this.returnRepository = returnRepository;
         this.saleRepository = saleRepository;
+        this.deliveryRepository = deliveryRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryService = inventoryService;
         this.auditService = auditService;
@@ -113,6 +117,18 @@ public class ReturnService {
         }
 
         requireFulfilledSale(sale);
+
+        // Dispatch marks the sale FULFILLED before a delivery is successful.
+        // A failed delivery must be returned only via DeliveryService;
+        // otherwise both workflows could restore the same stock and FIFO.
+        if (deliveryRepository.findBySaleId(sale.id())
+                .filter(delivery -> !delivery.delivered())
+                .isPresent()) {
+            throw new ReturnRuleViolationException(
+                    "DELIVERY_NOT_COMPLETED",
+                    "Обычный возврат возможен только после успешной доставки"
+            );
+        }
         requireActiveWarehouse(request.warehouseId());
         requireUniqueSaleItems(request.items());
 
