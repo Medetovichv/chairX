@@ -44,9 +44,9 @@ function StockSummary({ line, warehouses, selectedWarehouseId }: {
   </div>;
 }
 
-function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, onSelect, onTransfer }: {
+function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, transferOpen, onSelect, onTransfer }: {
   lines: StockLine[]; warehouses: Warehouse[]; selectedWarehouseId: string | null;
-  canTransfer: boolean;
+  canTransfer: boolean; transferOpen: boolean;
   onSelect: (line: StockLine) => void; onTransfer: (line: StockLine) => void;
 }) {
   const tableWarehouses = selectedWarehouseId ? [] : warehouses;
@@ -72,8 +72,8 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, onSel
             <td className="px-4 py-4 font-bold text-indigo-700">{line.available}</td>
             <td className="px-4 py-4">
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={() => onSelect(line)}>Подробнее</Button>
-                {canTransfer && <Button size="sm" variant="outline" onClick={() => onTransfer(line)}>Переместить</Button>}
+                <Button variant="outline" size="sm" disabled={transferOpen} onClick={() => onSelect(line)}>Подробнее</Button>
+                {canTransfer && <Button size="sm" variant="outline" disabled={transferOpen} onClick={() => onTransfer(line)}>Переместить</Button>}
               </div>
             </td>
           </tr>)}
@@ -94,8 +94,8 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, onSel
           {warehouses.map((w) => <span key={w.id}>{w.name}: {warehouseStock(line, w.id)?.onHand ?? 0}</span>)}
         </div>}
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => onSelect(line)}>Подробнее</Button>
-          {canTransfer && <Button onClick={() => onTransfer(line)}>Переместить</Button>}
+          <Button variant="outline" disabled={transferOpen} onClick={() => onSelect(line)}>Подробнее</Button>
+          {canTransfer && <Button disabled={transferOpen} onClick={() => onTransfer(line)}>Переместить</Button>}
         </div>
       </article>)}
     </div>
@@ -139,10 +139,12 @@ export function InventoryPage() {
     setPage(0); setSelectedLine(null);
   }
   function showDetail(line: StockLine) {
+    if (transferLine) return;
     setSelectedLine(line);
     setTransferLine(null);
   }
   function startTransfer(line: StockLine) {
+    if (transferLine) return;
     setTransferLine(line); setSelectedLine(line); setNotice('');
   }
   const namedWarehouses = warehouses.data ?? [];
@@ -158,7 +160,7 @@ export function InventoryPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="space-y-2 text-sm font-semibold">Склад
                   <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-slate-200 px-3"
-                    value={selectedWarehouseId ?? ''} onChange={(event) => {
+                    value={selectedWarehouseId ?? ''} disabled={Boolean(transferLine)} onChange={(event) => {
                       setSelectedWarehouseId(event.target.value || null); newFilter();
                     }}>
                     <option value="">Все склады</option>
@@ -168,12 +170,12 @@ export function InventoryPage() {
                   </select>
                 </label>
                 <label className="space-y-2 text-sm font-semibold">Поиск модели
-                  <Input aria-label="Поиск модели" type="search" value={modelInput} maxLength={200}
+                  <Input aria-label="Поиск модели" type="search" value={modelInput} maxLength={200} disabled={Boolean(transferLine)}
                     onChange={(event) => { setModelInput(event.target.value); newFilter(); }}
                     placeholder="Например, Ergo" />
                 </label>
                 <label className="space-y-2 text-sm font-semibold">Поиск вариации
-                  <Input aria-label="Поиск вариации" type="search" value={variationInput} maxLength={200}
+                  <Input aria-label="Поиск вариации" type="search" value={variationInput} maxLength={200} disabled={Boolean(transferLine)}
                     onChange={(event) => { setVariationInput(event.target.value); newFilter(); }}
                     placeholder="Например, Чёрный" />
                 </label>
@@ -182,7 +184,7 @@ export function InventoryPage() {
                 {([
                   ['all', 'Все товары'], ['available', 'Только доступные'], ['zero', 'Включая нулевые'],
                 ] as const).map(([value, label]) => <Button key={value} variant={availability === value ? 'default' : 'outline'}
-                  aria-pressed={availability === value} onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
+                  aria-pressed={availability === value} disabled={Boolean(transferLine)} onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
               </div>
             </section>
             {overview.isPending ? <LoadingState label="Загружаем складские остатки…" />
@@ -193,9 +195,9 @@ export function InventoryPage() {
                   : dataset ? <div className="space-y-1">
                     <StockTable lines={dataset.items} warehouses={namedWarehouses}
                       selectedWarehouseId={selectedWarehouseId} canTransfer={canTransfer}
-                      onSelect={showDetail} onTransfer={startTransfer} />
+                      transferOpen={Boolean(transferLine)} onSelect={showDetail} onTransfer={startTransfer} />
                     <div className={panelClass}><InventoryPager page={dataset.page} total={dataset.total}
-                      size={dataset.size} onPage={(p) => { setPage(p); setSelectedLine(null); }} /></div>
+                      size={dataset.size} onPage={(p) => { if (transferLine) return; setPage(p); setSelectedLine(null); }} /></div>
                   </div> : null}
             {selectedLine && <>
               <section aria-label="Карточка складской позиции" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
@@ -205,7 +207,7 @@ export function InventoryPage() {
                   <div className="flex gap-2">
                     {hasPermission('CATALOG_READ') && <Button variant="outline" asChild>
                       <Link to="/catalog">Каталог товаров</Link></Button>}
-                    <Button variant="outline" onClick={() => { setSelectedLine(null); setTransferLine(null); }}>Скрыть</Button>
+                    <Button variant="outline" disabled={Boolean(transferLine)} onClick={() => { setSelectedLine(null); setTransferLine(null); }}>Скрыть</Button>
                   </div>
                 </div>
                 <StockSummary line={selectedLine} warehouses={namedWarehouses} selectedWarehouseId={selectedWarehouseId} />
