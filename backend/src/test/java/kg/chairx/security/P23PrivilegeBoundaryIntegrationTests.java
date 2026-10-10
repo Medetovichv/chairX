@@ -233,4 +233,34 @@ class P23PrivilegeBoundaryIntegrationTests {
         // Test-scoped transaction rolls back the DRAFT and its audit records.
     }
 
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    void legacyCatalogPermissionRemainsExclusiveToTechnicalAccount() throws Exception {
+        TestUser staff=user(null), admin=user(ADMIN);
+        UUID role=UUID.randomUUID();
+        // Simulate an invalid legacy permission row; the entire test rolls back.
+        jdbc.update("INSERT INTO security_permissions(code,description) "
+                + "VALUES ('CATALOG_ACCESS','Legacy technical permission') "
+                + "ON CONFLICT (code) DO NOTHING");
+        jdbc.update("INSERT INTO security_roles(id,code,name,system_role) "
+                + "VALUES (?,'P23_BOUNDARY_CATALOG','Legacy catalog role',FALSE)",role);
+        jdbc.update("INSERT INTO security_role_permissions(role_id,permission_code) "
+                + "VALUES (?,'CATALOG_ACCESS')",role);
+        jdbc.update("INSERT INTO security_user_roles(user_id,role_id) VALUES (?,?)",staff.id(),role);
+
+        mvc.perform(get("/api/products").with(httpBasic(staff.username(),PASSWORD)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/auth/me").with(httpBasic(staff.username(),PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.permissions").isEmpty());
+        mvc.perform(get("/api/admin/permissions").with(httpBasic(admin.username(),PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("CATALOG_ACCESS"))));
+        mvc.perform(get("/api/products")
+                        .with(httpBasic("catalog","integration-test-password")))
+                .andExpect(status().isOk());
+    }
+
 }
