@@ -89,3 +89,12 @@ F01 honest placeholders: F02 adds authentication only, not new ERP operations.
   logging in again.
 - Local dev accounts from F01.1 must never be enabled in production.
 
+
+## Native browser Basic prompt on invalid credentials
+
+The JSON API deliberately omits the `WWW-Authenticate: Basic` challenge
+for HTTP 401 responses on `/api/*`. Without this, browsers may open their
+native Basic password dialog over the ChairX login page whenever a user
+enters a wrong password. JSON errors and status 401 are preserved; HTTP Basic
+credential verification remains unchanged. Non-API responses may still use
+the normal HTTP Basic challenge.

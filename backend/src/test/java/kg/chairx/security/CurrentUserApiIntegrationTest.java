@@ -92,9 +92,12 @@ class CurrentUserApiIntegrationTest {
     @Test
     void badPasswordNoCredentialsAndDisabledUserReturn401() throws Exception {
         String username = create("EMPLOYEE",true);
-        mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/auth/me"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE));
         mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION, basic(username,"incorrect")))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist(HttpHeaders.WWW_AUTHENTICATE));
         String disabled = create("EMPLOYEE",false);
         mvc.perform(get("/api/auth/me").header(HttpHeaders.AUTHORIZATION,basic(disabled,secret)))
                 .andExpect(status().isUnauthorized());

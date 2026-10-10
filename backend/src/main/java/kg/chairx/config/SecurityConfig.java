@@ -61,7 +61,14 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            // Browsers show their native username/password dialog for a 401
+            // carrying a Basic challenge. JSON API clients (including the F02
+            // React login page) manage their own UX, so do not send the
+            // challenge for /api/* responses. The HTTP Basic authentication
+            // filter and the 401 status code remain unchanged.
+            if (!request.getServletPath().startsWith("/api/")) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            }
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
         };
 
