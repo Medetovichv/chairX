@@ -25,11 +25,17 @@ type Action='confirm'|'fulfill'|'cancel';
  * Backend still enforces final business rules under a database row lock.
  */
 function sameSaleForAction(displayed:SaleResponse,current:SaleResponse):boolean {
+  // If Java BigDecimal could not be represented exactly by JSON Number,
+  // never approve a potentially changed amount on ambiguous precision.
+  const shownTotal=integerSom(displayed.total),actualTotal=integerSom(current.total);
+  if(shownTotal===null||actualTotal===null||
+    displayed.items.some(i=>integerSom(i.unitSalePrice)===null)||
+    current.items.some(i=>integerSom(i.unitSalePrice)===null))return false;
   if(displayed.id!==current.id||displayed.status!==current.status||
     displayed.customerId!==current.customerId||
     displayed.fulfillmentType!==current.fulfillmentType||
     displayed.comment!==current.comment||
-    integerSom(displayed.total)!==integerSom(current.total)||
+    shownTotal!==actualTotal||
     displayed.items.length!==current.items.length)return false;
   const lines=(s:SaleResponse)=>s.items.map(i=>
     [i.id,i.warehouseId,i.productVariantId,String(i.quantity),
@@ -39,6 +45,8 @@ function sameSaleForAction(displayed:SaleResponse,current:SaleResponse):boolean 
 
 /** Checks whether an uncertain PUT actually wrote the submitted draft. */
 function draftMatchesServer(input:DraftInput,current:SaleResponse):boolean {
+  if(input.items.some(i=>integerSom(i.unitSalePrice)===null)||
+    current.items.some(i=>integerSom(i.unitSalePrice)===null))return false;
   if(current.status!=='DRAFT'||input.customerId!==current.customerId||
     input.fulfillmentType!==current.fulfillmentType||
     (input.comment??'')!==(current.comment??'')||
