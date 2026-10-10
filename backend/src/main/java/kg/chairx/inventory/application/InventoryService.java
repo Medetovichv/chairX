@@ -15,6 +15,7 @@ import kg.chairx.inventory.api.ChangeReservedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.api.StockMovementPage;
 import kg.chairx.inventory.api.InventoryBalancePage;
+import kg.chairx.inventory.api.InventoryBalanceResponse;
 import kg.chairx.inventory.domain.InventoryBalance;
 import kg.chairx.inventory.domain.StockMovement;
 import kg.chairx.inventory.persistence.InventoryRepository;
@@ -224,7 +225,8 @@ public class InventoryService {
     ) {
         warehouses.get(warehouseId);
         return new InventoryBalancePage(
-                repository.listBalances(warehouseId,page,size),page,size,
+                repository.listBalances(warehouseId,page,size).stream()
+                        .map(InventoryBalanceResponse::from).toList(),page,size,
                 repository.countBalances(warehouseId));
     }
 
