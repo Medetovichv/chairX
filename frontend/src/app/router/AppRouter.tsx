@@ -17,6 +17,9 @@ import { SuppliersPage } from '../../features/purchases/pages/SuppliersPage';
 import { PurchasePaymentsPage } from '../../features/purchases/pages/PurchasePaymentsPage';
 import { CustomersPage } from '../../features/customers/pages/CustomersPage';
 import { CustomerDetailPage } from '../../features/customers/pages/CustomerDetailPage';
+import { SalesPage } from '../../features/sales/pages/SalesPage';
+import { SaleDetailPage } from '../../features/sales/pages/SaleDetailPage';
+import { CreateSalePage } from '../../features/sales/pages/CreateSalePage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -40,6 +43,16 @@ function CustomerDetailGate() {
   return hasPermission('CUSTOMERS_READ') ? <CustomerDetailPage /> : <ForbiddenPage />;
 }
 
+function SaleDetailGate() {
+  const { hasPermission } = useAuth();
+  return hasPermission('SALES_READ') ? <SaleDetailPage /> : <ForbiddenPage />;
+}
+
+function SaleCreateGate() {
+  const { hasPermission } = useAuth();
+  return hasPermission('SALES_CREATE') ? <CreateSalePage /> : <ForbiddenPage />;
+}
+
 function PurchaseDetailGate() {
   const { hasPermission } = useAuth();
   return hasPermission('PURCHASE_READ') ? <PurchaseDetailPage /> : <ForbiddenPage />;
@@ -57,6 +70,10 @@ function ProtectedSection({ path }: { path: string }) {
   } else if (!hasRoutePermission(route.permissions, hasPermission)) {
     return <ForbiddenPage />;
   }
+  if (path === '/sales' && !hasPermission('SALES_READ')) {
+    return hasPermission('SALES_CREATE') ? <Navigate to="/sales/new" replace /> : <ForbiddenPage />;
+  }
+  if (path === '/sales') return <SalesPage />;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/purchases') return <PurchasesPage />;
@@ -84,6 +101,8 @@ export function AppRouter() {
           {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
+          <Route path="sales/new" element={<SaleCreateGate />} />
+          <Route path="sales/:saleId" element={<SaleDetailGate />} />
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
           <Route path="customers/:customerId" element={<CustomerDetailGate />} />
           <Route path="purchases/:purchaseId" element={<PurchaseDetailGate />} />

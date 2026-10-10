@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { customersApi } from '../../customers/api';
-import { saleKeys } from '../api';
+import { salesKeys } from '../api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -32,7 +32,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     queryFn:()=>customersApi.get(value!),enabled:allowed&&!!value,
   });
   const results=useQuery({
-    queryKey:saleKeys.customerSearch(query),
+    queryKey:salesKeys.customerSearch(query),
     queryFn:()=>customersApi.search(query),
     enabled:allowed&&query.length>=2,
   });

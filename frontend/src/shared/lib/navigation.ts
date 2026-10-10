@@ -21,7 +21,7 @@ export interface NavigationItem extends RouteMeta {
 
 export const navigationItems: readonly NavigationItem[] = [
   { path: '/', label: 'Главная', icon: House, group: 'Обзор', permissions: [] },
-  { path: '/sales', label: 'Продажи', icon: ShoppingCart, group: 'Ежедневная работа', permissions: ['SALES_READ'] },
+  { path: '/sales', label: 'Продажи', icon: ShoppingCart, group: 'Ежедневная работа', permissions: ['SALES_READ','SALES_CREATE'] },
   { path: '/deliveries', label: 'Доставки', icon: Truck, group: 'Ежедневная работа', permissions: ['DELIVERIES_READ'] },
   { path: '/inventory', label: 'Склады', icon: Warehouse, group: 'Ежедневная работа', permissions: ['INVENTORY_READ'] },
   { path: '/customers', label: 'Клиенты', icon: Users, group: 'Ежедневная работа', permissions: ['CUSTOMERS_READ'] },
@@ -45,6 +45,8 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
 ];
 
+const saleCreate: RouteMeta = {path:'/sales/new', label:'Новая продажа',parent:'/sales',permissions:['SALES_CREATE']};
+const saleDetail: RouteMeta = {path:'/sales/:saleId',label:'Карточка продажи',parent:'/sales',permissions:['SALES_READ']};
 const catalogDetail: RouteMeta = { path: '/catalog/:productId', label: 'Карточка модели', parent: '/catalog', permissions: ['CATALOG_READ'] };
 const purchaseDetail: RouteMeta = {
   path: '/purchases/:purchaseId', label: 'Карточка закупки', parent: '/purchases', permissions: ['PURCHASE_READ'],
@@ -62,6 +64,8 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 };
 
 export function routeFor(path: string): RouteMeta | undefined {
+  if (path==='/sales/new') return saleCreate;
+  if (/^\/sales\/[^/]+$/.test(path)) return {...saleDetail,path};
   if (/^\/catalog\/[^/]+$/.test(path)) return { ...catalogDetail, path };
   if (/^\/customers\/[^/]+$/.test(path)) return { ...customerDetail, path };
   if (/^\/purchases\/[^/]+$/.test(path) && !childRoutes.some(route => route.path === path)) {
