@@ -65,6 +65,9 @@ public class FinanceMovementRepository {
             throw new IllegalArgumentException("Unknown business-date source");
         }
         int inserted = jdbc.sql("""
+                WITH posting_clock AS (
+                    SELECT clock_timestamp() AS recorded_at
+                )
                 INSERT INTO finance_movements (
                     id,
                     account_code,
@@ -74,17 +77,19 @@ public class FinanceMovementRepository {
                     source_id,
                     created_by, created_at, business_date, business_date_source
                 )
-                VALUES (
+                SELECT
                     :id,
                     :account,
                     :amount,
                     :movementType,
                     :sourceType,
                     :sourceId,
-                    :actor, clock_timestamp(),
-                    COALESCE(:businessDate, (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date),
+                    :actor,
+                    posting_clock.recorded_at,
+                    COALESCE(:businessDate,
+                        (posting_clock.recorded_at AT TIME ZONE 'Asia/Bishkek')::date),
                     :businessDateSource
-                )
+                FROM posting_clock
                 """)
                 .param("id", id)
                 .param("account", account.name())
