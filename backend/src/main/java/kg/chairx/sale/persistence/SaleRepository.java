@@ -55,7 +55,8 @@ public class SaleRepository {
                         rs.getTimestamp("created_at").toInstant(),
                         rs.getObject("customer_id",UUID.class),rs.getString("customer_name"),
                         rs.getBigDecimal("total"),SaleStatus.valueOf(rs.getString("status")),
-                        FulfillmentType.valueOf(rs.getString("fulfillment_type")))).list();
+                        rs.getString("fulfillment_type") == null ? null
+                                : FulfillmentType.valueOf(rs.getString("fulfillment_type")))).list();
     }
 
     public long countSummaries(SaleStatus status,Instant from,Instant to,String number) {
@@ -306,9 +307,9 @@ public class SaleRepository {
                 id,
                 rs.getString("sale_number"),
                 rs.getObject("customer_id", UUID.class),
-                FulfillmentType.valueOf(
-                        rs.getString("fulfillment_type")
-                ),
+                rs.getString("fulfillment_type") == null
+                        ? null
+                        : FulfillmentType.valueOf(rs.getString("fulfillment_type")),
                 SaleStatus.valueOf(
                         rs.getString("status")
                 ),
