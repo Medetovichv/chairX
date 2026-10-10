@@ -25,7 +25,14 @@ export const returnsApi={
       summaries.push(...next.items);
     }
     if(summaries.length!==first.total)throw Error('История возвратов загружена не полностью.');
-    return Promise.all(summaries.map(s=>returnsApi.get(s.id)));
+    // Bound parallel HTTP requests: even 200 previous returns should not
+    // send 200 simultaneous GETs to the backend or saturate employee phones.
+    const details:ReturnResponse[]=[];
+    for(let index=0;index<summaries.length;index+=6){
+      const batch=await Promise.all(summaries.slice(index,index+6).map(s=>returnsApi.get(s.id)));
+      details.push(...batch);
+    }
+    return details;
   },
 };
 export const exchangesApi={
