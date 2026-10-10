@@ -177,12 +177,12 @@ class PurchasePaymentTests {
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isUnauthorized());
         mvc.perform(post("/api/purchases/"+p.id()+"/payments")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("accountant"))
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("accountant").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("PURCHASE_PAYMENTS_CREATE")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.paymentKind").value("SUPPLIER"));
         mvc.perform(get("/api/purchases/"+p.id()+"/payments")
-                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("accountant")))
+                        .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("accountant").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("PURCHASE_PAYMENTS_READ"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.remainingSupplier").value(47000));
     }
