@@ -1,6 +1,5 @@
 package kg.chairx.purchase.api;
 
-import kg.chairx.purchase.domain.PurchasePayment;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -13,5 +12,5 @@ public record PurchasePaymentSummaryResponse(
         BigDecimal paidCargo,
         BigDecimal remainingSupplier,
         BigDecimal remainingCargo,
-        List<PurchasePayment> payments
+        List<PurchasePaymentResponse> payments
 ) {}
