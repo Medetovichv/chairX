@@ -136,5 +136,5 @@ GitHub Actions: `Frontend verification` и `Local development stack smoke`.
 - Duplicate lookup не гарантирует уникальность; повтор POST после timeout
   требует ручной сверки.
 - История заказов пока read-only; переход в продажу — F07.
-- Issue #20 про раскрытие себестоимости складских перемещений не относится
-  к F05 и исправляется отдельным backend PR до production.
+- Issue #20 о раскрытии себестоимости складских перемещений уже исправлен
+  отдельным backend PR в актуальном main; F05 этих API не изменяет.
