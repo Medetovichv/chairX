@@ -12,6 +12,9 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,14 +23,22 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.*;
 import static org.assertj.core.api.Assertions.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {"CHAIRX_CATALOG_PASSWORD=integration-test-password", "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"})
 @Import(PostgresTestConfiguration.class)
+@AutoConfigureMockMvc
 @ExtendWith(FundedFinanceExtension.class)
 class FinancialDocumentClosingTests {
     @Autowired ExpenseService expenses;
+    @Autowired MockMvc mvc;
     @Autowired DailyClosingService closings;
     @Autowired JdbcTemplate jdbc;
     LocalDate today() { return LocalDate.now(ZoneId.of("Asia/Bishkek")); }
@@ -55,6 +66,120 @@ class FinancialDocumentClosingTests {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'", Integer.class)).isZero();
         assertThat(closings.findByDate(today()).cash().expected()).isEqualByComparingTo(closing.cash().expected());
     }
+    @Test void historicalExpenseDateRemainsLockedAfterTheNextDayBegins() {
+        LocalDate yesterday = today().minusDays(1);
+        UUID closingId = java.util.UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO finance_daily_closings(id,business_date,created_by)
+                VALUES (?, ?, 'previous-day-admin')
+                """, closingId, java.sql.Date.valueOf(yesterday));
+        jdbc.update("""
+                INSERT INTO finance_daily_closing_accounts
+                    (closing_id,account_code,expected_balance,actual_balance)
+                SELECT ?,code,balance,balance FROM finance_accounts
+                """, closingId);
+
+        BigDecimal before = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class);
+        long oldDocuments = jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE created_by='financial-document-test'",
+                Long.class);
+        long oldMovements = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'",
+                Long.class);
+
+        for (LocalDate sealed : List.of(yesterday, yesterday.minusDays(3))) {
+            var rejected = new CreateExpenseRequest(UUID.randomUUID(),
+                    ExpenseCategory.OTHER, new BigDecimal("500"),
+                    ExpensePaymentMethod.CASH, sealed, "Late expense");
+            assertThatThrownBy(() -> expenses.create(rejected))
+                    .isInstanceOf(FinanceAccountOperationException.class)
+                    .hasMessageContaining("закрыт");
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE created_by='financial-document-test'",
+                Long.class)).isEqualTo(oldDocuments);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'",
+                Long.class)).isEqualTo(oldMovements);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(before);
+
+        // Only sealed dates are restricted; an open day stays usable.
+        var accepted = expenses.create(request());
+        assertThat(accepted.id()).isNotNull();
+    }
+
+    @Test void backdatedExpenseApiIsConflictWithoutDocumentOrPosting() throws Exception {
+        LocalDate yesterday = today().minusDays(1);
+        UUID closingId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO finance_daily_closings(id,business_date,created_by)
+                VALUES (?, ?, 'previous-day-admin')
+                """, closingId, java.sql.Date.valueOf(yesterday));
+        jdbc.update("""
+                INSERT INTO finance_daily_closing_accounts
+                    (closing_id,account_code,expected_balance,actual_balance)
+                SELECT ?,code,balance,balance FROM finance_accounts
+                """, closingId);
+        BigDecimal balance = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        var body = """
+                {"idempotencyKey":"%s","category":"OTHER","amount":500,
+                 "paymentMethod":"CASH","expenseDate":"%s"}
+                """.formatted(UUID.randomUUID(), yesterday);
+        mvc.perform(post("/api/expenses")
+                        .with(user("financial-document-test").authorities(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                        "EXPENSES_CREATE")))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("FINANCE_OPERATION_CONFLICT"));
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE created_by='financial-document-test'",
+                Long.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'",
+                Long.class)).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(balance);
+    }
+
+    @Test void replayOfPostedExpenseIsReadOnlyAfterItsDateCloses() {
+        var firstRequest = request();
+        var original = expenses.create(firstRequest);
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'",
+                BigDecimal.class);
+        var closing = closings.close(today(),
+                new DailyClosingRequest(cash, null, bank, null), "admin");
+        long documentCount = jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE id=?", Long.class, original.id());
+        long movementCount = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, original.id());
+
+        var replay = expenses.create(firstRequest);
+        assertThat(replay.id()).isEqualTo(original.id());
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE id=?", Long.class, original.id()))
+                .isEqualTo(documentCount);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, original.id())).isEqualTo(movementCount);
+        assertThat(closings.findByDate(today()).id()).isEqualTo(closing.id());
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(cash);
+    }
+
     @Test void expenseRacingClosingIsEitherIncludedOrFullyRejected() throws Exception {
         var executor = Executors.newFixedThreadPool(2);
         var ready = new CountDownLatch(2);

@@ -3,6 +3,7 @@ package kg.chairx.security.application;
 import kg.chairx.security.persistence.SecurityBootstrapRepository;
 import kg.chairx.security.persistence.SecurityRoleRepository;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.stereotype.Service;
@@ -24,19 +25,22 @@ public class AdminBootstrapService {
     private final JdbcTemplate jdbc;
     private final AppUserRepository users;
     private final SecurityUserRoleRepository userRoles;
+    private final String reservedUsername;
 
     public AdminBootstrapService(
             SecurityBootstrapRepository bootstrap,
             SecurityRoleRepository roles,
             AppUserRepository users,
             SecurityUserRoleRepository userRoles,
-            JdbcTemplate jdbc
+            JdbcTemplate jdbc,
+            @Value("${CHAIRX_CATALOG_USERNAME:catalog}") String reservedUsername
     ) {
         this.bootstrap = bootstrap;
         this.roles = roles;
         this.users = users;
         this.userRoles = userRoles;
         this.jdbc = jdbc;
+        this.reservedUsername = reservedUsername;
     }
 
     @Transactional
@@ -90,7 +94,7 @@ public class AdminBootstrapService {
             );
         }
 
-        if (normalizedUsername.equals("catalog")) {
+        if (normalizedUsername.equalsIgnoreCase(reservedUsername.trim())) {
             throw new IllegalArgumentException(
                     "Reserved administrator username"
             );
