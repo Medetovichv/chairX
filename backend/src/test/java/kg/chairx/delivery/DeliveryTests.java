@@ -940,6 +940,27 @@ class DeliveryTests {
                 .isEqualTo(beforeFinance);
     }
 
+
+    @Test
+    void successfullyDeliveredGoodsCanUseRegularPartialReturn() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 2, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        deliveries.markDelivered(delivery.id());
+
+        var returned = returns.create(new CreateReturnRequest(
+                sale.id(), home, UUID.randomUUID(),
+                List.of(new CreateReturnItemRequest(
+                        sale.items().getFirst().id(), 1, ReturnCondition.SELLABLE)),
+                "Обычный частичный возврат", null));
+
+        assertThat(returned.items()).hasSize(1);
+        assertThat(returnInCount()).isEqualTo(1);
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(19);
+        assertThat(deliveries.get(delivery.id()).status()).isEqualTo(DeliveryStatus.DELIVERED);
+    }
+
     @Test
     void failedDeliveryCannotBeReturnedAgainViaRegularReturn() {
         var sale = createSale(FulfillmentType.REGION_DELIVERY,
