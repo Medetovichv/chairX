@@ -34,9 +34,9 @@ export function Header({ title, onOpenMenu }: HeaderProps) {
         </div>
       </div>
       <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
-        <div className="hidden min-w-0 text-right sm:block">
+        <div className="block min-w-0 max-w-24 text-right sm:max-w-40">
           <p className="max-w-40 truncate text-sm font-semibold text-slate-800">{user?.displayName}</p>
-          <p className="max-w-40 truncate text-xs text-slate-500">
+          <p className="hidden max-w-40 truncate text-xs text-slate-500 sm:block">
             {user?.username} · {user?.roles.join(', ')}
           </p>
         </div>
