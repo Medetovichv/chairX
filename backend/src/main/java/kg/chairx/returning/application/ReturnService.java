@@ -241,8 +241,7 @@ public class ReturnService {
     @Transactional(readOnly = true)
     public ReturnPageResponse list(UUID saleId,int page,int size) {
         if(page<0 || size<1 || size>100)
-            throw new ReturnRuleViolationException(
-                    "INVALID_RETURN_QUERY","Некорректные параметры поиска возвратов");
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры поиска возвратов");
         return new ReturnPageResponse(returnRepository.list(saleId,page,size),
                 page,size,returnRepository.count(saleId));
     }
