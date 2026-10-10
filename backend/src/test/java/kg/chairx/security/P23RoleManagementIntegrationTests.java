@@ -268,15 +268,17 @@ class P23RoleManagementIntegrationTests {
             var permissionCodes=jdbc.queryForList(
                     "SELECT permission_code FROM security_role_permissions WHERE role_id=? ORDER BY permission_code",
                     String.class,id);
-            String encoded=permissionCodes.stream().map(p -> "\\\""+p+"\\\"")
+            String permissionsJson=permissionCodes.stream()
+                    .map(p -> "\"" + p + "\"")
                     .collect(java.util.stream.Collectors.joining(",","[","]"));
+            String body="""
+                    {"name":"P23 temporary name","permissions":%s,
+                     "expectedVersion":%d,"reason":"Test default role edit"}
+                    """.formatted(permissionsJson,version);
             try {
                 mvc.perform(put("/api/admin/roles/"+id)
                                 .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{\\"name\\":\\"P23 temporary name\\",\\"permissions\\":"
-                                        + encoded + ",\\"expectedVersion\\":"+version
-                                        +",\\"reason\\":\\"Test default role edit\\"}"))
+                                .contentType(MediaType.APPLICATION_JSON).content(body))
                         .andExpect(status().isOk())
                         .andExpect(jsonPath("$.version").value(version+1));
                 assertThat(jdbc.queryForObject(
