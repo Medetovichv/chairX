@@ -281,6 +281,39 @@ class PurchaseTests {
     }
 
     @Test
+    void p22PurchaseOverviewShowsActualOrderedReceivedAndCargoWithoutWriteEffects() throws Exception {
+        var p = confirmed();
+        receiving.receive(p.id(), receipt(p,60));
+        int movements = count("stock_movements");
+        int finance = count("finance_movements");
+
+        mvc.perform(get("/api/purchases/overview")
+                        .param("status","PARTIALLY_RECEIVED")
+                        .param("supplierId",supplier.toString())
+                        .param("size","10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].id").value(p.id().toString()))
+                .andExpect(jsonPath("$.items[0].supplierName").value("Purchase fixture"))
+                .andExpect(jsonPath("$.items[0].orderedQuantity").value(100))
+                .andExpect(jsonPath("$.items[0].receivedQuantity").value(60))
+                .andExpect(jsonPath("$.items[0].remainingQuantity").value(40))
+                .andExpect(jsonPath("$.items[0].goodsCost").value(1000))
+                .andExpect(jsonPath("$.items[0].cargoCost").value(10))
+                .andExpect(jsonPath("$.items[0].totalCost").value(1010))
+                .andExpect(jsonPath("$.items[0].lastReceiptAt").exists());
+
+        mvc.perform(get("/api/purchases/overview").param("status","DRAFT")
+                        .param("supplierId",supplier.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/purchases/overview").param("size","0"))
+                .andExpect(status().isBadRequest());
+
+        assertThat(count("stock_movements")).isEqualTo(movements);
+        assertThat(count("finance_movements")).isEqualTo(finance);
+    }
+
+    @Test
     void createsAndUpdatesDraftThroughApi() throws Exception {
         var request = new CreatePurchaseRequest(supplier, List.of(line(variant,100,"10.00")), null," Draft ");
         var response = mvc.perform(post("/api/purchases").with(csrf()).contentType(MediaType.APPLICATION_JSON)
