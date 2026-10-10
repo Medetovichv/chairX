@@ -578,8 +578,13 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
     ResponseEntity<ApiError> reportAccessDenied(
             org.springframework.security.access.AccessDeniedException exception) {
+        String message = exception.getMessage();
+        String code = message != null && message.startsWith("REPORT_LOCKED")
+                ? "REPORT_LOCKED"
+                : message != null && message.startsWith("UNLOCK_NOT_ALLOWED")
+                    ? "UNLOCK_NOT_ALLOWED" : "ACCESS_DENIED";
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                .body(ApiError.of("REPORT_LOCKED", exception.getMessage()));
+                .body(ApiError.of(code, message));
     }
 
     @ExceptionHandler(kg.chairx.finance.application.FinanceValidationException.class)
