@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { returnsApi,returnKeys } from '../api';
 import { SaleItemsEditor,type SaleEditorRow } from '../../sales/components/SaleItemsEditor';
 import { Button } from '../../../shared/ui/button';
+import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { Input } from '../../../shared/ui/input';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -18,6 +19,7 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
  const [kind,setKind]=useState<FulfillmentType>('SELF_PICKUP');
  const [rows,setRows]=useState<SaleEditorRow[]>([]);
  const [error,setError]=useState('');
+ const [candidate,setCandidate]=useState<Omit<ExchangeInput,'idempotencyKey'>|null>(null);
  const original=useQuery({queryKey:returnKeys.detail(returnId),queryFn:()=>returnsApi.get(returnId),
    enabled:hasPermission('RETURNS_READ')&&uuid(returnId)});
  const creating=useRef(false);
@@ -31,8 +33,16 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
   if(rows.some(r=>!positive(r.quantity))){setError('Количество должно быть целым положительным.');return;}
   const problem=validateExchange(data);
   if(problem){setError(problem);return;}
+  const {idempotencyKey:unused,...plain}=data;
+  void unused;
+  setError('');
+  setCandidate(plain);
+ }
+ async function confirm(){
+  if(!candidate||creating.current)return;
   creating.current=true;
-  try{setError('');const {idempotencyKey:unused,...plain}=data;void unused;await onSubmit(plain);}
+  const draft=candidate;setCandidate(null);
+  try{await onSubmit(draft);}
   finally{creating.current=false;}
  }
  return <form aria-label="Создать обмен" className="space-y-4 rounded-xl border bg-white p-4" onSubmit={e=>void submit(e)}>
@@ -62,6 +72,14 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
    Новую продажу создаёт ExchangeService. Доплата или возврат денег не проводятся в F09.
   </p>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-  <Button type="submit" disabled={disabled}>Создать обмен</Button>
+  <Button type="submit" disabled={disabled||candidate!==null}>Проверить и создать обмен</Button>
+  <ConfirmDialog open={candidate!==null} onOpenChange={open=>{if(!open)setCandidate(null);}}
+    title="Подтвердить создание обмена?"
+    description={candidate?'Возврат '+candidate.returnId+
+      '. Новых позиций: '+candidate.items.length+
+      '. Тип выдачи: '+candidate.fulfillmentType+
+      '. Backend создаст новую продажу и складской резерв. Денежную разницу рассчитает сервер.':
+      ''}
+    confirmLabel="Создать обмен" onConfirm={()=>void confirm()}/>
  </form>;
 }
