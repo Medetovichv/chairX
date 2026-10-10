@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
+import java.util.concurrent.*;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.*;
@@ -304,6 +305,92 @@ class DailyClosingCorrectionIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM expenses WHERE idempotency_key=?",
                 Long.class, key)).isZero();
         assertThat(closingValue("CASH", "difference")).isEqualByComparingTo("-1000");
+    }
+
+    @Test
+    void concurrentRetryCreatesExactlyOneExpenseAndJournalMovement() throws Exception {
+        unlockAndClose(originalCash.subtract(amount("1000")), "Cash shortage");
+        UUID key = UUID.randomUUID();
+        String json = expenseJson(key, amount("1000"));
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Integer>> attempts = new ArrayList<>();
+            for (int i = 0; i < 2; i++) {
+                attempts.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
+                    return mvc.perform(post(url() + "/expenses")
+                                    .with(httpBasic(employee, "test-password")).with(csrf())
+                                    .contentType(MediaType.APPLICATION_JSON).content(json))
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            assertThat(ready.await(15, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            for (Future<Integer> response : attempts) {
+                assertThat(response.get(30, TimeUnit.SECONDS)).isEqualTo(201);
+            }
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+        }
+        UUID expense = jdbc.queryForObject(
+                "SELECT id FROM expenses WHERE idempotency_key=?", UUID.class, key);
+        newExpenses.add(expense);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE idempotency_key=?", Long.class, key)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, expense)).isEqualTo(1);
+        assertThat(closingValue("CASH", "difference")).isEqualByComparingTo("0");
+        assertThat(jdbc.queryForObject(
+                "SELECT version FROM finance_daily_closings WHERE business_date=?",
+                Long.class, reportDate)).isEqualTo(1);
+    }
+
+    @Test
+    void concurrentReportUpdatesHaveOneWinnerAndNoLostChanges() throws Exception {
+        unlockAndClose(originalCash, "");
+        String bodyA = String.format(Locale.ROOT, """
+                {"expectedVersion":0,"actualCash":%s,"cashNote":"Count A",
+                 "actualBank":%s,"reason":"Recount A"}
+                """, originalCash.subtract(amount("10")).toPlainString(), originalBank.toPlainString());
+        String bodyB = String.format(Locale.ROOT, """
+                {"expectedVersion":0,"actualCash":%s,"cashNote":"Count B",
+                 "actualBank":%s,"reason":"Recount B"}
+                """, originalCash.subtract(amount("20")).toPlainString(), originalBank.toPlainString());
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Integer>> results = new ArrayList<>();
+            for (String body : List.of(bodyA, bodyB)) {
+                results.add(pool.submit(() -> {
+                    ready.countDown();
+                    if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
+                    return mvc.perform(put(url()).with(httpBasic(employee, "test-password"))
+                                    .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(body))
+                            .andReturn().getResponse().getStatus();
+                }));
+            }
+            assertThat(ready.await(15, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            Set<Integer> responses = new HashSet<>();
+            for (Future<Integer> result : results) responses.add(result.get(30, TimeUnit.SECONDS));
+            assertThat(responses).containsExactlyInAnyOrder(200, 409);
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT version FROM finance_daily_closings WHERE business_date=?",
+                Long.class, reportDate)).isEqualTo(1);
+        assertThat(closingValue("CASH", "actual_balance")).isIn(
+                originalCash.subtract(amount("10")), originalCash.subtract(amount("20")));
+        assertThat(closingValue("CASH", "expected_balance")).isEqualByComparingTo(originalCash);
     }
 
     @AfterEach
