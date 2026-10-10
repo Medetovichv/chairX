@@ -16,8 +16,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Grants are attached to one CLOSED report date, never to the financial system.
- * Unlock/revoke serialize by row locking the report, and are auditable.
+ * Grants are attached to one report date, never to the financial system.
+ * Unlock/revoke serialize through a date-specific database lock.
  */
 @Service
 public class DailyClosingAccessService {
@@ -189,7 +189,7 @@ public class DailyClosingAccessService {
                 WHERE id = :id AND revoked_at IS NULL
                 """).param("id", existing.id()).param("at", now)
                 .param("actor", auth.getName()).update();
-        audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", reportId,
+        audit.recordAs(auth.getName(), "FINANCE_DAILY_CLOSING", auditEntity(date),
                 "REPORT_RELOCKED", Map.of("grantId", existing.id().toString()),
                 Map.of("businessDate", date.toString(), "revokedAt", now.toString()));
         return true;
