@@ -37,6 +37,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,6 +71,9 @@ class DeliveryTests {
 
     @Autowired
     JdbcTemplate jdbc;
+
+    @Autowired
+    org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
 
     @Autowired
     InventoryAdjustmentService adjustments;
@@ -269,6 +274,24 @@ class DeliveryTests {
         deliveries.markDelivered(created.id());
         assertThatThrownBy(() -> deliveries.changePlannedDate(created.id(), date))
                 .isInstanceOf(DeliveryRuleViolationException.class);
+    }
+
+    @Test
+    void inTransitIsNotACompletedSaleForDailyReport() {
+        var sale = createSale(FulfillmentType.REGION_DELIVERY,
+                item(firstVariant, home, 1, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
+                .isEmpty();
+        deliveries.dispatch(delivery.id());
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
+                .isEmpty();
+        deliveries.markDelivered(delivery.id());
+        var results = kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date);
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst().saleId()).isEqualTo(sale.id());
     }
 
     @Test

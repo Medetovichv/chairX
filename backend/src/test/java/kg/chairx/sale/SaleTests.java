@@ -28,6 +28,8 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -52,6 +54,12 @@ class SaleTests {
     JdbcTemplate jdbc;
     @Autowired
     InventoryAdjustmentService adjustments;
+
+    @Autowired
+    org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+
+    @Autowired
+    org.springframework.transaction.support.TransactionTemplate transactions;
 
     UUID home;
     UUID office;
@@ -243,6 +251,72 @@ class SaleTests {
         assertThatThrownBy(() -> sales.createDraft(
                 new CreateDraftSaleRequest(key, customer, null, List.of(), "B")))
                 .isInstanceOf(SaleRuleViolationException.class);
+    }
+
+    @Test
+    void closingSalesSnapshotFreezesFulfilledPickupAndDiagnosesLateCompletion() {
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 1, "8500")), null));
+        var pending = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        var done = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
+                .isEmpty();
+
+        sales.fulfill(done.id());
+        var before = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+        assertThat(before.closed()).isFalse();
+        assertThat(before.preliminary()).isTrue();
+        assertThat(before.totals().orders()).isEqualTo(1);
+        assertThat(before.items()).extracting(
+                kg.chairx.finance.application.DailyClosingSalesSnapshot.CompletedSale::saleId)
+                .containsExactly(done.id());
+
+        UUID closingId = UUID.randomUUID();
+        jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'sale-test')",
+                closingId, java.sql.Date.valueOf(date));
+        try {
+            transactions.executeWithoutResult(tx ->
+                    kg.chairx.finance.application.DailyClosingSalesSnapshot.capture(
+                            jdbcClient, closingId, date));
+            var frozen = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(frozen.snapshotAvailable()).isTrue();
+            assertThat(frozen.closed()).isTrue();
+            assertThat(frozen.preliminary()).isFalse();
+            assertThat(frozen.totals().orders()).isEqualTo(1);
+            assertThat(frozen.totals().chairs()).isEqualTo(1);
+            assertThat(frozen.totals().value()).isEqualByComparingTo("8500");
+            assertThat(frozen.lateCompletionCount()).isZero();
+
+            sales.fulfill(pending.id());
+            var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(later.items()).hasSize(1);
+            assertThat(later.totals().value()).isEqualByComparingTo("8500");
+            assertThat(later.lateCompletionCount()).isEqualTo(1);
+            assertThat(sales.get(draft.id()).status()).isEqualTo(SaleStatus.DRAFT);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", closingId);
+        }
+    }
+
+    @Test
+    void historicClosingWithoutSnapshotIsExplicitlyUnavailable() {
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        UUID id = UUID.randomUUID();
+        jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'legacy')",
+                id, java.sql.Date.valueOf(date));
+        try {
+            var historic = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
+            assertThat(historic.closed()).isTrue();
+            assertThat(historic.snapshotAvailable()).isFalse();
+            assertThat(historic.totals().value()).isNull();
+            assertThat(historic.lateCompletionCount()).isNull();
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",id);
+        }
     }
 
     @Test
