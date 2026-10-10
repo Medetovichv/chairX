@@ -914,6 +914,31 @@ class DeliveryTests {
     }
 
 
+
+    @Test
+    void readyDeliveryCancellationCannotBypassPaidSaleGuard() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 2, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null));
+        long beforeFinance = jdbc.queryForObject(
+                "select count(*) from finance_movements", Long.class);
+
+        assertThatThrownBy(() -> deliveries.cancel(delivery.id()))
+                .isInstanceOfSatisfying(
+                        kg.chairx.sale.application.SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
+
+        assertThat(deliveries.get(delivery.id()).status()).isEqualTo(DeliveryStatus.READY);
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(payments.get(payment.id()).status())
+                .isEqualTo(kg.chairx.payment.domain.PaymentStatus.PAID);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                .isEqualTo(beforeFinance);
+    }
+
     @Test
     void failedDeliveryCannotBeReturnedAgainViaRegularReturn() {
         var sale = createSale(FulfillmentType.REGION_DELIVERY,
