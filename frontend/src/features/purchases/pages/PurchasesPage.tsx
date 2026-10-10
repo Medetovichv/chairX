@@ -10,7 +10,7 @@ import { EmptyState } from '../../../shared/components/EmptyState';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
-import { purchaseApi, purchaseKeys, supplierApi, PAGE_SIZE } from '../api';
+import { purchaseApi, purchaseKeys, supplierApi } from '../api';
 import { formatDate, formatMoney, statuses, statusNames } from '../validation';
 import type { PurchaseFilters, PurchaseLine, PurchaseStatus } from '../types';
 import { PurchaseForm } from '../components/PurchaseForm';
