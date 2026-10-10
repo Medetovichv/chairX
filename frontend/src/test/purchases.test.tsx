@@ -496,6 +496,23 @@ describe('F06 suppliers and read-only purchase payments',()=>{
     expect(requests(calls,'/api/purchases/overview')).toHaveLength(0);
     expect(requests(calls,'/api/purchases?')).toHaveLength(0);
   });
+  it('mounts F06.1 payment form with CREATE + READ but without finance or purchase read',async()=>{
+    access.permissions=['PURCHASE_PAYMENTS_READ','PURCHASE_PAYMENTS_CREATE'];
+    const {calls}=mockApi();
+    renderAt('/purchases/payments?purchaseId='+PID);
+    expect(await screen.findByRole('form',{name:'Новая оплата закупки'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeInTheDocument();
+    expect(requests(calls,'/api/purchases/overview')).toHaveLength(0);
+    expect(requests(calls,'/api/finance/accounts')).toHaveLength(0);
+    expect(calls.mock.calls.every(([,init])=>(init as RequestInit).method!=='POST')).toBe(true);
+  });
+  it('keeps payment summary read-only without CREATE permission',async()=>{
+    access.permissions=['PURCHASE_PAYMENTS_READ'];
+    mockApi();
+    renderAt('/purchases/payments?purchaseId='+PID);
+    await screen.findByText(/Обязательства перед поставщиком/);
+    expect(screen.queryByRole('form',{name:'Новая оплата закупки'})).not.toBeInTheDocument();
+  });
   it('does not call restricted payment endpoint without PURCHASE_PAYMENTS_READ',async()=>{
     access.permissions=['PURCHASE_READ'];
     const {calls}=mockApi();
