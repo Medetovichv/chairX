@@ -112,7 +112,7 @@ public class FinancePostingService {
                               WHERE business_date = :date)
                 """).param("date", date).query(Boolean.class).single();
         if (!exists) {
-            throw new FinanceConflictException("REPORT_NOT_FOUND: сначала закройте отчёт");
+            throw new FinanceConflictException("REPORT_NOT_FOUND", "Сначала закройте отчёт");
         }
         boolean laterClosed = jdbc.sql("""
                 SELECT EXISTS(SELECT 1 FROM finance_daily_closings
@@ -120,7 +120,7 @@ public class FinancePostingService {
                 """).param("date", date).query(Boolean.class).single();
         if (laterClosed) {
             throw new FinanceConflictException(
-                    "HISTORICAL_POSTING_NOT_ALLOWED: последующие дни уже закрыты");
+                    "HISTORICAL_POSTING_NOT_ALLOWED", "Последующие дни уже закрыты");
         }
     }
 
