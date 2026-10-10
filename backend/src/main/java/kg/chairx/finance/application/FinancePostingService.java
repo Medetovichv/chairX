@@ -68,7 +68,21 @@ public class FinancePostingService {
         FinanceAccount account = account(method);
         accounts.lockBalance(account);
         accounts.rejectClosedDocumentDate(expenseDate);
-        post(method, amount, "EXPENSE", "EXPENSE", expenseId, actor);
+        if (expenseDate == null || expenseDate.isAfter(
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")))) {
+            throw new FinanceValidationException("Нельзя провести расход с будущей датой");
+        }
+        if (!accounts.isOpeningBalanceInitialized(account)) {
+            throw new FinancePostingException("Сначала необходимо инициализировать финансовый счёт");
+        }
+        if (movements.exists("EXPENSE", expenseId, account)) {
+            throw new FinancePostingException("Расход уже проведён");
+        }
+        accounts.changeBalance(account, amount);
+        boolean backdated = !expenseDate.equals(
+                java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")));
+        movements.insert(UUID.randomUUID(), account, amount, "EXPENSE", "EXPENSE", expenseId,
+                actor, expenseDate, backdated ? "HISTORICAL_CORRECTION" : "POSTING_DATE");
     }
 
     /**
