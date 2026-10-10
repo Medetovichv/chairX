@@ -83,7 +83,7 @@ public class ReturnService {
         );
 
         if (existing.isPresent()) {
-            return requireSameRequest(existing.get(), fingerprint);
+            return requireSameRequest(existing.get(), fingerprint, request);
         }
 
         /*
@@ -109,7 +109,7 @@ public class ReturnService {
         );
 
         if (existing.isPresent()) {
-            return requireSameRequest(existing.get(), fingerprint);
+            return requireSameRequest(existing.get(), fingerprint, request);
         }
 
         requireFulfilledSale(sale);
@@ -156,7 +156,7 @@ public class ReturnService {
                             "Не удалось получить существующий возврат"
                     ));
 
-            return requireSameRequest(concurrent, fingerprint);
+            return requireSameRequest(concurrent, fingerprint, request);
         }
 
         for (CreateReturnItemRequest requestedItem : request.items().stream()
@@ -237,12 +237,22 @@ public class ReturnService {
 
     private Return requireSameRequest(
             Return existing,
-            String fingerprint
+            String fingerprint, CreateReturnRequest request
     ) {
         String storedFingerprint =
                 returnRepository.requestFingerprint(existing.id());
 
-        if (!storedFingerprint.equals(fingerprint)) {
+        // Keep historical fingerprints, but reject ambiguous delimiter encodings.
+        boolean sameItems = existing.items().size() == request.items().size()
+                && request.items().stream().allMatch(item -> existing.items().stream().anyMatch(saved ->
+                        saved.saleItemId().equals(item.saleItemId())
+                                && saved.quantity() == item.quantity() && saved.condition() == item.condition()));
+        if (!storedFingerprint.equals(fingerprint)
+                || !existing.saleId().equals(request.saleId())
+                || !existing.warehouseId().equals(request.warehouseId())
+                || !existing.reason().equals(normalizeRequired(request.reason()))
+                || !java.util.Objects.equals(existing.comment(), normalizeOptional(request.comment()))
+                || !sameItems) {
             throw new ReturnRuleViolationException(
                     "IDEMPOTENCY_KEY_REUSED",
                     "Ключ операции уже использован для другого возврата"

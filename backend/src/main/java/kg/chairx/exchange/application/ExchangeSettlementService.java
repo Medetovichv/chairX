@@ -1,5 +1,6 @@
 package kg.chairx.exchange.application;
 
+import kg.chairx.finance.application.FinancePostingService;
 import kg.chairx.exchange.domain.Exchange;
 import kg.chairx.exchange.domain.ExchangeStatus;
 import kg.chairx.exchange.infrastructure.ExchangeRepository;
@@ -20,13 +21,16 @@ import java.util.UUID;
 @Service
 public class ExchangeSettlementService {
 
+    private final FinancePostingService finance;
     private final ExchangeRepository exchanges;
     private final ExchangeSettlementRepository settlements;
 
     public ExchangeSettlementService(
+            FinancePostingService finance,
             ExchangeRepository exchanges,
             ExchangeSettlementRepository settlements
     ) {
+        this.finance = finance;
         this.exchanges = exchanges;
         this.settlements = settlements;
     }
@@ -153,6 +157,10 @@ public class ExchangeSettlementService {
                     "Ключ идемпотентности уже используется"
             );
         }
+
+        finance.post(method, "IN".equals(direction) ? amount : amount.negate(),
+                "IN".equals(direction) ? "SALE_PAYMENT" : "CUSTOMER_REFUND",
+                "EXCHANGE_SETTLEMENT", settlementId, actor);
 
         // Последняя часть доплаты или возврата завершает обмен.
         if (amount.compareTo(remaining) == 0) {

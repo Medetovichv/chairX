@@ -1,5 +1,6 @@
 package kg.chairx.payment.application;
 
+import kg.chairx.finance.application.FinancePostingService;
 import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
 import kg.chairx.exchange.infrastructure.ExchangeRepository;
@@ -29,6 +30,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class PaymentService {
 
+    private final FinancePostingService finance;
     private final PaymentRepository repository;
     private final SaleRepository sales;
     private final RefundRepository refunds;
@@ -36,12 +38,14 @@ public class PaymentService {
     private final AuditService audit;
 
     public PaymentService(
+            FinancePostingService finance,
             PaymentRepository repository,
             SaleRepository sales,
             RefundRepository refunds,
             ExchangeRepository exchanges,
             AuditService audit
     ) {
+        this.finance = finance;
         this.repository = repository;
         this.sales = sales;
         this.refunds = refunds;
@@ -115,6 +119,9 @@ public class PaymentService {
         );
 
         repository.insert(payment);
+        if (payment.amount().signum() > 0) {
+            finance.post(payment.method().name(), payment.amount(), "SALE_PAYMENT", "PAYMENT", payment.id(), payment.paidBy());
+        }
 
         PaymentResponse result =
                 PaymentMapper.toResponse(payment);
@@ -198,6 +205,9 @@ public class PaymentService {
                 request.reason()
         );
 
+        if (payment.amount().signum() > 0) {
+            finance.reversePayment(payment.method().name(), payment.amount(), payment.id(), actor);
+        }
         repository.cancel(
                 payment.id(),
                 cancelled.cancelledBy(),

@@ -36,6 +36,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -841,4 +842,32 @@ class RefundTests {
                 )
         ).isEqualTo("chairx_test");
     }
+
+    @Test
+    void refundReplayDebitsBankOnlyOnceAndFailureRollsBack() {
+        var sale = createSale(1, "8500");
+        createPayment(sale.id());
+        BigDecimal before = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        var request = request(sale.id(), null, "1000", RefundMethod.TRANSFER, "Возврат", UUID.randomUUID());
+        var first = refunds.create(request);
+        assertThat(refunds.create(request).id()).isEqualTo(first.id());
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class)).isEqualByComparingTo(before.subtract(new BigDecimal("1000")));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_id=?", Integer.class, first.id())).isEqualTo(1);
+        jdbc.update("UPDATE finance_accounts SET balance=0 WHERE code='BANK'");
+        assertThatThrownBy(() -> refunds.create(request(sale.id(), null, "1000", RefundMethod.TRANSFER, "Ещё возврат", UUID.randomUUID())))
+                .isInstanceOf(kg.chairx.finance.domain.FinanceAccountOperationException.class);
+        assertThat(refundCount(sale.id())).isEqualTo(1);
+    }
+
+    @Test
+    void delimiterCollisionCannotReplayDifferentRefundFields() {
+        var sale = createSale(1, "8500"); createPayment(sale.id()); UUID key = UUID.randomUUID();
+        refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
+                "A|B", "C", null, key));
+        assertThatThrownBy(() -> refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
+                "A", "B|C", null, key)))
+                .isInstanceOfSatisfying(RefundRuleViolationException.class, error -> assertThat(error.getCode()).isEqualTo("IDEMPOTENCY_KEY_REUSED"));
+        assertThat(refundCount(sale.id())).isEqualTo(1);
+    }
+
 }

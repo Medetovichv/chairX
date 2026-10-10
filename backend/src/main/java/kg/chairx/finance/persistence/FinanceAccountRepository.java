@@ -106,7 +106,7 @@ public class FinanceAccountRepository {
                 )
                 """).query(Boolean.class).single());
         if (closed) {
-            throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+            throw new kg.chairx.finance.domain.FinanceAccountOperationException(
                     "Финансовый день уже закрыт: изменение остатка запрещено");
         }
     }
@@ -139,10 +139,10 @@ public class FinanceAccountRepository {
                     )
                     """).query(Boolean.class).single());
             if (closed) {
-                throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+                throw new kg.chairx.finance.domain.FinanceAccountOperationException(
                         "Финансовый день уже закрыт: изменение остатка запрещено");
             }
-            throw new org.springframework.dao.InvalidDataAccessApiUsageException(
+            throw new kg.chairx.finance.domain.FinanceAccountOperationException(
                     "Недостаточно средств или счёт не существует");
         }
     }

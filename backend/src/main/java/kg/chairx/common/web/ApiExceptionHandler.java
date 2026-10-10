@@ -539,6 +539,29 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         );
     }
 
+    @ExceptionHandler({kg.chairx.finance.application.FinancePostingException.class,
+            kg.chairx.finance.domain.InsufficientFundsException.class,
+            kg.chairx.finance.domain.FinanceAccountOperationException.class})
+    ResponseEntity<ApiError> financeConflict(RuntimeException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция отклонена: проверьте остаток, инициализацию счёта и закрытие дня"));
+    }
+
+    @ExceptionHandler(kg.chairx.finance.application.FinanceValidationException.class)
+    ResponseEntity<ApiError> financeValidation() {
+        return ResponseEntity.badRequest().body(ApiError.of("INVALID_REQUEST", "Некорректные параметры финансовой операции"));
+    }
+
+    @ExceptionHandler(kg.chairx.finance.application.FinanceConflictException.class)
+    ResponseEntity<ApiError> financeBusinessConflict() {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of("FINANCE_OPERATION_CONFLICT", "Финансовая операция недоступна в текущем состоянии"));
+    }
+
+    @ExceptionHandler(kg.chairx.finance.application.ClosingNotFoundException.class)
+    ResponseEntity<ApiError> closingNotFound() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of("CLOSING_NOT_FOUND", "Закрытие дня не найдено"));
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> unexpected(
             Exception exception

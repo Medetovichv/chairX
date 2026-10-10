@@ -172,7 +172,7 @@ public class InventoryTransferService {
         List<UUID> orderedWarehouses = List.of(
                 sourceWarehouse,
                 destinationWarehouse
-        ).stream().sorted().toList();
+        ).stream().sorted(java.util.Comparator.comparing(UUID::toString)).toList();
 
         for (UUID warehouse : orderedWarehouses) {
             inventoryRepository.lockOrCreate(warehouse, variantId);

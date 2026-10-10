@@ -36,7 +36,7 @@ public class FinanceMovementRepository {
                     movement_type,
                     source_type,
                     source_id,
-                    created_by
+                    created_by, created_at
                 )
                 VALUES (
                     :id,
@@ -45,7 +45,7 @@ public class FinanceMovementRepository {
                     :movementType,
                     :sourceType,
                     :sourceId,
-                    :actor
+                    :actor, clock_timestamp()
                 )
                 """)
                 .param("id", id)

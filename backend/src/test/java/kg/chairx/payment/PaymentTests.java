@@ -35,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -821,4 +822,43 @@ class PaymentTests {
             );
         }
     }
+
+    @Test
+    void paymentAndReversalPostToBankExactlyOnce() {
+        var sale = createSale(1, "8500");
+        BigDecimal before = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        var payment = payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.TRANSFER, null, null));
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo(before.add(new BigDecimal("8500")));
+        payments.cancel(payment.id(), new CancelPaymentRequest("Ошибочная оплата"));
+        payments.cancel(payment.id(), new CancelPaymentRequest("Повтор"));
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo(before);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_id=?", Integer.class, payment.id())).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT sum(amount) FROM finance_movements WHERE source_id=?", BigDecimal.class, payment.id())).isZero();
+    }
+
+    @Test
+    void paymentOnUninitializedAccountRollsBackDocumentAndAudit() {
+        var sale = createSale(1, "8500");
+        jdbc.update("UPDATE finance_accounts SET opening_balance_initialized=FALSE WHERE code='CASH'");
+        assertThatThrownBy(() -> payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, null)))
+                .isInstanceOf(kg.chairx.finance.application.FinancePostingException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payments WHERE sale_id=?", Integer.class, sale.id())).isZero();
+        assertThat(paymentAuditCount()).isZero();
+    }
+
+    @Test
+    void legacyPaymentCannotSilentlyDebitAccountOnCancellation() {
+        var sale = createSale(1, "8500");
+        var payment = payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, null));
+        jdbc.update("DELETE FROM finance_movements WHERE source_id=?", payment.id());
+        BigDecimal before = jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        assertThatThrownBy(() -> payments.cancel(payment.id(), new CancelPaymentRequest("Историческая оплата")))
+                .isInstanceOf(kg.chairx.finance.application.FinancePostingException.class)
+                .hasMessageContaining("сверки");
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.PAID);
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class)).isEqualByComparingTo(before);
+    }
+
 }

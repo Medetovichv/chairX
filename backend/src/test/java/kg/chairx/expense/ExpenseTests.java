@@ -25,6 +25,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -258,4 +259,22 @@ class ExpenseTests {
                 String.class
         )).isEqualTo("chairx_test");
     }
+
+    @Test
+    void bankExpenseDebitsAccountAndCreatesJournal() {
+        var expense = expenses.create(request(ExpenseCategory.OTHER, "500", ExpensePaymentMethod.BANK, OCTOBER_1, null));
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class)).isEqualByComparingTo("999500");
+        assertThat(jdbc.queryForObject("SELECT amount FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?", BigDecimal.class, expense.id())).isEqualByComparingTo("-500");
+    }
+
+    @Test
+    void insufficientFundsRollsBackExpenseAndJournal() {
+        jdbc.update("UPDATE finance_accounts SET balance=100 WHERE code='CASH'");
+        assertThatThrownBy(() -> expenses.create(request(ExpenseCategory.OTHER, "500", ExpensePaymentMethod.CASH, OCTOBER_1, null)))
+                .isInstanceOf(kg.chairx.finance.domain.FinanceAccountOperationException.class);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM expenses", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE'", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class)).isEqualByComparingTo("100");
+    }
+
 }
