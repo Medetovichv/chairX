@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WithMockUser(username="p20-api-tester")
 class BackendReadApiIntegrationTests {
     @Autowired JdbcTemplate jdbc;
+    @Autowired tools.jackson.databind.json.JsonMapper mapper;
     @Autowired MockMvc mvc;
     @Autowired SaleService sales;
     @Autowired DeliveryService deliveries;
@@ -132,8 +133,7 @@ class BackendReadApiIntegrationTests {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("OPEN"))
                 .andReturn().getResponse().getContentAsString();
-        UUID id=UUID.fromString(new tools.jackson.databind.json.JsonMapper()
-                .readTree(payload).get("id").asText());
+        UUID id=UUID.fromString(mapper.readTree(payload).get("id").asText());
         assertThat(stock.getBalance(warehouse,variant).blocked()).isEqualTo(2);
         mvc.perform(get("/api/defects/"+id)).andExpect(status().isOk());
         mvc.perform(get("/api/defects").param("status","OPEN")).andExpect(status().isOk())
