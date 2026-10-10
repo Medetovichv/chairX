@@ -205,6 +205,42 @@ class SaleTests {
     }
 
     @Test
+    void simultaneousDraftConfirmationsReserveOnce() throws Exception {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, FulfillmentType.SELF_PICKUP,
+                List.of(item(firstVariant, home, 3, "8500")), "Reserve once"));
+        long beforeMovements = stockMovementCount();
+        var start = new CountDownLatch(1);
+        var ready = new CountDownLatch(2);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var task = (java.util.concurrent.Callable<kg.chairx.sale.api.SaleResponse>) () -> {
+                SecurityContextHolder.getContext().setAuthentication(
+                        UsernamePasswordAuthenticationToken.authenticated(
+                                "p22-parallel-confirm", null, List.of()));
+                try {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("Draft confirmation workers not ready");
+                    }
+                    return sales.confirmDraft(draft.id());
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            };
+            Future<kg.chairx.sale.api.SaleResponse> first = pool.submit(task);
+            Future<kg.chairx.sale.api.SaleResponse> second = pool.submit(task);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(first.get(15, TimeUnit.SECONDS).status()).isEqualTo(SaleStatus.CONFIRMED);
+            assertThat(second.get(15, TimeUnit.SECONDS).status()).isEqualTo(SaleStatus.CONFIRMED);
+        }
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(3);
+        assertThat(count("sales")).isEqualTo(1);
+        assertThat(stockMovementCount()).isEqualTo(beforeMovements);
+        assertThat(saleAuditCount()).isEqualTo(2); // DRAFT_CREATED + CONFIRMED
+    }
+
+    @Test
     void draftCanBeEditedAndConfirmedAtomically() {
         var draft = sales.createDraft(new CreateDraftSaleRequest(
                 UUID.randomUUID(), null, null, null, null));
