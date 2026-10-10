@@ -224,6 +224,19 @@ class FinanceTransferIntegrationTest {
 
         assertThat(movementCount(id)).isEqualTo(2);
 
+        // Both journal legs must have exactly one effective date even when
+        // the transfer crosses a business-day boundary during execution.
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(DISTINCT business_date)
+                FROM finance_movements
+                WHERE source_type = 'TRANSFER' AND source_id = ?
+                """, Integer.class, id)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM finance_movements
+                WHERE source_type = 'TRANSFER' AND source_id = ?
+                  AND business_date_source = 'POSTING_DATE'
+                """, Integer.class, id)).isEqualTo(2);
+
         assertThat(movementSum(id))
                 .isEqualByComparingTo(BigDecimal.ZERO);
     }
