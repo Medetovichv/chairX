@@ -12,6 +12,7 @@ import kg.chairx.refund.api.RefundResponse;
 import kg.chairx.refund.domain.Refund;
 import kg.chairx.refund.persistence.RefundRepository;
 import kg.chairx.returning.persistence.ReturnRepository;
+import kg.chairx.sale.persistence.SaleRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -37,6 +38,7 @@ public class RefundService {
     private final PaymentRepository payments;
     private final PaymentBalanceService paymentBalanceService;
     private final ReturnRepository returns;
+    private final SaleRepository sales;
     private final ExchangeRepository exchanges;
     private final AuditService audit;
 
@@ -46,6 +48,7 @@ public class RefundService {
             PaymentRepository payments,
             PaymentBalanceService paymentBalanceService,
             ReturnRepository returns,
+            SaleRepository sales,
             ExchangeRepository exchanges,
             AuditService audit
     ) {
@@ -54,6 +57,7 @@ public class RefundService {
         this.payments = payments;
         this.paymentBalanceService = paymentBalanceService;
         this.returns = returns;
+        this.sales = sales;
         this.exchanges = exchanges;
         this.audit = audit;
     }
@@ -97,6 +101,28 @@ public class RefundService {
                 throw rule(
                         "RETURN_SALE_MISMATCH",
                         "Возврат товара относится к другой продаже"
+                );
+            }
+
+            // Calculate the maximum compensation from the original sale
+            // prices, never the current catalog price or inventory cost.
+            var originalItems = sales.items(request.saleId());
+            BigDecimal returnedValue = BigDecimal.ZERO;
+            for (var returnedItem : saleReturn.items()) {
+                var original = originalItems.stream()
+                        .filter(item -> item.id().equals(returnedItem.saleItemId()))
+                        .findFirst()
+                        .orElseThrow(() -> new IllegalStateException(
+                                "Возвращённая позиция отсутствует в исходной продаже"
+                        ));
+                returnedValue = returnedValue.add(
+                        original.unitSalePrice().multiply(
+                                BigDecimal.valueOf(returnedItem.quantity())));
+            }
+            if (request.amount().compareTo(returnedValue) > 0) {
+                throw rule(
+                        "REFUND_EXCEEDS_RETURN_VALUE",
+                        "Сумма возврата денег превышает стоимость возвращённого товара"
                 );
             }
 
