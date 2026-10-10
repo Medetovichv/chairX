@@ -2,6 +2,7 @@ package kg.chairx.payment.api;
 
 import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.payment.domain.PaymentStatus;
+import kg.chairx.payment.domain.PaymentChannel;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,6 +20,7 @@ public record PaymentResponse(
         Instant paidAt,
         String cancelledBy,
         Instant cancelledAt,
-        String cancellationReason
+        String cancellationReason,
+        PaymentChannel channel
 ) {
 }
