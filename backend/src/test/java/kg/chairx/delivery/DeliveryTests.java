@@ -8,6 +8,15 @@ import kg.chairx.delivery.api.ReturnDeliveryToWarehouseRequest;
 import kg.chairx.delivery.application.DeliveryRuleViolationException;
 import kg.chairx.delivery.application.DeliveryService;
 import kg.chairx.delivery.domain.DeliveryStatus;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.application.PaymentRuleViolationException;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
+import kg.chairx.returning.application.ReturnService;
+import kg.chairx.returning.application.ReturnRuleViolationException;
+import kg.chairx.returning.api.CreateReturnRequest;
+import kg.chairx.returning.api.CreateReturnItemRequest;
+import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
@@ -43,6 +52,12 @@ class DeliveryTests {
 
     @Autowired
     DeliveryService deliveries;
+
+    @Autowired
+    PaymentService payments;
+
+    @Autowired
+    ReturnService returns;
 
     @Autowired
     SaleService sales;
@@ -896,6 +911,61 @@ class DeliveryTests {
                     drop function test_reject_delivery_second_sale_out()
                     """);
         }
+    }
+
+
+    @Test
+    void failedDeliveryCannotBeReturnedAgainViaRegularReturn() {
+        var sale = createSale(FulfillmentType.REGION_DELIVERY,
+                item(firstVariant, home, 2, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        deliveries.markFailed(delivery.id(), new FailDeliveryRequest("Получатель отказался"));
+
+        var attempt = new CreateReturnRequest(
+                sale.id(), home, UUID.randomUUID(),
+                List.of(new CreateReturnItemRequest(
+                        sale.items().getFirst().id(), 2, ReturnCondition.SELLABLE)),
+                "Неуспешная доставка", null);
+
+        // FAILED alone never restores inventory. ReturnService cannot
+        // duplicate the dedicated delivery return workflow.
+        assertThatThrownBy(() -> returns.create(attempt))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED"));
+        assertThat(returnInCount()).isZero();
+
+        deliveries.returnToWarehouse(
+                delivery.id(), new ReturnDeliveryToWarehouseRequest(home));
+        long onHand = inventory.getBalance(home, firstVariant).onHand();
+        assertThatThrownBy(() -> returns.create(attempt))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("DELIVERY_NOT_COMPLETED"));
+        assertThat(returnInCount()).isEqualTo(1);
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(onHand);
+        assertThat(jdbc.queryForObject("select count(*) from returns", Long.class)).isZero();
+    }
+
+    @Test
+    void failedAndPhysicallyReturnedDeliveryCannotReceiveNewPayment() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 1, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        deliveries.markFailed(delivery.id(), new FailDeliveryRequest("Не доставлено"));
+        deliveries.returnToWarehouse(
+                delivery.id(), new ReturnDeliveryToWarehouseRequest(home));
+
+        assertThatThrownBy(() -> payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null)))
+                .isInstanceOfSatisfying(PaymentRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo(
+                                "FAILED_DELIVERY_ALREADY_RETURNED"));
+
+        assertThat(jdbc.queryForObject(
+                "select count(*) from payments where sale_id=?", Long.class, sale.id()))
+                .isZero();
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
     }
 
     private CreateDeliveryRequest deliveryRequest(
