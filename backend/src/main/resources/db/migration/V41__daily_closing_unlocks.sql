@@ -1,9 +1,12 @@
--- P21: each grant is immutable except for explicit revocation.
--- A report row lock serializes grants for the same business date; the
--- application must refuse extension of any still-active grant.
+-- P21: grants bind to a report date even when an overdue report has not yet
+-- been created. A dedicated row serializes unlock and report creation.
+CREATE TABLE finance_daily_closing_access_locks (
+    business_date DATE PRIMARY KEY
+);
+
 CREATE TABLE finance_daily_closing_unlocks (
     id UUID PRIMARY KEY,
-    closing_id UUID NOT NULL REFERENCES finance_daily_closings(id),
+    business_date DATE NOT NULL REFERENCES finance_daily_closing_access_locks(business_date),
     unlocked_by VARCHAR(100) NOT NULL,
     unlocked_at TIMESTAMPTZ NOT NULL,
     expires_at TIMESTAMPTZ NOT NULL,
@@ -20,4 +23,4 @@ CREATE TABLE finance_daily_closing_unlocks (
 );
 
 CREATE INDEX idx_closing_unlocks_latest
-    ON finance_daily_closing_unlocks(closing_id, unlocked_at DESC);
+    ON finance_daily_closing_unlocks(business_date, unlocked_at DESC);
