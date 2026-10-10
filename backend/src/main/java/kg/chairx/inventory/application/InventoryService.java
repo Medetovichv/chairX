@@ -14,6 +14,7 @@ import kg.chairx.inventory.api.ChangeBlockedStock;
 import kg.chairx.inventory.api.ChangeReservedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.api.StockMovementPage;
+import kg.chairx.inventory.api.InventoryBalancePage;
 import kg.chairx.inventory.domain.InventoryBalance;
 import kg.chairx.inventory.domain.StockMovement;
 import kg.chairx.inventory.persistence.InventoryRepository;
@@ -215,6 +216,16 @@ public class InventoryService {
                         0
                 )
         );
+    }
+
+    public InventoryBalancePage listBalances(
+            @NotNull UUID warehouseId,
+            @Min(0) int page, @Min(1) @Max(100) int size
+    ) {
+        warehouses.get(warehouseId);
+        return new InventoryBalancePage(
+                repository.listBalances(warehouseId,page,size),page,size,
+                repository.countBalances(warehouseId));
     }
 
     public StockMovementPage listMovements(
