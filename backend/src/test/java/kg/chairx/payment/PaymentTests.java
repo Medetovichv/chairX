@@ -970,4 +970,49 @@ class PaymentTests {
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class)).isEqualByComparingTo(before);
     }
 
+    @Test
+    void mbankAndBankInstallmentUseBankOnlyWhenRegisteredAsReceived() {
+        var firstSale=createSale(1,"8500");
+        var first=payments.create(new CreatePaymentRequest(
+                firstSale.id(),PaymentMethod.TRANSFER,"MBANK-REF",null,
+                kg.chairx.payment.domain.PaymentChannel.MBANK));
+        assertThat(first.channel()).isEqualTo(
+                kg.chairx.payment.domain.PaymentChannel.MBANK);
+        assertThat(first.method()).isEqualTo(PaymentMethod.TRANSFER);
+        assertThat(payments.get(first.id()).channel()).isEqualTo(first.channel());
+
+        var secondSale=createSale(1,"8500");
+        var second=payments.create(new CreatePaymentRequest(
+                secondSale.id(),PaymentMethod.TRANSFER,"BANK-INSTALLMENT",null,
+                kg.chairx.payment.domain.PaymentChannel.BANK_INSTALLMENT));
+        assertThat(second.channel()).isEqualTo(
+                kg.chairx.payment.domain.PaymentChannel.BANK_INSTALLMENT);
+        assertThat(jdbc.queryForObject(
+                "select payment_channel from payments where id=?",String.class,second.id()))
+                .isEqualTo("BANK_INSTALLMENT");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from finance_movements where source_type='PAYMENT' and source_id in (?,?)",
+                Long.class,first.id(),second.id())).isEqualTo(2);
+        assertThat(payments.cancel(second.id(),new CancelPaymentRequest("Отмена")).channel())
+                .isEqualTo(kg.chairx.payment.domain.PaymentChannel.BANK_INSTALLMENT);
+    }
+
+    @Test
+    void invalidPaymentChannelDoesNotRegisterPaymentOrMoney() {
+        var sale=createSale(1,"8500");
+        long before=jdbc.queryForObject(
+                "select count(*) from finance_movements where source_type='PAYMENT'",Long.class);
+        assertThatThrownBy(()->payments.create(new CreatePaymentRequest(
+                sale.id(),PaymentMethod.CASH,null,null,
+                kg.chairx.payment.domain.PaymentChannel.MBANK)))
+                .isInstanceOfSatisfying(PaymentRuleViolationException.class,
+                        e->assertThat(e.getCode()).isEqualTo("PAYMENT_CHANNEL_MISMATCH"));
+        assertThat(jdbc.queryForObject(
+                "select count(*) from payments where sale_id=?",Long.class,sale.id()))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from finance_movements where source_type='PAYMENT'",Long.class))
+                .isEqualTo(before);
+    }
+
 }

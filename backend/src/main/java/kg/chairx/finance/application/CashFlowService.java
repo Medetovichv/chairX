@@ -52,6 +52,9 @@ public class CashFlowService {
         BigDecimal expenses =
                 repository.operatingExpenses(from, to);
 
+        BigDecimal purchasePayments =
+                repository.purchasePayments(from, to);
+
         BigDecimal totalIn = payments.add(exchangePayments);
 
         // Payment reversals are actual withdrawals, not just accounting
@@ -59,6 +62,7 @@ public class CashFlowService {
         BigDecimal totalOut = refunds
                 .add(exchangeRefunds)
                 .add(expenses)
+                .add(purchasePayments)
                 .add(corrections);
 
         BigDecimal netCashFlow = totalIn.subtract(totalOut);
@@ -72,6 +76,7 @@ public class CashFlowService {
                 exchangePayments,
                 exchangeRefunds,
                 expenses,
+                purchasePayments,
                 totalIn,
                 totalOut,
                 netCashFlow

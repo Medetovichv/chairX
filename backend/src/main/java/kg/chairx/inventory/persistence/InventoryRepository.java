@@ -82,6 +82,21 @@ public class InventoryRepository {
                 .optional();
     }
 
+    public List<InventoryBalance> listBalances(UUID warehouse,int page,int size) {
+        return jdbc.sql("""
+                SELECT warehouse_id,product_variant_id,on_hand,reserved,blocked
+                FROM inventory_balances WHERE warehouse_id=:warehouse
+                ORDER BY product_variant_id LIMIT :size OFFSET :offset
+                """).param("warehouse",warehouse).param("size",size)
+                .param("offset",(long)page*size)
+                .query(InventoryRepository::balance).list();
+    }
+
+    public long countBalances(UUID warehouse) {
+        return jdbc.sql("SELECT count(*) FROM inventory_balances WHERE warehouse_id=:warehouse")
+                .param("warehouse",warehouse).query(Long.class).single();
+    }
+
     public void updateOnHand(InventoryBalance balance) {
         jdbc.sql("""
                 UPDATE inventory_balances

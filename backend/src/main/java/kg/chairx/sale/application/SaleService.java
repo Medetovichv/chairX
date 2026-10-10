@@ -13,6 +13,7 @@ import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleMapper;
 import kg.chairx.sale.api.SaleResponse;
+import kg.chairx.sale.api.SalePageResponse;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
@@ -88,6 +89,17 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         this.fingerprint = fingerprint;
         this.exchangeSaleGuard = exchangeSaleGuard;
         this.costPosting = costPosting;
+    }
+
+    public SalePageResponse list(int page,int size,SaleStatus status,
+                                 LocalDate from,LocalDate to,String saleNumber) {
+        if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка продаж");
+        var begin=from==null?null:from.atStartOfDay(BUSINESS_ZONE).toInstant();
+        var until=to==null?null:to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
+        String query=saleNumber==null||saleNumber.isBlank()?null:saleNumber.strip();
+        return new SalePageResponse(repository.listSummaries(status,begin,until,query,page,size),
+                page,size,repository.countSummaries(status,begin,until,query));
     }
 
     @Transactional

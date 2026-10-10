@@ -66,6 +66,7 @@ class ProductPersistenceTests {
                 "stock_movements",
                 "suppliers",
                 "purchases",
+                "purchase_payments",
                 "purchase_items",
                 "purchase_receipts",
                 "purchase_receipt_items",

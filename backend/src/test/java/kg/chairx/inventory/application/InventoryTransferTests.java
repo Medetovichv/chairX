@@ -129,6 +129,7 @@ class InventoryTransferTests {
                     sale_items,
                     sales,
                     defects,
+                    purchase_payments,
                     purchase_receipt_items,
                     purchase_receipts,
                     purchase_items,

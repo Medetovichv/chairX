@@ -1,6 +1,7 @@
 package kg.chairx.defect.application;
 
 import kg.chairx.defect.domain.Defect;
+import kg.chairx.defect.api.DefectPageResponse;
 import kg.chairx.defect.domain.DefectStatus;
 import kg.chairx.defect.domain.ReceiptItemOrigin;
 import kg.chairx.defect.persistence.DefectRepository;
@@ -32,6 +33,18 @@ public class DefectService {
         this.repository = repository;
         this.inventoryService = inventoryService;
         this.costPosting = costPosting;
+    }
+
+    @Transactional(readOnly=true)
+    public Defect get(UUID id) {
+        return repository.findById(id).orElseThrow(()->new DefectNotFoundException(id));
+    }
+
+    @Transactional(readOnly=true)
+    public DefectPageResponse list(DefectStatus status,int page,int size) {
+        if(page<0 || size<1 || size>100) throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры поиска дефектов");
+        return new DefectPageResponse(repository.list(status,page,size),page,size,
+                repository.count(status));
     }
 
     @Transactional

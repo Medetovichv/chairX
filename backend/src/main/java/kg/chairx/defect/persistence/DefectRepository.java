@@ -11,6 +11,7 @@ import java.sql.Types;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -105,6 +106,29 @@ public class DefectRepository {
                         Types.TIMESTAMP_WITH_TIMEZONE
                 )
                 .update();
+    }
+
+    public Optional<Defect> findById(UUID id) {
+        return jdbc.sql("SELECT * FROM defects WHERE id=:id")
+                .param("id",id).query(this::map).optional();
+    }
+
+    public List<Defect> list(DefectStatus status,int page,int size) {
+        return jdbc.sql("""
+                SELECT * FROM defects
+                WHERE (CAST(:status AS varchar) IS NULL OR status=:status)
+                ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset
+                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                .param("size",size).param("offset",(long)page*size)
+                .query(this::map).list();
+    }
+
+    public long count(DefectStatus status) {
+        return jdbc.sql("""
+                SELECT COUNT(*) FROM defects
+                WHERE (CAST(:status AS varchar) IS NULL OR status=:status)
+                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                .query(Long.class).single();
     }
 
     public Optional<Defect> findByIdForUpdate(UUID id) {

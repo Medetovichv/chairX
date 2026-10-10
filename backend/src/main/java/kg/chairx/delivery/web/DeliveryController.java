@@ -3,6 +3,9 @@ package kg.chairx.delivery.web;
 import jakarta.validation.Valid;
 import kg.chairx.delivery.api.CreateDeliveryRequest;
 import kg.chairx.delivery.api.DeliveryResponse;
+import kg.chairx.delivery.api.DeliveryPageResponse;
+import kg.chairx.delivery.domain.DeliveryStatus;
+import java.time.LocalDate;
 import kg.chairx.delivery.api.FailDeliveryRequest;
 import kg.chairx.delivery.api.ReturnDeliveryToWarehouseRequest;
 import kg.chairx.delivery.application.DeliveryService;
@@ -20,6 +23,15 @@ public class DeliveryController {
 
     public DeliveryController(DeliveryService service) {
         this.service = service;
+    }
+
+    @GetMapping
+    public DeliveryPageResponse list(@RequestParam(required=false) DeliveryStatus status,
+            @RequestParam(required=false) LocalDate from,
+            @RequestParam(required=false) LocalDate to,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) {
+        return service.list(status,from,to,page,size);
     }
 
     @PostMapping

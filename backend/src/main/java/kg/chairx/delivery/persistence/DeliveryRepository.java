@@ -2,6 +2,9 @@ package kg.chairx.delivery.persistence;
 
 import kg.chairx.delivery.domain.Delivery;
 import kg.chairx.delivery.domain.DeliveryStatus;
+import kg.chairx.delivery.api.DeliverySummary;
+import java.util.List;
+import java.sql.Types;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 
@@ -20,6 +23,38 @@ public class DeliveryRepository {
 
     public DeliveryRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
+    }
+
+    public List<DeliverySummary> list(
+            DeliveryStatus status,Instant from,Instant to,int page,int size) {
+        return jdbc.sql("""
+                SELECT id,sale_id,status,recipient_name,city_region,created_at
+                FROM deliveries WHERE
+                    (CAST(:status AS varchar) IS NULL OR status=:status)
+                AND (CAST(:fromDate AS timestamptz) IS NULL OR created_at>=:fromDate)
+                AND (CAST(:toDate AS timestamptz) IS NULL OR created_at<:toDate)
+                ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset
+                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                .param("fromDate",from==null?null:toOffsetDateTime(from),Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("toDate",to==null?null:toOffsetDateTime(to),Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("size",size).param("offset",(long)page*size)
+                .query((rs,row)->new DeliverySummary(
+                        rs.getObject("id",UUID.class),rs.getObject("sale_id",UUID.class),
+                        DeliveryStatus.valueOf(rs.getString("status")),
+                        rs.getString("recipient_name"),rs.getString("city_region"),
+                        rs.getTimestamp("created_at").toInstant())).list();
+    }
+
+    public long count(DeliveryStatus status,Instant from,Instant to) {
+        return jdbc.sql("""
+                SELECT COUNT(*) FROM deliveries WHERE
+                    (CAST(:status AS varchar) IS NULL OR status=:status)
+                AND (CAST(:fromDate AS timestamptz) IS NULL OR created_at>=:fromDate)
+                AND (CAST(:toDate AS timestamptz) IS NULL OR created_at<:toDate)
+                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                .param("fromDate",from==null?null:toOffsetDateTime(from),Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("toDate",to==null?null:toOffsetDateTime(to),Types.TIMESTAMP_WITH_TIMEZONE)
+                .query(Long.class).single();
     }
 
     public boolean tryInsert(Delivery delivery) {

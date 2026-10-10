@@ -42,7 +42,8 @@ public class PaymentRepository {
                     paid_at,
                     cancelled_by,
                     cancelled_at,
-                    cancellation_reason
+                    cancellation_reason,
+                    payment_channel
                 )
                 VALUES (
                     :id,
@@ -56,7 +57,8 @@ public class PaymentRepository {
                     :paidAt,
                     :cancelledBy,
                     :cancelledAt,
-                    :cancellationReason
+                    :cancellationReason,
+                    :paymentChannel
                 )
                 """)
                 .param("id", payment.id())
@@ -64,6 +66,7 @@ public class PaymentRepository {
                 .param("amount", payment.amount())
                 .param("method", payment.method().name())
                 .param("status", payment.status().name())
+                .param("paymentChannel", payment.channel().name())
                 .param(
                         "reference",
                         payment.reference(),
@@ -208,7 +211,12 @@ public class PaymentRepository {
                 instant(rs, "paid_at"),
                 rs.getString("cancelled_by"),
                 instant(rs, "cancelled_at"),
-                rs.getString("cancellation_reason")
+                rs.getString("cancellation_reason"),
+                rs.getString("payment_channel") == null
+                        ? kg.chairx.payment.domain.PaymentChannel.defaultFor(
+                                PaymentMethod.valueOf(rs.getString("method")))
+                        : kg.chairx.payment.domain.PaymentChannel.valueOf(
+                                rs.getString("payment_channel"))
         );
     }
 

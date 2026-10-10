@@ -49,6 +49,26 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger LOG =
             LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(InvalidQueryException.class)
+    ResponseEntity<ApiError> invalidListQuery(InvalidQueryException exception) {
+        return ResponseEntity.badRequest().body(ApiError.of(
+                "INVALID_QUERY", exception.getMessage()));
+    }
+
+    @ExceptionHandler(kg.chairx.defect.application.DefectNotFoundException.class)
+    ResponseEntity<ApiError> defectMissing(
+            kg.chairx.defect.application.DefectNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiError.of("DEFECT_NOT_FOUND",exception.getMessage()));
+    }
+
+    @ExceptionHandler(kg.chairx.defect.application.DefectRuleViolationException.class)
+    ResponseEntity<ApiError> defectRule(
+            kg.chairx.defect.application.DefectRuleViolationException exception) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiError.of("DEFECT_RULE_VIOLATION",exception.getMessage()));
+    }
+
     @ExceptionHandler(kg.chairx.inventory.cost.InventoryCostException.class)
     ResponseEntity<ApiError> inventoryCostConflict(kg.chairx.inventory.cost.InventoryCostException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiError.of(exception.getCode(), exception.getMessage()));

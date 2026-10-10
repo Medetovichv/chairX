@@ -10,6 +10,7 @@ import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.StockMovementType;
 import kg.chairx.returning.api.CreateReturnItemRequest;
 import kg.chairx.returning.api.CreateReturnRequest;
+import kg.chairx.returning.api.ReturnPageResponse;
 import kg.chairx.returning.domain.Return;
 import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.returning.domain.ReturnItem;
@@ -235,6 +236,14 @@ public class ReturnService {
         );
 
         return created;
+    }
+
+    @Transactional(readOnly = true)
+    public ReturnPageResponse list(UUID saleId,int page,int size) {
+        if(page<0 || size<1 || size>100)
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры поиска возвратов");
+        return new ReturnPageResponse(returnRepository.list(saleId,page,size),
+                page,size,returnRepository.count(saleId));
     }
 
     @Transactional(readOnly = true)

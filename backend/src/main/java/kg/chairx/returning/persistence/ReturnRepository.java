@@ -1,6 +1,7 @@
 package kg.chairx.returning.persistence;
 
 import kg.chairx.returning.domain.Return;
+import kg.chairx.returning.api.ReturnSummary;
 import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.returning.domain.ReturnItem;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -24,6 +25,28 @@ public class ReturnRepository {
 
     public ReturnRepository(JdbcClient jdbc) {
         this.jdbc = jdbc;
+    }
+
+    public List<ReturnSummary> list(UUID saleId,int page,int size) {
+        return jdbc.sql("""
+                SELECT id,sale_id,warehouse_id,created_at,reason,created_by
+                FROM returns
+                WHERE (CAST(:sale AS uuid) IS NULL OR sale_id=:sale)
+                ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset
+                """).param("sale",saleId,Types.OTHER)
+                .param("size",size).param("offset",(long)page*size)
+                .query((r,row)->new ReturnSummary(
+                        r.getObject("id",UUID.class),r.getObject("sale_id",UUID.class),
+                        r.getObject("warehouse_id",UUID.class),
+                        r.getTimestamp("created_at").toInstant(),r.getString("reason"),
+                        r.getString("created_by"))).list();
+    }
+
+    public long count(UUID saleId) {
+        return jdbc.sql("""
+                SELECT COUNT(*) FROM returns
+                WHERE (CAST(:sale AS uuid) IS NULL OR sale_id=:sale)
+                """).param("sale",saleId,Types.OTHER).query(Long.class).single();
     }
 
     public boolean tryInsert(

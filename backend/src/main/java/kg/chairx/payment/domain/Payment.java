@@ -16,8 +16,19 @@ public record Payment(
         Instant paidAt,
         String cancelledBy,
         Instant cancelledAt,
-        String cancellationReason
+        String cancellationReason,
+        PaymentChannel channel
 ) {
+    public Payment(
+            UUID id, UUID saleId, BigDecimal amount, PaymentMethod method,
+            PaymentStatus status, String reference, String comment,
+            String paidBy, Instant paidAt, String cancelledBy,
+            Instant cancelledAt, String cancellationReason) {
+        this(id,saleId,amount,method,status,reference,comment,paidBy,paidAt,
+                cancelledBy,cancelledAt,cancellationReason,
+                PaymentChannel.defaultFor(method));
+    }
+
 
     public Payment {
         if (id == null) {
@@ -56,6 +67,11 @@ public record Payment(
             throw new IllegalArgumentException(
                     "Способ оплаты обязателен"
             );
+        }
+
+        channel = channel == null ? PaymentChannel.defaultFor(method) : channel;
+        if (!channel.compatibleWith(method)) {
+            throw new IllegalArgumentException("Канал оплаты не соответствует финансовому счёту");
         }
 
         if (status == null) {
@@ -143,7 +159,8 @@ public record Payment(
                 paidAt,
                 normalizedActor,
                 time,
-                normalizedReason
+                normalizedReason,
+                channel
         );
     }
 

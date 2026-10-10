@@ -1,12 +1,12 @@
 # ChairX
 
-ERP/CRM для бизнеса по продаже кресел в Кыргызстане. Реализованы backend Foundation, Product/ProductVariant, Warehouse и внутренний Inventory.
+**ChairX** — ERP/CRM для небольшого бизнеса по продаже кресел в Кыргызстане (8–20 продаж в день). Backend — модульный монолит на Java 25, Spring Boot, Maven, PostgreSQL 17 и Flyway. Работает с домашним и офисным складами; учёт ведётся в сомах.
 
-## Требования и запуск
+Основные процессы: товары и вариации, поставщики и покупатели, закупки с карго и частичной приёмкой, **частичные выплаты поставщику и за карго**, складской учёт/FIFO, продажи из нескольких складов, самовывоз/городская/региональная доставка, возвраты и обмены, расходы, CASH/BANK, закрытие дня, брак и аудит. Backend предназначен для работы через REST API с будущим web/mobile frontend.
 
-- Java 25.
-- Docker с доступным PostgreSQL 17.
-- Maven устанавливать отдельно не нужно: используется `backend/mvnw`.
+## Локальный запуск
+
+Нужны Java 25, Docker и Maven (или `backend/mvnw`).
 
 ```sh
 docker compose up -d postgres
@@ -14,125 +14,35 @@ cd backend
 ./mvnw clean verify
 ```
 
-Тесты запускают отдельный PostgreSQL 17 через Testcontainers. Они не используют базу `chairx`, не пропускаются при отсутствии Docker и не требуют настройки пароля приложения. Контейнер удаляется после завершения тестового контекста.
+Для запуска приложения необходимо задать значения из `.env.example`, в том числе `CHAIRX_CATALOG_PASSWORD`, затем выполнить `./mvnw spring-boot:run`. Файл `.env` не загружается Spring Boot автоматически. Интеграционные тесты используют отдельный PostgreSQL 17 Testcontainers (`chairx_test`), а не рабочую БД.
 
-Для запуска приложения экспортируйте `CHAIRX_CATALOG_PASSWORD` со своим непустым паролем и выполните:
+## REST API
 
-```sh
-./mvnw spring-boot:run
-```
+Аутентификация в текущей конфигурации — HTTP Basic. Изменяющие запросы требуют CSRF (получить токен через `GET /api/csrf`, сохранить cookie и передать заголовок). Бизнес-права сотрудников отдельно доводятся до готовности в **пакете 17**; **не публикуйте этот backend для сотрудников до проверки авторизации новых маршрутов.**
 
-Имя пользователя по умолчанию — `catalog`; изменить можно через `CHAIRX_CATALOG_USERNAME`. Остальные переменные показаны в `.env.example`. Spring Boot не загружает `.env` автоматически; эти переменные нужно передать процессу через окружение. Compose пока использует существующие локальные настройки PostgreSQL из `docker-compose.yml`.
+| Основные операции | Маршруты |
+|---|---|
+| Каталог и партнеры | `/api/products`, `/api/product-variants`, `/api/suppliers`, `/api/customers`, `/api/warehouses` |
+| Закупка, приемка и оплаты | `/api/purchases`, `/api/purchases/{purchaseId}/receipts`, **`/api/purchases/{purchaseId}/payments`** |
+| Остатки и движения | **`GET /api/inventory/balances`**, `GET /api/inventory/balances/{warehouseId}/{variantId}`, **`GET /api/inventory/movements`** |
+| Продажи | `POST /api/sales`, **`GET /api/sales`**, `GET /api/sales/{id}`, `/fulfill`, `/cancel` |
+| Доставка | **`GET /api/deliveries`**, `GET /api/deliveries/{id}`, `/dispatch`, `/deliver`, `/fail`, `/return-to-warehouse` |
+| Возвраты/компенсации | **`GET /api/returns`**, `POST /api/returns`, `/api/refunds`, `/api/exchanges` |
+| Брак | **`/api/defects`**: open, get, list, wait-for-parts, resolve, write-off |
+| Деньги и закрытие | `/api/payments`, `/api/expenses`, `/api/finance/accounts`, `/api/finance/transfers`, `/api/finance/cash-flow`, `/api/finance/closings` |
 
-Без пароля приложение намеренно не запускается. Сейчас существует один технический пользователь в памяти для доступа к каталогу. Пользователи бизнеса, роли и granular permissions не реализованы. Это ограничение текущего этапа, не готовая модель доступа для сотрудников. Пароль кодируется в памяти; сгенерированные пароли не выводятся в лог. При доступе вне локального компьютера требуется HTTPS.
+Частичные закупочные выплаты имеют глобальный `idempotencyKey` (UUID), ограничены стоимостью товара/карго и создают по одной отрицательной проводке `PURCHASE_PAYMENT`. Получение товара не зависит от его полной оплаты, а выплаты не меняют FIFO.
 
-## API
+Для оплаты продажи используются два финансовых метода — CASH и TRANSFER (= BANK). Параметр `channel` позволяет различать CASH, BANK_TRANSFER, MBANK и BANK_INSTALLMENT. Рассрочка отмечается `PAID` **только после фактического поступления денег в банк**. CashFlow теперь отдельно показывает `purchasePayments` в составе `totalOut`.
 
-Все маршруты требуют HTTP Basic. Изменяющие запросы дополнительно требуют CSRF-токен.
+## Документация
 
-1. Выполнить `GET /api/csrf` с Basic credentials и сохранить cookie сессии.
-2. Передать `token` в заголовке, указанном в `headerName`, вместе с той же cookie и Basic credentials.
-3. Отправлять JSON с `Content-Type: application/json`.
+- [Архитектура и границы модулей](docs/architecture.md)
+- [Бизнес-правила и инварианты](docs/business-rules.md)
+- [REST API: маршруты, DTO, пагинация и ошибки](docs/api.md)
+- [Разработка, тестирование, миграции и интеграционные риски](docs/development.md)
+- [Особенности пакета 19: CashFlow/сверка](docs/p19-financial-integrity.md)
 
-| Метод | Маршрут | Назначение |
-|---|---|---|
-| POST | `/api/products` | Создать товар |
-| GET | `/api/products/{id}` | Получить товар |
-| GET | `/api/products?page=0&size=20` | Список товаров |
-| PUT | `/api/products/{id}` | Заменить редактируемые поля товара |
-| POST | `/api/products/{id}/activate` | Активировать |
-| POST | `/api/products/{id}/deactivate` | Деактивировать |
-| POST | `/api/products/{productId}/variants` | Создать вариант |
-| GET | `/api/products/{productId}/variants?page=0&size=20` | Варианты товара |
-| GET | `/api/product-variants/{id}` | Получить вариант |
-| PUT | `/api/product-variants/{id}` | Заменить редактируемые поля варианта |
-| POST | `/api/product-variants/{id}/activate` | Активировать вариант |
-| POST | `/api/product-variants/{id}/deactivate` | Деактивировать вариант |
+## Состояние разработки
 
-POST создания возвращает `201` и `Location`; чтение, PUT и действия — `200`. DELETE не предусмотрен. PUT не меняет `id`, принадлежность варианта товару, флаг активности или время создания. Неуказанные необязательные поля при PUT очищаются. Неизвестные поля тела запроса отклоняются.
-
-Товар:
-
-```json
-{"name":"Ergo X5","description":"Офисное кресло","category":"Офисные"}
-```
-
-Вариант:
-
-```json
-{"name":"Black","sku":"X5-BLACK","color":"Чёрный","recommendedSalePrice":9500.50}
-```
-
-Список возвращает `items`, `page`, `size`, `totalElements`, `totalPages`. Номер страницы начинается с 0, размер — от 1 до 100. Порядок фиксирован по UUID. Список включает активные и неактивные записи.
-
-Ошибка:
-
-```json
-{
-  "code":"VALIDATION_ERROR",
-  "message":"Проверьте заполнение полей",
-  "details":{"fields":{"name":["Укажите название"]}}
-}
-```
-
-Основные коды: `VALIDATION_ERROR`, `INVALID_REQUEST`, `PRODUCT_NOT_FOUND`, `PRODUCT_VARIANT_NOT_FOUND`, `DATA_CONFLICT`, `CONCURRENT_UPDATE`, `AUTHENTICATION_REQUIRED`, `ACCESS_DENIED`. Ошибки не раскрывают SQL или stack trace клиенту.
-
-## Правила текущего этапа
-
-- UUID создаются backend; время хранится как UTC Instant / PostgreSQL TIMESTAMPTZ.
-- Название обязательно, максимум 200 символов. Пробелы по краям удаляются.
-- Категория — необязательный текст до 120 символов; отдельного модуля категорий нет.
-- SKU и цвет необязательны, до 100 символов; глобальная уникальность SKU не вводится.
-- Цена в KGS: BigDecimal / NUMERIC(19,2), от 0, не более 17 целых и 2 дробных знаков. API отклоняет лишнюю точность, а не округляет.
-- ProductVariant всегда связан с существующим Product; менять эту связь через API нельзя.
-- Созданные записи активны. Повторная активация/деактивация уже находящейся в этом состоянии записи не создаёт лишний аудит.
-- Флаги Product и ProductVariant независимы: деактивация родителя не переписывает варианты. Работа с каталогом не определяет будущие правила доступности продажи.
-- Цена рекомендованная и текущая. При реализации SaleItem понадобится отдельный исторический snapshot; продаж сейчас нет.
-- Количества, остатки и file storage отсутствуют.
-- Изменения каталога и аудит фиксируются в одной транзакции. Аудит содержит техническое имя пользователя, объект, действие и состояния до/после.
-- `@Version` защищает от конфликтующих пересекающихся транзакций. Проверка устаревшей формы клиента через ETag пока не реализована.
-
-## Миграции и тесты
-
-Flyway — единственный источник схемы, Hibernate работает с `ddl-auto=validate`, Open Session in View выключен. Обычный запуск не очищает базу: `clean-disabled=true`.
-
-`V1__create_product_catalog.sql` создаёт `products`, `product_variants`, `audit_entries`. Служебную `flyway_schema_history` создаёт Flyway. После применения миграцию не редактировать; дальнейшие изменения — новыми версиями.
-
-Перед применением этого baseline к старой локальной базе требуется согласованная очистка/перенос данных. В ходе данного этапа старая локальная схема была очищена по указанию владельца после резервного копирования. Автоматического reset при запуске нет.
-
-После переключения на старый коммит или удаления ресурсов запускайте `./mvnw clean verify`: обычная сборка может сохранить удалённые из исходников ресурсы в `target`.
-
-Тесты проверяют API, валидацию, связи, пагинацию, деактивацию, аудит, rollback, доступ/CSRF, ограничения PostgreSQL, конкурентное обновление и повторное применение Flyway. Подробности границ — в `docs/adr/0001-product-foundation.md`.
-
-
-## Warehouse
-
-Справочник физических складов, без остатков и движений. Пакет `kg.chairx.warehouse` содержит `api`, `web`, `application`, `domain`, `persistence`; публичная граница — WarehouseService и DTO.
-
-Миграция `V2__create_warehouses.sql` создаёт таблицу `warehouses` и две активные записи с постоянными UUID: HOME — «Домашний склад», OFFICE — «Офисный склад». V1 не изменена. Flyway применяет seed один раз: последующие запуски не возвращают изменённое название или активность к первоначальному состоянию. Системная инициализация фиксируется историей Flyway, пользовательские изменения — audit_entries.
-
-Поля: UUID id, name (1–200 символов), code (1–50 символов), optional address (до 1000), active, createdAt, updatedAt; внутренняя version для optimistic locking. Код состоит из заглавных латинских букв, цифр, `_`, `-` и начинается с буквы или цифры. Он неизменяем в API/ORM и остаётся уникальным после деактивации. В БД — PK, NOT NULL, CHECK и UNIQUE(code); дополнительный индекс не нужен: уникальный индекс обслуживает сортировку списка по code.
-
-| Метод | Маршрут | Действие |
-|---|---|---|
-| POST | `/api/warehouses` | Создать: name, code, address |
-| GET | `/api/warehouses/{id}` | Получить |
-| GET | `/api/warehouses?page=0&size=20` | Список, включая неактивные |
-| PUT | `/api/warehouses/{id}` | Заменить name, address |
-| POST | `/api/warehouses/{id}/activate` | Активировать |
-| POST | `/api/warehouses/{id}/deactivate` | Деактивировать |
-
-Создание — 201 с Location; остальные успешные действия — 200. Code в PUT отклоняется как неизвестное поле; отсутствие address при PUT очищает адрес. DELETE не предусмотрен. Повторный activate/deactivate не меняет данные и не создаёт лишний аудит. Ошибки: WAREHOUSE_NOT_FOUND (404), WAREHOUSE_CODE_ALREADY_EXISTS (409), общий VALIDATION_ERROR (400). При одновременном создании одного code уникальность защищает PostgreSQL; проигравшая транзакция откатывается вместе с аудитом. Авторизация и CSRF действуют так же, как для каталога.
-
-WarehouseTests проверяют жизненный цикл, ограничения, неизменяемость кода, дубли после деактивации, конкурентное создание, rollback аудита, seed, обновление V1→V2 без потери товара и отсутствие повторной перезаписи seed. PostgreSQL используется только через существующую Testcontainers-конфигурацию.
-
-
-## Inventory
-
-Внутренний складской сервис: InventoryBalance, immutable StockMovement и атомарный `InventoryService.recordMovement`. HTTP CRUD остатков не создаётся. `available = onHand - reserved - blocked` вычисляется; текущие физические операции не меняют reserved/blocked.
-
-V3 (`V3__create_inventory.sql`) добавляет две таблицы, PK пары Warehouse + ProductVariant, FK, CHECK invariants, UNIQUE(operation_id), индекс истории и запрет UPDATE/DELETE движений. Все восемь физических типов из Master Specification поддержаны; направления задаёт тип, quantity всегда положительное.
-
-Операции защищены SELECT FOR UPDATE и транзакцией, включающей движение, остаток и аудит. Повтор запроса требует прежнего operationId. Источник и инициатор фиксируются в журнале. Ошибки источника/прав проверяет вызывающий бизнес-модуль; Purchase/Sale/Return/StockTransfer и Reservation/Defect пока отсутствуют.
-
-Подробный контракт, ограничения reserved/blocked, порядок блокировок для будущих составных операций и правила idempotency: `docs/adr/0002-inventory.md`. Все тесты, включая PostgreSQL concurrency scenarios: `cd backend && ./mvnw clean verify`.
+Пакет 20 реализуется в `feat/p20-backend-mvp` на основе `fix/p19-finance-integrity`; пакет 17 существует отдельно. До сообщения `BUILD SUCCESS` в локальном `mvn clean verify` и проверки объединённых веток нельзя считать пакет готовым к merge. Production readiness дополнительно требует deployment, backup/restore, permission matrix, secrets, monitoring и проверки реальных миграций БД. Frontend в этот пакет не входит.
