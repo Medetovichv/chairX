@@ -240,7 +240,7 @@ describe('F06 list, filters and drafts',()=>{
     await screen.findByRole('combobox',{name:'Фильтр статуса закупки'});
     fireEvent.change(screen.getByRole('combobox',{name:'Фильтр статуса закупки'}),{target:{value:'CONFIRMED'}});
     fireEvent.change(screen.getByRole('combobox',{name:'Фильтр поставщика'}),{target:{value:SID}});
-    fireEvent.change(screen.getByRole('textbox',{name:'Поиск по UUID закупки'}),{target:{value:'5555'}});
+    fireEvent.change(screen.getByRole('searchbox',{name:'Поиск по UUID закупки'}),{target:{value:'5555'}});
     fireEvent.change(screen.getByLabelText('Период с'),{target:{value:'2026-10-09'}});
     fireEvent.change(screen.getByLabelText('Период по'),{target:{value:'2026-10-11'}});
     await waitFor(()=>expect(calls.mock.calls.some(([url])=>{
@@ -368,7 +368,7 @@ describe('F06 receiving and idempotency',()=>{
     expect(requests(calls,'/api/purchases/overview')).toHaveLength(0);
     expect(requests(calls,'/api/purchases/'+PID)).toHaveLength(0);
     expect(requests(calls,'/api/warehouses')).toHaveLength(0);
-    await userEvent.setup().click(screen.getByRole('button',{name:'Принять'}));
+    await userEvent.setup().click(screen.getAllByRole('button',{name:'Принять'})[0]!);
     expect(await screen.findByRole('alert')).toHaveTextContent(/INVENTORY_READ/);
     expect(requests(calls,'/api/warehouses')).toHaveLength(0);
   });
@@ -376,7 +376,7 @@ describe('F06 receiving and idempotency',()=>{
     const {calls,list}=mockApi();
     renderAt('/purchases/receipts');
     await screen.findByText('Ergo Comfort');
-    await userEvent.setup().click(screen.getByRole('button',{name:'Принять'}));
+    await userEvent.setup().click(screen.getAllByRole('button',{name:'Принять'})[0]!);
     await screen.findByRole('combobox',{name:'Склад назначения'});
     fireEvent.change(screen.getByRole('combobox',{name:'Склад назначения'}),{target:{value:WID}});
     fireEvent.change(screen.getByRole('textbox',{name:'Получено: Ergo Comfort / Чёрный'}),
@@ -394,7 +394,7 @@ describe('F06 receiving and idempotency',()=>{
   it('blocks excess receipt before POST and keeps the entered quantity',async()=>{
     const {calls}=mockApi({initialReceived:6});
     renderAt('/purchases/receipts');await screen.findByText('Ergo Comfort');
-    await userEvent.setup().click(screen.getByRole('button',{name:'Принять'}));
+    await userEvent.setup().click(screen.getAllByRole('button',{name:'Принять'})[0]!);
     await screen.findByRole('combobox',{name:'Склад назначения'});
     fireEvent.change(screen.getByRole('combobox',{name:'Склад назначения'}),{target:{value:WID}});
     fireEvent.change(screen.getByRole('textbox',{name:'Получено: Ergo Comfort / Чёрный'}),
@@ -406,7 +406,7 @@ describe('F06 receiving and idempotency',()=>{
   it('network uncertainty locks form and retry uses identical payload/key; server posts only once',async()=>{
     const {calls,receipts,list}=mockApi({networkReceiptOnce:true});
     renderAt('/purchases/receipts');await screen.findByText('Ergo Comfort');
-    await userEvent.setup().click(screen.getByRole('button',{name:'Принять'}));
+    await userEvent.setup().click(screen.getAllByRole('button',{name:'Принять'})[0]!);
     await screen.findByRole('combobox',{name:'Склад назначения'});
     fireEvent.change(screen.getByRole('combobox',{name:'Склад назначения'}),{target:{value:WID}});
     fireEvent.change(screen.getByRole('textbox',{name:'Получено: Ergo Comfort / Чёрный'}),
@@ -426,7 +426,7 @@ describe('F06 receiving and idempotency',()=>{
   it('can fully receive remaining quantities from partial purchase',async()=>{
     const {list}=mockApi({initialReceived:6});
     renderAt('/purchases/receipts');await screen.findByText('Ergo Comfort');
-    await userEvent.setup().click(screen.getByRole('button',{name:'Принять'}));
+    await userEvent.setup().click(screen.getAllByRole('button',{name:'Принять'})[0]!);
     await screen.findByRole('combobox',{name:'Склад назначения'});
     fireEvent.change(screen.getByRole('combobox',{name:'Склад назначения'}),{target:{value:WID}});
     fireEvent.change(screen.getByRole('textbox',{name:'Получено: Ergo Comfort / Чёрный'}),
