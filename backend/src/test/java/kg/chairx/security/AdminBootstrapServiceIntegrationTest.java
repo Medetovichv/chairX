@@ -25,7 +25,8 @@ import static org.assertj.core.api.Assertions.*;
 
 @Testcontainers
 @SpringBootTest(properties = {
-        "CHAIRX_CATALOG_PASSWORD=integration-test-password"
+        "CHAIRX_CATALOG_PASSWORD=integration-test-password",
+        "CHAIRX_CATALOG_USERNAME=service_catalog"
 })
 class AdminBootstrapServiceIntegrationTest {
 
@@ -189,6 +190,21 @@ class AdminBootstrapServiceIntegrationTest {
 
         // Bootstrap не должен считаться завершённым.
         assertThat(isInitialized()).isFalse();
+    }
+
+    @Test
+    void configuredTechnicalCatalogNameCannotBeBootstrappedAsAdministrator() {
+        for (String username : new String[]{"service_catalog", "SERVICE_CATALOG"}) {
+            assertThatThrownBy(() -> service.initialize(
+                    username, "StrongBootstrapPassword123!", "Administrator"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Reserved administrator username");
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM app_users", Integer.class)).isZero();
+        assertThat(isInitialized()).isFalse();
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM security_user_roles", Integer.class)).isZero();
     }
 
     @Test
