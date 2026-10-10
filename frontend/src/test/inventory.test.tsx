@@ -264,7 +264,7 @@ describe('F04 warehouses and real overview', () => {
   it('retries after warehouse loading error', async () => {
     const failures: Record<string, number> = { 'GET /api/warehouses': 500 };
     fakeBackend({ fail: failures }); renderAt();
-    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('Ошибка');
+    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('ошибка сервера');
     delete failures['GET /api/warehouses'];
     await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
     expect(await screen.findByRole('columnheader', { name: 'Модель' })).toBeInTheDocument();
@@ -318,6 +318,8 @@ describe('F04 stock position and histories', () => {
     await screen.findByRole('columnheader', { name: 'Модель' });
     await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Выбор склада' }), EXTRA);
     expect(screen.getByRole('combobox', { name: 'Выбор склада' })).toHaveValue(EXTRA);
+    expect(await screen.findByText('Товары не найдены')).toBeInTheDocument();
+    await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Выбор склада' }), '');
     const form = await startTransfer();
     expect(within(form.getByRole('combobox', { name: 'Склад назначения' })).queryByRole('option', { name: 'Резервный' })).not.toBeInTheDocument();
   });
@@ -370,7 +372,7 @@ describe('F04 idempotent and guarded transfer workflow', () => {
     await submitTransfer();
     const yes = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Подтвердить' });
     fireEvent.click(yes); fireEvent.click(yes);
-    expect(calls.mock.calls.filter((c) => c[1]?.method === 'POST')).toHaveLength(1);
+    await waitFor(() => expect(calls.mock.calls.filter((c) => c[1]?.method === 'POST')).toHaveLength(1));
     release();
     expect(await screen.findByText(/Перемещение выполнено/)).toBeInTheDocument();
   });
