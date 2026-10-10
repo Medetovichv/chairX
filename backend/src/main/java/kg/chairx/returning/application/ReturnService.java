@@ -20,7 +20,6 @@ import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
 import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.persistence.SaleRepository;
-import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.warehouse.persistence.WarehouseRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,7 +44,6 @@ public class ReturnService {
 
     private final ReturnRepository returnRepository;
     private final SaleRepository saleRepository;
-    private final DeliveryRepository deliveryRepository;
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
@@ -54,7 +52,6 @@ public class ReturnService {
     public ReturnService(
             ReturnRepository returnRepository,
             SaleRepository saleRepository,
-            DeliveryRepository deliveryRepository,
             WarehouseRepository warehouseRepository,
             InventoryService inventoryService,
             AuditService auditService,
@@ -62,7 +59,6 @@ public class ReturnService {
     ) {
         this.returnRepository = returnRepository;
         this.saleRepository = saleRepository;
-        this.deliveryRepository = deliveryRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryService = inventoryService;
         this.auditService = auditService;
@@ -118,20 +114,9 @@ public class ReturnService {
 
         requireFulfilledSale(sale);
 
-        // A failed delivery can already have a customer return before the
-        // carrier brings the remaining goods back. FIFO restoration shares the
-        // sale-out budget across both workflows and rejects duplicate units.
-        //
-        // Once DeliveryService has physically returned the complete shipment,
-        // however, no customer return may post another receipt for this sale.
-        if (deliveryRepository.findBySaleId(sale.id())
-                .filter(delivery -> delivery.returnedToWarehouse())
-                .isPresent()) {
-            throw new ReturnRuleViolationException(
-                    "DELIVERY_ALREADY_RETURNED_TO_WAREHOUSE",
-                    "Товар этой доставки уже возвращён на склад"
-            );
-        }
+        // The FIFO restoration budget shared by DeliveryService and
+        // ReturnService prevents the same shipped units from being credited
+        // twice, including concurrent and partial return scenarios.
         requireActiveWarehouse(request.warehouseId());
         requireUniqueSaleItems(request.items());
 
