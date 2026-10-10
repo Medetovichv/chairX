@@ -7,6 +7,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.sql.Types;
 import java.util.UUID;
 
 @Repository
@@ -28,6 +30,29 @@ public class FinanceMovementRepository {
             UUID sourceId,
             String actor
     ) {
+        insert(id, account, amount, movementType, sourceType, sourceId,
+                actor, null, "POSTING_DATE");
+    }
+
+    /**
+     * Explicit businessDate is only for controlled historical adjustments.
+     * Posting timestamp always comes from the actual database clock.
+     */
+    public void insert(
+            UUID id,
+            FinanceAccount account,
+            BigDecimal amount,
+            String movementType,
+            String sourceType,
+            UUID sourceId,
+            String actor,
+            LocalDate businessDate,
+            String businessDateSource
+    ) {
+        if (businessDateSource == null || !(businessDateSource.equals("POSTING_DATE")
+                || businessDateSource.equals("HISTORICAL_CORRECTION"))) {
+            throw new IllegalArgumentException("Unknown business-date source");
+        }
         int inserted = jdbc.sql("""
                 INSERT INTO finance_movements (
                     id,
@@ -36,7 +61,7 @@ public class FinanceMovementRepository {
                     movement_type,
                     source_type,
                     source_id,
-                    created_by, created_at
+                    created_by, created_at, business_date, business_date_source
                 )
                 VALUES (
                     :id,
@@ -45,7 +70,9 @@ public class FinanceMovementRepository {
                     :movementType,
                     :sourceType,
                     :sourceId,
-                    :actor, clock_timestamp()
+                    :actor, clock_timestamp(),
+                    COALESCE(:businessDate, (clock_timestamp() AT TIME ZONE 'Asia/Bishkek')::date),
+                    :businessDateSource
                 )
                 """)
                 .param("id", id)
@@ -55,6 +82,8 @@ public class FinanceMovementRepository {
                 .param("sourceType", sourceType)
                 .param("sourceId", sourceId)
                 .param("actor", actor)
+                .param("businessDate", businessDate, Types.DATE)
+                .param("businessDateSource", businessDateSource)
                 .update();
 
         if (inserted != 1) {
