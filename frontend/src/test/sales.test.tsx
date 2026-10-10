@@ -54,12 +54,13 @@ function summary(s:SaleResponse):SaleSummary {
     paymentStatus:'UNPAID',deliveryStatus:null,plannedDeliveryDate:null};
 }
 function mockBackend(options:{
-  sales?:SaleResponse[]; draftNetworkOnce?:boolean; stockFailure?:boolean;
+  sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean; stockFailure?:boolean;
   deny?:Record<string,number>;
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
   let networkOnce=Boolean(options.draftNetworkOnce);
+  let updateNetworkOnce=Boolean(options.draftUpdateNetworkOnce);
   let creates=0,confirms=0,fulfills=0,cancels=0;
   const fetchMock=vi.fn(async(raw:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
     const url=new URL(String(raw),'http://chairx.test');
@@ -113,6 +114,7 @@ function mockBackend(options:{
         id:'22222222-2222-4222-8222-'+String(i+1).padStart(12,'0'),
         ...item,total:String(item.quantity*Number(item.unitSalePrice)),
       }));
+      if(updateNetworkOnce){updateNetworkOnce=false;throw new TypeError('Lost response after PUT commit');}
       return json(s);
     }
     const action=/^\/api\/sales\/([^/]+)\/(confirm|fulfill|cancel)$/.exec(path);
@@ -384,6 +386,27 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     const body=JSON.parse(String((put?.[1] as RequestInit).body)) as CreateDraftInput;
     expect(body).toMatchObject({customerId:CUSTOMER_ID,fulfillmentType:'SELF_PICKUP',
       comment:'Повторная проверка',items:[{warehouseId:WH,productVariantId:BLACK_ID,quantity:2,unitSalePrice:'8500'}]});
+  });
+  it('preserves edited form data but locks re-submit after an uncertain PUT',async()=>{
+    const api=mockBackend({sales:[sale('DRAFT')],draftUpdateNetworkOnce:true});
+    renderAt('/sales/'+SALE_ID);
+    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать черновик'}));
+    const form=within(screen.getByRole('form',{name:'Редактирование черновика'}));
+    fireEvent.change(form.getByRole('textbox',{name:'Комментарий продажи'}),
+      {target:{value:'Не потерять этот комментарий'}});
+    await userEvent.setup().click(form.getByRole('button',{name:'Сохранить черновик'}));
+    expect(await screen.findByText(/Данные формы сохранены на экране/)).toBeInTheDocument();
+    expect(form.getByRole('textbox',{name:'Комментарий продажи'}))
+      .toHaveValue('Не потерять этот комментарий');
+    expect(form.getByRole('button',{name:'Сохранить черновик'})).toBeDisabled();
+    const posted=api.fetchMock.mock.calls.filter(([url,init])=>
+      String(url)==='/api/sales/'+SALE_ID+'/draft'&&(init as RequestInit).method==='PUT');
+    expect(posted).toHaveLength(1);
+    expect(api.rows[0]?.comment).toBe('Не потерять этот комментарий');
+    await userEvent.setup().click(screen.getByRole('button',{name:'Проверить актуальный статус'}));
+    await waitFor(()=>expect(screen.queryByRole('form',{name:'Редактирование черновика'})).not.toBeInTheDocument());
+    expect(posted).toHaveLength(1);
   });
   it('confirms draft only after explicit confirmation and backend updates status',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
