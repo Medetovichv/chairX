@@ -132,3 +132,16 @@ Test both clean PostgreSQL 17 and upgrade V39→V40 preserving a custom role and
 - Run `cd backend && mvn clean verify` with Java 25 and Testcontainers/PostgreSQL 17. Until this passes, verification level is **source inspection only**. Do not merge the draft PR or claim the package is production-ready.
 
 When creating a new business endpoint, add its explicit HTTP method+URL matcher **before denyAll**, map it to a seeded permission and system-role policy, add a negative/no-side-effects test, and update this document. Never loosen the default matcher to `authenticated()` or disable CSRF to make a test pass.
+
+
+## P23 extension — active ADMIN, mutable role grants and read models
+
+See [P23 role management](p23-role-management.md). P23 is dependent on PR #14 and
+PR #15. It adds five secured admin endpoints; an active PostgreSQL system ADMIN
+check is required **in addition to** the original `ROLES_*` and `USERS_*`
+permissions. The user and role tables are reused. Role edits are versioned,
+transactional and audited. Default `EMPLOYEE` receives `SALES_DRAFT_MANAGE`
+but not `SALES_UPDATE`; existing MANAGER `FINANCE_READ` is preserved.
+`GET /api/purchases/receiving` and
+`GET /api/purchases/{id}/receiving-summary` require `INVENTORY_RECEIVE`
+without granting `PURCHASE_READ` or exposing procurement prices.
