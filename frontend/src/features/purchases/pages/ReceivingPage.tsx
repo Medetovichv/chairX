@@ -64,8 +64,10 @@ export function ReceivingPage() {
             <Button type="button" variant="outline" disabled={!!selected}
               onClick={() => {setSelected(line.purchaseId);setNotice('');}}>Принять</Button>
           </article>)}</div>
-        <PurchasePager page={list.data.page} total={list.data.total} size={list.data.size}
-          label="позиций" onPage={value => {setSelected(null);setPage(value);}} />
+        {selected ? <p className="p-4 text-sm text-amber-800">
+          Для перехода к другой странице сначала завершите или закройте форму приёмки.
+        </p> : <PurchasePager page={list.data.page} total={list.data.total} size={list.data.size}
+          label="позиций" onPage={setPage} />}
       </section>}
   </div>;
 }
