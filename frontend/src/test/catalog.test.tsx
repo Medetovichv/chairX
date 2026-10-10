@@ -247,7 +247,7 @@ describe('F03 product detail and variants', () => {
     await screen.findByRole('heading', { name: 'Ergo Comfort', level: 2 });
     await screen.findByRole('table');
     expect(await table().findByRole('cell', { name: 'ERGO-BLK' })).toBeInTheDocument();
-    expect(table().getByText('8\u00a0500\u00a0сом')).toBeInTheDocument();
+    expect(table().getByText('8 500 сом')).toBeInTheDocument();
     expect(calls.mock.calls.some((c) => c[0] === '/api/products/' + productId + '/variants?page=0&size=20')).toBe(true);
   });
   it('handles invalid and missing model IDs without data fabrication', async () => {
