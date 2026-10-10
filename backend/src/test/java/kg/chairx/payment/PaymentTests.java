@@ -679,7 +679,7 @@ class PaymentTests {
         var sale = createSale(2, "8500");
         var payment = payments.create(new CreatePaymentRequest(
                 sale.id(), PaymentMethod.CASH, null, null));
-        int reservedBefore = inventory.getBalance(home, variant).reserved() > 0 ? 2 : -1;
+        long reservedBefore = inventory.getBalance(home, variant).reserved();
         Long movementsBefore = jdbc.queryForObject(
                 "select count(*) from finance_movements", Long.class);
 
