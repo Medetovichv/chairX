@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "refund-api-tester")
+@WithMockUser(username = "refund-api-tester", authorities = {"REFUNDS_READ","REFUNDS_CREATE"})
 class RefundApiTests {
 
     @Autowired
@@ -721,7 +721,7 @@ class RefundApiTests {
     }
 
     @Test
-    @WithMockUser(username = "refund-api-tester")
+    @WithMockUser(username = "refund-api-tester", authorities = {"REFUNDS_READ","REFUNDS_CREATE"})
     void sameIdempotentRequestReturnsSameRefund()
             throws Exception {
 
@@ -797,9 +797,7 @@ class RefundApiTests {
     }
 
     @Test
-    @WithMockUser(
-            username = "refund-api-tester"
-    )
+    @WithMockUser(username = "refund-api-tester", authorities = {"REFUNDS_READ","REFUNDS_CREATE"})
     void emptySaleHistoryReturnsEmptyArray()
             throws Exception {
 
