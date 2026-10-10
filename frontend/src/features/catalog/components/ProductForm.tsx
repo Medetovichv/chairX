@@ -1,6 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import type { Product, ProductInput } from '../types';
-import { optional, productInput, validateProduct } from '../validation';
+import { productInput, validateProduct } from '../validation';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 import { userFacingApiError } from '../../../shared/api/api-error';
