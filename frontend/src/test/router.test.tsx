@@ -105,7 +105,7 @@ describe('F02.1 navigation structure', () => {
     const user = userEvent.setup();
     renderAt();
     await user.click(screen.getByRole('button', { name: 'Открыть меню' }));
-    let dialog = screen.getByRole('dialog', { name: 'Мобильная навигация' });
+    const dialog = screen.getByRole('dialog', { name: 'Мобильная навигация' });
     expect(dialog).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: 'Развернуть Закупки' }));
     expect(within(dialog).getByRole('link', { name: 'Поступления' })).toBeInTheDocument();
