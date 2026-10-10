@@ -75,7 +75,7 @@ class DailyClosingMigrationUpgradeTest {
                     """.formatted(schema), BigDecimal.class)).isEqualByComparingTo("25000");
             assertThat(jdbc.queryForObject("""
                     SELECT business_date FROM %s.finance_movements WHERE id=?
-                    """.formatted(schema), LocalDate.class, movement)).isEqualTo(day);
+                    """.formatted(schema), (rs, row) -> rs.getDate(1).toLocalDate(), movement)).isEqualTo(day);
             assertThat(jdbc.queryForObject("""
                     SELECT business_date_source FROM %s.finance_movements WHERE id=?
                     """.formatted(schema), String.class, movement)).isEqualTo("LEGACY_INFERRED");
