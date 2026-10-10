@@ -123,6 +123,60 @@ public class SaleRepository {
         return inserted == 1;
     }
 
+    public boolean tryInsertDraft(UUID id, String saleNumber, UUID customerId,
+                                  FulfillmentType fulfillmentType, UUID key,
+                                  String fingerprint, String comment, String actor) {
+        int inserted = jdbc.sql("""
+                INSERT INTO sales(id, sale_number, customer_id, fulfillment_type,
+                                  status, idempotency_key, request_fingerprint,
+                                  created_by, created_at, comment)
+                VALUES (:id,:number,:customerId,:fulfillmentType,'DRAFT',
+                        :key,:fingerprint,:actor,clock_timestamp(),:comment)
+                ON CONFLICT (idempotency_key) DO NOTHING
+                """)
+                .param("id",id).param("number",saleNumber)
+                .param("customerId",customerId,Types.OTHER)
+                .param("fulfillmentType",fulfillmentType == null ? null : fulfillmentType.name(),Types.VARCHAR)
+                .param("key",key).param("fingerprint",fingerprint).param("actor",actor)
+                .param("comment",comment,Types.VARCHAR).update();
+        return inserted == 1;
+    }
+
+    public void updateDraft(UUID saleId, UUID customerId,
+                            FulfillmentType fulfillmentType, String comment) {
+        int changed = jdbc.sql("""
+                UPDATE sales SET customer_id = :customerId,
+                                 fulfillment_type = :fulfillmentType,
+                                 comment = :comment
+                WHERE id = :saleId AND status = 'DRAFT'
+                """).param("saleId",saleId).param("customerId",customerId,Types.OTHER)
+                .param("fulfillmentType",fulfillmentType == null ? null : fulfillmentType.name(),Types.VARCHAR)
+                .param("comment",comment,Types.VARCHAR).update();
+        if (changed != 1) throw new IllegalStateException("Черновик изменён параллельно");
+    }
+
+    public void deleteDraftItems(UUID saleId) {
+        jdbc.sql("DELETE FROM sale_items WHERE sale_id = :saleId")
+                .param("saleId",saleId).update();
+    }
+
+    public void confirmDraft(UUID saleId) {
+        int changed = jdbc.sql("""
+                UPDATE sales SET status = 'CONFIRMED'
+                WHERE id = :saleId AND status = 'DRAFT' AND fulfillment_type IS NOT NULL
+                """).param("saleId",saleId).update();
+        if (changed != 1) throw new IllegalStateException("Черновик изменён параллельно");
+    }
+
+    public void cancelDraft(UUID saleId, String actor) {
+        int changed = jdbc.sql("""
+                UPDATE sales SET status = 'CANCELLED', cancelled_by = :actor,
+                                 cancelled_at = clock_timestamp()
+                WHERE id = :saleId AND status = 'DRAFT'
+                """).param("saleId",saleId).param("actor",actor).update();
+        if (changed != 1) throw new IllegalStateException("Черновик изменён параллельно");
+    }
+
     public void insertItem(SaleItem item) {
         jdbc.sql("""
                 INSERT INTO sale_items (
@@ -264,7 +318,8 @@ public class SaleRepository {
                 rs.getString("fulfilled_by"),
                 instant(rs, "fulfilled_at"),
                 rs.getString("cancelled_by"),
-                instant(rs, "cancelled_at")
+                instant(rs, "cancelled_at"),
+                rs.getString("comment")
         );
     }
 
