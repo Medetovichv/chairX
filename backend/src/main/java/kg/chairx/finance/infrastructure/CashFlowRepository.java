@@ -39,6 +39,10 @@ public class CashFlowRepository {
         return sum("CUSTOMER_REFUND", "EXCHANGE_SETTLEMENT", from, to, true);
     }
 
+    public BigDecimal purchasePayments(Instant from, Instant to) {
+        return sum("PURCHASE_PAYMENT", "PURCHASE_PAYMENT", from, to, true);
+    }
+
     public BigDecimal operatingExpenses(Instant from, Instant to) {
         return sum("EXPENSE", "EXPENSE", from, to, true);
     }
