@@ -101,6 +101,7 @@ Lists are independent of financial closings. Unless noted, `page` is zero-based,
 | `POST /api/sales/{id}/cancel` | SALES_CANCEL | Cancel DRAFT or existing confirmed pickup |
 | `GET /api/sales` | SALES_READ | Paginated list with quantity, products, payment/delivery status |
 | `GET /api/sales/customer/{customerId}` | SALES_READ + CUSTOMERS_READ | Paginated client-specific sales |
+| `GET /api/customers/overview` | SALES_READ + CUSTOMERS_READ | Paginated contacts with order count and most recent sale |
 | `GET /api/deliveries` | DELIVERIES_READ | Paginated deliveries, status/date/region |
 | `PUT /api/deliveries/{id}/planned-date` | DELIVERIES_MANAGE | Change plan in READY / IN_TRANSIT only |
 | `GET /api/inventory/overview` | INVENTORY_READ | Paginated stock across all or a selected warehouse |
@@ -147,7 +148,9 @@ closed-day reports and include old DRAFT orders. Null customer names are
 returned as JSON null. `GET /api/sales/customer/{customerId}?page=0&size=20`
 returns only that customer's order history, requiring both permissions.
 
-**Customers**: `CreateCustomerRequest.fullName` / `UpdateCustomerRequest.fullName`
+**Customers**: `GET /api/customers/overview?query=0555&page=0&size=20` searches name, phone, secondary/WhatsApp numbers and Instagram handle; returns `orderCount`, `lastSaleNumber`, and `lastOrderAt` for authorized readers. This combined projection requires both `CUSTOMERS_READ` and `SALES_READ`.
+
+`CreateCustomerRequest.fullName` / `UpdateCustomerRequest.fullName`
 may be JSON null or blank (stored as null). At least one contact is needed:
 `phone`, `secondaryPhone`, `whatsappPhone` or `instagramUsername`.
 No dummy "Без имени" is persisted. Existing name-bearing requests still
