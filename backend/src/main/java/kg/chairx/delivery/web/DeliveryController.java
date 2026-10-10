@@ -31,9 +31,10 @@ public class DeliveryController {
             @RequestParam(required=false) LocalDate to,
             @RequestParam(required=false) LocalDate plannedFrom,
             @RequestParam(required=false) LocalDate plannedTo,
+            @RequestParam(required=false) String cityRegion,
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size) {
-        return service.list(status,from,to,plannedFrom,plannedTo,page,size);
+        return service.list(status,from,to,plannedFrom,plannedTo,cityRegion,page,size);
     }
 
     @PostMapping

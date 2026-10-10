@@ -120,6 +120,9 @@ public class SecurityConfig {
                         .hasAuthority("INVENTORY_TRANSFER")
                         .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*")
                         .hasAuthority("SALES_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('SALES_READ') and hasAuthority('CUSTOMERS_READ')"))
                         .requestMatchers(HttpMethod.POST, "/api/sales")
                         .hasAuthority("SALES_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/drafts")

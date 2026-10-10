@@ -26,44 +26,69 @@ public class DeliveryRepository {
         this.jdbc = jdbc;
     }
 
-    public List<DeliverySummary> list(
-            DeliveryStatus status,Instant from,Instant to,LocalDate plannedFrom,LocalDate plannedTo,int page,int size) {
+    public List<DeliverySummary> list(DeliveryStatus status, Instant from, Instant to,
+                                      LocalDate plannedFrom, LocalDate plannedTo,
+                                      int page, int size) {
+        return list(status, from, to, plannedFrom, plannedTo, null, page, size);
+    }
+
+    public List<DeliverySummary> list(DeliveryStatus status, Instant from, Instant to,
+                                      LocalDate plannedFrom, LocalDate plannedTo,
+                                      String cityRegion, int page, int size) {
         return jdbc.sql("""
-                SELECT id,sale_id,status,recipient_name,city_region,created_at,planned_delivery_date
-                FROM deliveries WHERE
-                    (CAST(:status AS varchar) IS NULL OR status=:status)
-                AND (CAST(:fromDate AS timestamptz) IS NULL OR created_at>=:fromDate)
-                AND (CAST(:toDate AS timestamptz) IS NULL OR created_at<:toDate)
-                AND (CAST(:plannedFrom AS date) IS NULL OR planned_delivery_date >= :plannedFrom)
-                AND (CAST(:plannedTo AS date) IS NULL OR planned_delivery_date <= :plannedTo)
-                ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset
-                """).param("status",status==null?null:status.name(),Types.VARCHAR)
-                .param("fromDate",from==null?null:toOffsetDateTime(from),Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("toDate",to==null?null:toOffsetDateTime(to),Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("plannedFrom",plannedFrom,Types.DATE)
-                .param("plannedTo",plannedTo,Types.DATE)
+                SELECT d.id, d.sale_id, d.status, d.recipient_name, d.city_region,
+                       d.created_at, d.planned_delivery_date, d.recipient_phone,
+                       d.address, d.delivered_at, s.sale_number, s.fulfillment_type
+                FROM deliveries d JOIN sales s ON s.id = d.sale_id
+                WHERE (CAST(:status AS varchar) IS NULL OR d.status = :status)
+                  AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
+                  AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
+                  AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
+                  AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
+                  AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
+                ORDER BY d.created_at DESC, d.id DESC LIMIT :size OFFSET :offset
+                """)
+                .param("status", status==null ? null : status.name(), Types.VARCHAR)
+                .param("fromDate", from==null ? null : toOffsetDateTime(from), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("toDate", to==null ? null : toOffsetDateTime(to), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("plannedFrom", plannedFrom, Types.DATE)
+                .param("plannedTo", plannedTo, Types.DATE)
+                .param("region", cityRegion, Types.VARCHAR)
                 .param("size",size).param("offset",(long)page*size)
-                .query((rs,row)->new DeliverySummary(
+                .query((rs,row) -> new DeliverySummary(
                         rs.getObject("id",UUID.class),rs.getObject("sale_id",UUID.class),
                         DeliveryStatus.valueOf(rs.getString("status")),
                         rs.getString("recipient_name"),rs.getString("city_region"),
                         rs.getTimestamp("created_at").toInstant(),
-                        rs.getObject("planned_delivery_date",LocalDate.class))).list();
+                        rs.getObject("planned_delivery_date",LocalDate.class),
+                        rs.getString("sale_number"),rs.getString("recipient_phone"),
+                        rs.getString("address"),
+                        kg.chairx.sale.domain.FulfillmentType.valueOf(rs.getString("fulfillment_type")),
+                        getInstant(rs,"delivered_at"))).list();
     }
 
-    public long count(DeliveryStatus status,Instant from,Instant to,LocalDate plannedFrom,LocalDate plannedTo) {
+    public long count(DeliveryStatus status,Instant from,Instant to,
+                      LocalDate plannedFrom,LocalDate plannedTo) {
+        return count(status,from,to,plannedFrom,plannedTo,null);
+    }
+
+    public long count(DeliveryStatus status,Instant from,Instant to,
+                      LocalDate plannedFrom,LocalDate plannedTo,String cityRegion) {
         return jdbc.sql("""
-                SELECT COUNT(*) FROM deliveries WHERE
-                    (CAST(:status AS varchar) IS NULL OR status=:status)
-                AND (CAST(:fromDate AS timestamptz) IS NULL OR created_at>=:fromDate)
-                AND (CAST(:toDate AS timestamptz) IS NULL OR created_at<:toDate)
-                AND (CAST(:plannedFrom AS date) IS NULL OR planned_delivery_date >= :plannedFrom)
-                AND (CAST(:plannedTo AS date) IS NULL OR planned_delivery_date <= :plannedTo)
-                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                SELECT count(*) FROM deliveries d
+                WHERE (CAST(:status AS varchar) IS NULL OR d.status = :status)
+                  AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
+                  AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
+                  AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
+                  AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
+                  AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
+                """)
+                .param("status",status==null?null:status.name(),Types.VARCHAR)
                 .param("fromDate",from==null?null:toOffsetDateTime(from),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("toDate",to==null?null:toOffsetDateTime(to),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("plannedFrom",plannedFrom,Types.DATE)
                 .param("plannedTo",plannedTo,Types.DATE)
+                .param("region",cityRegion,Types.VARCHAR)
                 .query(Long.class).single();
     }
 
