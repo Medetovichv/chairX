@@ -871,6 +871,93 @@ class PurchaseTests {
         assertThat(count("purchase_receipt_items")).isEqualTo(1); assertThat(count("stock_movements")).isEqualTo(1);
         assertThat(inventory.getBalance(warehouse,variant).onHand()).isEqualTo(60);
     }
+
+    @Test
+    @WithMockUser(username = "warehouse-only", authorities = {"INVENTORY_RECEIVE"})
+    void warehouseReceiptPostIsCostFreeAndReplayDoesNotDoublePost() throws Exception {
+        var purchase = confirmed();
+        var request = receipt(purchase, 60);
+        String payload = mapper.writeValueAsString(request);
+        String endpoint = "/api/purchases/" + purchase.id() + "/receipts";
+
+        var first = mvc.perform(post(endpoint).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.purchaseId").value(purchase.id().toString()))
+                .andExpect(jsonPath("$.warehouseId").value(warehouse.toString()))
+                .andExpect(jsonPath("$.idempotencyKey").value(request.idempotencyKey().toString()))
+                .andExpect(jsonPath("$.items[0].purchaseItemId")
+                        .value(purchase.items().getFirst().id().toString()))
+                .andExpect(jsonPath("$.items[0].productVariantId").value(variant.toString()))
+                .andExpect(jsonPath("$.items[0].quantity").value(60))
+                .andExpect(jsonPath("$.items[0].allocatedCargoCost").doesNotExist())
+                .andExpect(jsonPath("$.items[0].totalCost").doesNotExist())
+                .andReturn();
+
+        String body = first.getResponse().getContentAsString();
+        assertThat(body).doesNotContain("allocatedCargoCost", "totalCost", "purchaseUnitCost",
+                "finalUnitCost", "unitCost", "purchasePrice", "costAllocations");
+        String receiptLocation = first.getResponse().getHeader("Location");
+        assertThat(receiptLocation).isNotBlank();
+        assertThat(purchases.get(purchase.id()).status()).isEqualTo(PARTIALLY_RECEIVED);
+        assertThat(inventory.getBalance(warehouse, variant).onHand()).isEqualTo(60);
+        assertThat(count("purchase_receipts")).isEqualTo(1);
+        assertThat(count("purchase_receipt_items")).isEqualTo(1);
+        assertThat(count("stock_movements")).isEqualTo(1);
+        assertThat(count("inventory_cost_layers")).isEqualTo(1);
+        assertThat(count("inventory_cost_movements")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select allocated_cargo_cost from purchase_receipt_items",
+                BigDecimal.class)).isEqualByComparingTo("6.00");
+        assertThat(jdbc.queryForObject("select total_cost from purchase_receipt_items",
+                BigDecimal.class)).isEqualByComparingTo("606.00");
+        assertThat(jdbc.queryForObject("select sum(remaining_cost) from inventory_cost_layers",
+                BigDecimal.class)).isEqualByComparingTo("606.00");
+
+        int audits = count("audit_entries");
+        var replay = mvc.perform(post(endpoint).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isCreated()).andReturn();
+        assertThat(replay.getResponse().getContentAsString()).isEqualTo(body);
+        assertThat(replay.getResponse().getHeader("Location")).isEqualTo(receiptLocation);
+        assertThat(count("purchase_receipts")).isEqualTo(1);
+        assertThat(count("stock_movements")).isEqualTo(1);
+        assertThat(count("inventory_cost_layers")).isEqualTo(1);
+        assertThat(count("audit_entries")).isEqualTo(audits);
+
+        mvc.perform(post(endpoint).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(new CreatePurchaseReceiptRequest(
+                                request.idempotencyKey(), warehouse,
+                                List.of(new ReceiptItemRequest(
+                                        purchase.items().getFirst().id(), 40)), null))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("RECEIPT_IDEMPOTENCY_CONFLICT"));
+        mvc.perform(get(receiptLocation)).andExpect(status().isForbidden());
+        mvc.perform(get(endpoint)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/purchases/" + purchase.id()))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/purchases/" + purchase.id() + "/payments"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/purchases/receiving"))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("totalCost", "allocatedCargoCost", "purchaseUnitCost"));
+        mvc.perform(get("/api/purchases/" + purchase.id() + "/receiving-summary"))
+                .andExpect(status().isOk())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .doesNotContain("totalCost", "allocatedCargoCost", "purchaseUnitCost"));
+    }
+
+    @Test
+    @WithMockUser(username = "procurement-reader", authorities = {"PURCHASE_READ"})
+    void authorizedReaderStillGetsFullFinancialReceiptAfterPosting() throws Exception {
+        var purchase = confirmed();
+        var internal = receiving.receive(purchase.id(), receipt(purchase, 60));
+        mvc.perform(get("/api/purchases/" + purchase.id() + "/receipts/" + internal.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].allocatedCargoCost").value(6.0))
+                .andExpect(jsonPath("$.items[0].totalCost").value(606.0));
+    }
+
     private String worker(java.util.function.Supplier<String> work) {
         var context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(new UsernamePasswordAuthenticationToken("purchase-tester","unused",List.of()));

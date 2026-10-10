@@ -12,7 +12,7 @@ All routes are relative to `/api`. Current middleware requires authentication an
 | Stock per variant | `GET /inventory/balances/{warehouseId}/{variantId}` | Also returns zero counters for valid pair with no balance row; no mutation |
 | Stock movements | `GET /inventory/movements?warehouseId=UUID&variantId=UUID&page=0&size=20` | Returns existing `StockMovementPage` (`totalElements`), chronological |
 | Purchase list/detail | `GET /purchases?page=0&size=20`; `GET /purchases/{id}` | Purchase, items, cargo and receipt status |
-| Purchase receipts | `POST /purchases/{id}/receipts`; `GET /purchases/{id}/receipts`; `GET /purchases/{id}/receipts/{receiptId}` | Existing partial receipt DTO/unique key |
+| Purchase receipts | `POST /purchases/{id}/receipts`; `GET /purchases/{id}/receipts`; `GET /purchases/{id}/receipts/{receiptId}` | POST returns **cost-free** `WarehouseReceiptResponse` (INVENTORY_RECEIVE); GET receipt detail returns full financial `PurchaseReceiptResponse` only with PURCHASE_READ. Idempotency unchanged. |
 | **Purchase payments** | **`POST /purchases/{purchaseId}/payments`**; **`GET /purchases/{purchaseId}/payments`** | New P20-A, see below |
 | Sale list | **`GET /sales?page=0&size=20&status=CONFIRMED&from=YYYY-MM-DD&to=YYYY-MM-DD&number=TEXT`** | All filters optional. Dates inclusive by **Asia/Bishkek** business date. Compact saleNumber/customer/total/status/fulfillmentType |
 | Sale detail/issue | `GET /sales/{id}`; `POST /sales`; `POST /sales/{id}/fulfill`; `POST /sales/{id}/cancel` | Existing DTOs and business rules |

@@ -158,6 +158,52 @@ class BusinessRolePermissionsIntegrationTests {
         }
     }
 
+
+    @Test void persistedWarehouseOnlyRoleCannotReadCostBearingReceiptEndpoints() throws Exception {
+        UUID roleId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO security_roles(id, code, name, system_role)
+                VALUES (?, ?, 'Receipt only regression test', FALSE)
+                """, roleId, "RECEIPT_ONLY_" + roleId.toString().substring(0, 8));
+        try {
+            jdbc.update("""
+                    INSERT INTO security_role_permissions(role_id, permission_code)
+                    VALUES (?, 'INVENTORY_RECEIVE')
+                    """, roleId);
+            Employee warehouseUser = createEmployee(roleId);
+            String purchaseId = UUID.randomUUID().toString();
+            // Returns 400 for missing required fields only after passing
+            // permission checks; 403 here would mean posting was forbidden.
+            mvc.perform(post("/api/purchases/" + purchaseId + "/receipts")
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password"))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}"))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get("/api/purchases/" + purchaseId)
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password")))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/api/purchases/" + purchaseId + "/receipts")
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password")))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/api/purchases/" + purchaseId + "/receipts/" + UUID.randomUUID())
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password")))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/api/purchases/" + purchaseId + "/payments")
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password")))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/api/purchases/receiving")
+                            .with(httpBasic(warehouseUser.username(), "p17-test-password")))
+                    .andExpect(status().isOk())
+                    .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                            .doesNotContain("totalCost", "allocatedCargoCost", "purchaseUnitCost"));
+        } finally {
+            jdbc.update("DELETE FROM security_user_roles WHERE role_id=?", roleId);
+            jdbc.update("DELETE FROM security_role_permissions WHERE role_id=?", roleId);
+            jdbc.update("DELETE FROM security_roles WHERE id=?", roleId);
+        }
+    }
+
     @Test void realEmployeeAndManagerReachOnlyPermittedEndpoints() throws Exception {
         Employee frontline=createEmployee(EMPLOYEE);
         Employee manager=createEmployee(MANAGER);
