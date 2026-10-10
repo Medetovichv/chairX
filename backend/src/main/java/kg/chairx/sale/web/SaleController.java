@@ -3,6 +3,11 @@ package kg.chairx.sale.web;
 import jakarta.validation.Valid;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.api.SaleResponse;
+import kg.chairx.sale.api.SalePageResponse;
+import kg.chairx.sale.domain.SaleStatus;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Max;
+import java.time.LocalDate;
 import kg.chairx.sale.application.SaleService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -18,6 +23,16 @@ public class SaleController {
 
     public SaleController(SaleService service) {
         this.service = service;
+    }
+
+    @GetMapping
+    public SalePageResponse list(@RequestParam(defaultValue="0") @Min(0) int page,
+                                 @RequestParam(defaultValue="20") @Min(1) @Max(100) int size,
+                                 @RequestParam(required=false) SaleStatus status,
+                                 @RequestParam(required=false) LocalDate from,
+                                 @RequestParam(required=false) LocalDate to,
+                                 @RequestParam(required=false) String number) {
+        return service.list(page,size,status,from,to,number);
     }
 
     @PostMapping
