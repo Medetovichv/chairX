@@ -65,20 +65,29 @@ describe('F02.1 navigation structure', () => {
     expect(screen.queryByText('Выручка сегодня')).not.toBeInTheDocument();
   });
 
-  it('opens the operational sales page with future filter modes and no invented sales', async () => {
+  it('opens F07 live sales filters and never fabricates sales', async () => {
+    const fetchMock = vi.fn(async (raw: RequestInfo | URL) => {
+      const url=new URL(String(raw),'http://chairx.test');
+      if(url.pathname!=='/api/sales') throw new Error('Unexpected '+url.pathname);
+      return new Response(JSON.stringify({items:[],page:0,size:20,total:0}),
+        {status:200,headers:{'Content-Type':'application/json'}});
+    });
+    vi.stubGlobal('fetch',fetchMock);
     const user = userEvent.setup();
     renderAt();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     await user.click(within(nav).getByRole('link', { name: 'Продажи' }));
     expect(screen.getByRole('heading', { name: 'Продажи', level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Статус оплаты' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Все' })).toHaveAttribute('aria-pressed', 'true');
-    await user.click(screen.getByRole('button', { name: 'Черновики' }));
-    expect(screen.getByRole('button', { name: 'Черновики' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Данные пока не загружены')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '+ Новая продажа' })).toBeDisabled();
+    expect(await screen.findByText('Продажи не найдены')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Фильтр статуса продажи' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Таблица' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('link', { name: '+ Новая продажа' })).toHaveAttribute('href','/sales/new');
+    await user.click(screen.getByRole('button', { name: 'Канбан' }));
+    expect(screen.getByRole('button', { name: 'Канбан' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('region', { name: 'Канбан: Черновик' })).toBeInTheDocument();
     await user.click(within(screen.getByRole('navigation', { name: 'Разделы ChairX' })).getByRole('link', { name: 'Главная' }));
     expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument();
+    vi.unstubAllGlobals();
   });
 
   it('renders independent nested routes and breadcrumbs, and highlights their parent', async () => {
