@@ -520,11 +520,14 @@ class DailyClosingCorrectionIntegrationTest {
         // potentially destructive cleanup. Never touch an arbitrary DB.
         assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo("chairx_test");
         for (LocalDate day : closingDates) {
-            UUID id = jdbc.queryForObject(
-                    "SELECT id FROM finance_daily_closings WHERE business_date=?", UUID.class, day);
-            jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?", id);
-            jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?", id);
-            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", id);
+            List<UUID> ids = jdbc.query(
+                    "SELECT id FROM finance_daily_closings WHERE business_date=?",
+                    (rs, row) -> rs.getObject(1, UUID.class), day);
+            for (UUID id : ids) {
+                jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?", id);
+                jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?", id);
+                jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", id);
+            }
         }
         Set<LocalDate> affectedDates = new HashSet<>(closingDates);
         if (reportDate != null) affectedDates.add(reportDate);
