@@ -1,18 +1,20 @@
 import { Armchair, ChevronRight } from 'lucide-react';
 import { NavLink } from 'react-router';
-import { navigationGroups } from '../shared/lib/navigation';
+import { navigationGroups, isNavigationAllowed } from '../shared/lib/navigation';
+import { useAuth } from '../features/auth/AuthProvider';
 import { cn } from '../shared/lib/cn';
 
 export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
+  const { hasAnyPermission } = useAuth();
   return (
     <nav aria-label="Разделы ChairX" className="flex-1 overflow-y-auto px-3 pb-6">
-      {navigationGroups.map((group) => (
+      {navigationGroups.filter((group) => group.items.some((item) => isNavigationAllowed(item, hasAnyPermission))).map((group) => (
         <div key={group.title} className="mt-6">
           <p className="px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
             {group.title}
           </p>
           <div className="space-y-0.5">
-            {group.items.map((item) => {
+            {group.items.filter((item) => isNavigationAllowed(item, hasAnyPermission)).map((item) => {
               const Icon = item.icon;
               return (
                 <NavLink
@@ -69,4 +71,3 @@ export function Sidebar() {
     </aside>
   );
 }
-

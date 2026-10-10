@@ -61,7 +61,11 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http, JsonMapper mapper) throws Exception {
 
         AuthenticationEntryPoint authenticationRequired = (request, response, exception) -> {
-            response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            // F02: API authentication failures return JSON without a Basic browser prompt.
+            String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+            if (!requestPath.startsWith("/api/")) {
+                response.setHeader("WWW-Authenticate", "Basic realm=\"ChairX\"");
+            }
             writeError(response, mapper, 401, "AUTHENTICATION_REQUIRED", "Требуется авторизация");
         };
 
@@ -71,6 +75,9 @@ public class SecurityConfig {
                         // new API routes are denied until explicitly reviewed.
                         .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ERROR).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/csrf")
+                        .authenticated()
+                        // F02: the authenticated employee profile used by the frontend.
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
                         .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/products", "/api/products/*", "/api/product-variants/*", "/api/products/*/variants")
                         .hasAnyAuthority("CATALOG_READ", "CATALOG_ACCESS")

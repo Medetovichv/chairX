@@ -1,6 +1,7 @@
 import { ArrowUpRight, Armchair, LayoutGrid, ShieldCheck, Smartphone } from 'lucide-react';
 import { Link } from 'react-router';
-import { navigationItems } from '../shared/lib/navigation';
+import { navigationItems, isNavigationAllowed } from '../shared/lib/navigation';
+import { useAuth } from '../features/auth/AuthProvider';
 
 const highlights = [
   {
@@ -16,11 +17,12 @@ const highlights = [
   {
     icon: ShieldCheck,
     title: 'Основа для безопасной работы',
-    description: 'Авторизация и права сотрудников будут подключены отдельным этапом.',
+    description: 'Доступ к разделам зависит от разрешений вашей учётной записи.',
   },
 ];
 
 export function HomePage() {
+  const { hasAnyPermission } = useAuth();
   return (
     <div className="space-y-9">
       <section className="relative overflow-hidden rounded-3xl border border-indigo-100 bg-white p-6 shadow-sm sm:p-9">
@@ -72,7 +74,7 @@ export function HomePage() {
           </div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {navigationItems.filter((item) => item.path !== '/').map((item) => {
+          {navigationItems.filter((item) => item.path !== '/' && isNavigationAllowed(item, hasAnyPermission)).map((item) => {
             const Icon = item.icon;
             return (
               <Link
@@ -93,4 +95,3 @@ export function HomePage() {
     </div>
   );
 }
-

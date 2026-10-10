@@ -72,3 +72,10 @@ docker compose up --watch. Остановка: docker compose down (не доб�
 ## Состояние разработки
 
 Backend P15–P21 уже объединён в main. F01 находится в PR #12; F01.1 построен поверх F01 и ожидает отдельного ревью. Прохождение CI не означает готовность production deployment.
+
+## Авторизация сотрудников (F02)
+
+В F02 добавлена страница `/login`, `GET /api/auth/me`, роли и permissions из PostgreSQL, защита маршрутов и same-origin CSRF. Пароли хранятся только в памяти вкладки. После перезагрузки требуется повторный вход; HTTP Basic не гарантирует серверный logout.
+
+Архитектура, проверки и ограничения: [docs/f02-auth-security.md](docs/f02-auth-security.md).
+
