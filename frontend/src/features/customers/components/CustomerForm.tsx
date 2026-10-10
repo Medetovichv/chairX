@@ -90,7 +90,7 @@ export function CustomerForm({ initial, onSave, onCancel }: {
       <h4 className="font-bold">Возможно, такой клиент уже есть</h4>
       <p className="mt-1">Совпадение не блокирует создание. Проверьте контакт перед сохранением.</p>
       <ul className="mt-2 space-y-1">
-        {duplicates.data.filter((item) => item.id !== initial?.id).slice(0, 5).map((item) =>
+        {duplicates.data.slice(0, 5).map((item) =>
           <li key={item.id}>
             <Link className="font-semibold underline" to={'/customers/' + encodeURIComponent(item.id)}>
               {customerTitle(item)}
