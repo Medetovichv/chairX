@@ -15,3 +15,54 @@
 13. **Authorization**: authenticated write operations use existing security middleware. Fine-grained purchase/defect/list permissions require explicit validation after integrating separately developed P17. No role/permission changes in P20.
 
 All monetary examples are in Kyrgyz som. The project is an ERP for a small seller, not full banking accounting or a general-purpose inventory workflow engine.
+
+
+## P22 — operational workflow rules
+
+14. **Draft sale (DRAFT)**: DRAFT means discussion has begun but the order
+    is not confirmed. It can have no items/customer/method, can remain open
+    for days and appears in ordinary sales lists regardless of closing.
+    DRAFT cannot reserve/deduct/dispatch stock, create payment or finance journal
+    entries, and does not block P21 closing. On confirmation, validate all
+    reference data and stock, reserve once atomically and set CONFIRMED.
+    Insufficient stock rolls back the entire confirmation. Cancel DRAFT with
+    no reservation release. Existing POST /api/sales still creates CONFIRMED.
+
+15. **Customers and recipients**: Name is optional but a new/updated customer
+    requires at least one real contact. Never save UI placeholder text in a name.
+    Existing customers may share a telephone number; no implicit merging.
+    Delivery needs valid recipient phone and address even when name is null.
+
+16. **Planned delivery**: LocalDate `plannedDeliveryDate` is an editable
+    promise, not proof of delivery. Only READY and IN_TRANSIT may change it.
+    Null is valid for historic shipments; actual delivery remains `deliveredAt`.
+    Audit substantive planning changes. No extra logistics or purchase status.
+
+17. **Operational delivery completion**: SELF_PICKUP needs Sale FULFILLED;
+    CITY_DELIVERY / REGION_DELIVERY need Delivery DELIVERED. Dispatch may set
+    the sale status FULFILLED and record SALE_OUT but **is not** recipient
+    acceptance. Report date is Asia/Bishkek local date of the respective
+    completion timestamp. Daily report closing leaves every sale status
+    untouched. Unconfirmed and in-transit transactions stay in live lists.
+
+18. **P21 snapshot**: Each new finance closing records a separate immutable
+    operational completion snapshot inside the existing P21 close transaction.
+    A small PostgreSQL transaction advisory gate serializes both completion
+    paths and the snapshot so simultaneous completion/close does not create
+    inconsistent inclusion. Future completed sales on an already closed
+    date do not amend the original. The read response diagnoses their count.
+    Existing closings before P22 have no snapshot marker: their historical
+    completed sales must not be guessed, even if currently reconstructable.
+
+19. **Money separate from orders**: Sale order values and sold item counts are
+    operational; actual money comes exclusively from signed postings. Advance
+    payment enters BANK/CASH when actually paid, irrespective of later delivery.
+    Marking delivery complete does not post money again. P21 expected/actual,
+    discrepancy notes, revisions, unlock windows and access remain intact.
+
+20. **Aggregate reads and RBAC**: Sales, deliveries, purchase and all-stock
+    lists are server-paginated/read-only. Stock GET does not alter FIFO,
+    reservations or physical inventory. Dynamic warehouse UUIDs are returned
+    instead of hardcoded IDs. P22 uses existing permissions; known-unknown
+    HTTP routes still denyAll. Customer order history requires both
+    CUSTOMERS_READ and SALES_READ.
