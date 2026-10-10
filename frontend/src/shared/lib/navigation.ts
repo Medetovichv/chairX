@@ -37,7 +37,7 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/purchases/receipts', parent: '/purchases', label: 'Поступления', permissions: ['INVENTORY_RECEIVE'] },
   { path: '/purchases/payments', parent: '/purchases', label: 'Оплаты', permissions: ['PURCHASE_PAYMENTS_READ'] },
   { path: '/purchases/suppliers', parent: '/purchases', label: 'Поставщики', permissions: ['SUPPLIERS_READ'] },
-  { path: '/returns/exchanges', parent: '/returns', label: 'Обмены', permissions: ['EXCHANGES_READ'] },
+  { path: '/returns/exchanges', parent: '/returns', label: 'Обмены', permissions: ['EXCHANGES_READ','EXCHANGES_CREATE'] },
   { path: '/returns/defects', parent: '/returns', label: 'Брак', permissions: ['DEFECTS_READ'] },
   { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ'] },
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },

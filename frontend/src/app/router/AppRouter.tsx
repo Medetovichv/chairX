@@ -101,6 +101,7 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/sales') return <SalesPage />;
   if (path === '/deliveries') return <DeliveriesPage />;
   if (path === '/returns') return <ReturnsPage />;
+  // EXCHANGES_CREATE can open creation without implying EXCHANGES_READ.
   if (path === '/returns/exchanges') return <ExchangesPage />;
   if (path === '/returns/defects') return <DefectsPage />;
   if (path === '/catalog') return <CatalogPage />;
