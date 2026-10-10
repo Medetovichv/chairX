@@ -115,14 +115,9 @@ public class FinancePostingService {
         if (!exists) {
             throw new FinanceConflictException("REPORT_NOT_FOUND", "Сначала закройте отчёт");
         }
-        boolean laterClosed = jdbc.sql("""
-                SELECT EXISTS(SELECT 1 FROM finance_daily_closings
-                              WHERE business_date > :date)
-                """).param("date", date).query(Boolean.class).single();
-        if (laterClosed) {
-            throw new FinanceConflictException(
-                    "HISTORICAL_POSTING_NOT_ALLOWED", "Последующие дни уже закрыты");
-        }
+        // Further closed reports no longer block a legitimate correction:
+        // DailyClosingService.refreshExpectedAfterCorrection() reconciles and
+        // audits every affected report atomically with this posting.
     }
 
     public void postHistoricalExpense(String method, BigDecimal amount, UUID expenseId,
