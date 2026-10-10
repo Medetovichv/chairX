@@ -218,6 +218,19 @@ describe('F03 catalog product list', () => {
     expect(screen.getByRole('heading', { name: 'Доступ запрещён' })).toBeInTheDocument();
     expect(calls).not.toHaveBeenCalled();
   });
+  it('handles a network error and supports retry', async () => {
+    const options = { network: true };
+    mockCatalog(options); renderAt();
+    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('Не удалось подключиться');
+    options.network = false;
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByRole('cell', { name: 'Ergo Comfort' })).toBeInTheDocument();
+  });
+  it('honors F02 logout behavior on HTTP 401', async () => {
+    mockCatalog({ errors: { 'GET /api/products': 401 } }); renderAt();
+    await screen.findByRole('alert');
+    expect(authSession.authHeaders()).toEqual({});
+  });
   it('read-only employee sees no create action', async () => {
     access.permissions = ['CATALOG_READ']; access.roles = ['EMPLOYEE'];
     mockCatalog(); renderAt();
@@ -232,6 +245,7 @@ describe('F03 product detail and variants', () => {
     renderAt('/catalog/' + productId);
     expect(screen.getByRole('status')).toHaveTextContent('Загружаем карточку');
     await screen.findByRole('heading', { name: 'Ergo Comfort', level: 2 });
+    await screen.findByRole('table');
     expect(await table().findByRole('cell', { name: 'ERGO-BLK' })).toBeInTheDocument();
     expect(table().getByText('8\u00a0500\u00a0сом')).toBeInTheDocument();
     expect(calls.mock.calls.some((c) => c[0] === '/api/products/' + productId + '/variants?page=0&size=20')).toBe(true);
@@ -240,6 +254,22 @@ describe('F03 product detail and variants', () => {
     const { calls } = mockCatalog(); renderAt('/catalog/not-a-uuid');
     expect(screen.getByRole('heading', { name: 'Страница не найдена' })).toBeInTheDocument();
     expect(calls).not.toHaveBeenCalled();
+  });
+  it('renders server-side 404 for an unknown model', async () => {
+    mockCatalog({ products: [] }); renderAt('/catalog/' + productId);
+    expect(await screen.findByRole('heading', { name: 'Страница не найдена' })).toBeInTheDocument();
+  });
+  it('retrieves later variants using backend pagination', async () => {
+    const values = Array.from({ length: 21 }, (_, i) => variant({
+      id: '77777777-7777-4777-8777-' + String(i + 1).padStart(12, '0'),
+      name: 'Оттенок ' + (i + 1),
+    }));
+    const { calls } = mockCatalog({ variants: values }); renderAt('/catalog/' + productId);
+    await screen.findByRole('table');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Вперёд' }));
+    expect(await table().findByRole('cell', { name: 'Оттенок 21' })).toBeInTheDocument();
+    expect(calls.mock.calls.some((c) => String(c[0]) ===
+      '/api/products/' + productId + '/variants?page=1&size=20')).toBe(true);
   });
   it('shows an empty variants list and lets manager add a variant', async () => {
     const { calls } = mockCatalog({ variants: [] }); renderAt('/catalog/' + productId);
@@ -305,6 +335,20 @@ describe('F03 product detail and variants', () => {
     expect(products[0]?.active).toBe(true);
     await user.click(table().getByRole('button', { name: 'Активировать Чёрный' }));
     expect(await table().findByRole('button', { name: 'Деактивировать Чёрный' })).toBeInTheDocument();
+  });
+  it('retains unsaved edits and displays safe error after a rejected PUT', async () => {
+    mockCatalog({ errors: { ['PUT /api/products/' + productId]: 409 } });
+    renderAt('/catalog/' + productId);
+    const user = userEvent.setup();
+    await screen.findByRole('heading', { name: 'Ergo Comfort', level: 2 });
+    await user.click(screen.getByRole('button', { name: 'Изменить модель' }));
+    const form = screen.getByRole('form', { name: 'Редактирование модели' });
+    await user.clear(within(form).getByRole('textbox', { name: /Название/ }));
+    await user.type(within(form).getByRole('textbox', { name: /Название/ }), 'Новое имя');
+    await user.click(within(form).getByRole('button', { name: 'Сохранить модель' }));
+    expect(await within(form).findByRole('alert')).toHaveTextContent('противоречит');
+    expect(within(form).getByRole('textbox', { name: /Название/ })).toHaveValue('Новое имя');
+    expect(screen.getByRole('heading', { name: 'Ergo Comfort', level: 2 })).toBeInTheDocument();
   });
   it('keeps product active on a rejected deactivation, reports 403 instead of success', async () => {
     mockCatalog({ errors: { ['POST /api/products/' + productId + '/deactivate']: 403 } });
