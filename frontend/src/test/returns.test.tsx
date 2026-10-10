@@ -296,6 +296,27 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(screen.getByRole('button',{name:'Подтвердить физический возврат'})).toBeDisabled();
   expect(a.count.returnPOST).toBe(0);
  });
+ it('replays an ambiguous physical return with the exact payload/key and only one RETURN_IN',async()=>{
+  const a=mockBackend({afterReturnNetwork:true});
+  renderAt('/returns/new?saleId='+SALE);
+  const form=await screen.findByRole('form',{name:'Создание возврата'});
+  fireEvent.change(await within(form).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'1'}});
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Повреждение'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить физический возврат'}));
+  expect(await screen.findByText(/Результат возврата неизвестен/)).toBeInTheDocument();
+  const before=a.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/returns'&&
+    (init as RequestInit)?.method==='POST').map(([,init])=>String((init as RequestInit).body));
+  expect(before).toHaveLength(1);
+  await userEvent.setup().click(screen.getByRole('button',{name:'Повторить тот же запрос и ключ'}));
+  expect(await screen.findByRole('heading',{name:'Карточка возврата',level:2})).toBeInTheDocument();
+  const after=a.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/returns'&&
+    (init as RequestInit)?.method==='POST').map(([,init])=>String((init as RequestInit).body));
+  expect(after).toHaveLength(2);
+  expect(after[1]).toEqual(before[0]);
+  expect(a.count.returnPOST).toBe(1);
+  expect(readPending('after-sales-operator','return').kind).toBe('missing');
+ });
  it('recovers uncertain return in same tab without creating a second idempotency key',async()=>{
   const a=mockBackend({afterReturnNetwork:true});
   const first=renderAt('/returns/new?saleId='+SALE);
@@ -441,6 +462,19 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
   expect(screen.getByRole('button',{name:'Зарегистрировать брак'})).toBeDisabled();
   expect(a.count.defectPOST).toBe(1);
+ });
+ it('fails closed before irreversible write-off POST if recovery storage is unavailable',async()=>{
+   const a=mockBackend({defects:[defect()]});renderAt('/returns/defects/'+DEF);
+   await screen.findByRole('heading',{name:/Дефект: Открыт/});
+   fireEvent.change(screen.getByRole('textbox',{name:'Результат обработки брака'}),
+    {target:{value:'Неремонтопригодно'}});
+   vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage denied');});
+   await userEvent.setup().click(screen.getByRole('button',{name:'Списать товар'}));
+   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+    .getByRole('button',{name:'Подтвердить действие'}));
+   expect(await screen.findByText(/Хранилище операции недоступно/)).toBeInTheDocument();
+   expect(a.count.writeOff).toBe(0);
+   expect(screen.getByRole('button',{name:'Списать товар'})).toBeDisabled();
  });
  it('recovers lost write-off by defect ID after reload without repeating FIFO stock movement',async()=>{
    const a=mockBackend({defects:[defect(),{...defect(),id:DEF2}],afterWriteOffNetwork:true});
