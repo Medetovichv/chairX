@@ -36,7 +36,8 @@ public final class DeliveryMapper {
                 delivery.cancelledAt(),
                 delivery.returnedToWarehouseBy(),
                 delivery.returnedToWarehouseAt(),
-                delivery.returnWarehouseId()
+                delivery.returnWarehouseId(),
+                delivery.plannedDeliveryDate()
         );
     }
 }
