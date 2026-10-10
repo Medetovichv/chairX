@@ -1,13 +1,13 @@
 -- P22-E: standalone immutable operational sale snapshots for P21 daily closings.
 -- Historic P21 closings intentionally have no marker, even when they have zero sales.
 CREATE TABLE finance_daily_closing_sales_snapshots(
-    closing_id UUID PRIMARY KEY REFERENCES finance_daily_closings(id),
+    closing_id UUID PRIMARY KEY REFERENCES finance_daily_closings(id) ON DELETE CASCADE,
     captured_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TABLE finance_daily_closing_sales(
-    closing_id UUID NOT NULL REFERENCES finance_daily_closing_sales_snapshots(closing_id),
-    sale_id UUID NOT NULL REFERENCES sales(id),
+    closing_id UUID NOT NULL REFERENCES finance_daily_closing_sales_snapshots(closing_id) ON DELETE CASCADE,
+    sale_id UUID NOT NULL, -- snapshot must remain independent of mutable/deletable operational data
     sale_number VARCHAR(30) NOT NULL,
     customer_name VARCHAR(200),
     phone VARCHAR(50),
