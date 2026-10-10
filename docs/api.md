@@ -183,7 +183,7 @@ stock or FIFO happens in GETs.
 **Purchase overview**: `GET /api/purchases/overview?status=PARTIALLY_RECEIVED&supplierId=<UUID>&from=2026-10-01&to=2026-10-31&page=0&size=20`.
 Each row includes `itemCount`, `orderedQuantity`, `receivedQuantity`,
 `remainingQuantity`, `goodsCost`, `cargoCost`, `totalCost`,
-`lastReceiptAt`, supplier name, date and existing status. No invented
+`lastReceiptAt`, supplier name, date and existing status. If cargo is not yet known, both `cargoCost` and `totalCost` are null (not a fabricated 0); `goodsCost` remains available. No invented
 shipment statuses or expected-arrival dates.
 
 **Daily completed sales**: `GET /api/finance/closings/2026-10-10/sales`.
