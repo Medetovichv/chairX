@@ -509,8 +509,9 @@ class DailyClosingCorrectionIntegrationTest {
         assertThat(jdbc.queryForObject(
                 "SELECT version FROM finance_daily_closings WHERE business_date=?",
                 Long.class, reportDate)).isEqualTo(1);
-        assertThat(closingValue("CASH", "actual_balance")).isIn(
-                originalCash.subtract(amount("10")), originalCash.subtract(amount("20")));
+        assertThat(closingValue("CASH", "actual_balance"))
+                .usingComparator(BigDecimal::compareTo)
+                .isIn(originalCash.subtract(amount("10")), originalCash.subtract(amount("20")));
         assertThat(closingValue("CASH", "expected_balance")).isEqualByComparingTo(originalCash);
     }
 
