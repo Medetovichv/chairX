@@ -420,6 +420,26 @@ class RefundTests {
                 .isEqualByComparingTo("7500");
     }
 
+
+    @Test
+    void refundLinkedToPartialReturnCannotExceedOriginalLineValue() {
+        var sale = createSale(2, "8500");
+        createPayment(sale.id());
+        sales.fulfill(sale.id());
+        var saleReturn = createReturn(
+                sale.id(), sale.items().getFirst().id(), 1);
+
+        assertThatThrownBy(() -> refunds.create(
+                request(sale.id(), saleReturn.id(), "9000", RefundMethod.TRANSFER,
+                        "Завышенный возврат денег", UUID.randomUUID())))
+                .isInstanceOfSatisfying(RefundRuleViolationException.class,
+                        error -> assertThat(error.getCode())
+                                .isEqualTo("REFUND_EXCEEDS_RETURN_VALUE"));
+
+        assertThat(refundCount(sale.id())).isZero();
+        assertThat(refundedAmount(sale.id())).isEqualByComparingTo("0");
+    }
+
     @Test
     void returnFromDifferentSaleCannotBeReferenced() {
         var firstSale = createSale(1, "8500");
