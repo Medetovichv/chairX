@@ -43,7 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "payment-api-tester")
+@WithMockUser(username = "payment-api-tester", authorities = {"PAYMENTS_READ","PAYMENTS_CREATE","PAYMENTS_CANCEL"})
 class PaymentApiTests {
 
     @Autowired
