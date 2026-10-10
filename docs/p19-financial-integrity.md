@@ -14,9 +14,10 @@ Existing response field names remain stable:
   `EXCHANGE_SETTLEMENT` journal entries;
 - `operatingExpenses`: absolute `EXPENSE` journal debits;
 - `totalIn`: payment and exchange credits (gross);
-- `totalOut`: customer refunds, exchange refunds and expense debits,
-  excluding payment corrections, which are shown separately;
-- `netCashFlow = totalIn - totalOut - paymentCorrections`.
+- `totalOut`: **all** customer refunds, payment reversals, exchange refunds
+  and operating expense debits; payment reversals are also displayed separately
+  in `paymentCorrections` for analysis but are counted **once** in `totalOut`;
+- `netCashFlow = totalIn - totalOut`.
 
 `TRANSFER` entries (two opposing postings) and `OPENING_BALANCE` credits
 are **excluded** from revenue and expense categories. Managerial expense
