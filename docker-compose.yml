@@ -44,7 +44,7 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - 'curl --fail --silent --max-time 5 --user "${CHAIRX_CATALOG_USERNAME}:${CHAIRX_CATALOG_PASSWORD}" http://127.0.0.1:8080/api/csrf >/dev/null'
+        - 'curl --fail --silent --max-time 5 --user "$${CHAIRX_CATALOG_USERNAME}:$${CHAIRX_CATALOG_PASSWORD}" http://127.0.0.1:8080/api/csrf >/dev/null'
       interval: 10s
       timeout: 6s
       retries: 18
