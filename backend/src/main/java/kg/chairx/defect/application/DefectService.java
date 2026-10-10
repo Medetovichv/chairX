@@ -42,8 +42,7 @@ public class DefectService {
 
     @Transactional(readOnly=true)
     public DefectPageResponse list(DefectStatus status,int page,int size) {
-        if(page<0 || size<1 || size>100) throw new DefectRuleViolationException(
-                "Некорректные параметры поиска дефектов");
+        if(page<0 || size<1 || size>100) throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры поиска дефектов");
         return new DefectPageResponse(repository.list(status,page,size),page,size,
                 repository.count(status));
     }
