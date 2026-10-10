@@ -233,3 +233,5 @@ admin-only checks, optimistic locking (HTTP 409) and default grants.
 Existing `POST /api/sales/{id}/fulfill` continues to require SALES_UPDATE.
 Role list responses retain `id`, `code` and `name`, with added
 `systemRole`, `permissions`, `assignedUsersCount` and `version`.
+
+| GET | `/api/admin/audit?targetId=<uuid>&page=0&size=20` | Active system ADMIN + ROLES_READ |

@@ -113,10 +113,17 @@ class P23RoleManagementIntegrationTests {
                 .andExpect(jsonPath("$.code").value("VERSION_CONFLICT"));
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM security_audit_log "
                 +"WHERE target_id=? AND action='ROLE_PERMISSIONS_CHANGED'",Long.class,id)).isEqualTo(1);
+        mvc.perform(get("/api/admin/audit?targetId="+id)
+                        .with(httpBasic(admin.username(),PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items[0].targetId").value(id.toString()));
     }
 
     @Test void forbiddenElevationAndAdminImmutability() throws Exception {
         User admin=user(ADMIN), manager=user(MANAGER),employee=user(EMPLOYEE);
+        mvc.perform(get("/api/admin/audit").with(httpBasic(manager.username(),PASSWORD)))
+                .andExpect(status().isForbidden());
         for (User principal : new User[]{manager,employee}) {
             mvc.perform(post("/api/admin/roles")
                             .with(httpBasic(principal.username(),PASSWORD)).with(csrf())

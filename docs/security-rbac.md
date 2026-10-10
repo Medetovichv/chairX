@@ -145,3 +145,6 @@ but not `SALES_UPDATE`; existing MANAGER `FINANCE_READ` is preserved.
 `GET /api/purchases/receiving` and
 `GET /api/purchases/{id}/receiving-summary` require `INVENTORY_RECEIVE`
 without granting `PURCHASE_READ` or exposing procurement prices.
+
+P23 adds `GET /api/admin/audit` for paginated security audit history;
+it is guarded by active system ADMIN membership and `ROLES_READ`.
