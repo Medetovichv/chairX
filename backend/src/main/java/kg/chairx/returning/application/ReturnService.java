@@ -20,6 +20,8 @@ import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleItem;
 import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.persistence.SaleRepository;
+import kg.chairx.sale.domain.FulfillmentType;
+import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.warehouse.persistence.WarehouseRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,6 +46,7 @@ public class ReturnService {
 
     private final ReturnRepository returnRepository;
     private final SaleRepository saleRepository;
+    private final DeliveryRepository deliveryRepository;
     private final WarehouseRepository warehouseRepository;
     private final InventoryService inventoryService;
     private final AuditService auditService;
@@ -52,6 +55,7 @@ public class ReturnService {
     public ReturnService(
             ReturnRepository returnRepository,
             SaleRepository saleRepository,
+            DeliveryRepository deliveryRepository,
             WarehouseRepository warehouseRepository,
             InventoryService inventoryService,
             AuditService auditService,
@@ -59,6 +63,7 @@ public class ReturnService {
     ) {
         this.returnRepository = returnRepository;
         this.saleRepository = saleRepository;
+        this.deliveryRepository = deliveryRepository;
         this.warehouseRepository = warehouseRepository;
         this.inventoryService = inventoryService;
         this.auditService = auditService;
@@ -112,11 +117,10 @@ public class ReturnService {
             return requireSameRequest(existing.get(), fingerprint, request);
         }
 
+        requireCompletedDeliveryIfNeeded(sale);
         requireFulfilledSale(sale);
 
-        // The FIFO restoration budget shared by DeliveryService and
-        // ReturnService prevents the same shipped units from being credited
-        // twice, including concurrent and partial return scenarios.
+        // FIFO remains a second defense against double physical restoration.
         requireActiveWarehouse(request.warehouseId());
         requireUniqueSaleItems(request.items());
 
@@ -264,6 +268,41 @@ public class ReturnService {
         }
 
         return existing;
+    }
+
+    /**
+     * A sale becomes FULFILLED at dispatch, before the customer receives
+     * the shipment. Do not accept physical customer returns for READY,
+     * IN_TRANSIT or FAILED deliveries; failed shipments use the dedicated
+     * DeliveryService.returnToWarehouse workflow instead.
+     *
+     * Called after the Sale row lock. This is deliberately a non-locking
+     * read of Delivery, avoiding a reverse Delivery -> Sale lock order.
+     * Dispatch locks Sale before committing IN_TRANSIT, while a DELIVERED
+     * delivery cannot transition back to an undelivered status.
+     */
+    private void requireCompletedDeliveryIfNeeded(Sale sale) {
+        if (sale.fulfillmentType() == FulfillmentType.SELF_PICKUP) {
+            return;
+        }
+
+        var delivery = deliveryRepository.findBySaleId(sale.id())
+                .orElseThrow(() -> new ReturnRuleViolationException(
+                        "DELIVERY_NOT_COMPLETED",
+                        "Для продажи с доставкой необходима завершённая доставка"
+                ));
+        if (delivery.failed() || delivery.returnedToWarehouse()) {
+            throw new ReturnRuleViolationException(
+                    "DELIVERY_RETURN_WORKFLOW_REQUIRED",
+                    "Товар неуспешной доставки возвращается через процесс возврата доставки на склад"
+            );
+        }
+        if (!delivery.delivered()) {
+            throw new ReturnRuleViolationException(
+                    "DELIVERY_NOT_COMPLETED",
+                    "Обычный возврат возможен только после успешной доставки"
+            );
+        }
     }
 
     private static void requireFulfilledSale(Sale sale) {
