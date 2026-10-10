@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '../shared/ui/button';
 import { SidebarBrand, SidebarNavigation } from './Sidebar';
@@ -9,8 +9,13 @@ interface MobileNavigationProps {
 }
 
 export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeButton.current?.focus();
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
@@ -20,6 +25,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = before;
+      previousFocus.current?.focus();
     };
   }, [open, onClose]);
 
@@ -42,6 +48,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
         <div className="relative">
           <SidebarBrand />
           <Button
+            ref={closeButton}
             aria-label="Закрыть боковое меню"
             variant="ghost"
             size="icon"
@@ -56,4 +63,3 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
     </div>
   );
 }
-
