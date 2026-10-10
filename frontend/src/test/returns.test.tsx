@@ -216,7 +216,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   access.permissions=['RETURNS_READ'];
   const a=mockBackend({returns:[returned(1,'BLOCKED')]});renderAt('/returns/'+RET);
   expect(await screen.findByRole('heading',{name:'Карточка возврата'})).toBeInTheDocument();
-  expect(screen.getByText(/Требует проверки/)).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'Возвращённые позиции'})).toHaveTextContent('Требует проверки / неисправен');
   expect(calls(a,'/api/sales')).toHaveLength(0);
  });
  it('loads all previous return pages before displaying remaining quantities',async()=>{
