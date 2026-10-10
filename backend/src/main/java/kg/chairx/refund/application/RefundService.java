@@ -104,6 +104,20 @@ public class RefundService {
                 );
             }
 
+            if (repository.existsByReturn(request.returnId())) {
+                throw rule(
+                        "RETURN_ALREADY_REFUNDED",
+                        "По этому возврату товара деньги уже возвращены"
+                );
+            }
+
+            if (exchanges.existsByReturn(request.returnId())) {
+                throw rule(
+                        "RETURN_ALREADY_EXCHANGED",
+                        "Этот возврат товара уже использован для обмена"
+                );
+            }
+
             // Calculate the maximum compensation from the original sale
             // prices, never the current catalog price or inventory cost.
             var originalItems = sales.items(request.saleId());
@@ -126,19 +140,6 @@ public class RefundService {
                 );
             }
 
-            if (repository.existsByReturn(request.returnId())) {
-                throw rule(
-                        "RETURN_ALREADY_REFUNDED",
-                        "По этому возврату товара деньги уже возвращены"
-                );
-            }
-
-            if (exchanges.existsByReturn(request.returnId())) {
-                throw rule(
-                        "RETURN_ALREADY_EXCHANGED",
-                        "Этот возврат товара уже использован для обмена"
-                );
-            }
         }
 
         BigDecimal remaining =
