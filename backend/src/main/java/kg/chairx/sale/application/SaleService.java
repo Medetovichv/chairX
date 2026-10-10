@@ -102,6 +102,17 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                 page,size,repository.countSummaries(status,begin,until,query));
     }
 
+    /** Customer-specific paginated history; customer data cannot leak from unrelated sales. */
+    public SalePageResponse listForCustomer(UUID customerId, int page, int size) {
+        customers.get(customerId);
+        if (page < 0 || size <= 0 || size > 100) {
+            throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка продаж");
+        }
+        return new SalePageResponse(
+                repository.listSummaries(null, null, null, null, customerId, page, size),
+                page, size, repository.countSummaries(null, null, null, null, customerId));
+    }
+
     @Transactional
     public SaleResponse createDraft(@Valid kg.chairx.sale.api.CreateDraftSaleRequest request) {
         if (request == null || request.idempotencyKey() == null) {

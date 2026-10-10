@@ -32,44 +32,82 @@ public class SaleRepository {
             SaleStatus status, Instant from, Instant to, String number,
             int page, int size
     ) {
+        return listSummaries(status, from, to, number, null, page, size);
+    }
+
+    public List<SaleSummary> listSummaries(
+            SaleStatus status, Instant from, Instant to, String number,
+            UUID customerId, int page, int size
+    ) {
         return jdbc.sql("""
-                SELECT s.id,s.sale_number,s.created_at,s.customer_id,
-                       c.full_name AS customer_name,s.status,s.fulfillment_type,
-                       COALESCE(SUM(si.quantity*si.unit_sale_price),0) AS total
+                SELECT s.id, s.sale_number, s.created_at, s.customer_id,
+                       c.full_name AS customer_name, s.status, s.fulfillment_type,
+                       details.total, details.quantity, details.products,
+                       CASE WHEN paid.amount IS NULL THEN 'UNPAID'
+                            WHEN paid.amount < details.total THEN 'PARTIAL'
+                            ELSE 'PAID' END AS payment_status,
+                       d.status AS delivery_status, d.planned_delivery_date
                 FROM sales s
-                LEFT JOIN customers c ON c.id=s.customer_id
-                LEFT JOIN sale_items si ON si.sale_id=s.id
-                WHERE (CAST(:status AS varchar) IS NULL OR s.status=:status)
-                  AND (CAST(:fromDate AS timestamptz) IS NULL OR s.created_at>=:fromDate)
-                  AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at<:toDate)
-                  AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%'||:number||'%')
-                GROUP BY s.id,c.full_name
-                ORDER BY s.created_at DESC,s.id DESC LIMIT :size OFFSET :offset
-                """).param("status",status==null?null:status.name(),Types.VARCHAR)
-                .param("fromDate",from==null?null:java.time.OffsetDateTime.ofInstant(from,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("toDate",to==null?null:java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("number",number,Types.VARCHAR).param("size",size)
-                .param("offset",(long)page*size)
-                .query((rs,row)->new SaleSummary(
-                        rs.getObject("id",UUID.class),rs.getString("sale_number"),
+                LEFT JOIN customers c ON c.id = s.customer_id
+                LEFT JOIN LATERAL (
+                   SELECT COALESCE(SUM(si.quantity * si.unit_sale_price),0) AS total,
+                          COALESCE(SUM(si.quantity),0) AS quantity,
+                          string_agg(p.name || ' / ' || v.name || ' ×' || si.quantity::text,
+                                     ', ' ORDER BY p.name, v.name) AS products
+                   FROM sale_items si
+                   JOIN product_variants v ON v.id = si.product_variant_id
+                   JOIN products p ON p.id = v.product_id
+                   WHERE si.sale_id = s.id
+                ) details ON TRUE
+                LEFT JOIN payments paid ON paid.sale_id = s.id AND paid.status = 'PAID'
+                LEFT JOIN deliveries d ON d.sale_id = s.id
+                WHERE (CAST(:status AS varchar) IS NULL OR s.status = :status)
+                  AND (CAST(:fromDate AS timestamptz) IS NULL OR s.created_at >= :fromDate)
+                  AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at < :toDate)
+                  AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%' || :number || '%')
+                  AND (CAST(:customer AS uuid) IS NULL OR s.customer_id = :customer)
+                ORDER BY s.created_at DESC, s.id DESC
+                LIMIT :size OFFSET :offset
+                """)
+                .param("status", status == null ? null : status.name(), Types.VARCHAR)
+                .param("fromDate", from == null ? null : java.time.OffsetDateTime.ofInstant(from,java.time.ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("toDate", to == null ? null : java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
+                .param("number", number, Types.VARCHAR)
+                .param("customer", customerId, Types.OTHER)
+                .param("size", size).param("offset", (long)page*size)
+                .query((rs,row) -> new SaleSummary(
+                        rs.getObject("id", UUID.class), rs.getString("sale_number"),
                         rs.getTimestamp("created_at").toInstant(),
-                        rs.getObject("customer_id",UUID.class),rs.getString("customer_name"),
-                        rs.getBigDecimal("total"),SaleStatus.valueOf(rs.getString("status")),
-                        rs.getString("fulfillment_type") == null ? null
-                                : FulfillmentType.valueOf(rs.getString("fulfillment_type")))).list();
+                        rs.getObject("customer_id",UUID.class), rs.getString("customer_name"),
+                        rs.getBigDecimal("total"), SaleStatus.valueOf(rs.getString("status")),
+                        rs.getString("fulfillment_type") == null ? null :
+                                FulfillmentType.valueOf(rs.getString("fulfillment_type")),
+                        rs.getLong("quantity"), rs.getString("products"),
+                        rs.getString("payment_status"),
+                        rs.getString("delivery_status") == null ? null :
+                                kg.chairx.delivery.domain.DeliveryStatus.valueOf(rs.getString("delivery_status")),
+                        rs.getObject("planned_delivery_date", java.time.LocalDate.class)))
+                .list();
     }
 
     public long countSummaries(SaleStatus status,Instant from,Instant to,String number) {
+        return countSummaries(status, from, to, number, null);
+    }
+
+    public long countSummaries(SaleStatus status,Instant from,Instant to,String number,UUID customerId) {
         return jdbc.sql("""
                 SELECT COUNT(*) FROM sales s
                 WHERE (CAST(:status AS varchar) IS NULL OR s.status=:status)
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR s.created_at>=:fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at<:toDate)
                   AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%'||:number||'%')
-                """).param("status",status==null?null:status.name(),Types.VARCHAR)
+                  AND (CAST(:customer AS uuid) IS NULL OR s.customer_id=:customer)
+                """)
+                .param("status",status==null?null:status.name(),Types.VARCHAR)
                 .param("fromDate",from==null?null:java.time.OffsetDateTime.ofInstant(from,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("toDate",to==null?null:java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
-                .param("number",number,Types.VARCHAR).query(Long.class).single();
+                .param("number",number,Types.VARCHAR)
+                .param("customer",customerId,Types.OTHER).query(Long.class).single();
     }
 
     public long nextSaleNumber() {
