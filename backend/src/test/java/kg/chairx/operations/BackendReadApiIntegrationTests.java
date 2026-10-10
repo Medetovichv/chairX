@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"})
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username="p20-api-tester")
+@WithMockUser(username="p20-api-tester", authorities = {"INVENTORY_READ","SALES_READ","DELIVERIES_READ","RETURNS_READ","DEFECTS_READ","DEFECTS_MANAGE","DEFECTS_WRITE_OFF"})
 class BackendReadApiIntegrationTests {
     @Autowired JdbcTemplate jdbc;
     @Autowired tools.jackson.databind.json.JsonMapper mapper;
