@@ -105,6 +105,59 @@ class BusinessRolePermissionsIntegrationTests {
         }
     }
 
+    @Test void transferHistoryIsCostFreeForRealEmployeeAndCustomInventoryReader() throws Exception {
+        Employee employee = createEmployee(EMPLOYEE);
+        UUID roleId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO security_roles(id, code, name, system_role)
+                VALUES (?, ?, 'Cost-free inventory reader test', FALSE)
+                """, roleId, "COSTFREE_READER_" + roleId.toString().substring(0, 8));
+        try {
+            jdbc.update("""
+                    INSERT INTO security_role_permissions(role_id, permission_code)
+                    VALUES (?, 'INVENTORY_READ')
+                    """, roleId);
+            Employee custom = createEmployee(roleId);
+            for (Employee reader : java.util.List.of(employee, custom)) {
+                mvc.perform(get("/api/inventory/transfers")
+                                .with(httpBasic(reader.username(), "p17-test-password")))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.items").isArray())
+                        .andExpect(result -> assertThat(
+                                result.getResponse().getContentAsString())
+                                .doesNotContain(
+                                        "\"totalCost\"", "\"unitCost\"",
+                                        "\"purchasePrice\"", "\"costAllocations\""));
+                mvc.perform(get("/api/finance/accounts")
+                                .with(httpBasic(reader.username(), "p17-test-password")))
+                        .andExpect(status().isForbidden());
+                mvc.perform(post("/api/inventory/transfers")
+                                .with(httpBasic(reader.username(), "p17-test-password"))
+                                .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                        .andExpect(status().isForbidden());
+            }
+            // A custom role with transfer-only authority can access POST but
+            // must not gain FINANCE_READ just to transfer stock.
+            jdbc.update("""
+                    INSERT INTO security_role_permissions(role_id, permission_code)
+                    VALUES (?, 'INVENTORY_TRANSFER')
+                    """, roleId);
+            mvc.perform(post("/api/inventory/transfers")
+                            .with(httpBasic(custom.username(), "p17-test-password"))
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isBadRequest());
+            mvc.perform(get("/api/finance/accounts")
+                            .with(httpBasic(custom.username(), "p17-test-password")))
+                    .andExpect(status().isForbidden());
+        } finally {
+            jdbc.update("DELETE FROM security_user_roles WHERE role_id=?", roleId);
+            jdbc.update("DELETE FROM security_role_permissions WHERE role_id=?", roleId);
+            jdbc.update("DELETE FROM security_roles WHERE id=?", roleId);
+        }
+    }
+
     @Test void realEmployeeAndManagerReachOnlyPermittedEndpoints() throws Exception {
         Employee frontline=createEmployee(EMPLOYEE);
         Employee manager=createEmployee(MANAGER);
