@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 
 /** Client revision is mandatory: concurrent stale edits must fail, not overwrite. */
 public record DailyClosingUpdateRequest(
-        long expectedVersion,
+        Long expectedVersion,
         BigDecimal actualCash,
         String cashNote,
         BigDecimal actualBank,
