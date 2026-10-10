@@ -52,6 +52,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
             onChange={e=>patch(row.key,{warehouseId:e.target.value})}
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
             <option value="">Выберите склад</option>
+            {!!row.warehouseId&&!warehouses.data?.some(w=>w.id===row.warehouseId)&&
+              <option value={row.warehouseId}>Текущий склад: {row.warehouseId}</option>}
             {warehouses.data?.filter(w=>w.active||w.id===row.warehouseId).map(w=>
               <option key={w.id} value={w.id}>{w.name}{w.active?'':' (неактивен)'}</option>)}
           </select>

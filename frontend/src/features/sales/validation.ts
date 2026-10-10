@@ -14,6 +14,8 @@ export const salePriceValid = (price: string) => /^(0|[1-9][0-9]{0,18})$/.test(p
  * Normalize only exact integers, never round fractional prices.
  */
 export function integerSom(value: Money): string | null {
+  // JSON numbers above MAX_SAFE_INTEGER cannot be round-tripped exactly.
+  if (typeof value==='number' && !Number.isSafeInteger(value)) return null;
   const raw=String(value);
   if(!/^[0-9]+(?:\.0+)?$/.test(raw)) return null;
   const normalized=BigInt(raw.split('.')[0]!).toString();

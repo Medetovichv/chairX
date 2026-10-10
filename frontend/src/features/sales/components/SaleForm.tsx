@@ -18,7 +18,9 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel}:{
   const [rows,setRows]=useState<SaleEditorRow[]>(()=>{
     return initial?.items.map(i=>({
       key:nextKey(),productVariantId:i.productVariantId,warehouseId:i.warehouseId,
-      quantity:String(i.quantity),unitSalePrice:integerSom(i.unitSalePrice)??String(i.unitSalePrice),recommended:null,
+      quantity:String(i.quantity),
+      unitSalePrice:integerSom(i.unitSalePrice)??'Некорректная исходная цена — проверьте',
+      recommended:null,
     }))??[];
   });
   const [error,setError]=useState('');

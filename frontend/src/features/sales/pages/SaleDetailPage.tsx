@@ -44,7 +44,13 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const client=useQueryClient();
   const loc=useLocation();
   const summary=((loc.state as {summary?:SaleSummary}|null)?.summary);
-  const matched=summary?.id===sale.id?summary:null;
+  const listed=useQuery({
+    queryKey:[...salesKeys.lists,'summary',sale.id,sale.saleNumber],
+    queryFn:()=>salesApi.list({status:'',from:'',to:'',number:sale.saleNumber,page:0}),
+    enabled:hasPermission('SALES_READ'),
+  });
+  const authoritative=listed.data?.items.find(i=>i.id===sale.id);
+  const matched=authoritative??(summary?.id===sale.id?summary:null);
   const initialNotice=(loc.state as {notice?:unknown}|null)?.notice;
   const [notice,setNotice]=useState(typeof initialNotice==='string'?initialNotice:'');
   const [error,setError]=useState('');
@@ -169,9 +175,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       <div><p className="text-slate-500">Способ получения</p><p className="font-semibold">
         {sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:'Не указан'}</p></div>
       <div><p className="text-slate-500">Статус оплаты</p><p className="font-semibold">
-        {matched?.paymentStatus||'Доступен в списке продаж'}</p></div>
+        {matched?.paymentStatus||'Статус недоступен в SaleResponse'}</p></div>
       <div><p className="text-slate-500">Статус доставки</p><p className="font-semibold">
-        {matched?.deliveryStatus||'Доступен в списке продаж'}</p>
+        {matched?.deliveryStatus||'Статус недоступен в SaleResponse'}</p>
         {matched?.plannedDeliveryDate&&<p>План: {matched.plannedDeliveryDate}</p>}</div>
       <div><p className="text-slate-500">Выдан</p><p className="font-semibold">{saleDate(sale.fulfilledAt)}</p></div>
       <div><p className="text-slate-500">Отменён</p><p className="font-semibold">{saleDate(sale.cancelledAt)}</p></div>
