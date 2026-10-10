@@ -107,6 +107,10 @@ public class UserManagementService {
             );
         }
 
+        // Serialize administrative writes with role edits and removals, so
+        // stale credentials cannot authorize user creation after revocation.
+        roles.lockRoleAssignments();
+
         if (!roles.isActiveSystemAdministrator(actorUserId)
                 || !roles.userHasPermission(actorUserId, "USERS_CREATE")) {
             throw new AccessDeniedException(
