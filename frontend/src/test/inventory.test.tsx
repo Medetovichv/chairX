@@ -269,6 +269,28 @@ describe('F04 warehouses and real overview', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
     expect(await screen.findByRole('columnheader', { name: 'Модель' })).toBeInTheDocument();
   });
+  it('shows true empty inventory when backend reports no stock', async () => {
+    fakeBackend({ stock: [] }); renderAt();
+    expect(await screen.findByText('Товары не найдены')).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+  it('shows a readable error for inventory network failure with retry', async () => {
+    const state = { network: false };
+    const { calls } = fakeBackend(state); renderAt();
+    await screen.findByRole('columnheader', { name: 'Модель' });
+    state.network = true;
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Включая нулевые' }));
+    expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('Не удалось подключиться');
+    state.network = false;
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
+    expect(await screen.findByRole('columnheader', { name: 'Модель' })).toBeInTheDocument();
+    expect(calls.mock.calls.some((c) => String(c[0]).includes('includeZero=true'))).toBe(true);
+  });
+  it('handles 401 with existing F02 session clearing; handles 403 as denial', async () => {
+    fakeBackend({ fail: { 'GET /api/warehouses': 401 } }); renderAt();
+    expect(await screen.findByRole('alert')).toHaveTextContent('авторизация');
+    expect(authSession.authHeaders()).toEqual({});
+  });
   it('does not call inventory APIs without INVENTORY_READ', () => {
     access.permissions = ['INVENTORY_TRANSFER']; access.roles = ['EMPLOYEE'];
     const { calls } = fakeBackend(); renderAt();
