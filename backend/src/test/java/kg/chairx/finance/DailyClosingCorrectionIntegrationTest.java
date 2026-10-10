@@ -410,6 +410,68 @@ class DailyClosingCorrectionIntegrationTest {
     }
 
     @Test
+    void lateExpenseRacingWithNextDayCloseKeepsBothReportsConsistent() throws Exception {
+        unlockAndClose(originalCash.subtract(amount("1000")), "Forgot delivery");
+        LocalDate nextDay = reportDate.plusDays(1);
+        String nextUrl = "/api/finance/closings/" + nextDay;
+        mvc.perform(post(nextUrl + "/unlock").with(httpBasic(manager, "test-password"))
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Late closing before next day\"}"))
+                .andExpect(status().isOk());
+        closingDates.add(nextDay);
+
+        UUID expenseKey = UUID.randomUUID();
+        String closingBody = String.format(Locale.ROOT,
+                "{\"actualCash\":%s,\"cashNote\":\"Reconcile delayed expense\",\"actualBank\":%s}",
+                originalCash.toPlainString(), originalBank.toPlainString());
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Integer> correction = pool.submit(() -> {
+                ready.countDown();
+                if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
+                return mvc.perform(post(url() + "/expenses")
+                                .with(httpBasic(employee, "test-password")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(expenseJson(expenseKey, amount("1000"))))
+                        .andReturn().getResponse().getStatus();
+            });
+            Future<Integer> closing = pool.submit(() -> {
+                ready.countDown();
+                if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
+                return mvc.perform(post(nextUrl)
+                                .with(httpBasic(employee, "test-password")).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON).content(closingBody))
+                        .andReturn().getResponse().getStatus();
+            });
+            assertThat(ready.await(15, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(correction.get(30, TimeUnit.SECONDS)).isEqualTo(201);
+            assertThat(closing.get(30, TimeUnit.SECONDS)).isEqualTo(201);
+        } finally {
+            start.countDown();
+            pool.shutdownNow();
+        }
+        UUID expense = jdbc.queryForObject(
+                "SELECT id FROM expenses WHERE idempotency_key=?", UUID.class, expenseKey);
+        newExpenses.add(expense);
+        var affected = jdbc.queryForObject("""
+                SELECT COALESCE(revised.expected_balance,a.expected_balance)
+                FROM finance_daily_closing_accounts a
+                JOIN finance_daily_closings c ON c.id=a.closing_id
+                LEFT JOIN finance_daily_closing_adjustments revised
+                    ON revised.closing_id=a.closing_id AND revised.account_code=a.account_code
+                WHERE c.business_date=? AND a.account_code='CASH'
+                """, BigDecimal.class, nextDay);
+        assertThat(affected).isEqualByComparingTo(originalCash.subtract(amount("1000")));
+        assertThat(closingValue("CASH", "difference")).isEqualByComparingTo("0");
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, expense)).isEqualTo(1);
+    }
+
+    @Test
     void concurrentReportUpdatesHaveOneWinnerAndNoLostChanges() throws Exception {
         unlockAndClose(originalCash, "");
         String bodyA = String.format(Locale.ROOT, """
