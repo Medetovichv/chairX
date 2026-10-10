@@ -12,6 +12,7 @@ public record CashFlowSummaryResponse(
         BigDecimal exchangePayments,
         BigDecimal exchangeRefunds,
         BigDecimal operatingExpenses,
+        BigDecimal purchasePayments,
         BigDecimal totalIn,
         BigDecimal totalOut,
         BigDecimal netCashFlow
