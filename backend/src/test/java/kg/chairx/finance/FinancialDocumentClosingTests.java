@@ -55,6 +55,83 @@ class FinancialDocumentClosingTests {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'", Integer.class)).isZero();
         assertThat(closings.findByDate(today()).cash().expected()).isEqualByComparingTo(closing.cash().expected());
     }
+    @Test void historicalExpenseDateRemainsLockedAfterTheNextDayBegins() {
+        LocalDate yesterday = today().minusDays(1);
+        UUID closingId = java.util.UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO finance_daily_closings(id,business_date,created_by)
+                VALUES (?, ?, 'previous-day-admin')
+                """, closingId, java.sql.Date.valueOf(yesterday));
+        jdbc.update("""
+                INSERT INTO finance_daily_closing_accounts
+                    (closing_id,account_code,expected_balance,actual_balance)
+                SELECT ?,code,balance,balance FROM finance_accounts
+                """, closingId);
+
+        BigDecimal before = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class);
+        long oldDocuments = jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE created_by='financial-document-test'",
+                Long.class);
+        long oldMovements = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'",
+                Long.class);
+
+        for (LocalDate sealed : List.of(yesterday, yesterday.minusDays(3))) {
+            var rejected = new CreateExpenseRequest(UUID.randomUUID(),
+                    ExpenseCategory.OTHER, new BigDecimal("500"),
+                    ExpensePaymentMethod.CASH, sealed, "Late expense");
+            assertThatThrownBy(() -> expenses.create(rejected))
+                    .isInstanceOf(FinanceAccountOperationException.class)
+                    .hasMessageContaining("закрыт");
+        }
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE created_by='financial-document-test'",
+                Long.class)).isEqualTo(oldDocuments);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE created_by='financial-document-test'",
+                Long.class)).isEqualTo(oldMovements);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(before);
+
+        // Only sealed dates are restricted; an open day stays usable.
+        var accepted = expenses.create(request());
+        assertThat(accepted.id()).isNotNull();
+    }
+
+    @Test void replayOfPostedExpenseIsReadOnlyAfterItsDateCloses() {
+        var firstRequest = request();
+        var original = expenses.create(firstRequest);
+        BigDecimal cash = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class);
+        BigDecimal bank = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'",
+                BigDecimal.class);
+        var closing = closings.close(today(),
+                new DailyClosingRequest(cash, null, bank, null), "admin");
+        long documentCount = jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE id=?", Long.class, original.id());
+        long movementCount = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, original.id());
+
+        var replay = expenses.create(firstRequest);
+        assertThat(replay.id()).isEqualTo(original.id());
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM expenses WHERE id=?", Long.class, original.id()))
+                .isEqualTo(documentCount);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='EXPENSE' AND source_id=?",
+                Long.class, original.id())).isEqualTo(movementCount);
+        assertThat(closings.findByDate(today()).id()).isEqualTo(closing.id());
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'",
+                BigDecimal.class)).isEqualByComparingTo(cash);
+    }
+
     @Test void expenseRacingClosingIsEitherIncludedOrFullyRejected() throws Exception {
         var executor = Executors.newFixedThreadPool(2);
         var ready = new CountDownLatch(2);
