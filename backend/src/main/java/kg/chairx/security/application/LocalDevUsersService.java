@@ -51,19 +51,31 @@ public class LocalDevUsersService {
         // Prevent concurrent initialization and preserve role lock order.
         roles.lockRoleAssignments();
 
-        var admin = users.findByUsername(adminUsername.trim().toLowerCase())
-                .orElseThrow(() -> new IllegalStateException(
-                        "Local administrator does not exist; configure initial bootstrap"));
-        if (!admin.active() || !roles.findRoleCodesByUserId(admin.id()).contains("ADMIN")) {
-            throw new IllegalStateException("Configured local administrator must have active ADMIN role");
+        // A previously initialized database may have an administrator under
+        // a different login. Reuse that active administrator solely as an
+        // authorized actor; never reset their password or create a second ADMIN.
+        var configuredAdmin = users.findByUsername(adminUsername.trim().toLowerCase(java.util.Locale.ROOT));
+        UUID adminId;
+        if (configuredAdmin.isPresent()) {
+            var admin = configuredAdmin.orElseThrow();
+            if (!admin.active() || !roles.findRoleCodesByUserId(admin.id()).contains("ADMIN")) {
+                throw new IllegalStateException(
+                        "Configured local administrator account is not an active ADMIN; existing account unchanged");
+            }
+            adminId = admin.id();
+        } else {
+            adminId = roles.findFirstActiveAdministratorId()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No active ADMIN account in existing database; local seed refused. "
+                            + "Restore an authorized administrator without deleting database data"));
         }
 
         if (!roles.existsById(MANAGER_ROLE) || !roles.existsById(EMPLOYEE_ROLE)) {
             throw new IllegalStateException("Local development roles are missing from migrations");
         }
 
-        ensureOne(admin.id(), "manager", "Local Manager", managerPassword, "MANAGER", MANAGER_ROLE);
-        ensureOne(admin.id(), "employee", "Local Employee", employeePassword, "EMPLOYEE", EMPLOYEE_ROLE);
+        ensureOne(adminId, "manager", "Local Manager", managerPassword, "MANAGER", MANAGER_ROLE);
+        ensureOne(adminId, "employee", "Local Employee", employeePassword, "EMPLOYEE", EMPLOYEE_ROLE);
     }
 
     private void ensureOne(

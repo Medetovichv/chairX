@@ -122,10 +122,6 @@ class LocalDevUsersIntegrationTest {
                 .hasMessageContaining("12-128")
                 .hasMessageNotContaining(MANAGER_PASSWORD);
 
-        assertThatThrownBy(() -> seeder.ensureUsers("other_admin", MANAGER_PASSWORD, EMPLOYEE_PASSWORD))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("administrator does not exist");
-
         assertThat(users.findByUsername("manager")).isEmpty();
         assertThat(users.findByUsername("employee")).isEmpty();
     }
@@ -162,5 +158,66 @@ class LocalDevUsersIntegrationTest {
         assertThat(users.findByUsername("manager")).isEmpty();
         assertThat(users.findByUsername("employee").orElseThrow().active()).isFalse();
     }
+    @Test
+    void previouslyInitializedDatabaseWithDifferentlyNamedAdminReusesExistingAccount() {
+        // A real local machine may already have an ADMIN named 'owner', not 'admin'.
+        assertThat(bootstrap.initialize("owner", "OriginalOwnerPassword123!", "Owner"))
+                .isTrue();
+        var originalOwner = users.findByUsername("owner").orElseThrow();
+
+        // Existing bootstrap is a no-op on the next startup.
+        assertThat(bootstrap.initialize("admin", "NewPasswordNotApplied123!", "New Admin"))
+                .isFalse();
+
+        seeder.ensureUsers("admin", MANAGER_PASSWORD, EMPLOYEE_PASSWORD);
+
+        assertThat(users.findByUsername("admin")).isEmpty();
+        assertThat(users.findByUsername("owner").orElseThrow()).isEqualTo(originalOwner);
+        assertThat(roles.findRoleCodesByUserId(originalOwner.id())).contains("ADMIN");
+        assertThat(roles.findRoleCodesByUserId(users.findByUsername("manager").orElseThrow().id()))
+                .isEqualTo(Set.of("MANAGER"));
+        assertThat(roles.findRoleCodesByUserId(users.findByUsername("employee").orElseThrow().id()))
+                .isEqualTo(Set.of("EMPLOYEE"));
+
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM security_audit_log
+                WHERE actor_user_id = ? AND action IN ('USER_CREATED', 'ROLE_ASSIGNED')
+                """, Integer.class, originalOwner.id())).isEqualTo(4);
+
+        seeder.ensureUsers("admin", "AnotherManagerPassword123!", "AnotherEmployeePassword123!");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app_users", Integer.class)).isEqualTo(3);
+    }
+
+    @Test
+    void noActiveAdminCannotSeedIntoExistingDatabaseAndDoesNotCreateBackdoor() {
+        assertThatThrownBy(() ->
+                seeder.ensureUsers("admin", MANAGER_PASSWORD, EMPLOYEE_PASSWORD))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No active ADMIN");
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM app_users", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM security_user_roles", Integer.class)).isZero();
+    }
+
+    @Test
+    void configuredNonAdminIsNotSilentlyReplacedByAnotherAdministrator() {
+        assertThat(bootstrap.initialize("owner", "OriginalOwnerPassword123!", "Owner")).isTrue();
+        UUID conflictingId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO app_users (id, username, password_hash, display_name, active)
+                VALUES (?, 'admin', '{noop}existing', 'Non-admin account', TRUE)
+                """, conflictingId);
+
+        assertThatThrownBy(() ->
+                seeder.ensureUsers("admin", MANAGER_PASSWORD, EMPLOYEE_PASSWORD))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("not an active ADMIN");
+
+        assertThat(users.findByUsername("admin").orElseThrow().id()).isEqualTo(conflictingId);
+        assertThat(users.findByUsername("manager")).isEmpty();
+        assertThat(users.findByUsername("employee")).isEmpty();
+    }
+
+
 }
 
