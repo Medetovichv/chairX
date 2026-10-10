@@ -11,6 +11,7 @@ export interface RouteMeta {
   label: string;
   permissions: readonly string[];
   parent?: string;
+  tabLabel?: string;
 }
 
 export interface NavigationItem extends RouteMeta {
@@ -28,9 +29,9 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: '/customers', label: 'Клиенты', icon: Users, group: 'Ежедневная работа', permissions: ['CUSTOMERS_READ'] },
   { path: '/daily-closing', label: 'Закрытие дня', icon: CalendarCheck2, group: 'Ежедневная работа', permissions: ['DAILY_CLOSING_READ', 'FINANCE_READ'] },
   { path: '/catalog', label: 'Каталог товаров', icon: Package, group: 'Управление', permissions: ['CATALOG_READ'] },
-  { path: '/purchases', label: 'Закупки', icon: ClipboardList, group: 'Управление', permissions: ['PURCHASE_READ', 'INVENTORY_RECEIVE', 'PURCHASE_PAYMENTS_READ', 'SUPPLIERS_READ'] },
-  { path: '/returns', label: 'Возвраты и брак', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'EXCHANGES_READ', 'DEFECTS_READ'] },
-  { path: '/finance', label: 'Финансы', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ'] },
+  { path: '/purchases', label: 'Закупки', tabLabel: 'Все закупки', icon: ClipboardList, group: 'Управление', permissions: ['PURCHASE_READ', 'INVENTORY_RECEIVE', 'PURCHASE_PAYMENTS_READ', 'SUPPLIERS_READ'] },
+  { path: '/returns', label: 'Возвраты и брак', tabLabel: 'Возвраты', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'EXCHANGES_READ', 'DEFECTS_READ'] },
+  { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ'] },
   { path: '/admin', label: 'Администрирование', icon: Settings2, group: 'Система', permissions: ['USERS_READ', 'ROLES_READ'] },
 ];
 
@@ -84,7 +85,7 @@ export function firstAccessiblePath(parent: string, hasPermission: (code: string
     parent === '/purchases' ? ['PURCHASE_READ'] :
     parent === '/returns' ? ['RETURNS_READ'] :
     parent === '/finance' ? ['FINANCE_READ'] : route.permissions;
-  if (hasRoutePermission(direct, hasPermission)) return parent;
+  if (parent !== '/admin' && hasRoutePermission(direct, hasPermission)) return parent;
   return childrenOf(parent).find((child) => hasRoutePermission(child.permissions, hasPermission))?.path ?? null;
 }
 
