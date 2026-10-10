@@ -17,10 +17,10 @@ Docker Compose запускает PostgreSQL 17, Spring Boot Java 25 и Vite Nod
 Первоначально нужен Docker Desktop и Compose v2.22+.
 
 ~~~sh
-cp .env.example .env
+bash scripts/init-local-env.sh
 ~~~
 
-Один раз заполните четыре пароля в локальном файле .env, затем:
+Скрипт один раз создаёт локальный .env с четырьмя случайными паролями (при существующем файле ничего не меняет). Затем:
 
 ~~~sh
 docker compose up -d --build --wait

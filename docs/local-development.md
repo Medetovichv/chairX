@@ -23,13 +23,13 @@ cd ../chairx-local
 В корне checkout:
 
 ~~~sh
-cp .env.example .env
+bash scripts/init-local-env.sh
 ~~~
 
-Откройте .env и один раз задайте четыре **различных** надёжных пароля:
+Скрипт создаёт .env с четырьмя **различными** случайными паролями. При уже существующем .env он не меняет данные. Пароли можно посмотреть и при необходимости настроить локально. Переменные:
 CHAIRX_CATALOG_PASSWORD, CHAIRX_BOOTSTRAP_ADMIN_PASSWORD,
 CHAIRX_DEV_MANAGER_PASSWORD, CHAIRX_DEV_EMPLOYEE_PASSWORD.
-Пароли сотрудников должны содержать 12–128 символов.
+Пароли сотрудников должны содержать 12–128 символов; генератор использует криптографически случайные 48-символьные значения.
 Файл .env не попадает в GitHub благодаря .gitignore.
 Никогда не записывайте пароли в frontend/.env* или VITE_*.
 
@@ -105,4 +105,3 @@ Backend: cd backend && ./mvnw clean verify (Testcontainers, отдельная �
 Frontend: cd frontend && npm ci && npm run lint && npm run typecheck &&
 npm run test && npm run build.
 F01.1 Compose smoke: .github/workflows/local-dev-smoke.yml.
-

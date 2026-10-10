@@ -23,14 +23,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Generate ephemeral test credentials (never checked in)
+      - name: Generate ephemeral local credentials (never checked in)
         shell: bash
         run: |
-          cp .env.example .env
-          for key in CHAIRX_CATALOG_PASSWORD CHAIRX_BOOTSTRAP_ADMIN_PASSWORD CHAIRX_DEV_MANAGER_PASSWORD CHAIRX_DEV_EMPLOYEE_PASSWORD; do
-            sed -i "s/^$key=$/$key=$(openssl rand -hex 20)/" .env
-          done
-          chmod 600 .env
+          bash scripts/init-local-env.sh
+          test -s .env
 
       - name: Validate Compose configuration
         run: docker compose config --quiet
@@ -50,4 +47,3 @@ jobs:
       - name: Stop without deleting PostgreSQL volume
         if: always()
         run: docker compose down || true
-
