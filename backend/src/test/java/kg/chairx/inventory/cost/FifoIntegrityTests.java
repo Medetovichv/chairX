@@ -13,6 +13,7 @@ import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.returning.api.*;
 import kg.chairx.returning.application.ReturnService;
+import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.delivery.api.*;
 import kg.chairx.delivery.application.DeliveryService;
@@ -252,16 +253,31 @@ class FifoIntegrityTests {
         assertThat(deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(office))).isEqualTo(result);
         assertThat(restored()).isEqualByComparingTo("10001");
         assertThat(inventory.getBalance(office,variant).onHand()).isEqualTo(2);
-        assertThatThrownBy(()->returns.create(request(sale,home,1,ReturnCondition.SELLABLE))).isInstanceOf(InventoryCostException.class);
-        assertThat(count("returns")).isZero();consistent();
-    }
-    @Test void customerReturnPreventsDoubleRestorationThroughDelivery() {
-        stock(home,variant,2,"10001");var sale=sale(home,variant,2,FulfillmentType.CITY_DELIVERY);var delivery=failedDelivery(sale);
-        returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
-        long movements=count("stock_movements");
-        assertThatThrownBy(()->deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(home))).isInstanceOf(InventoryCostException.class);
+        long movements = count("stock_movements");
+        assertThatThrownBy(()->returns.create(request(sale,home,1,ReturnCondition.SELLABLE)))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("DELIVERY_RETURN_WORKFLOW_REQUIRED"));
         assertThat(count("stock_movements")).isEqualTo(movements);
-        assertThat(restored()).isEqualByComparingTo("5000.50");consistent();
+        assertThat(count("returns")).isZero();
+        assertThat(count("return_items")).isZero();consistent();
+    }
+    @Test void failedDeliveryCustomerReturnIsRejectedBeforeWarehouseReceipt() {
+        stock(home,variant,2,"10001");var sale=sale(home,variant,2,FulfillmentType.CITY_DELIVERY);var delivery=failedDelivery(sale);
+        long movements=count("stock_movements");
+        var before=inventory.getBalance(home,variant);
+        assertThatThrownBy(()->returns.create(request(sale,home,1,ReturnCondition.SELLABLE)))
+                .isInstanceOfSatisfying(ReturnRuleViolationException.class,
+                        e -> assertThat(e.getCode()).isEqualTo("DELIVERY_RETURN_WORKFLOW_REQUIRED"));
+        assertThat(count("stock_movements")).isEqualTo(movements);
+        assertThat(count("returns")).isZero();
+        assertThat(count("return_items")).isZero();
+        assertThat(inventory.getBalance(home,variant)).isEqualTo(before);
+        assertThat(restored()).isZero();
+
+        // Physical receipt of the entire failed shipment remains available.
+        deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(home));
+        assertThat(restored()).isEqualByComparingTo("10001");
+        assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(2);consistent();
     }
     @Test void sameVariantExchangeCanFulfillReturnedLastUnit() {
         stock(home,variant,1,"5000");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,null));sales.fulfill(sale.id());
@@ -369,11 +385,17 @@ class FifoIntegrityTests {
         assertThat(parallel(action,action)).containsExactlyInAnyOrder(true,false);
         assertThat(restored()).isEqualByComparingTo("55");consistent();
     }
-    @Test void parallelDeliveryAndCustomerReturnShareOneBudget() throws Exception {
+    @Test void parallelFailedDeliveryAndCustomerReturnNeverCreditUnreceivedGoods() throws Exception {
         stock(home,variant,1,"55");var sale=sale(home,variant,1,FulfillmentType.CITY_DELIVERY);var delivery=failedDelivery(sale);
-        Callable<Boolean> customerReturn=()->{try{returns.create(request(sale,office,1,ReturnCondition.SELLABLE));return true;}catch(InventoryCostException e){return false;}};
-        Callable<Boolean> deliveryReturn=()->{try{deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(home));return true;}catch(InventoryCostException e){return false;}};
+        Callable<Boolean> customerReturn=()->{try{returns.create(request(sale,office,1,ReturnCondition.SELLABLE));return true;}catch(ReturnRuleViolationException e){
+            assertThat(e.getCode()).isEqualTo("DELIVERY_RETURN_WORKFLOW_REQUIRED");return false;
+        }};
+        Callable<Boolean> deliveryReturn=()->{deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(home));return true;};
         assertThat(parallel(customerReturn,deliveryReturn)).containsExactlyInAnyOrder(true,false);
+        assertThat(count("returns")).isZero();
+        assertThat(count("return_items")).isZero();
+        assertThat(inventory.getBalance(office,variant).onHand()).isZero();
+        assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(1);
         assertThat(restored()).isEqualByComparingTo("55");consistent();
     }
     <T> List<T> parallel(Callable<T> left,Callable<T> right) throws Exception {
