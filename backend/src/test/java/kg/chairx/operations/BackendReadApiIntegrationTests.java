@@ -131,7 +131,7 @@ class BackendReadApiIntegrationTests {
         // Customer overview includes related order statistics and thus requires both permissions.
         mvc.perform(get("/api/customers/overview"))
                 .andExpect(status().isForbidden());
-        mvc.perform(get("/api/customers/overview").with(
+        mvc.perform(get("/api/customers/overview").param("query","P20 API Customer").with(
                     org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
                         .user("p22-related-tester").authorities(
                         new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMERS_READ"),
