@@ -25,7 +25,7 @@ function mockBackend(
   user = profile,
   option: { meStatus?: number; csrfStatus?: number; network?: boolean } = {},
 ) {
-  const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+  const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
     if (option.network) throw new TypeError('Connection refused');
     const path = String(input);
     if (path === '/api/auth/me') {
