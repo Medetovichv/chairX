@@ -37,8 +37,7 @@ public class HistoricalFinanceBalanceService {
                 SELECT count(*) FROM finance_document_posting_issues
                 """).query(Number.class).single();
         if (problems.longValue() != 0) {
-            throw new FinanceConflictException(
-                    "UNRECONCILED_FINANCIAL_BALANCE: найдены финансовые документы без корректной проводки");
+            throw new FinanceConflictException("UNRECONCILED_FINANCIAL_BALANCE", "найдены финансовые документы без корректной проводки");
         }
 
         // Every cent of a live balance must be explainable by immutable journal
@@ -63,8 +62,7 @@ public class HistoricalFinanceBalanceService {
                   AND e.expense_date <> m.business_date
                 """).param("account", account.name()).query(Number.class).single();
         if (uncertainLegacy.longValue() != 0) {
-            throw new FinanceConflictException(
-                    "UNRECONCILED_FINANCIAL_BALANCE: исторические расходы с неопределённой отчётной датой");
+            throw new FinanceConflictException("UNRECONCILED_FINANCIAL_BALANCE", "исторические расходы с неопределённой отчётной датой");
         }
 
         BigDecimal subsequentMovements = jdbc.sql("""
@@ -75,8 +73,7 @@ public class HistoricalFinanceBalanceService {
 
         BigDecimal expected = lockedCurrent.subtract(subsequentMovements);
         if (expected.signum() < 0) {
-            throw new FinanceConflictException(
-                    "UNRECONCILED_FINANCIAL_BALANCE: отрицательный исторический остаток");
+            throw new FinanceConflictException("UNRECONCILED_FINANCIAL_BALANCE", "отрицательный исторический остаток");
         }
         return expected;
     }
