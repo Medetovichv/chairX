@@ -3,7 +3,7 @@ import type { RouteMeta } from '../lib/navigation';
 import { cn } from '../lib/cn';
 
 export function PageTabs({ tabs }: { tabs: readonly RouteMeta[] }) {
-  if (tabs.length < 2) return null;
+  if (tabs.length === 0) return null;
   return (
     <nav aria-label="Вкладки раздела" className="flex gap-1 overflow-x-auto border-b border-slate-200" >
       {tabs.map((tab) => (
