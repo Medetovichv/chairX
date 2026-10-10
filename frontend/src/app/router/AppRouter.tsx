@@ -7,6 +7,8 @@ import { DailyClosingPage } from '../../pages/DailyClosingPage';
 import { ForbiddenPage } from '../../pages/ForbiddenPage';
 import { LoginPage, safeRedirect } from '../../pages/LoginPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
+import { CatalogPage } from '../../features/catalog/pages/CatalogPage';
+import { ProductDetailPage } from '../../features/catalog/pages/ProductDetailPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -20,6 +22,11 @@ function RequireAuthentication() {
     : <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
 }
 
+function CatalogDetailGate() {
+  const { hasPermission } = useAuth();
+  return hasPermission('CATALOG_READ') ? <ProductDetailPage /> : <ForbiddenPage />;
+}
+
 function ProtectedSection({ path }: { path: string }) {
   const { hasPermission } = useAuth();
   const route = routeDefinitions.find((item) => item.path === path);
@@ -28,10 +35,11 @@ function ProtectedSection({ path }: { path: string }) {
     const target = firstAccessiblePath(path, hasPermission);
     if (!target) return <ForbiddenPage />;
     if (target !== path) return <Navigate to={target} replace />;
-    if (path === '/admin') return <ForbiddenPage />; // admin always resolves to a child
+    if (path === '/admin') return <ForbiddenPage />;
   } else if (!hasRoutePermission(route.permissions, hasPermission)) {
     return <ForbiddenPage />;
   }
+  if (path === '/catalog') return <CatalogPage />;
   return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
 
@@ -52,6 +60,7 @@ export function AppRouter() {
           {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
+          <Route path="catalog/:productId" element={<CatalogDetailGate />} />
           {Object.entries(legacyRedirects).map(([oldPath, target]) => (
             <Route key={oldPath} path={oldPath.slice(1)} element={<Navigate to={target} replace />} />
           ))}
@@ -62,6 +71,4 @@ export function AppRouter() {
   );
 }
 
-// Keep navigationItems imported at this boundary to make the 11 top-level
-// sections a reviewable contract for F02.1 and later business packages.
 export const mainMenuPaths = navigationItems.map((item) => item.path);

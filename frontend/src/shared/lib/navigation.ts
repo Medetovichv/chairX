@@ -19,8 +19,6 @@ export interface NavigationItem extends RouteMeta {
   group: NavigationGroup;
 }
 
-// Single source of truth for links, route authorization, subnav and breadcrumbs.
-// Parent permissions are the union of the independent backend read permissions.
 export const navigationItems: readonly NavigationItem[] = [
   { path: '/', label: 'Главная', icon: House, group: 'Обзор', permissions: [] },
   { path: '/sales', label: 'Продажи', icon: ShoppingCart, group: 'Ежедневная работа', permissions: ['SALES_READ'] },
@@ -35,8 +33,6 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: '/admin', label: 'Администрирование', icon: Settings2, group: 'Система', permissions: ['USERS_READ', 'ROLES_READ'] },
 ];
 
-// The parent URL is a real page only where its own permission permits it.
-// Purchase receiving intentionally requires INVENTORY_RECEIVE, not PURCHASE_READ.
 export const childRoutes: readonly RouteMeta[] = [
   { path: '/purchases/receipts', parent: '/purchases', label: 'Поступления', permissions: ['INVENTORY_RECEIVE'] },
   { path: '/purchases/payments', parent: '/purchases', label: 'Оплаты', permissions: ['PURCHASE_PAYMENTS_READ'] },
@@ -49,8 +45,8 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
 ];
 
+const catalogDetail: RouteMeta = { path: '/catalog/:productId', label: 'Карточка модели', parent: '/catalog', permissions: ['CATALOG_READ'] };
 export const routeDefinitions: readonly RouteMeta[] = [...navigationItems, ...childRoutes];
-
 export const navigationGroups = (['Обзор', 'Ежедневная работа', 'Управление', 'Система'] as const)
   .map((title) => ({ title, items: navigationItems.filter((item) => item.group === title) }));
 
@@ -62,6 +58,7 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 };
 
 export function routeFor(path: string): RouteMeta | undefined {
+  if (/^\/catalog\/[^/]+$/.test(path)) return { ...catalogDetail, path };
   return routeDefinitions.find((route) => route.path === path);
 }
 
@@ -80,7 +77,6 @@ export function isNavigationAllowed(item: NavigationItem, hasAnyPermission: (per
 export function firstAccessiblePath(parent: string, hasPermission: (code: string) => boolean): string | null {
   const route = routeFor(parent);
   if (!route) return null;
-  // /admin has no standalone overview; /returns, /purchases and /finance do.
   const direct = parent === '/admin' ? [] :
     parent === '/purchases' ? ['PURCHASE_READ'] :
     parent === '/returns' ? ['RETURNS_READ'] :
@@ -101,5 +97,4 @@ export function routeLabel(pathname: string): string {
   return routeFor(pathname)?.label ?? 'Страница не найдена';
 }
 
-// Icons are attached only to actual sidebar items; nested routes have their own labels.
 export const nestedRouteIcons = { suppliers: Handshake, expenses: ReceiptText, exchanges: ArrowLeftRight, defects: BadgeAlert };
