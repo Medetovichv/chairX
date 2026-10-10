@@ -9,12 +9,14 @@ import { ApiClientError,userFacingApiError } from '../../../shared/api/api-error
 import { defectsApi,returnKeys } from '../api';
 import { positive,validateDefect } from '../validation';
 import type { OpenDefectInput } from '../types';
+import {persistPending,readPending,clearPending} from '../pending-operation';
 export function DefectForm({onCreated}:{onCreated:()=>void}){
- const {hasPermission}=useAuth(),client=useQueryClient();
+ const {hasPermission,user}=useAuth(),client=useQueryClient();
  const [warehouseId,setWarehouseId]=useState(''),[variantId,setVariantId]=useState('');
  const [supplierId,setSupplierId]=useState(''),[receiptId,setReceiptId]=useState('');
  const [count,setCount]=useState('1'),[description,setDescription]=useState('');
- const [error,setError]=useState(''),[blocked,setBlocked]=useState(false);
+ const [error,setError]=useState('');
+ const [blocked,setBlocked]=useState(()=>readPending(user?.id,'defect').kind!=='missing');
  const busy=useRef(false);
  const allowed=hasPermission('DEFECTS_MANAGE'),warehouseRead=hasPermission('INVENTORY_READ');
  const warehouses=useQuery({queryKey:inventoryKeys.warehouses,queryFn:inventoryApi.warehouses,enabled:allowed&&warehouseRead});
@@ -25,11 +27,15 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
     quantity:Number(count),description:description.trim()};
   const problem=validateDefect(data);
   if(problem||!positive(count)){setError(problem||'Количество некорректно.');return;}
-  // There is no idempotency key on POST /api/defects. Persist safe identifier
-  // before submission; after ambiguous outcome lock the form, never auto-replay.
+  // POST /api/defects has no idempotencyKey: store a safe marker before POST.
+  // On ambiguous outcomes never retry with a new request.
+  if(!user?.id||!persistPending(user.id,'defect',crypto.randomUUID(),data.productVariantId)){
+    setBlocked(true);setError('Не удалось записать операцию в хранилище. POST не отправлен.');return;
+  }
   busy.current=true;setError('');
   try{
    const result=await defectsApi.open(data);
+   if(!clearPending(user.id,'defect')){setBlocked(true);setError('Дефект создан, но ключ восстановления не удалось очистить.');}
    await Promise.all([
     client.invalidateQueries({queryKey:returnKeys.defects}),
     client.invalidateQueries({queryKey:inventoryKeys.overviewPrefix}),
@@ -41,7 +47,7 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
    if(!(cause instanceof ApiClientError)||cause.kind!=='http'||cause.status===undefined||cause.status>=500||cause.status===409){
     setBlocked(true);
     setError('Результат регистрации брака неизвестен. Не создавайте повторную блокировку. Проверьте список дефектов.');
-   }
+   }else if(!clearPending(user.id,'defect'))setBlocked(true);
   }finally{busy.current=false;}
  }
  if(!allowed)return null;
@@ -72,6 +78,7 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
    <Input aria-label="UUID поступления брака" value={receiptId} disabled={blocked} onChange={e=>setReceiptId(e.target.value)}/>
   </label>
   <p className="text-xs text-slate-600">Если происхождение неизвестно, оставьте оба поля пустыми. RETURN BLOCKED уже блокирует товар — не открывайте повторный Defect на те же единицы.</p>
+  {blocked&&<p className="rounded-xl bg-amber-50 p-3 text-sm">Повторная регистрация заблокирована до ручной сверки с backend. Перезагрузка страницы не сбрасывает запись в текущей вкладке.</p>}
   {error&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm">{error}</p>}
   <Button disabled={blocked} type="submit">Зарегистрировать брак</Button>
  </form>;
