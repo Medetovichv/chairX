@@ -48,6 +48,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(new BigDecimal("2000"));
 
+        when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("30000"));
 
@@ -76,6 +77,7 @@ class CashFlowServiceTests {
         when(repository.refunds(FROM, TO)).thenReturn(new BigDecimal("3000"));
         when(repository.exchangePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.exchangeRefunds(FROM, TO)).thenReturn(BigDecimal.ZERO);
+        when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO)).thenReturn(new BigDecimal("2000"));
 
         var result = service.summary(FROM, TO);
@@ -104,6 +106,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
+        when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
 
@@ -129,6 +132,7 @@ class CashFlowServiceTests {
         when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
+        when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
