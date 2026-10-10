@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "return-api-tester")
+@WithMockUser(username = "return-api-tester", authorities = {"RETURNS_READ","RETURNS_CREATE"})
 class ReturnApiTests {
 
     @Autowired
