@@ -390,9 +390,9 @@ class ExpenseTests {
                 VALUES (?, 'OTHER', 100, 'CASH', ?, 'legacy', now())
                 """, id, java.sql.Date.valueOf(OCTOBER_1));
         assertThat(expenses.get(id).amount()).isEqualByComparingTo("100");
-        assertThat(jdbc.queryForObject(
-                "SELECT idempotency_key FROM expenses WHERE id=?",
-                (rs, row) -> rs.getObject(1), id)).isNull();
+        UUID historicalKey = jdbc.queryForObject(
+                "SELECT idempotency_key FROM expenses WHERE id=?", UUID.class, id);
+        assertThat(historicalKey).isNull();
     }
 
 
