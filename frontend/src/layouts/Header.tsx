@@ -1,6 +1,7 @@
-import { Menu, MapPin } from 'lucide-react';
+import { LogOut, Menu } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { useAuth } from '../features/auth/AuthProvider';
 import { Button } from '../shared/ui/button';
-import { formatBusinessDate } from '../shared/lib/format';
 
 interface HeaderProps {
   title: string;
@@ -8,6 +9,12 @@ interface HeaderProps {
 }
 
 export function Header({ title, onOpenMenu }: HeaderProps) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  function onLogout() {
+    logout();
+    navigate('/login', { replace: true });
+  }
   return (
     <header className="sticky top-0 z-30 flex min-h-18 items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-sm sm:px-7 lg:px-10">
       <div className="flex min-w-0 items-center gap-3">
@@ -26,11 +33,18 @@ export function Header({ title, onOpenMenu }: HeaderProps) {
           <h1 className="truncate text-lg font-bold tracking-tight text-slate-900 sm:text-xl">{title}</h1>
         </div>
       </div>
-      <div className="hidden shrink-0 items-center gap-2 text-xs text-slate-500 md:flex">
-        <MapPin className="size-4 text-slate-400" aria-hidden="true" />
-        <span>Бишкек · {formatBusinessDate(new Date())}</span>
+      <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3">
+        <div className="hidden min-w-0 text-right sm:block">
+          <p className="max-w-40 truncate text-sm font-semibold text-slate-800">{user?.displayName}</p>
+          <p className="max-w-40 truncate text-xs text-slate-500">
+            {user?.username} · {user?.roles.join(', ')}
+          </p>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onLogout} aria-label="Выйти из ChairX">
+          <LogOut className="size-4" aria-hidden="true" />
+          <span className="hidden sm:inline">Выйти</span>
+        </Button>
       </div>
     </header>
   );
 }
-
