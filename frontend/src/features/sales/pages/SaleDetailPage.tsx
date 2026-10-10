@@ -16,10 +16,40 @@ import { salesApi, salesKeys } from '../api';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { inventoryKeys } from '../../inventory/api';
-import { fulfillmentNames, money, saleDate, uuidValid } from '../validation';
+import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import type { DraftInput, SaleResponse, SaleSummary } from '../types';
 
 type Action='confirm'|'fulfill'|'cancel';
+
+/** Reject a stale irreversible-action confirmation before posting.
+ * Backend still enforces final business rules under a database row lock.
+ */
+function sameSaleForAction(displayed:SaleResponse,current:SaleResponse):boolean {
+  if(displayed.id!==current.id||displayed.status!==current.status||
+    displayed.customerId!==current.customerId||
+    displayed.fulfillmentType!==current.fulfillmentType||
+    displayed.comment!==current.comment||
+    integerSom(displayed.total)!==integerSom(current.total)||
+    displayed.items.length!==current.items.length)return false;
+  const lines=(s:SaleResponse)=>s.items.map(i=>
+    [i.id,i.warehouseId,i.productVariantId,String(i.quantity),
+      integerSom(i.unitSalePrice)??'invalid'].join('|')).sort();
+  return JSON.stringify(lines(displayed))===JSON.stringify(lines(current));
+}
+
+/** Checks whether an uncertain PUT actually wrote the submitted draft. */
+function draftMatchesServer(input:DraftInput,current:SaleResponse):boolean {
+  if(current.status!=='DRAFT'||input.customerId!==current.customerId||
+    input.fulfillmentType!==current.fulfillmentType||
+    (input.comment??'')!==(current.comment??'')||
+    input.items.length!==current.items.length)return false;
+  const expected=input.items.map(i=>[i.productVariantId,i.warehouseId,
+    String(i.quantity),integerSom(i.unitSalePrice)??'invalid'].join('|')).sort();
+  const actual=current.items.map(i=>[i.productVariantId,i.warehouseId,
+    String(i.quantity),integerSom(i.unitSalePrice)??'invalid'].join('|')).sort();
+  return JSON.stringify(expected)===JSON.stringify(actual);
+}
+
 function ItemLine({item}: {item:SaleResponse['items'][number]}) {
   const {hasPermission}=useAuth();
   const variant=useQuery({
@@ -56,6 +86,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [error,setError]=useState('');
   const [editing,setEditing]=useState(false);
   const [draftUncertain,setDraftUncertain]=useState(false);
+  const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
   const [unknownAction,setUnknownAction]=useState<Action|null>(null);
   const [busy,setBusy]=useState(false);
@@ -85,9 +116,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     ]);
   }
   async function update(input:DraftInput) {
+    setSubmittedDraft(input);
     const next=await salesApi.updateDraft(sale.id,input);
     await changed(next);
-    setEditing(false);setDraftUncertain(false);setError('');setNotice('Черновик обновлён.');
+    setEditing(false);setDraftUncertain(false);setSubmittedDraft(null);
+    setError('');setNotice('Черновик обновлён.');
   }
   async function saveDraft(input:DraftInput) {
     if(running.current||draftUncertain)throw new ApiClientError('http','DRAFT_RESULT_UNKNOWN',409);
@@ -95,6 +128,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     try{await update(input);}catch(cause){
       if(!(cause instanceof ApiClientError)||cause.kind!=='http'||(cause.status??500)>=500){
         setDraftUncertain(true);
+      } else {
+        setSubmittedDraft(null);
+        if(cause.status===409)void client.invalidateQueries({queryKey:salesKeys.detail(sale.id)});
       }
       throw cause;
     }finally{running.current=false;}
@@ -103,6 +139,14 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     if(running.current||unknownAction)return;
     running.current=true;setBusy(true);setError('');
     try {
+      // Verify what the operator is actually approving. Another employee may
+      // have changed a DRAFT or its amount since this card was opened.
+      const fresh=await salesApi.get(sale.id);
+      if(!sameSaleForAction(sale,fresh)){
+        client.setQueryData(salesKeys.detail(sale.id),fresh);
+        setError('Заказ изменён другим сотрудником. Данные и сумма обновлены; проверьте их и подтвердите операцию заново.');
+        return;
+      }
       // A 200 is not assumed until the backend returns an authoritative SaleResponse.
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
         value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id));
@@ -130,8 +174,15 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         setError('Операция пока не подтверждена. Не повторяйте действие без проверки.');
       }
       if(draftUncertain) {
-        setDraftUncertain(false);setEditing(false);
-        setError('Черновик повторно загружен с сервера. Проверьте данные перед новым изменением.');
+        if(submittedDraft&&draftMatchesServer(submittedDraft,result)){
+          setDraftUncertain(false);setEditing(false);setSubmittedDraft(null);
+          setNotice('Проверено: сервер сохранил изменения черновика.');
+          setError('');
+        }else{
+          // Keep the locally entered fields visible and locked. Without a
+          // version token the user must explicitly discard or reconcile.
+          setError('Сервер не подтвердил сохранение введённых изменений. Локальные поля сохранены; не отправляйте повторный PUT. При необходимости перепроверьте заказ и явно откажитесь от локальной версии.');
+        }
       }
     }catch(cause){setError(userFacingApiError(cause));}
     finally{setBusy(false);}
@@ -146,6 +197,12 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       <p>Результат операции неизвестен. Возможна запись изменений на сервере.</p>
       <Button type="button" disabled={busy} onClick={()=>void checkStatus()}>
         Проверить актуальный статус</Button>
+      {draftUncertain&&<Button type="button" variant="outline" disabled={busy}
+        onClick={()=>{
+          setDraftUncertain(false);setSubmittedDraft(null);setEditing(false);
+          setError('Локальные изменения отброшены по вашему решению. Загружена версия сервера.');
+          void client.invalidateQueries({queryKey:salesKeys.detail(sale.id)});
+        }}>Отказаться от локальных правок и загрузить версию сервера</Button>}
     </div>}
     <div className="flex flex-wrap gap-2">
       {canManageDraft&&!unknownAction&&!draftUncertain&&
