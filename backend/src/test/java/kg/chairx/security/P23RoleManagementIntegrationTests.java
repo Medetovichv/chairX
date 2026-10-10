@@ -178,6 +178,9 @@ class P23RoleManagementIntegrationTests {
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/purchases").with(httpBasic(staff.username(),PASSWORD)))
                 .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/roles/"+id).with(httpBasic(admin.username(),PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedUsersCount").value(1));
         mvc.perform(get("/api/auth/me").with(httpBasic(staff.username(),PASSWORD)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.permissions").isArray());
@@ -186,6 +189,9 @@ class P23RoleManagementIntegrationTests {
                 .andExpect(status().isNoContent());
         mvc.perform(get("/api/purchases").with(httpBasic(staff.username(),PASSWORD)))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/roles/"+id).with(httpBasic(admin.username(),PASSWORD)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assignedUsersCount").value(0));
     }
 
     @Test void saleReadAndDraftPermissionsHaveNoFinanceOrFulfillmentGrants() throws Exception {
@@ -295,8 +301,112 @@ class P23RoleManagementIntegrationTests {
                         "SELECT system_role FROM security_roles WHERE id=?",Boolean.class,id))
                         .isTrue();
             } finally {
-                jdbc.update("UPDATE security_roles SET name=? WHERE id=?",original,id);
+                jdbc.update("UPDATE security_roles SET name=?, version=? WHERE id=?",original,version,id);
             }
+        }
+    }
+
+
+    @Test void duplicateRoleCodeAndBadPermissionsNeverPersistPartialChanges() throws Exception {
+        User admin=user(ADMIN);
+        String valid="""
+                {"code":"P23_UNIQUE","name":"Unique role","permissions":["SALES_READ"]}
+                """;
+        mvc.perform(post("/api/admin/roles")
+                        .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(valid))
+                .andExpect(status().isCreated());
+        mvc.perform(post("/api/admin/roles")
+                        .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(valid))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM security_roles WHERE code='P23_UNIQUE'",Long.class))
+                .isEqualTo(1);
+        for (String invalid : new String[]{
+                "UNKNOWN_PERMISSION", "ADMIN_ACCESS", "CATALOG_ACCESS"}) {
+            mvc.perform(post("/api/admin/roles")
+                            .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"code":"P23_INVALID","name":"Forbidden","permissions":["%s"]}
+                                    """.formatted(invalid)))
+                    .andExpect(status().isBadRequest());
+        }
+        mvc.perform(post("/api/admin/roles")
+                        .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"P23_INVALID","name":"Duplicates",
+                                 "permissions":["SALES_READ","SALES_READ"]}
+                                """))
+                .andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM security_roles WHERE code='P23_INVALID'",Long.class))
+                .isZero();
+    }
+
+    @Test void concurrentRoleUpdatesWithSameExpectedVersionRejectSecondWriter() throws Exception {
+        User admin=user(ADMIN);
+        var created=mvc.perform(post("/api/admin/roles")
+                        .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code":"P23_CONCURRENT","name":"Original",
+                                 "permissions":["SALES_READ"]}
+                                """))
+                .andExpect(status().isCreated()).andReturn();
+        String location=created.getResponse().getHeader("Location");
+        UUID role=UUID.fromString(location.substring(location.lastIndexOf('/')+1));
+        var executor=java.util.concurrent.Executors.newFixedThreadPool(2);
+        var ready=new java.util.concurrent.CountDownLatch(2);
+        var go=new java.util.concurrent.CountDownLatch(1);
+        try {
+            java.util.concurrent.Callable<Integer> first=() -> {
+                ready.countDown();
+                if (!go.await(15,java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Concurrent test did not start");
+                }
+                return mvc.perform(put("/api/admin/roles/"+role)
+                                .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"name":"First editor","permissions":["SALES_READ"],
+                                         "expectedVersion":0,"reason":"First simultaneous edit"}
+                                        """))
+                        .andReturn().getResponse().getStatus();
+            };
+            java.util.concurrent.Callable<Integer> second=() -> {
+                ready.countDown();
+                if (!go.await(15,java.util.concurrent.TimeUnit.SECONDS)) {
+                    throw new IllegalStateException("Concurrent test did not start");
+                }
+                return mvc.perform(put("/api/admin/roles/"+role)
+                                .with(httpBasic(admin.username(),PASSWORD)).with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                        {"name":"Second editor","permissions":["INVENTORY_READ"],
+                                         "expectedVersion":0,"reason":"Second simultaneous edit"}
+                                        """))
+                        .andReturn().getResponse().getStatus();
+            };
+            var left=executor.submit(first);
+            var right=executor.submit(second);
+            assertThat(ready.await(15,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            go.countDown();
+            assertThat(java.util.List.of(left.get(30,java.util.concurrent.TimeUnit.SECONDS),
+                            right.get(30,java.util.concurrent.TimeUnit.SECONDS)))
+                    .containsExactlyInAnyOrder(200,409);
+            assertThat(jdbc.queryForObject(
+                    "SELECT version FROM security_roles WHERE id=?",Long.class,role))
+                    .isEqualTo(1);
+            assertThat(jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM security_audit_log "
+                    +"WHERE target_id=? AND action='ROLE_UPDATED'",Long.class,role))
+                    .isEqualTo(1);
+        } finally {
+            go.countDown();
+            executor.shutdownNow();
         }
     }
 
