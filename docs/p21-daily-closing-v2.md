@@ -21,7 +21,7 @@ Status: **partially implemented, not runtime-verified — do not merge**. Source
 4. Before enabling historical calculations, add a stable effective `business_date` for journal entries while retaining immutable `created_at`. **Legacy rows must not be silently relabeled as historically accurate.** Reconcile account balances and per-document postings before trusting backwards replay. Discrepancies must fail clearly.
 5. Expected closing balance for date D = reconciled current account balance minus journal amounts with `business_date > D`; under this algorithm, opening balances are represented by journal movements and missing postings are detected.
 6. Historical expense correction creates an actual expense via existing `ExpenseService` plus exactly one posting, never an adjustment inferred from a discrepancy. An account can change only in the current open financial day.
-7. **Safe MVP rule for later closed reports:** if there is any already-closed business date after the corrected date, reject the historical posting with a specific conflict rather than silently rewriting later immutable snapshots. A later revisioned-corrections process can relax this only after implementing transactional revisions and audit.
+7. **P21-I revision strategy:** preserve original daily-closing account snapshots and use a separate `finance_daily_closing_adjustments` table for updated expectations. A legitimate late expense atomically recalculates all later closed reports and audits before/after states. Newly introduced differences are exposed as `requiresReview`, not silently rewritten away.
 8. Mutating reports requires row locking and an audit entry recording old and new values and reason; do not reopen or duplicate a `CLOSED` report. Authorization and the expiry must be rechecked under lock.
 9. Add route-specific DB permissions for reading, writing, unlocking (manager/admin), expense correction and audit. Technical `catalog` has no financial permission; preserve Basic Auth and CSRF.
 10. Introduce focused integration tests with fixed time and PostgreSQL 17 Testcontainers, then business E2E, concurrency, migrations upgrade and full `mvn clean verify`.
@@ -34,7 +34,7 @@ Status: **partially implemented, not runtime-verified — do not merge**. Source
 - A late valid expense affects the dated expected balance, not physical posting timestamp. Idempotent retries do not double-debit.
 - Closing yesterday after today's new payment must use yesterday's end-of-day balance, never today's.
 - Current closed day remains financially sealed even if another report is temporarily unlocked.
-- Closed later reports cannot be made inconsistent. Reject if safe automatic correction is not yet available.
+- Closed later reports must retain original snapshots and receive audited, versioned updated expectations in the SAME transaction as the corrected expense; roll back all changes on any failure.
 - REST negative tests must verify both HTTP errors and **zero persisted side effects**.
 - Before merge: all existing and new tests, clean and migration-upgrade PostgreSQL, reconciled legacy data, production-ready diagnostics, and security review. Never claim `BUILD SUCCESS` without executing Maven.
 
@@ -55,7 +55,7 @@ P21-A baseline analysis (this file); P21-B deterministic policy; P21-C unlock pe
 - Creating a yesterday report uses the reconstructed balance, while today still uses the live balance. No shortage/surplus auto posting.
 - Report update is versioned, requires reason and scoped access, records before/after audit, and leaves account balances unchanged.
 - Controlled correction reuses expense idempotency and journal posting; balances and report recomputation share the transaction.
-- Correction is conservatively rejected when a *later* business date has already been closed; the current-day global money lock remains in force.
+- P21-I now recalculates later closed reports atomically using V45 while retaining the original snapshots and reporting both original and effective values. The current-day global money lock remains in force.
 - REST endpoints: `GET /api/finance/closings/{date}/preview`, `/access`, `/history`, `PUT /api/finance/closings/{date}`, `POST /api/finance/closings/{date}/unlock`, `/lock`, `/expenses`.
 - Existing `FINANCE_READ` and `FINANCE_CLOSE` paths retain backward-compatible authorization. Added negative PostgreSQL/HTTP-Basic integration checks for unlock, edit, revision conflict, revoke, and catalog denial.
 
@@ -67,16 +67,35 @@ A zero or nonzero discrepancy is never a reason to change `finance_accounts.bala
 `POST /api/finance/closings/{date}/unlock` takes only `{"reason":"..."}`; expiry cannot be client-selected.
 `POST /api/finance/closings/{date}/expenses` uses the existing `CreateExpenseRequest` contract with an idempotency key, and `expenseDate` must equal URL date.
 
+### P21-I historical-revision model (V45)
+
+* `finance_daily_closing_accounts.expected_balance` and its stored generated `difference` remain the **original signed-at-closing snapshot**.
+* `finance_daily_closing_adjustments.expected_balance` contains the **latest recalculated journal expectation**, keyed by report and account. It is not a second posting and does not update CASH/BANK balances.
+* The `GET /api/finance/closings/{date}` response returns `cash.expected`/`bank.expected` as the effective recalculated amounts and `difference = actual - effectiveExpected`. It also includes `originalExpected`, `recalculated`, and `requiresReview` per account. UI should label the initial and recalculated expectations clearly.
+* Original `actual` and `note` observations are never silently changed. If a historical posting introduces a mismatch in a later report, `requiresReview=true` signals that staff must reconcile it. The original note may need to be kept until the original snapshot remains valid.
+* A correction for day D locks BANK and CASH, then date-specific rows in ascending date order, updates all closed reports with `businessDate >= D`, increments each changed report version, and records `REPORT_EXPENSE_CORRECTED` (D) or `REPORT_EXPECTED_RECALCULATED` (later reports). All occurs within the same transaction as expense + journal + live balance.
+* A correction remains blocked if the *current physical posting day* is already financially closed; a historical report unlock never disables that global protection.
+* The audit trail allows viewing before/after effective and original values. Repeating an expense request with its original idempotency key cannot create another movement.
+* V45 does **not** modify older Flyway scripts and the adjustment table is cascade-cleaned with its original report account, supporting test fixture teardown and preserving all old data on upgrade.
+
 ### Not yet validated / completion blockers
 
-This branch has **not** passed `mvn clean verify`. The present execution environment has no Maven and runs Java 21, while the project requires Java 25. The staged changes therefore require local compilation and real PostgreSQL 17 Testcontainers tests, including existing P16–P20 regression tests.
+The user reported that an earlier version of P21 passed `mvn clean verify`; **the additional P21-H/P21-I commits in this branch have not been runtime-verified since that successful run**. Repeat the complete test suite under Java 25, Docker and PostgreSQL 17 Testcontainers.
 
 Mandatory follow-up before acceptance:
 1. Perform `cd backend && mvn clean verify` under Java 25 and Docker-enabled Testcontainers.
-2. Exercise Flyway V41–V44 on a clean and existing database snapshot; check migrations and financial balances, especially previously backdated expenses.
-3. Extend integration tests for late expense reconciliation (full and partial shortages), idempotency replay/conflicts, rollback on insufficient funds, and no later-closed-day correction.
-4. Add real concurrent access, late expense versus closing, and expiry-during-write tests.
+2. Exercise Flyway V41–V45 on a clean and existing database snapshot; check migrations and financial balances, especially previously backdated expenses.
+3. Run and expand the new integration tests for late expense reconciliation (full/partial shortages), idempotency replay/conflicts, rollback on insufficient funds, and audited recalculation of later-closed days.
+4. Run the new concurrent identical-expense and simultaneous-report-edit tests, and add coordinated late-expense-versus-closing and expiry-during-write transaction tests.
 5. Run the full purchase/inventory/FIFO/sales/delivery/return/refund/closing end-to-end business scenario, with DB assertions.
 6. Verify production permission matrix, upgrade strategy, CSRF, and REST error contracts.
 
 Until those gates pass, this is **work in progress**, not Package 21 acceptance. No merge to `main` should take place.
+
+
+### P21-H/P21-I new test classes
+
+- `DailyClosingCorrectionIntegrationTest`: PostgreSQL business-date transfer replay, full and partial shortage correction, exactly-once idempotency (including concurrent requests), rollback on insufficient money, preservation of signed snapshots and audited recalculation of later closed reports, concurrent versioned edits.
+- `DailyClosingBoundaryIntegrationTest`: fixed Clock with real HTTP Basic employees, 12:59:59 vs 13:00:00 boundary, 59:59 vs 60:00 expiry, manager day-five cutoff and day-six administrator grant.
+
+These tests have been **committed, not reported as passing**. No merge before an actual `mvn clean verify` after P21-I.
