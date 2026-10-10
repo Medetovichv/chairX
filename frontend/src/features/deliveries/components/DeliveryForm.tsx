@@ -37,8 +37,10 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
     queryFn:()=>salesApi.get(saleId),
     enabled:canReadSales&&validUUID(saleId),
   });
-  const eligibility=canReadSales&&validUUID(saleId)&&sale.data?
-    sale.data.status==='CONFIRMED'&&
+  // With SALES_READ, do not permit POST until actual sale eligibility is proven.
+  // Without SALES_READ we cannot call the endpoint; backend remains authority.
+  const eligibility=canReadSales?
+    validUUID(saleId)&&sale.isSuccess&&sale.data.status==='CONFIRMED'&&
     (sale.data.fulfillmentType==='CITY_DELIVERY'||sale.data.fulfillmentType==='REGION_DELIVERY'):true;
   async function submit(event:FormEvent){
     event.preventDefault();
