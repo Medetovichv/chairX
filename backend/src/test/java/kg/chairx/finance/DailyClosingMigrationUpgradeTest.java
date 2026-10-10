@@ -73,16 +73,18 @@ class DailyClosingMigrationUpgradeTest {
             assertThat(jdbc.queryForObject("""
                     SELECT balance FROM %s.finance_accounts WHERE code='CASH'
                     """.formatted(schema), BigDecimal.class)).isEqualByComparingTo("25000");
-            assertThat(jdbc.queryForObject("""
+            LocalDate migratedBusinessDate = jdbc.queryForObject("""
                     SELECT business_date FROM %s.finance_movements WHERE id=?
-                    """.formatted(schema), (rs, row) -> rs.getDate(1).toLocalDate(), movement)).isEqualTo(day);
+                    """.formatted(schema), (rs, row) -> rs.getDate(1).toLocalDate(), movement);
+            assertThat(migratedBusinessDate).isEqualTo(day);
             assertThat(jdbc.queryForObject("""
                     SELECT business_date_source FROM %s.finance_movements WHERE id=?
                     """.formatted(schema), String.class, movement)).isEqualTo("LEGACY_INFERRED");
-            assertThat(jdbc.queryForObject("""
+            LocalDate originalPostingDate = jdbc.queryForObject("""
                     SELECT (created_at AT TIME ZONE 'Asia/Bishkek')::date
                     FROM %s.finance_movements WHERE id=?
-                    """.formatted(schema), LocalDate.class, movement)).isEqualTo(day);
+                    """.formatted(schema), (rs, row) -> rs.getDate(1).toLocalDate(), movement);
+            assertThat(originalPostingDate).isEqualTo(day);
             assertThat(jdbc.queryForObject("""
                     SELECT version FROM %s.finance_daily_closings WHERE id=?
                     """.formatted(schema), Long.class, closing)).isZero();
