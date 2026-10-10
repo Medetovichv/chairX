@@ -21,6 +21,12 @@ public record SaleResponse(
         String fulfilledBy,
         Instant fulfilledAt,
         String cancelledBy,
-        Instant cancelledAt
+        Instant cancelledAt,
+        String comment
 ) {
+
+    public SaleResponse(UUID id, String saleNumber, UUID customerId, FulfillmentType fulfillmentType, SaleStatus status, List<SaleItemResponse> items, BigDecimal total, String createdBy, Instant createdAt, String fulfilledBy, Instant fulfilledAt, String cancelledBy, Instant cancelledAt) {
+        this(id, saleNumber, customerId, fulfillmentType, status, items, total, createdBy, createdAt, fulfilledBy, fulfilledAt, cancelledBy, cancelledAt, null);
+    }
+
 }

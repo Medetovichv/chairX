@@ -35,7 +35,8 @@ final class SaleMapper {
                 sale.fulfilledBy(),
                 sale.fulfilledAt(),
                 sale.cancelledBy(),
-                sale.cancelledAt()
+                sale.cancelledAt(),
+                sale.comment()
         );
     }
 }

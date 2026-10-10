@@ -81,6 +81,25 @@ public class SaleRequestFingerprint {
         }
     }
 
+    /** Dedicated immutable fingerprint for an initial draft submission. */
+    public String fingerprintDraft(kg.chairx.sale.api.CreateDraftSaleRequest request) {
+        String payload = mapper.writeValueAsString(
+                new DraftContent(request.customerId(), request.fulfillmentType(),
+                        request.items() == null ? List.of() : request.items(), request.comment()));
+        try {
+            return HexFormat.of().formatHex(
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(payload.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 unavailable", exception);
+        }
+    }
+
+    private record DraftContent(UUID customerId, FulfillmentType fulfillmentType,
+                                List<kg.chairx.sale.api.CreateSaleItemRequest> items,
+                                String comment) {
+    }
+
     private BigDecimal normalizeMoney(
             BigDecimal value
     ) {

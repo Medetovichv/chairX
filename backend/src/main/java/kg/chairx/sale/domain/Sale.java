@@ -17,8 +17,14 @@ public record Sale(
         String fulfilledBy,
         Instant fulfilledAt,
         String cancelledBy,
-        Instant cancelledAt
+        Instant cancelledAt,
+        String comment
 ) {
+
+    public Sale(UUID id, String saleNumber, UUID customerId, FulfillmentType fulfillmentType, SaleStatus status, List<SaleItem> items, String createdBy, Instant createdAt, String fulfilledBy, Instant fulfilledAt, String cancelledBy, Instant cancelledAt) {
+        this(id, saleNumber, customerId, fulfillmentType, status, items, createdBy, createdAt, fulfilledBy, fulfilledAt, cancelledBy, cancelledAt, null);
+    }
+
 
     public Sale {
         if (id == null) {
@@ -33,7 +39,8 @@ public record Sale(
             );
         }
 
-        if (fulfillmentType == null) {
+        if (fulfillmentType == null && status != SaleStatus.DRAFT
+                && status != SaleStatus.CANCELLED) {
             throw new IllegalArgumentException(
                     "Способ получения обязателен"
             );
@@ -123,7 +130,8 @@ public record Sale(
                 normalizedActor,
                 time,
                 null,
-                null
+                null,
+                comment
         );
     }
 
@@ -131,9 +139,9 @@ public record Sale(
             String actor,
             Instant time
     ) {
-        if (!confirmed()) {
+        if (!confirmed() && status != SaleStatus.DRAFT) {
             throw new IllegalStateException(
-                    "Отменить можно только подтверждённую продажу"
+                    "Отменить можно только черновик или подтверждённую продажу"
             );
         }
 
@@ -157,7 +165,8 @@ public record Sale(
                 null,
                 null,
                 normalizedActor,
-                time
+                time,
+                comment
         );
     }
 
@@ -187,6 +196,12 @@ public record Sale(
             Instant cancelledAt
     ) {
         switch (status) {
+            case DRAFT -> {
+                if (fulfilledBy != null || fulfilledAt != null
+                        || cancelledBy != null || cancelledAt != null) {
+                    throw new IllegalArgumentException("Некорректное состояние черновика");
+                }
+            }
             case CONFIRMED -> {
                 if (fulfilledBy != null
                         || fulfilledAt != null
