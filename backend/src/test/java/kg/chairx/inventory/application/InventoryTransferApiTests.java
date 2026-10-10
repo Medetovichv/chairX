@@ -140,6 +140,12 @@ class InventoryTransferApiTests {
         );
     }
 
+    private static void assertCostFreeJson(String json) {
+        assertThat(json).doesNotContain(
+                "\"totalCost\"", "\"unitCost\"", "\"purchasePrice\"",
+                "\"costAllocations\"", "\"allocatedCost\"", "\"purchaseUnitCost\"");
+    }
+
     @Test
     void createsTransferAndRecordsAuthenticatedActor() throws Exception {
         UUID id = UUID.randomUUID();
@@ -153,7 +159,8 @@ class InventoryTransferApiTests {
                         "Location", "/api/inventory/transfers/" + id))
                 .andExpect(jsonPath("$.transferId").value(id.toString()))
                 .andExpect(jsonPath("$.quantity").value(3))
-                .andExpect(jsonPath("$.totalCost").value(300.00))
+                .andExpect(jsonPath("$.totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()))
                 .andExpect(jsonPath("$.outMovementId").isString())
                 .andExpect(jsonPath("$.inMovementId").isString());
 
@@ -164,6 +171,36 @@ class InventoryTransferApiTests {
 
         assertThat(count("inventory_transfers")).isEqualTo(1);
         assertThat(count("inventory_transfer_cost_origins")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COALESCE(SUM(allocated_cost), 0)
+                FROM inventory_cost_allocations a
+                JOIN inventory_transfers t ON a.stock_movement_id=t.out_movement_id
+                WHERE t.id=?
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+        assertThat(jdbc.queryForObject("""
+                SELECT total_cost FROM inventory_cost_layers
+                WHERE source_movement_id = (
+                  SELECT in_movement_id FROM inventory_transfers WHERE id=?
+                )
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+        assertThat(jdbc.queryForObject("""
+                SELECT COALESCE(SUM(amount), 0)
+                FROM inventory_transfer_cost_origins
+                WHERE transfer_id=?
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+    }
+
+    @Test
+    void inventoryReaderCannotPostTransfersEvenWithCsrf() throws Exception {
+        mvc.perform(post("/api/inventory/transfers")
+                        .with(user("read-only-inventory").authorities(
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ")))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(request(UUID.randomUUID(), 1)))
+                .andExpect(status().isForbidden());
+        assertThat(count("inventory_transfers")).isZero();
+        assertThat(count("inventory_transfer_cost_origins")).isZero();
     }
 
     @Test
@@ -244,18 +281,27 @@ class InventoryTransferApiTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.totalCost").value(300.00));
+                .andExpect(jsonPath("$.totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()));
 
         mvc.perform(post("/api/inventory/transfers")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.totalCost").value(300.00));
+                .andExpect(jsonPath("$.totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()));
 
         assertThat(count("inventory_transfers")).isEqualTo(1);
         assertThat(count("stock_movements")).isEqualTo(3);
         assertThat(count("inventory_cost_allocations")).isEqualTo(1);
+        assertThat(count("inventory_transfer_cost_origins")).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COALESCE(SUM(allocated_cost),0)
+                FROM inventory_cost_allocations a
+                JOIN inventory_transfers t ON a.stock_movement_id=t.out_movement_id
+                WHERE t.id=?
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
 
         assertThat(jdbc.queryForObject("""
                 SELECT on_hand FROM inventory_balances
