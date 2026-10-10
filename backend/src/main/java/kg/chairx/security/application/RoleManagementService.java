@@ -77,7 +77,7 @@ public class RoleManagementService {
     @Transactional(readOnly = true)
     public List<PermissionView> permissions(Authentication auth) {
         requireAdmin(auth, "ROLES_READ");
-        return jdbc.sql("SELECT code, description FROM security_permissions ORDER BY code")
+        return jdbc.sql("SELECT code, description FROM security_permissions WHERE code <> 'CATALOG_ACCESS' ORDER BY code")
                 .query((rs, row) -> {
                     String code = rs.getString("code");
                     String group = code.startsWith("DAILY_CLOSING_") ? "DAILY_CLOSING"

@@ -56,6 +56,7 @@ public class SecurityRoleRepository {
                             ON rp.role_id = ur.role_id
                         JOIN security_roles r ON r.id = ur.role_id
                         WHERE ur.user_id = :userId
+                          AND rp.permission_code <> 'CATALOG_ACCESS'
                           AND ((
                               rp.permission_code <> 'ADMIN_ACCESS'
                               AND rp.permission_code <> 'DAILY_CLOSING_UNLOCK_ADMIN'
@@ -117,6 +118,7 @@ public class SecurityRoleRepository {
                     ON rp.role_id = ur.role_id
                 JOIN security_roles r ON r.id = ur.role_id
                 WHERE u.id = :userId
+                  AND rp.permission_code <> 'CATALOG_ACCESS'
                   AND ((
                       rp.permission_code <> 'ADMIN_ACCESS'
                       AND rp.permission_code <> 'DAILY_CLOSING_UNLOCK_ADMIN'
