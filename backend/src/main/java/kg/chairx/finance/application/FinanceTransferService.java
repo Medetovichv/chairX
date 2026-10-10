@@ -107,10 +107,9 @@ public class FinanceTransferService {
 
             if (existing.from() != from
                     || existing.to() != to
-                    || existing.amount().compareTo(amount) != 0
-                    || !existing.actor().equals(actor)) {
+                    || existing.amount().compareTo(amount) != 0) {
 
-                throw new IllegalStateException(
+                throw new FinanceConflictException(
                         "ID перевода уже используется с другими параметрами"
                 );
             }
