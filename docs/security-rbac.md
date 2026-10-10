@@ -154,3 +154,21 @@ without granting `PURCHASE_READ` or exposing procurement prices.
 
 P23 adds `GET /api/admin/audit` for paginated security audit history;
 it is guarded by active system ADMIN membership and `ROLES_READ`.
+
+
+### Receiving response: cost-free warehouse projection (Issue #24)
+
+`POST /api/purchases/{id}/receipts` requires `INVENTORY_RECEIVE`.
+It returns `WarehouseReceiptResponse` containing receipt/purchase/warehouse
+IDs, the original idempotency key, posting timestamp, actor, comment and
+line IDs, variant IDs and quantities. It **never serializes** purchase prices,
+allocated cargo or total costs.
+
+The internal `PurchaseReceiptResponse` retains cost-bearing data for
+FIFO posting and persistence. `GET /api/purchases/{id}/receipts/{receiptId}`
+requires `PURCHASE_READ` and is the only way to retrieve the fully detailed
+financial receipt through these endpoints. Access checks are enforced by the
+backend; frontend field hiding is not a security boundary.
+
+Regression tests check raw POST JSON (including idempotent replay),
+FIFO quantities/cost layers and persisted custom-role restrictions.
