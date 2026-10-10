@@ -42,8 +42,8 @@ export const purchaseApi = {
     '/api/purchases/receiving?' + params({ page, size: PAGE_SIZE })),
   receivingSummary: (purchaseId: string) =>
     apiClient.get<ReceivingSummary>('/api/purchases/' + id(purchaseId) + '/receiving-summary'),
-  // Intentionally discard the receipt JSON: backend currently exposes sensitive
-  // allocatedCargoCost and totalCost to INVENTORY_RECEIVE. Separate server fix required.
+  // Ignore the cost-free warehouse response: inventory state is refreshed from queries.
+  // Backend exposes only WarehouseReceiptResponse to INVENTORY_RECEIVE (Issue #24 fix).
   postReceipt: async (purchaseId: string, request: ReceiptInput): Promise<void> => {
     await apiClient.post<unknown>('/api/purchases/' + id(purchaseId) + '/receipts', request);
   },

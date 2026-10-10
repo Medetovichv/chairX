@@ -120,24 +120,16 @@ Custom role получает доступ по **effective permissions**, а н�
   Не выполняйте новую приёмку до сверки. Устойчивое восстановление потребует
   отдельного серверного API или согласованного механизма и отдельного пакета.
 
-## Критическая backend-уязвимость: P1
+## Исправление Issue #24 — cost-free API приёмки
 
-**Внимание: frontend F06 НЕ устраняет эту уязвимость.**
-В актуальном backend `SecurityConfig` допускает
-`INVENTORY_RECEIVE` на `POST /api/purchases/{id}/receipts`.
-`PurchaseController.receive` возвращает `PurchaseReceiptResponse`,
-где вложенный `PurchaseReceiptItemResponse` содержит
-**`allocatedCargoCost` и `totalCost`**.
-Пользователь складской роли без PURCHASE_READ может получить себестоимость,
-читая **сырой ответ HTTP**, даже если React не показывает эти поля.
-
-Отдельное backend исправление отслеживается в
-[Issue #24](https://github.com/Medetovichv/chairX/issues/24).
-Нужно выдать warehouse-safe DTO ответа без cost и сохранить
-внутренние FIFO/транзакционность/идемпотентность, затем проверить raw JSON
-под ролью только INVENTORY_RECEIVE. F06 преднамеренно принимает
-`POST` response как `unknown`, не выводит поля, но **до backend-fix**
-производственная приёмка ограниченной складской ролью небезопасна.
+Серверное исправление [PR #25](https://github.com/Medetovichv/chairX/pull/25)
+уже находится в `main`. `POST /api/purchases/{id}/receipts` возвращает
+`WarehouseReceiptResponse`, который не содержит закупочные цены,
+распределённое карго или общую себестоимость. Полный финансовый
+`PurchaseReceiptResponse` используется внутри FIFO и доступен только
+через GET, защищённый `PURCHASE_READ`.
+Frontend не делает client-side фильтрацию финансового ответа —
+безопасность реализована на сервере.
 
 ## Поставщики и оплаты
 
@@ -186,5 +178,5 @@ ephemeral test credentials). Фактические результаты про�
 - Названия вариаций в карточке без отдельного разрешённого API не
   гидратируются массовыми запросами; отображаются реальные UUID.
 - После refresh неопределённая приёмка требует ручной сверки.
-- Серверная утечка cost (Issue #24) требует отдельного исправления.
+- Серверная утечка стоимости (Issue #24) устранена отдельным backend PR #25.
 - История выплат read-only; создание выплат — F06.1.

@@ -92,9 +92,8 @@ export function ReceivingForm({ purchaseId, onClose, onPosted }: {
     className="space-y-4 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm sm:p-6">
     <h3 className="text-xl font-bold">Приёмка по закупке</h3>
     <p className="break-all text-xs text-slate-500">Закупка: {purchaseId}</p>
-    <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-      Серверная проблема: API подтверждения поступления возвращает себестоимость кладовщику.
-      Не используйте ограниченную складскую роль в production до backend fix.
+    <p className="text-sm text-slate-600">
+      Данные себестоимости не включаются в ответ приёмки для складской роли.
     </p>
     {!canSeeWarehouses && <p role="alert" className="text-sm text-amber-800">
       Для выбора склада нужно INVENTORY_READ. Права не выдаются автоматически.
