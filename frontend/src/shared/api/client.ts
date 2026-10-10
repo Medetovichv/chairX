@@ -70,6 +70,8 @@ export class ApiClient {
           method,
           headers,
           credentials: options.credentials ?? this.config.credentials ?? 'same-origin',
+          // A redirect must never carry auth/session context off-origin.
+          redirect: 'error',
           body: body === undefined ? undefined : JSON.stringify(body),
         },
       );
@@ -125,7 +127,7 @@ export const apiClient = new ApiClient({
   baseUrl: '',
   credentials: 'same-origin',
   fetchImpl: (input, init) => authSession.fetchTracked(input, init),
-  getAuthHeaders: () => authSession.authHeaders(),
+  getAuthHeaders: () => authSession.requiredAuthHeaders(),
   getCsrfHeaders: () => authSession.csrfHeaders(),
   onUnauthorized: () => authSession.clear(),
 });

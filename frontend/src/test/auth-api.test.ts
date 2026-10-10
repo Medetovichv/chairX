@@ -55,9 +55,9 @@ describe('F02 same-origin HTTP Basic and CSRF API', () => {
     expect(authSession.authHeaders()).toEqual({});
     await expect(apiClient.put('/api/sales/1', { a: 1 }))
       .rejects.toMatchObject({ code: 'CSRF_REQUIRED' });
-    await apiClient.get('/api/sales');
-    const headers = new Headers((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].headers);
-    expect(headers.has('Authorization')).toBe(false);
+    await expect(apiClient.get('/api/sales'))
+      .rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED', status: 401 });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('a 401 clears authenticated session but a 403 does not', async () => {

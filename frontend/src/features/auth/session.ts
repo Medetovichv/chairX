@@ -51,6 +51,15 @@ class InMemoryAuthSession {
     return this.authorization ? { Authorization: this.authorization } : {};
   }
 
+  requiredAuthHeaders(): HeadersInit {
+    if (!this.authorization) {
+      // Do not make even a safe GET after logout: the browser could reuse
+      // its own HTTP Basic cache despite our explicit memory being empty.
+      throw new ApiClientError('http', 'AUTHENTICATION_REQUIRED', 401);
+    }
+    return { Authorization: this.authorization };
+  }
+
   csrfHeaders(): HeadersInit {
     if (!this.authorization || !this.csrf) {
       // F02 business clients must fail closed before an unsafe HTTP request.
