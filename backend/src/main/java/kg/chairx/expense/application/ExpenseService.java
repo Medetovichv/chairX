@@ -35,63 +35,104 @@ public class ExpenseService {
      */
     @Transactional
     public ExpenseResponse create(CreateExpenseRequest request) {
-
-        // Проверяем обязательные поля
-        if (request == null
-                || request.category() == null
-                || request.paymentMethod() == null
+        if (request == null || request.idempotencyKey() == null
+                || request.category() == null || request.paymentMethod() == null
                 || request.expenseDate() == null) {
-
-            throw new ExpenseValidationException(
-                    "Не заполнены обязательные поля расхода"
-            );
+            throw new ExpenseValidationException("Не заполнены обязательные поля расхода");
         }
-
-        // Проверяем сумму расхода
         BigDecimal amount = request.amount();
-
-        if (amount == null
-                || amount.signum() <= 0
+        if (amount == null || amount.signum() <= 0
                 || amount.stripTrailingZeros().scale() > 0) {
-
             throw new ExpenseValidationException(
-                    "Сумма должна быть положительным целым числом сомов"
-            );
+                    "Сумма должна быть положительным целым числом сомов");
+        }
+        String comment = normalizeComment(request.comment());
+        BigDecimal normalizedAmount = amount.setScale(0);
+        String fingerprint = fingerprint(request, normalizedAmount, comment);
+
+        // Safe fast replay path. A closed business day does not prevent reading
+        // an already committed operation. No second financial posting occurs.
+        var existing = repository.findByIdempotencyKey(request.idempotencyKey());
+        if (existing.isPresent()) {
+            return replay(existing.get(), request, normalizedAmount, comment, fingerprint);
         }
 
-        // Нормализуем комментарий
-        String comment = request.comment();
-
-        if (comment != null) {
-            comment = comment.trim();
-
-            if (comment.isEmpty()) {
-                comment = null;
-            } else if (comment.length() > 1000) {
-
-                throw new ExpenseValidationException(
-                        "Комментарий не должен превышать 1000 символов"
-                );
-            }
-        }
-
-        // Создаём расход
         Expense expense = new Expense(
-                UUID.randomUUID(),
-                request.category(),
-                amount.setScale(0),
-                request.paymentMethod(),
-                request.expenseDate(),
-                comment,
-                actor(),
-                Instant.now()
+                UUID.randomUUID(), request.category(), normalizedAmount,
+                request.paymentMethod(), request.expenseDate(), comment,
+                actor(), Instant.now()
         );
 
-        // Сохраняем в PostgreSQL
-        repository.insert(expense);
-        finance.post(expense.paymentMethod().name(), expense.amount().negate(), "EXPENSE", "EXPENSE", expense.id(), expense.createdBy());
+        // Unique index makes concurrent retries wait for the winning
+        // transaction to commit. The losing request never posts money.
+        if (!repository.tryInsert(expense, request.idempotencyKey(), fingerprint)) {
+            Expense committed = repository.findByIdempotencyKey(request.idempotencyKey())
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Ключ расхода занят, но документ не найден"));
+            return replay(committed, request, normalizedAmount, comment, fingerprint);
+        }
+
+        finance.post(expense.paymentMethod().name(), expense.amount().negate(),
+                "EXPENSE", "EXPENSE", expense.id(), expense.createdBy());
 
         return ExpenseResponse.from(expense);
+    }
+
+    private ExpenseResponse replay(
+            Expense previous, CreateExpenseRequest request, BigDecimal amount,
+            String comment, String fingerprint
+    ) {
+        String storedFingerprint = repository.requestFingerprint(previous.id())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Отсутствует fingerprint расхода с ключом"));
+        if (!storedFingerprint.equals(fingerprint)
+                || previous.category() != request.category()
+                || previous.paymentMethod() != request.paymentMethod()
+                || previous.amount().compareTo(amount) != 0
+                || !previous.expenseDate().equals(request.expenseDate())
+                || !java.util.Objects.equals(previous.comment(), comment)) {
+            throw new ExpenseConflictException(
+                    "EXPENSE_IDEMPOTENCY_CONFLICT",
+                    "Ключ операции уже использован для другого расхода");
+        }
+        return ExpenseResponse.from(previous);
+    }
+
+    private static String normalizeComment(String comment) {
+        if (comment == null || comment.isBlank()) {
+            return null;
+        }
+        String value = comment.trim();
+        if (value.length() > 1000) {
+            throw new ExpenseValidationException(
+                    "Комментарий не должен превышать 1000 символов");
+        }
+        return value;
+    }
+
+    /** Length-prefixed fields prevent delimiter and null/empty collisions. */
+    private static String fingerprint(
+            CreateExpenseRequest request, BigDecimal amount, String comment
+    ) {
+        StringBuilder canonical = new StringBuilder();
+        for (String value : new String[]{
+                request.category().name(), amount.toPlainString(),
+                request.paymentMethod().name(), request.expenseDate().toString(),
+                comment
+        }) {
+            if (value == null) {
+                canonical.append("-1:");
+            } else {
+                canonical.append(value.length()).append(':').append(value);
+            }
+        }
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (java.security.NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 недоступен", error);
+        }
     }
 
     /**
