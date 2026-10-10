@@ -13,7 +13,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Independently migrates a disposable schema from V39 to V40. */
+/** Migrates a disposable schema from historical V39 through the latest version. */
 @SpringBootTest(properties={
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -55,7 +55,9 @@ class BusinessRbacMigrationIntegrationTests {
                     VALUES (?,'SALES_READ')
                     """.formatted(schema),customRole);
 
-            assertThat(upgrade.migrate().migrationsExecuted).isEqualTo(1);
+            // V39 -> V40 originally had one migration; P21 adds V41-V46.
+            // Verify the upgrade advances through those versions as well.
+            assertThat(upgrade.migrate().migrationsExecuted).isGreaterThanOrEqualTo(7);
             upgrade.validate();
             assertThat(jdbc.queryForObject(
                     "select password_hash from "+schema+".app_users where id=?",
