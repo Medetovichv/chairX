@@ -37,6 +37,14 @@ public class AdminRoleController {
         return service.update(auth, id, request);
     }
 
+    @GetMapping("/audit")
+    public AuditPage audit(@RequestParam(required=false) UUID targetId,
+                           @RequestParam(defaultValue="0") int page,
+                           @RequestParam(defaultValue="20") int size,
+                           Authentication auth) {
+        return service.audit(auth, targetId, page, size);
+    }
+
     @GetMapping("/permissions")
     public List<PermissionView> permissions(Authentication auth) {
         return service.permissions(auth);

@@ -35,6 +35,9 @@ public class RoleManagementService {
                            List<String> permissions, long assignedUsersCount, long version) { }
     public record PermissionView(String code, String description, String group,
                                  boolean sensitive, boolean adminOnly) { }
+    public record AuditLine(UUID id, UUID actorUserId, String action, String targetType,
+                            UUID targetId, String details, java.time.Instant createdAt) { }
+    public record AuditPage(List<AuditLine> items, int page, int size, long total) { }
     public record CreateRole(String code, String name, List<String> permissions) { }
     public record UpdateRole(String name, List<String> permissions,
                              Long expectedVersion, String reason) { }
@@ -96,6 +99,29 @@ public class RoleManagementService {
                     return new PermissionView(code, rs.getString("description"), group,
                             sensitive, adminOnly(code));
                 }).list();
+    }
+
+    @Transactional(readOnly = true)
+    public AuditPage audit(Authentication auth, UUID targetId, int page, int size) {
+        requireAdmin(auth, "ROLES_READ");
+        if (page < 0 || size < 1 || size > 100) {
+            throw new IllegalArgumentException("Некорректные параметры журнала аудита");
+        }
+        String filter = targetId == null ? "" : " WHERE target_id = :target";
+        var query = jdbc.sql("""
+                SELECT id,actor_user_id,action,target_type,target_id,details,created_at
+                FROM security_audit_log
+                """ + filter + " ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset")
+                .param("size",size).param("offset",(long)page*size);
+        if(targetId!=null)query=query.param("target",targetId);
+        List<AuditLine> rows=query.query((rs,n)->new AuditLine(
+                rs.getObject("id",UUID.class),rs.getObject("actor_user_id",UUID.class),
+                rs.getString("action"),rs.getString("target_type"),
+                rs.getObject("target_id",UUID.class),rs.getString("details"),
+                rs.getTimestamp("created_at").toInstant())).list();
+        var count=jdbc.sql("SELECT COUNT(*) FROM security_audit_log" + filter);
+        if(targetId!=null)count=count.param("target",targetId);
+        return new AuditPage(rows,page,size,count.query(Long.class).single());
     }
 
     @Transactional

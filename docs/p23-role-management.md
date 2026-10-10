@@ -124,3 +124,10 @@ Tests are in `P23RoleManagementIntegrationTests` and the F02
 - Migrate a copy of pre-P23 production data before deploying V51.
 - Integrate F02 and P22 before promoting P23; run full Maven verification,
   GitHub Actions, and frontend response-contract checks after integration.
+
+### Read security audit
+
+`GET /api/admin/audit?page=0&size=20&targetId=<uuid>` returns a paginated
+security audit history, including `actorUserId`, `action`, `targetType`,
+`targetId`, `details` and `createdAt`. The `targetId` filter is optional.
+Only the real system ADMIN with `ROLES_READ` may access this endpoint.

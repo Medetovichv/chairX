@@ -223,7 +223,7 @@ public class SecurityConfig {
                         .access(systemAdmin(users, roles, "ROLES_ASSIGN"))
                         .requestMatchers(HttpMethod.DELETE, "/api/admin/users/*/roles/*")
                         .access(systemAdmin(users, roles, "ROLES_ASSIGN"))
-.requestMatchers(HttpMethod.GET, "/api/admin/roles/*", "/api/admin/permissions")
+.requestMatchers(HttpMethod.GET, "/api/admin/roles/*", "/api/admin/permissions", "/api/admin/audit")
                         .access(systemAdmin(users, roles, "ROLES_READ"))
                         .requestMatchers(HttpMethod.POST, "/api/admin/roles")
                         .access(systemAdmin(users, roles, "ROLES_CREATE"))
