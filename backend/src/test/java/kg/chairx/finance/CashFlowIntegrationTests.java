@@ -83,7 +83,7 @@ class CashFlowIntegrationTests {
         assertThat(october.paymentCorrections()).isEqualByComparingTo("0");
         assertThat(november.payments()).isEqualByComparingTo("0");
         assertThat(november.paymentCorrections()).isEqualByComparingTo("10000");
-        assertThat(november.totalOut()).isEqualByComparingTo("0");
+        assertThat(november.totalOut()).isEqualByComparingTo("10000");
         assertThat(november.netCashFlow()).isEqualByComparingTo("-10000");
     }
 
@@ -94,7 +94,7 @@ class CashFlowIntegrationTests {
         var result = service.summary(OCTOBER_START, NOVEMBER_START);
         assertThat(result.payments()).isEqualByComparingTo("25000");
         assertThat(result.paymentCorrections()).isEqualByComparingTo("25000");
-        assertThat(result.totalOut()).isEqualByComparingTo("0");
+        assertThat(result.totalOut()).isEqualByComparingTo("25000");
         assertThat(result.netCashFlow()).isEqualByComparingTo("0");
     }
 
