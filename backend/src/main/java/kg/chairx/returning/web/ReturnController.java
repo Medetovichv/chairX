@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import kg.chairx.returning.api.CreateReturnRequest;
 import kg.chairx.returning.api.ReturnItemResponse;
 import kg.chairx.returning.api.ReturnResponse;
+import kg.chairx.returning.api.ReturnPageResponse;
 import kg.chairx.returning.application.ReturnService;
 import kg.chairx.returning.domain.Return;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +21,13 @@ public class ReturnController {
 
     public ReturnController(ReturnService service) {
         this.service = service;
+    }
+
+    @GetMapping
+    public ReturnPageResponse list(@RequestParam(required=false) UUID saleId,
+            @RequestParam(defaultValue="0") int page,
+            @RequestParam(defaultValue="20") int size) {
+        return service.list(saleId,page,size);
     }
 
     @PostMapping
