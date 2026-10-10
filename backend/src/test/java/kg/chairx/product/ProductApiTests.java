@@ -241,7 +241,7 @@ class ProductApiTests {
     }
 
     @Test
-    void realCsrfTokenWithItsSessionAllowsCreation() throws Exception {
+    void realCsrfTokenCannotGrantCatalogWriteAuthority() throws Exception {
         var tokenResult = mvc.perform(get("/api/csrf").with(anonymous())
                         .with(httpBasic("catalog", "integration-test-password")))
                 .andExpect(status().isOk()).andReturn();
@@ -251,8 +251,10 @@ class ProductApiTests {
                         .with(httpBasic("catalog", "integration-test-password"))
                         .header(token.get("headerName").asText(), token.get("token").asText())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"name\":\"X5\"}"))
-                .andExpect(status().isCreated());
-        assertThat(jdbc.queryForObject("select actor from audit_entries", String.class)).isEqualTo("catalog");
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("ACCESS_DENIED"));
+        assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from audit_entries", Integer.class)).isZero();
     }
 
     @Test
