@@ -3,9 +3,11 @@ package kg.chairx.security.application;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 @Component
+@Order(0)
 public class AdminBootstrapRunner implements ApplicationRunner {
 
     private final AdminBootstrapService bootstrapService;
@@ -45,10 +47,7 @@ public class AdminBootstrapRunner implements ApplicationRunner {
             );
         }
 
-        bootstrapService.initialize(
-                username,
-                password,
-                displayName
-        );
+        bootstrapService.initialize(username, password, displayName);
     }
 }
+
