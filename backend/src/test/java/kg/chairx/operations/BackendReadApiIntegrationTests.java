@@ -90,6 +90,71 @@ class BackendReadApiIntegrationTests {
                 .isEqualTo(before);
     }
 
+    @Test void p22OverviewListsArePaginatedReadOnlyAndRespectRelatedPermissions() throws Exception {
+        var draft = sales.createDraft(new kg.chairx.sale.api.CreateDraftSaleRequest(
+                UUID.randomUUID(),customer,null,List.of(),"Customer choosing color"));
+        var confirmed = sales.create(new CreateSaleRequest(UUID.randomUUID(),customer,
+                FulfillmentType.CITY_DELIVERY,
+                List.of(new CreateSaleItemRequest(variant,warehouse,2,new BigDecimal("8500")))));
+        deliveries.create(new CreateDeliveryRequest(confirmed.id(),null,
+                "+996555333333","Bishkek","Bishkek",BigDecimal.ZERO,
+                null,null,null,java.time.LocalDate.of(2026,10,15)));
+        long beforeStock=jdbc.queryForObject("select count(*) from stock_movements",Long.class);
+        long beforeMoney=jdbc.queryForObject("select count(*) from finance_movements",Long.class);
+
+        mvc.perform(get("/api/inventory/overview").param("model","P20 API Product")
+                    .param("includeZero","true").param("size","1"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].productVariantId").value(variant.toString()))
+                .andExpect(jsonPath("$.items[0].onHand").value(10))
+                .andExpect(jsonPath("$.items[0].reserved").value(2))
+                .andExpect(jsonPath("$.items[0].available").value(8))
+                .andExpect(jsonPath("$.items[0].warehouses[0].warehouseId").value(warehouse.toString()));
+        mvc.perform(get("/api/inventory/overview").param("size","101"))
+                .andExpect(status().isBadRequest());
+
+        mvc.perform(get("/api/sales").param("number",confirmed.saleNumber()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].quantity").value(2))
+                .andExpect(jsonPath("$.items[0].paymentStatus").value("UNPAID"))
+                .andExpect(jsonPath("$.items[0].plannedDeliveryDate").value("2026-10-15"));
+
+        mvc.perform(get("/api/sales").param("status","DRAFT"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(draft.id().toString()));
+
+        mvc.perform(get("/api/deliveries").param("plannedFrom","2026-10-15")
+                    .param("plannedTo","2026-10-15").param("cityRegion","Bishkek"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+
+        // Customer overview includes related order statistics and thus requires both permissions.
+        mvc.perform(get("/api/customers/overview"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/customers/overview").with(
+                    org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                        .user("p22-related-tester").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMERS_READ"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("SALES_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(customer.toString()))
+                .andExpect(jsonPath("$.items[0].orderCount").value(2));
+
+        mvc.perform(get("/api/sales/customer/"+customer))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/sales/customer/"+customer).with(
+                    org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors
+                        .user("p22-related-tester").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("CUSTOMERS_READ"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("SALES_READ"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(2));
+
+        assertThat(jdbc.queryForObject("select count(*) from stock_movements",Long.class))
+                .isEqualTo(beforeStock);
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements",Long.class))
+                .isEqualTo(beforeMoney);
+    }
+
     @Test void paginatedSalesDeliveriesAndReturnsCanBeQueried() throws Exception {
         var sale=sales.create(new CreateSaleRequest(UUID.randomUUID(),customer,
                 FulfillmentType.SELF_PICKUP,
