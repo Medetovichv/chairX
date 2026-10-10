@@ -100,7 +100,8 @@ public class ExpenseService {
             if (closing == null) {
                 throw new IllegalStateException("Daily closing service not configured");
             }
-            closing.refreshExpectedAfterCorrection(expense.expenseDate(), expense.createdBy());
+            closing.refreshExpectedAfterCorrection(expense.expenseDate(), expense.createdBy(),
+                    expense.id());
             finance.assertCorrectionPermitted(expense.expenseDate(), expense.createdBy());
         } else {
             finance.postExpense(expense.paymentMethod().name(), expense.amount().negate(),
