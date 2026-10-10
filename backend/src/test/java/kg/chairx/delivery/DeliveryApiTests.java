@@ -42,7 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
-@WithMockUser(username = "delivery-api-tester")
+@WithMockUser(username = "delivery-api-tester", authorities = {"DELIVERIES_READ","DELIVERIES_MANAGE","SALES_CANCEL"})
 class DeliveryApiTests {
     @org.springframework.beans.factory.annotation.Autowired
     InventoryAdjustmentService adjustments;
