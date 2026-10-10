@@ -8,7 +8,6 @@ import kg.chairx.inventory.api.CreateInventoryTransferRequest;
 import kg.chairx.inventory.api.InventoryTransferResponse;
 import kg.chairx.inventory.application.InventoryTransferQueryService;
 import kg.chairx.inventory.application.InventoryTransferService;
-import kg.chairx.inventory.application.InventoryTransferQueryService;
 import kg.chairx.inventory.api.InventoryTransferDetailsResponse;
 import kg.chairx.inventory.api.InventoryTransferPageResponse;
 import java.time.OffsetDateTime;
@@ -53,8 +52,7 @@ public class InventoryTransferController {
                 result.transferId(),
                 result.outMovementId(),
                 result.inMovementId(),
-                result.quantity(),
-                result.totalCost()
+                result.quantity()
         );
 
         return ResponseEntity

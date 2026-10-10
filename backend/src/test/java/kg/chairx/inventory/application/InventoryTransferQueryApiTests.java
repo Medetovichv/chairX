@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -164,6 +165,12 @@ class InventoryTransferQueryApiTests {
         return id;
     }
 
+    private static void assertCostFreeJson(String json) {
+        assertThat(json).doesNotContain(
+                "\"totalCost\"", "\"unitCost\"", "\"purchasePrice\"",
+                "\"costAllocations\"", "\"allocatedCost\"", "\"purchaseUnitCost\"");
+    }
+
     @Test
     void getsTransferById() throws Exception {
         UUID id = transfer(variant, 3);
@@ -178,10 +185,59 @@ class InventoryTransferQueryApiTests {
                 .andExpect(jsonPath("$.variantId")
                         .value(variant.toString()))
                 .andExpect(jsonPath("$.quantity").value(3))
-                .andExpect(jsonPath("$.totalCost").value(300.00))
+                .andExpect(jsonPath("$.totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()))
+.andExpect(jsonPath("$.outMovementId").isString())
+                .andExpect(jsonPath("$.inMovementId").isString())
                 .andExpect(jsonPath("$.actor")
                         .value("transfer-query-tester"))
                 .andExpect(jsonPath("$.createdAt").exists());
+    }
+
+    @Test
+    void inventoryReadOnlyAuthoritySeesCostFreeRawListAndDetail() throws Exception {
+        UUID id = transfer(variant, 3);
+        var readOnly = user("read-only-stock").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"));
+        mvc.perform(get("/api/inventory/transfers").with(readOnly))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(id.toString()))
+                .andExpect(jsonPath("$.items[0].quantity").value(3))
+                .andExpect(jsonPath("$.items[0].outMovementId").isString())
+                .andExpect(jsonPath("$.items[0].inMovementId").isString())
+                .andExpect(jsonPath("$.items[0].totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()));
+        mvc.perform(get("/api/inventory/transfers/{id}", id).with(readOnly))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()));
+
+        // Only presentation is filtered: cost allocation and origin still persist.
+        assertThat(jdbc.queryForObject("""
+                SELECT COALESCE(SUM(a.allocated_cost),0)
+                FROM inventory_cost_allocations a
+                JOIN inventory_transfers t ON t.out_movement_id=a.stock_movement_id
+                WHERE t.id=?
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+        assertThat(jdbc.queryForObject("""
+                SELECT total_cost FROM inventory_cost_layers
+                WHERE source_movement_id=(SELECT in_movement_id FROM inventory_transfers WHERE id=?)
+                """, BigDecimal.class, id)).isEqualByComparingTo("300.00");
+    }
+
+    @Test
+    void missingInventoryReadAuthorityCannotReadTransferEndpoints() throws Exception {
+        UUID id = transfer(variant, 1);
+        var unrelated = user("not-stock-reader").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("SALES_READ"));
+        mvc.perform(get("/api/inventory/transfers").with(unrelated))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/inventory/transfers/{id}", id).with(unrelated))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/inventory/transfers/{id}", id).with(anonymous()))
+                .andExpect(status().isUnauthorized());
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM inventory_transfers", Long.class)).isEqualTo(1);
     }
 
     @Test
@@ -242,7 +298,10 @@ class InventoryTransferQueryApiTests {
                 .andExpect(jsonPath("$.size").value(2))
                 .andExpect(jsonPath("$.totalElements").value(3))
                 .andExpect(jsonPath("$.totalPages").value(2))
-                .andExpect(jsonPath("$.items.length()").value(2));
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].totalCost").doesNotExist())
+                .andExpect(jsonPath("$.items[1].totalCost").doesNotExist())
+                .andExpect(result -> assertCostFreeJson(result.getResponse().getContentAsString()));
 
         mvc.perform(get("/api/inventory/transfers")
                         .param("page", "1")
