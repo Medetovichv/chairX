@@ -44,8 +44,9 @@ public class PurchaseOverviewService {
         var sql = """
                 SELECT p.id, p.supplier_id, s.name AS supplier_name, p.status, p.created_at,
                        items.item_count, items.ordered_quantity, items.received_quantity,
-                       items.goods_cost, COALESCE(p.cargo_cost,0) AS cargo_cost,
-                       items.goods_cost + COALESCE(p.cargo_cost,0) AS total_cost,
+                       items.goods_cost, p.cargo_cost AS cargo_cost,
+                       CASE WHEN p.cargo_cost IS NULL THEN NULL
+                            ELSE items.goods_cost + p.cargo_cost END AS total_cost,
                        r.last_receipt_at
                 FROM purchases p
                 JOIN suppliers s ON s.id = p.supplier_id
