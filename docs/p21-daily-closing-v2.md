@@ -1,6 +1,6 @@
 # P21 — Daily Financial Closing v2: implementation notes
 
-Status: **in progress — do not merge**. Source: `audit/final-integration-hardening`; feature: `feat/p21-daily-closing-v2`.
+Status: **partially implemented, not runtime-verified — do not merge**. Source: `audit/final-integration-hardening`; feature: `feat/p21-daily-closing-v2`.
 
 ## Verified baseline (P21-A)
 
@@ -43,3 +43,40 @@ Status: **in progress — do not merge**. Source: `audit/final-integration-harde
 P21-A baseline analysis (this file); P21-B deterministic policy; P21-C unlock persistence; P21-D historical audit/migrations; P21-E balance replay/reconciliation; P21-F late expenses; P21-G REST/RBAC; P21-H/I PostgreSQL integration, concurrency and end-to-end; P21-J final documentation and security audit.
 
 **Note:** This design document is not evidence that any of the later stages have been completed.
+
+## Implemented in the current feature branch (static implementation, not yet accepted)
+
+- `DailyClosingAccessPolicy` and JUnit unit tests for Bishkek 13:00, five-day limits, sixth-day cutoff, and 60-minute expiry.
+- V41 grants and per-date serialization rows, including grants issued before a late report exists; grant/revoke service stores history through `AuditService`.
+- V42 role-specific scoped permissions; HTTP authorization remains deny-by-default and keeps Basic/CSRF.
+- V43 separate financial movement `business_date` with legacy inferred provenance. `created_at` is unchanged.
+- V44 optimistic report version. Existing closing response gains a compatible six-argument constructor.
+- Dated balance reconstruction with journal/document reconciliation. Ambiguous legacy expenses cause explicit conflicts.
+- Creating a yesterday report uses the reconstructed balance, while today still uses the live balance. No shortage/surplus auto posting.
+- Report update is versioned, requires reason and scoped access, records before/after audit, and leaves account balances unchanged.
+- Controlled correction reuses expense idempotency and journal posting; balances and report recomputation share the transaction.
+- Correction is conservatively rejected when a *later* business date has already been closed; the current-day global money lock remains in force.
+- REST endpoints: `GET /api/finance/closings/{date}/preview`, `/access`, `/history`, `PUT /api/finance/closings/{date}`, `POST /api/finance/closings/{date}/unlock`, `/lock`, `/expenses`.
+- Existing `FINANCE_READ` and `FINANCE_CLOSE` paths retain backward-compatible authorization. Added negative PostgreSQL/HTTP-Basic integration checks for unlock, edit, revision conflict, revoke, and catalog denial.
+
+### API expectations
+
+`PUT /api/finance/closings/{date}` JSON fields:
+`expectedVersion`, `actualCash`, `cashNote`, `actualBank`, `bankNote`, `reason`.
+A zero or nonzero discrepancy is never a reason to change `finance_accounts.balance`.
+`POST /api/finance/closings/{date}/unlock` takes only `{"reason":"..."}`; expiry cannot be client-selected.
+`POST /api/finance/closings/{date}/expenses` uses the existing `CreateExpenseRequest` contract with an idempotency key, and `expenseDate` must equal URL date.
+
+### Not yet validated / completion blockers
+
+This branch has **not** passed `mvn clean verify`. The present execution environment has no Maven and runs Java 21, while the project requires Java 25. The staged changes therefore require local compilation and real PostgreSQL 17 Testcontainers tests, including existing P16–P20 regression tests.
+
+Mandatory follow-up before acceptance:
+1. Perform `cd backend && mvn clean verify` under Java 25 and Docker-enabled Testcontainers.
+2. Exercise Flyway V41–V44 on a clean and existing database snapshot; check migrations and financial balances, especially previously backdated expenses.
+3. Extend integration tests for late expense reconciliation (full and partial shortages), idempotency replay/conflicts, rollback on insufficient funds, and no later-closed-day correction.
+4. Add real concurrent access, late expense versus closing, and expiry-during-write tests.
+5. Run the full purchase/inventory/FIFO/sales/delivery/return/refund/closing end-to-end business scenario, with DB assertions.
+6. Verify production permission matrix, upgrade strategy, CSRF, and REST error contracts.
+
+Until those gates pass, this is **work in progress**, not Package 21 acceptance. No merge to `main` should take place.
