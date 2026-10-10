@@ -186,7 +186,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     const fetchMock = mockBackend(profile, { csrfStatus: 403 });
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('недостаточно прав'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('нет доступа к ChairX'));
     expect(authSession.authHeaders()).toEqual({});
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

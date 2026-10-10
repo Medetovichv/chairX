@@ -4,7 +4,7 @@ import { AppLayout } from '../../layouts/AppLayout';
 import { HomePage } from '../../pages/HomePage';
 import { ComingSoonPage } from '../../pages/ComingSoonPage';
 import { ForbiddenPage } from '../../pages/ForbiddenPage';
-import { LoginPage } from '../../pages/LoginPage';
+import { LoginPage, safeRedirect } from '../../pages/LoginPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import { navigationItems } from '../../shared/lib/navigation';
 
@@ -23,7 +23,9 @@ function ProtectedSection({ permissions }: { permissions: readonly string[] }) {
 
 function LoginRoute() {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />;
+  const location = useLocation();
+  const from = (location.state as { from?: unknown } | null)?.from;
+  return isAuthenticated ? <Navigate to={safeRedirect(from)} replace /> : <LoginPage />;
 }
 
 export function AppRouter() {

@@ -6,7 +6,7 @@ import { ApiClientError, userFacingApiError } from '../shared/api/api-error';
 import { Button } from '../shared/ui/button';
 import { Input } from '../shared/ui/input';
 
-function safeRedirect(value: unknown): string {
+export function safeRedirect(value: unknown): string {
   if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')
       || value.startsWith('/\\') || /[\r\n\\]/.test(value) || value.startsWith('/login')) {
     return '/';
