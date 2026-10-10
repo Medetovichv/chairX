@@ -72,8 +72,8 @@ public class ExpenseService {
             return replay(committed, request, normalizedAmount, comment, fingerprint);
         }
 
-        finance.post(expense.paymentMethod().name(), expense.amount().negate(),
-                "EXPENSE", "EXPENSE", expense.id(), expense.createdBy());
+        finance.postExpense(expense.paymentMethod().name(), expense.amount().negate(),
+                expense.id(), expense.createdBy(), expense.expenseDate());
 
         return ExpenseResponse.from(expense);
     }
