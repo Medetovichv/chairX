@@ -4,6 +4,9 @@ import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
 import kg.chairx.delivery.api.CreateDeliveryRequest;
 import kg.chairx.delivery.api.DeliveryResponse;
+import kg.chairx.delivery.api.DeliveryPageResponse;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import kg.chairx.delivery.api.FailDeliveryRequest;
 import kg.chairx.delivery.api.ReturnDeliveryToWarehouseRequest;
 import kg.chairx.delivery.domain.Delivery;
@@ -144,6 +147,17 @@ public class DeliveryService {
         );
 
         return result;
+    }
+
+    public DeliveryPageResponse list(
+            DeliveryStatus status,LocalDate from,LocalDate to,int page,int size) {
+        if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
+            throw rule("INVALID_DELIVERY_QUERY","Некорректные параметры списка доставок");
+        var zone=ZoneId.of("Asia/Bishkek");
+        var begin=from==null?null:from.atStartOfDay(zone).toInstant();
+        var end=to==null?null:to.plusDays(1).atStartOfDay(zone).toInstant();
+        return new DeliveryPageResponse(repository.list(status,begin,end,page,size),
+                page,size,repository.count(status,begin,end));
     }
 
     public DeliveryResponse get(
