@@ -90,7 +90,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     setEditing(false);setDraftUncertain(false);setError('');setNotice('Черновик обновлён.');
   }
   async function saveDraft(input:DraftInput) {
-    if(running.current||draftUncertain)return;
+    if(running.current||draftUncertain)throw new ApiClientError('http','DRAFT_RESULT_UNKNOWN',409);
     running.current=true;
     try{await update(input);}catch(cause){
       if(!(cause instanceof ApiClientError)||cause.kind!=='http'||(cause.status??500)>=500){
@@ -157,7 +157,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       {canCancel&&!unknownAction&&<Button disabled={busy}
         variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
     </div>
-    {editing&&canManageDraft&&!draftUncertain&&<SaleForm key={sale.id+sale.items.length}
+    {editing&&canManageDraft&&<SaleForm key={sale.id+sale.items.length}
+      blocked={draftUncertain}
       initial={sale} onSave={saveDraft} onCancel={()=>setEditing(false)}/>}
     {isDraft&&!sale.items.length&&<p className="text-sm text-amber-800">
       Для подтверждения добавьте хотя бы одну позицию.</p>}
