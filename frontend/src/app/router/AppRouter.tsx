@@ -10,6 +10,8 @@ import { NotFoundPage } from '../../pages/NotFoundPage';
 import { CatalogPage } from '../../features/catalog/pages/CatalogPage';
 import { ProductDetailPage } from '../../features/catalog/pages/ProductDetailPage';
 import { InventoryPage } from '../../features/inventory/pages/InventoryPage';
+import { CustomersPage } from '../../features/customers/pages/CustomersPage';
+import { CustomerDetailPage } from '../../features/customers/pages/CustomerDetailPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -28,6 +30,11 @@ function CatalogDetailGate() {
   return hasPermission('CATALOG_READ') ? <ProductDetailPage /> : <ForbiddenPage />;
 }
 
+function CustomerDetailGate() {
+  const { hasPermission } = useAuth();
+  return hasPermission('CUSTOMERS_READ') ? <CustomerDetailPage /> : <ForbiddenPage />;
+}
+
 function ProtectedSection({ path }: { path: string }) {
   const { hasPermission } = useAuth();
   const route = routeDefinitions.find((item) => item.path === path);
@@ -42,6 +49,7 @@ function ProtectedSection({ path }: { path: string }) {
   }
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
+  if (path === '/customers') return <CustomersPage />;
   return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
 
@@ -63,6 +71,7 @@ export function AppRouter() {
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
+          <Route path="customers/:customerId" element={<CustomerDetailGate />} />
           {Object.entries(legacyRedirects).map(([oldPath, target]) => (
             <Route key={oldPath} path={oldPath.slice(1)} element={<Navigate to={target} replace />} />
           ))}
