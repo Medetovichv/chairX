@@ -123,10 +123,25 @@ shown as "Товар возвращён на склад", not status RETURNED. N
 refund, client payment, or courier integrations.
 
 Mutation preflight GET refuses stale lifecycle changes. Confirmation
-describes stock/sale impacts. During pending/ambiguous responses controls
-are disabled; fresh detail reconciliation is required. A failed status
-does not by itself increment stock. No UI optimistic inventory or sale
-status updates and **no secondary sale/fulfill call** after dispatch.
+describes stock/sale impacts. The exact lifecycle intent (dispatch, deliver,
+fail with reason, cancel or return to chosen warehouse) and planned date
+change are saved per user and delivery to sessionStorage **before** mutation.
+After a lost response, reload/navigation in the same tab restores the
+pending intent and blocks other mutations until a backend GET confirms
+the outcome; an unknown outcome is never blindly retried. When storage
+cannot be read or written, POST/PUT fails closed. Tab closure/storage cleanup
+destroys this local recovery state, so manual reconciliation is required.
+This does not replace backend transaction locks and idempotency rules.
+
+When SALES_READ is available, creating a delivery remains disabled until
+the actual SaleResponse is confirmed as CONFIRMED with CITY_DELIVERY or
+REGION_DELIVERY. F07 links directly to creation only with a known
+SaleSummary that does not already show a delivery. Otherwise it offers
+the delivery list rather than risking a duplicate.
+
+A failed status does not by itself increment stock. No UI optimistic
+inventory or sale status updates and **no secondary sale/fulfill call**
+after dispatch.
 
 On confirmed backend success query invalidation covers delivery list/detail,
 sales list/Kanban/sale detail, inventory overview, balances and movements.
@@ -143,6 +158,14 @@ unknown results, and cache invalidation. Legacy F01–F07 tests must still pass.
 
 Run in \`frontend/\`: \`npm ci\`, \`npm run lint\`, \`npm run typecheck\`,
 \`npm run test\`, \`npm run build\`. CI links/results recorded in PR #28.
+
+An additional **F08 delivery PostgreSQL integration** GitHub Actions job
+runs existing SpringBootTest `DeliveryApiTests`, `DeliveryTests`,
+`DeliveryConcurrencyTests` and `SaleDeliveryBoundaryTests` against an
+isolated PostgreSQL 17 Testcontainers database (asserts `chairx_test`).
+This exercises actual backend inventory reserve, SALE_OUT, RETURN_IN,
+sale transitions, idempotency and concurrency. It is *database integration*
+and must not be described as full frontend browser-to-backend E2E.
 
 A full **real-backend + PostgreSQL end-to-end sale → inventory reservation →
 delivery → dispatch → SALE_OUT → deliver / fail → RETURN_IN** must be
