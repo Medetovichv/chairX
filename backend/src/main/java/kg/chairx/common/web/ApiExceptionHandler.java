@@ -49,6 +49,12 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger LOG =
             LoggerFactory.getLogger(ApiExceptionHandler.class);
 
+    @ExceptionHandler(InvalidQueryException.class)
+    ResponseEntity<ApiError> invalidListQuery(InvalidQueryException exception) {
+        return ResponseEntity.badRequest().body(ApiError.of(
+                "INVALID_QUERY", exception.getMessage()));
+    }
+
     @ExceptionHandler(kg.chairx.defect.application.DefectNotFoundException.class)
     ResponseEntity<ApiError> defectMissing(
             kg.chairx.defect.application.DefectNotFoundException exception) {
