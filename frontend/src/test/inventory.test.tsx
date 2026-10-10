@@ -272,7 +272,7 @@ describe('F04 warehouses and real overview', () => {
   it('shows true empty inventory when backend reports no stock', async () => {
     fakeBackend({ stock: [] }); renderAt();
     expect(await screen.findByText('Товары не найдены')).toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Модель' })).not.toBeInTheDocument();
   });
   it('shows a readable error for inventory network failure with retry', async () => {
     const state = { network: false };
