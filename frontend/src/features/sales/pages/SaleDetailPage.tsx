@@ -233,9 +233,12 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       <div className="space-y-2 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">
         <p>Для этого заказа требуется процесс доставки. Выдача и отмена через /api/sales недоступны.</p>
         {hasPermission('DELIVERIES_READ')&&
-          (matched?.deliveryStatus ?
+          (matched?.deliveryStatus?
             <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
-              Доставка уже отмечена в списке продаж — открыть список доставок</Link> :
+              Доставка уже указана — найти её в списке</Link> :
+            !matched?
+              <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
+                Сведения о существующей доставке не получены — проверить список</Link>:
             hasPermission('DELIVERIES_MANAGE')?
               <Link className="font-semibold text-indigo-700 underline"
                 to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
