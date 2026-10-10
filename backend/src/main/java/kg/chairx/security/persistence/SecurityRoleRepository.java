@@ -24,6 +24,21 @@ public class SecurityRoleRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
+    /** Only an active database employee holding the real system ADMIN role is an administrator. */
+    @Transactional(readOnly = true)
+    public boolean isActiveSystemAdministrator(UUID userId) {
+        if (userId == null) return false;
+        return jdbc.sql("""
+                SELECT EXISTS (
+                    SELECT 1 FROM app_users u
+                    JOIN security_user_roles ur ON ur.user_id = u.id
+                    JOIN security_roles r ON r.id = ur.role_id
+                    WHERE u.id = :id AND u.active = TRUE
+                      AND r.code = 'ADMIN' AND r.system_role = TRUE
+                )
+                """).param("id", userId).query(Boolean.class).single();
+    }
+
     public boolean hasActiveAdministrator() {
         return countActiveAdministrators() > 0;
     }

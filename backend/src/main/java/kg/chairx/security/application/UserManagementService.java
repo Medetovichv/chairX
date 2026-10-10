@@ -53,7 +53,8 @@ public class UserManagementService {
         roles.lockRoleAssignments();
 
         // Проверяем актуальные права инициатора.
-        if (!roles.userHasPermission(actorUserId, "USERS_DEACTIVATE")) {
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "USERS_DEACTIVATE")) {
             throw new AccessDeniedException(
                     "Недостаточно прав для деактивации сотрудников"
             );
@@ -106,7 +107,8 @@ public class UserManagementService {
             );
         }
 
-        if (!roles.userHasPermission(actorUserId, "USERS_CREATE")) {
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "USERS_CREATE")) {
             throw new AccessDeniedException(
                     "Недостаточно прав для создания сотрудников"
             );
