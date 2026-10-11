@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -425,6 +426,20 @@ class DeliveryApiTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
 
+        // A FAILED shipment is NOT a delivered customer return, even when
+        // the request comes from a user with RETURNS_CREATE authority.
+        String forbiddenCustomerReturn = """
+                {"idempotencyKey":"%s","saleId":"%s","warehouseId":"%s",
+                 "items":[{"saleItemId":"%s","quantity":1,"condition":"SELLABLE"}],
+                 "reason":"F13 reject undelivered customer return","comment":null}
+                """.formatted(UUID.randomUUID(), sale.id(), home, sale.items().getFirst().id());
+        var returnsClerk = user("f13-customer-returns")
+                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("RETURNS_CREATE"));
+        mvc.perform(post("/api/returns").with(returnsClerk).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(forbiddenCustomerReturn))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RETURN_WORKFLOW_REQUIRED"));
+
         mvc.perform(post(returnUrl).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content(payload))
                 .andExpect(status().isOk())
@@ -457,6 +472,16 @@ class DeliveryApiTests {
                       AND source_type='DELIVERY_RETURN' AND source_id=?
                 )
                 """, Long.class, UUID.fromString(deliveryId))).isEqualTo(2);
+
+        // After physical return the failed shipment is STILL not eligible
+        // for a second customer return (avoids double-stock credit).
+        mvc.perform(post("/api/returns").with(returnsClerk).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(forbiddenCustomerReturn))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_RETURN_WORKFLOW_REQUIRED"));
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM returns WHERE sale_id=?", Long.class, sale.id()))
+                .isZero();
 
         // Replay of the physical warehouse receipt cannot double inventory,
         // FIFO layers, money, or audit history.
