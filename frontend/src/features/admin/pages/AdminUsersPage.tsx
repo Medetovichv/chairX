@@ -1,6 +1,6 @@
 import { useRef,useState,type FormEvent } from 'react';
 import { Link,useNavigate } from 'react-router';
-import { useQuery,useMutation,useQueryClient } from '@tanstack/react-query';
+import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { adminApi,adminKeys } from '../api';
 import { validateUser } from '../validation';
@@ -18,14 +18,16 @@ export function AdminUsersPage(){
  const [username,setUsername]=useState(''),[name,setName]=useState('');
  const [password,setPassword]=useState(''),[again,setAgain]=useState(''),[err,setErr]=useState('');
  const saving=useRef(false);
- const create=useMutation({mutationFn:adminApi.createUser});
+ const [submitting,setSubmitting]=useState(false);
  async function submit(e:FormEvent<HTMLFormElement>){
   e.preventDefault();if(saving.current||unknown)return;
   const validation=validateUser(username,name,password,again);
   if(validation){setErr(validation);return;}
-  saving.current=true;setErr('');
+  saving.current=true;setSubmitting(true);setErr('');
   try{
-   const person=await create.mutateAsync({username:username.trim().toLowerCase(),displayName:name.trim(),password});
+   // Do not pass passwords to TanStack mutations: its mutation cache retains
+   // variables after settling. The private form state is cleared immediately.
+   const person=await adminApi.createUser({username:username.trim().toLowerCase(),displayName:name.trim(),password});
    setPassword('');setAgain('');setCreating(false);
    await client.invalidateQueries({queryKey:adminKeys.users});
    navigate('/admin/users/'+person.id,{state:{notice:'Сотрудник создан без ролей. Назначьте ему роли.'}});
@@ -35,7 +37,7 @@ export function AdminUsersPage(){
      ('status' in x&&Number((x as {status:number}).status)>=500))){
     setUnknown(true);setErr('Результат создания неизвестен. Сначала проверьте список, не повторяйте запрос.');
    }else setErr('Создание отклонено. Проверьте логин и ограничения.');
-  }finally{saving.current=false;}
+  }finally{saving.current=false;setSubmitting(false);}
  }
  const visible=(users.data??[]).filter(x=>(onlyActive==='all'||(onlyActive==='active')===x.active)&&
  [x.username,x.displayName,...x.roles].join(' ').toLowerCase().includes(filter.toLowerCase()));
@@ -56,8 +58,8 @@ export function AdminUsersPage(){
    </div>
    {err&&<p role="alert" className="text-red-700">{err}</p>}
    {unknown&&<Button type="button" variant="outline" onClick={()=>void client.invalidateQueries({queryKey:adminKeys.users})}>Проверить список</Button>}
-   <div className="flex gap-2"><Button type="submit" disabled={create.isPending||unknown}>Создать</Button>
-    <Button type="button" variant="outline" disabled={create.isPending} onClick={()=>{setCreating(false);setUnknown(false);setPassword('');setAgain('');}}>Закрыть</Button></div>
+   <div className="flex gap-2"><Button type="submit" disabled={submitting||unknown}>Создать</Button>
+    <Button type="button" variant="outline" disabled={submitting} onClick={()=>{setCreating(false);setUnknown(false);setPassword('');setAgain('');}}>Закрыть</Button></div>
   </form>}
   <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
    <div className="flex flex-wrap gap-3">

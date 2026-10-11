@@ -33,9 +33,17 @@ public class AdminUserController {
     public record UserResponse(UUID id, String username, String displayName, boolean active,
                                List<String> roles) {}
     public record RoleResponse(UUID id, String code, String name) {}
-    public record CreateUserRequest(String username, String password, String displayName) {}
+    public record CreateUserRequest(String username, String password, String displayName) {
+        @Override public String toString() {
+            return "CreateUserRequest[username=" + username + ", password=[REDACTED], displayName=" + displayName + "]";
+        }
+    }
     public record AssignRoleRequest(UUID roleId) {}
-    public record ResetPasswordRequest(String newPassword) {}
+    public record ResetPasswordRequest(String newPassword) {
+        @Override public String toString() {
+            return "ResetPasswordRequest[newPassword=[REDACTED]]";
+        }
+    }
 
     private UUID actorId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
