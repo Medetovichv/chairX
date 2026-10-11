@@ -29,7 +29,7 @@ export const navigationItems: readonly NavigationItem[] = [
   { path: '/catalog', label: 'Каталог товаров', icon: Package, group: 'Управление', permissions: ['CATALOG_READ'] },
   { path: '/purchases', label: 'Закупки', tabLabel: 'Все закупки', icon: ClipboardList, group: 'Управление', permissions: ['PURCHASE_READ', 'INVENTORY_RECEIVE', 'PURCHASE_PAYMENTS_READ', 'SUPPLIERS_READ'] },
   { path: '/returns', label: 'Возвраты и брак', tabLabel: 'Возвраты', icon: RotateCcw, group: 'Управление', permissions: ['RETURNS_READ', 'RETURNS_CREATE', 'EXCHANGES_READ', 'EXCHANGES_CREATE', 'DEFECTS_READ', 'DEFECTS_MANAGE'] },
-  { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ'] },
+  { path: '/finance', label: 'Финансы', tabLabel: 'Обзор', icon: WalletCards, group: 'Управление', permissions: ['FINANCE_READ', 'EXPENSES_READ', 'EXPENSES_CREATE', 'FINANCE_TRANSFER', 'FINANCE_INITIALIZE'] },
   { path: '/admin', label: 'Администрирование', icon: Settings2, group: 'Система', permissions: ['USERS_READ', 'ROLES_READ'] },
 ];
 
@@ -39,7 +39,9 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/purchases/suppliers', parent: '/purchases', label: 'Поставщики', permissions: ['SUPPLIERS_READ'] },
   { path: '/returns/exchanges', parent: '/returns', label: 'Обмены', permissions: ['EXCHANGES_READ','EXCHANGES_CREATE'] },
   { path: '/returns/defects', parent: '/returns', label: 'Брак', permissions: ['DEFECTS_READ','DEFECTS_MANAGE'] },
-  { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ'] },
+  { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ','EXPENSES_CREATE'] },
+  { path: '/finance/transfers', parent: '/finance', label: 'Переводы', permissions: ['FINANCE_TRANSFER'] },
+  { path: '/finance/opening-balances', parent: '/finance', label: 'Начальные остатки', permissions: ['FINANCE_INITIALIZE'] },
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },
   { path: '/admin/users', parent: '/admin', label: 'Сотрудники', permissions: ['USERS_READ'] },
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
@@ -47,6 +49,7 @@ export const childRoutes: readonly RouteMeta[] = [
 
 const returnCreate:RouteMeta={path:'/returns/new',label:'Оформить возврат',parent:'/returns',permissions:['RETURNS_CREATE']};
 const returnDetail:RouteMeta={path:'/returns/:returnId',label:'Карточка возврата',parent:'/returns',permissions:['RETURNS_READ']};
+const returnRefund:RouteMeta={path:'/returns/:returnId/refund',label:'Денежный возврат',parent:'/returns',permissions:['RETURNS_READ','REFUNDS_CREATE']};
 const exchangeDetail:RouteMeta={path:'/returns/exchanges/:exchangeId',label:'Карточка обмена',parent:'/returns/exchanges',permissions:['EXCHANGES_READ']};
 const defectDetail:RouteMeta={path:'/returns/defects/:defectId',label:'Карточка брака',parent:'/returns/defects',permissions:['DEFECTS_READ']};
 const deliveryCreate: RouteMeta={path:'/deliveries/new',label:'Оформить доставку',parent:'/deliveries',permissions:['DELIVERIES_READ','DELIVERIES_MANAGE']};
@@ -71,6 +74,7 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 
 export function routeFor(path: string): RouteMeta | undefined {
   if(path==='/returns/new')return returnCreate;
+  if(/^\/returns\/[^/]+\/refund$/.test(path))return {...returnRefund,path};
   if(/^\/returns\/exchanges\/[^/]+$/.test(path))return {...exchangeDetail,path};
   if(/^\/returns\/defects\/[^/]+$/.test(path))return {...defectDetail,path};
   if(/^\/returns\/[^/]+$/.test(path)&&!childRoutes.some(x=>x.path===path))return {...returnDetail,path};
