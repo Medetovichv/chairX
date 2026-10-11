@@ -163,9 +163,15 @@ function mockBackend(options:Setup={}){
   if(path.startsWith('/api/inventory/balances/')&&method==='GET')return json({
    warehouseId:WH,productVariantId:VAR,onHand:10,reserved:0,blocked:0,available:10,
   });
-  if(path.startsWith('/api/product-variants/')&&method==='GET')
-   return json({id:VAR,name:'Чёрное кресло',sku:'BLACK',productId:SALE,
-    recommendedSalePrice:'8500',active:true});
+  if(path==='/api/products/'+SALE&&method==='GET')
+   return json({id:SALE,name:'Ergo Comfort',description:null,category:null,
+     active:true,createdAt:NOW,updatedAt:NOW});
+  if(path.startsWith('/api/product-variants/')&&method==='GET'){
+   const id=path.split('/').at(-1);
+   return json({id,productId:SALE,name:id===VAR?'Чёрный':'Серый',
+     sku:id===VAR?'ERGO-BLK':'ERGO-GRY',color:id===VAR?'Чёрный':'Серый',
+     recommendedSalePrice:'8500',active:true,createdAt:NOW,updatedAt:NOW});
+  }
   throw new Error('Unexpected '+method+' '+path);
  });
  vi.stubGlobal('fetch',fetchMock);
@@ -228,14 +234,50 @@ describe('F09 list, detail and returns lifecycle',()=>{
   await userEvent.setup().click(screen.getByRole('button',{name:'Применить'}));
   await waitFor(()=>expect(calls(a,'/api/returns?').some(([url])=>String(url).includes('saleId='+SALE))).toBe(true));
  });
- it('shows return detail with saleItemId under RETURNS_READ without SALES_READ',async()=>{
+ it('shows return detail without leaking raw identifiers or restricted catalog and inventory',async()=>{
   access.permissions=['RETURNS_READ'];
   const a=mockBackend({returns:[returned(1,'BLOCKED')]});renderAt('/returns/'+RET);
   expect(await screen.findByRole('heading',{name:'Карточка возврата',level:2})).toBeInTheDocument();
   expect(await screen.findByRole('region',{name:'Возвращённые позиции'})).toHaveTextContent('Требует проверки / неисправен');
+  expect(screen.getByText('Недоступно без SALES_READ')).toBeInTheDocument();
+  expect(screen.getByText('Недоступно без INVENTORY_READ')).toBeInTheDocument();
+  const result=document.body.textContent??'';
+  for(const internal of [RET,SALE,ITEM,WH,VAR])expect(result).not.toContain(internal);
   expect(calls(a,'/api/returns/'+RET)).toHaveLength(1);
   expect(calls(a,'/api/sales')).toHaveLength(0);
+  expect(calls(a,'/api/warehouses')).toHaveLength(0);
+  expect(calls(a,'/api/product-variants')).toHaveLength(0);
  });
+ it('renders real chair names and links to the exact sale and warehouse',async()=>{
+  access.permissions.push('CATALOG_READ');
+  const api=mockBackend({returns:[returned(1,'SELLABLE')]});
+  renderAt('/returns/'+RET);
+  const linkedSale=await screen.findByRole('link',{name:'CHX-101'});
+  expect(linkedSale).toHaveAttribute('href','/sales/'+SALE);
+  expect(await screen.findByRole('link',{name:'Склад офис'})
+   ).toHaveAttribute('href','/inventory?warehouseId='+WH);
+  expect(await screen.findByRole('link',{name:'Ergo Comfort'}))
+   .toHaveAttribute('href','/catalog/'+SALE);
+  expect(await screen.findByText(/Артикул: ERGO-BLK/)).toBeInTheDocument();
+  const shown=document.body.textContent??'';
+  for(const internal of [RET,SALE,ITEM,WH,VAR])expect(shown).not.toContain(internal);
+  expect(calls(api,'/api/product-variants/'+VAR)).toHaveLength(1);
+ });
+
+ it('uses human item labels and real warehouse names in the return form',async()=>{
+  access.permissions.push('CATALOG_READ');
+  mockBackend();
+  renderAt('/returns/new?saleId='+SALE);
+  const form=await screen.findByRole('form',{name:'Создание возврата'});
+  const links=await within(form).findAllByRole('link',{name:'Ergo Comfort'});
+  expect(links).toHaveLength(2);
+  expect(within(form).getByText('Продано со склада:',{exact:false}).parentElement)
+    .toHaveTextContent('Склад офис');
+  expect(within(form).getByRole('textbox',{name:'Количество возврата — позиция 1'})).toBeInTheDocument();
+  const shown=form.textContent??'';
+  for(const internal of [ITEM,ITEM2,WH,VAR,VAR2])expect(shown).not.toContain(internal);
+ });
+
  it('loads all previous return pages before displaying remaining quantities',async()=>{
   const entries=Array.from({length:22},(_,i)=>({...returned(i===0?1:0),
    id:'aaaaaaaa-aaaa-4aaa-8aaa-'+String(i).padStart(12,'0')}));
@@ -274,9 +316,9 @@ describe('F09 list, detail and returns lifecycle',()=>{
  it('creates an exact partial BLOCKED return with no extra defect or stock POST',async()=>{
   const a=mockBackend();renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
-  const quantity=await within(f).findByRole('textbox',{name:'Количество возврата '+ITEM});
+  const quantity=await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'});
   fireEvent.change(quantity,{target:{value:'1'}});
-  fireEvent.change(within(f).getByRole('combobox',{name:'Состояние '+ITEM}),{target:{value:'BLOCKED'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Состояние товара — позиция 1'}),{target:{value:'BLOCKED'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
   fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Повреждён механизм'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
@@ -292,8 +334,8 @@ describe('F09 list, detail and returns lifecycle',()=>{
  it('creates full return of two separate SaleItem IDs with SELLABLE quantities',async()=>{
   const a=mockBackend();renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
-  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'3'}});
-  fireEvent.change(within(f).getByRole('textbox',{name:'Количество возврата '+ITEM2}),{target:{value:'1'}});
+  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'3'}});
+  fireEvent.change(within(f).getByRole('textbox',{name:'Количество возврата — позиция 2'}),{target:{value:'1'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
   fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Полный возврат кресел'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
@@ -309,7 +351,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
  it('rejects exceeding remaining quantity before POST',async()=>{
   const a=mockBackend({returns:[returned(2)]});renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
-  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'2'}});
+  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'2'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
   fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Возврат'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
@@ -327,7 +369,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   const a=mockBackend({afterReturnNetwork:true});
   renderAt('/returns/new?saleId='+SALE);
   const form=await screen.findByRole('form',{name:'Создание возврата'});
-  fireEvent.change(await within(form).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'1'}});
+  fireEvent.change(await within(form).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'1'}});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
   fireEvent.change(within(form).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Повреждение'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить физический возврат'}));
@@ -348,7 +390,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   const a=mockBackend({afterReturnNetwork:true});
   const first=renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
-  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата '+ITEM}),{target:{value:'1'}});
+  fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'1'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
   fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Возврат'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
