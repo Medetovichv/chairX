@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeftRight, Search, PackageCheck } from 'lucide-react';
+import { ArrowLeftRight, Search, PackageCheck, History, Settings2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useAuth } from '../../../features/auth/AuthProvider';
@@ -109,6 +109,8 @@ export function InventoryPage() {
   const summaries = useQuery({ queryKey: inventoryKeys.warehouseSummary,
     queryFn: inventoryApi.warehouseSummary, enabled: hasPermission('INVENTORY_READ'), staleTime: 30_000 });
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+  const [globalInput, setGlobalInput] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
   const [modelInput, setModelInput] = useState('');
   const [variationInput, setVariationInput] = useState('');
   const [modelQuery, setModelQuery] = useState('');
@@ -119,11 +121,11 @@ export function InventoryPage() {
   const [transferLine, setTransferLine] = useState<StockLine | null>(null);
   const [notice, setNotice] = useState('');
   useEffect(() => {
-    const timer = setTimeout(() => { setModelQuery(modelInput.trim()); setVariationQuery(variationInput.trim()); }, 350);
+    const timer = setTimeout(() => { setGlobalSearch(globalInput.trim()); setModelQuery(modelInput.trim()); setVariationQuery(variationInput.trim()); }, 350);
     return () => clearTimeout(timer);
-  }, [modelInput, variationInput]);
+  }, [globalInput, modelInput, variationInput]);
 
-  const filters = { warehouseId: selectedWarehouseId, model: modelQuery, variation: variationQuery,
+  const filters = { warehouseId: selectedWarehouseId, model: modelQuery, variation: variationQuery, search: globalSearch,
     includeZero: availability !== 'recorded', onlyAvailable: availability === 'available', page, size: 20 };
   const overview = useQuery({
     queryKey: inventoryKeys.overview(filters),
@@ -152,6 +154,10 @@ export function InventoryPage() {
   const namedWarehouses = warehouses.data ?? [];
   return <div className="space-y-6">
     <PageHeader title="Склады" description="Реальные складские остатки, резервы и перемещения офисных кресел." />
+    <nav aria-label="Операции склада" className="flex flex-wrap gap-2">
+      <Button asChild variant="outline"><Link to="/inventory/transfers"><History className="size-4" aria-hidden="true" />История перемещений</Link></Button>
+      {hasPermission('WAREHOUSES_MANAGE') && <Button asChild variant="outline"><Link to="/inventory/warehouses"><Settings2 className="size-4" aria-hidden="true" />Управление складами</Link></Button>}
+    </nav>
     {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {warehouses.isPending ? <LoadingState label="Загружаем список складов…" />
       : warehouses.isError ? <ErrorState title="Не удалось получить склады" error={warehouses.error}
@@ -163,6 +169,13 @@ export function InventoryPage() {
               selected={selectedWarehouseId} disabled={Boolean(transferLine)}
               onSelect={(id) => { setSelectedWarehouseId(id); newFilter(); }} />
             <section aria-label="Фильтры складской сводки" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <label className="mb-3 block space-y-1 text-sm font-semibold">
+                <span className="inline-flex items-center gap-2"><Search className="size-4 text-blue-600" aria-hidden="true" />Быстрый поиск по модели, вариации или артикулу (SKU)</span>
+                <Input type="search" aria-label="Поиск товара по модели, вариации или SKU"
+                  maxLength={200} value={globalInput} disabled={Boolean(transferLine)}
+                  onChange={e=>{setGlobalInput(e.target.value);newFilter();}}
+                  placeholder="Например, Ergo, чёрный или ERGO-BLK" />
+              </label>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="space-y-2 text-sm font-semibold">Склад
                   <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-slate-200 px-3"
