@@ -42,3 +42,7 @@ Phase A test matrix: readonly without FINANCE_READ; no unauthorized GET; no synt
 The confirmation binds the exact CASH/BANK expectations that were displayed to the operator. Immediately after the confirmation click but before the closing POST, the UI refetches both backend access and expected balances. A changed expected amount, an already-closed day, inaccessible report, or failed GET stops **before POST**. Since no POST happened in these cases, the tab journal can safely be released by the existing definite-error path. Only the four fields expected by the backend closing DTO are sent; no client-only expected balances leak into the actual closing request.
 
 This is a user-experience safeguard, not a transactional lock: only the backend serializes and authoritatively validates the actual financial closing.
+
+## Financial global lock UX boundary
+
+The backend account repository prohibits ALL current-day balance mutations once today's business date is closed. The UI therefore disables historical-expense correction for a report dated **today** even when its date access hint says canEdit=true. A previous-day report can be corrected only with its scope permission/unlock **and** while the current physical posting day remains open. The backend enforces this final constraint under account locks; do not override it in the frontend. Editing closing *observations* is a different, non-monetary operation and stays available under its own permission/window.

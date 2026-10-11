@@ -78,7 +78,7 @@ export function ClosingMaintenance({date,access,report,onChanged}:{
     ]);
   }
   const editAllowed=!!report && canWrite && access.canEdit;
-  const correctionAllowed=!!report && canCorrect && access.canEdit && date<=bishkekToday();
+  const correctionAllowed=!!report && canCorrect && access.canEdit && date<bishkekToday();
   return <div className="space-y-5">
     {canUnlock && access.canUnlock && access.accessStatus!=='TEMPORARILY_UNLOCKED' &&
       <section className="space-y-3 rounded-xl border bg-white p-4">
@@ -167,6 +167,12 @@ export function ClosingMaintenance({date,access,report,onChanged}:{
         </form>}
       </GuardedPost>
     </section>}
+    {report && canCorrect && date===bishkekToday() &&
+      <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        Поздний расход за уже закрытый текущий финансовый день запрещён backend:
+        денежные остатки сегодня заблокированы. Исправление отчётных наблюдений
+        остаётся отдельной операцией без денежной проводки.
+      </p>}
     {report && canCorrect && <section className="space-y-3 rounded-xl border bg-white p-4">
       <h2 className="text-lg font-bold">Документально подтверждённый поздний расход</h2>
       <p className="text-xs text-slate-600">Это реальная проводка за дату {date}, а не способ скрыть

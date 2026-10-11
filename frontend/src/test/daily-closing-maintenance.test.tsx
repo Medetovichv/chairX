@@ -33,9 +33,9 @@ const access:ClosingAccess={
   accessStatus:'OPEN',canEdit:true,canUnlock:false,
   unlockedUntil:null,remainingSeconds:0,
 };
-function mount(state=access,document:ClosingReport|undefined=report) {
+function mount(state=access,document:ClosingReport|undefined=report,selectedDate=day) {
   return render(<QueryClientProvider client={createQueryClient()}>
-    <MemoryRouter><ClosingMaintenance date={day} access={state}
+    <MemoryRouter><ClosingMaintenance date={selectedDate} access={state}
       report={document} onChanged={async()=>{}}/></MemoryRouter>
   </QueryClientProvider>);
 }
@@ -124,27 +124,42 @@ describe('F11 maintenance: RBAC, optimistic edit and corrections',()=>{
     expect(await screen.findByText(/REPORT_UPDATED/)).toBeInTheDocument();
     expect(calls).toEqual(['/api/finance/closings/'+day+'/history']);
   });
-  it('uses a stable idempotencyKey and exact day for a documented late expense',async()=>{
+  it('disables an actual money correction on already closed today',()=>{
     permissions.list=['DAILY_CLOSING_WRITE','DAILY_CLOSING_EXPENSE_CORRECT'];
+    const request=vi.fn();vi.stubGlobal('fetch',request);
+    mount();
+    expect(screen.getByText(/Поздний расход за уже закрытый текущий финансовый день запрещён backend/))
+      .toBeInTheDocument();
+    const form=screen.getByRole('form',{name:'Расход за закрытую дату'});
+    expect(within(form).getByRole('button',{name:'Проверить поздний расход'})).toBeDisabled();
+    expect(request).not.toHaveBeenCalled();
+  });
+  it('uses a stable idempotencyKey and exact previous day for a documented late expense',async()=>{
+
+    permissions.list=['DAILY_CLOSING_WRITE','DAILY_CLOSING_EXPENSE_CORRECT'];
+    const previous=new Date(day+'T00:00:00Z');
+    previous.setUTCDate(previous.getUTCDate()-1);
+    const historicalDate=previous.toISOString().slice(0,10);
     const posts:Record<string,unknown>[]=[];
     vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
-      if(String(url)==='/api/finance/closings/'+day+'/expenses'&&init?.method==='POST'){
+      if(String(url)==='/api/finance/closings/'+historicalDate+'/expenses'&&init?.method==='POST'){
         const body=JSON.parse(String(init.body)) as Record<string,unknown>;
         posts.push(body);return json({id:'77777777-7777-4777-8777-777777777777',...body,
           createdBy:'f11',createdAt:'2026-10-11T02:00:00Z'},201);
       }
       throw Error('Unexpected '+String(url));
     }));
-    mount();
+    mount({...access,businessDate:historicalDate},
+      {...report,businessDate:historicalDate},historicalDate);
     const form=screen.getByRole('form',{name:'Расход за закрытую дату'});
     fireEvent.change(within(form).getByRole('textbox',{name:'Сумма позднего расхода'}),
       {target:{value:'1500'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить поздний расход'}));
-    expect(screen.getByRole('alertdialog')).toHaveTextContent(day);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(historicalDate);
     await userEvent.setup().click(within(screen.getByRole('alertdialog'))
       .getByRole('button',{name:'Провести расход'}));
     await waitFor(()=>expect(posts).toHaveLength(1));
-    expect(posts[0]).toMatchObject({expenseDate:day,amount:'1500',
+    expect(posts[0]).toMatchObject({expenseDate:historicalDate,amount:'1500',
       paymentMethod:'CASH',category:'OTHER'});
     expect(posts[0]?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
   });
