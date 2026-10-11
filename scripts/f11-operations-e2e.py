@@ -213,11 +213,19 @@ def main():
             # Protected React route, must show authoritative real sale number.
             page.get_by_text(sale["saleNumber"],exact=False).first.wait_for(timeout=30000)
             page.screenshot(path=str(ART/"01-sale-after-return.png"),full_page=True)
-            page.goto(BASE+"/deliveries/"+did,wait_until="domcontentloaded")
+            # In-memory credentials intentionally vanish on a full page reload.
+            # BrowserRouter navigation preserves the same authenticated SPA.
+            page.evaluate("""path => {
+                history.pushState({}, '', path);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+            }""", "/deliveries/"+did)
             page.get_by_role("heading",name="Доставка",exact=False).last.wait_for(timeout=30000)
             page.get_by_text("Bishkek Test Address",exact=True).wait_for()
             page.screenshot(path=str(ART/"02-delivered-order.png"),full_page=True)
-            page.goto(BASE+"/daily-closing",wait_until="domcontentloaded")
+            page.evaluate("""path => {
+                history.pushState({}, '', path);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+            }""", "/daily-closing")
             page.get_by_role("heading",name="Предварительный расчёт backend").wait_for(timeout=30000)
             sales_day=admin.must("GET","/api/finance/closings/"+DAY+"/sales",None,200)
             assert sales_day["preliminary"] and not sales_day["closed"]
