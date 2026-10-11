@@ -3,6 +3,8 @@ import { Link, useLocation, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { catalogApi } from '../../catalog/api';
+import { inventoryApi, inventoryKeys } from '../../inventory/api';
+import type { Warehouse } from '../../inventory/types';
 import { customersApi } from '../../customers/api';
 import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { deliveryStatusNames } from '../../deliveries/validation';
@@ -18,7 +20,6 @@ import { salesApi, salesKeys } from '../api';
 import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
-import { inventoryKeys } from '../../inventory/api';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
@@ -63,24 +64,57 @@ function draftMatchesServer(input:DraftInput,current:SaleResponse):boolean {
   return JSON.stringify(expected)===JSON.stringify(actual);
 }
 
-function ItemLine({item}: {item:SaleResponse['items'][number]}) {
+function eventStamp(instant: string): string {
+  const date = new Date(instant);
+  if (Number.isNaN(date.getTime())) return 'Дата не указана';
+  return new Intl.DateTimeFormat('ru-RU', {
+    timeZone: 'Asia/Bishkek', day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }).format(date);
+}
+
+function ItemLine({item,warehouses}: {
+  item:SaleResponse['items'][number]; warehouses:Warehouse[]|null;
+}) {
   const {hasPermission}=useAuth();
+  const catalogRead=hasPermission('CATALOG_READ');
+  const inventoryRead=hasPermission('INVENTORY_READ');
   const variant=useQuery({
     queryKey:['catalog','variant',item.productVariantId],
     queryFn:()=>catalogApi.getVariant(item.productVariantId),
-    enabled:hasPermission('CATALOG_READ'),
+    enabled:catalogRead,
   });
-  return <article className="grid gap-2 border-b border-slate-100 p-4 text-sm sm:grid-cols-[1fr_auto]">
-    <div>
-      <p className="font-semibold">{variant.data?.name??'Товарная позиция'}</p>
-      <p className="text-xs text-slate-500">Складские реквизиты доступны в учёте остатков.</p>
+  const model=useQuery({
+    queryKey:['catalog','product',variant.data?.productId],
+    queryFn:()=>catalogApi.getProduct(variant.data!.productId),
+    enabled:catalogRead&&!!variant.data?.productId,
+  });
+  const warehouse=warehouses?.find(w=>w.id===item.warehouseId);
+  return <article className="grid gap-3 border-b border-slate-100 p-4 text-sm sm:grid-cols-[minmax(0,1fr)_auto]">
+    <div className="min-w-0 space-y-1">
+      <div className="font-semibold text-slate-900">
+        {catalogRead&&model.data?
+          <Link className="text-blue-700 underline-offset-2 hover:underline focus-visible:underline"
+            to={'/catalog/'+encodeURIComponent(model.data.id)}>
+            {model.data.name}</Link>:<span>Кресло</span>}
+        {catalogRead&&variant.data&&<span> · {variant.data.name}</span>}
+      </div>
+      {catalogRead&&variant.data?.sku&&
+        <p className="text-xs text-slate-500">Артикул: {variant.data.sku}</p>}
+      {inventoryRead&&<p className="text-xs text-slate-600">
+        Склад: <strong>{warehouse?.name??'Название склада недоступно'}</strong>
+      </p>}
+      {!inventoryRead&&<p className="text-xs text-slate-500">
+        Данные склада доступны сотрудникам с INVENTORY_READ.
+      </p>}
     </div>
     <div className="sm:text-right">
       <p>{item.quantity} шт. × {money(item.unitSalePrice)}</p>
-      <p className="font-bold">{money(item.total)}</p>
+      <p className="mt-1 font-bold text-slate-950">{money(item.total)}</p>
     </div>
   </article>;
 }
+
 function SaleDetail({sale}:{sale:SaleResponse}) {
   const {hasPermission}=useAuth();
   const client=useQueryClient();
@@ -129,6 +163,10 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     }
   },[requestedAction,canConfirm,canFulfill,canCancel]);
 
+  const warehouseList=useQuery({
+    queryKey:inventoryKeys.warehouses,queryFn:inventoryApi.warehouses,
+    enabled:hasPermission('INVENTORY_READ')&&sale.items.length>0,
+  });
   const customer=useQuery({
     queryKey:['customers','customer',sale.customerId],
     queryFn:()=>customersApi.get(sale.customerId!),
@@ -147,6 +185,24 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   });
   const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
     relatedDelivery.error.status===404;
+  const paymentStatus=matched?.paymentStatus==='PAID'?'Оплачено':
+    matched?.paymentStatus==='UNPAID'?'Не оплачено':
+    matched?.paymentStatus==='PARTIAL'?'Требуется проверить данные оплаты':
+    'Статус оплаты недоступен';
+  const delivery=canReadDelivery?relatedDelivery.data:undefined;
+  const events=[
+    {key:'created',label:'Заказ создан',at:sale.createdAt},
+    ...(sale.fulfilledAt?[{key:'fulfilled',label:'Продажа выполнена',at:sale.fulfilledAt}]:[]),
+    ...(sale.cancelledAt?[{key:'cancelled',label:'Заказ отменён',at:sale.cancelledAt}]:[]),
+    ...(delivery?[
+      {key:'delivery-created',label:'Доставка оформлена',at:delivery.createdAt},
+      ...(delivery.dispatchedAt?[{key:'dispatched',label:'Доставка отправлена',at:delivery.dispatchedAt}]:[]),
+      ...(delivery.deliveredAt?[{key:'delivered',label:'Доставка вручена',at:delivery.deliveredAt}]:[]),
+      ...(delivery.failedAt?[{key:'delivery-failed',label:'Доставка не удалась',at:delivery.failedAt}]:[]),
+      ...(delivery.returnedToWarehouseAt?[{key:'delivery-returned',label:'Товар возвращён на склад после доставки',at:delivery.returnedToWarehouseAt}]:[]),
+    ]:[]),
+  ].filter(e=>!!e.at&&!Number.isNaN(new Date(e.at).getTime()))
+    .sort((a,b)=>new Date(a.at).getTime()-new Date(b.at).getTime());
   async function changed(result:SaleResponse) {
     client.setQueryData(salesKeys.detail(sale.id),result);
     await Promise.all([
@@ -234,7 +290,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   return <div className="space-y-6">
     <Link to="/sales" className="inline-flex min-h-11 items-center font-semibold text-indigo-700">
       ← Все продажи</Link>
-    <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)} description={'Номер документа: '+sale.saleNumber}/>
+    <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)}/>
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -248,16 +304,6 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           void client.invalidateQueries({queryKey:salesKeys.detail(sale.id)});
         }}>Отказаться от локальных правок и загрузить версию сервера</Button>}
     </div>}
-    <div className="flex flex-wrap gap-2">
-      {canManageDraft&&!unknownAction&&!draftUncertain&&
-        <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
-      {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
-        <Button disabled={busy} onClick={()=>setAction('confirm')}>Подтвердить заказ</Button>}
-      {canFulfill&&!unknownAction&&<Button disabled={busy}
-        onClick={()=>setAction('fulfill')}>Завершить продажу</Button>}
-      {canCancel&&!unknownAction&&<Button disabled={busy}
-        variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
-    </div>
     {editing&&canManageDraft&&<SaleForm key={sale.id+sale.items.length}
       blocked={draftUncertain}
       initial={sale} onSave={saveDraft} onCancel={()=>setEditing(false)}/>}
@@ -265,6 +311,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       Для подтверждения добавьте хотя бы одну позицию.</p>}
     {isDraft&&!sale.fulfillmentType&&<p className="text-sm text-amber-800">
       Для подтверждения выберите способ получения.</p>}
+    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,23rem)]">
+      <main className="min-w-0 space-y-5">
     {requiresDelivery&&
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
@@ -295,9 +343,13 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       <div><p className="text-slate-500">Способ получения</p><p className="font-semibold">
         {sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:'Не указан'}</p></div>
       <div><p className="text-slate-500">Статус оплаты</p><p className="font-semibold">
-        {matched?.paymentStatus||'Статус недоступен в SaleResponse'}</p></div>
+        {paymentStatus}</p></div>
       <div><p className="text-slate-500">Статус доставки</p><p className="font-semibold">
-        {matched?.deliveryStatus||'Статус недоступен в SaleResponse'}</p>
+        {delivery?deliveryStatusNames[delivery.status]:
+          !canReadDelivery?'Нет доступа к доставке':
+          requiresDelivery&&relatedDelivery.isPending?'Загружается…':
+          requiresDelivery&&deliveryMissing?'Не оформлена':
+          !requiresDelivery?'Не требуется':'Нет подтверждённых данных'}</p>
         {matched?.plannedDeliveryDate&&<p>План: {matched.plannedDeliveryDate}</p>}</div>
       <div><p className="text-slate-500">Выдан</p><p className="font-semibold">{saleDate(sale.fulfilledAt)}</p></div>
       <div><p className="text-slate-500">Отменён</p><p className="font-semibold">{saleDate(sale.cancelledAt)}</p></div>
@@ -307,10 +359,53 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     <section aria-label="Товары заказа" className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <h3 className="p-4 text-lg font-bold">Товары</h3>
       {!sale.items.length?<p className="p-4 text-sm text-slate-500">Позиции пока не добавлены.</p>:
-        sale.items.map(i=><ItemLine key={i.id} item={i}/>)}
+        sale.items.map(i=><ItemLine key={i.id} item={i}
+          warehouses={hasPermission('INVENTORY_READ')?warehouseList.data??null:null}/>)}
+      {hasPermission('INVENTORY_READ')&&
+        <div className="px-4 pt-3"><Link to="/inventory"
+          className="text-sm font-semibold text-blue-700 underline-offset-2 hover:underline">
+          Открыть учёт остатков</Link></div>}
       <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
     </section>
-    <SaleFinancialSection sale={sale}/>
+    <section aria-label="События заказа" className="rounded-2xl border border-slate-200 bg-white p-5">
+      <h3 className="text-lg font-bold">События заказа</h3>
+      <p className="mt-1 text-xs text-slate-500">Только события с датами, подтверждёнными системой.
+        Полная история изменений и обсуждение сотрудников пока не доступны.</p>
+      <ol className="mt-4 space-y-4">
+        {events.map(e=><li key={e.key} className="flex gap-3 text-sm">
+          <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full bg-blue-600"/>
+          <div><p className="font-semibold text-slate-900">{e.label}</p>
+            <time dateTime={e.at} className="text-xs text-slate-500">{eventStamp(e.at)}</time></div>
+        </li>)}
+      </ol>
+    </section>
+      </main>
+      <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
+        <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-sm font-semibold text-slate-600">Сумма заказа</p>
+          <p className="text-2xl font-extrabold text-slate-950">{money(sale.total)}</p>
+          <SaleStatusBadge status={sale.status}/>
+          <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
+        </section>
+        <section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+          <h3 className="font-bold">Действия</h3>
+    <div className="flex flex-col gap-2 [&_button]:w-full">
+      {canManageDraft&&!unknownAction&&!draftUncertain&&
+        <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
+      {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
+        <Button disabled={busy} onClick={()=>setAction('confirm')}>Подтвердить заказ</Button>}
+      {canFulfill&&!unknownAction&&<Button disabled={busy}
+        onClick={()=>setAction('fulfill')}>Завершить продажу</Button>}
+      {canCancel&&!unknownAction&&<Button disabled={busy}
+        variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
+    </div>
+
+          {!canManageDraft&&!canFulfill&&!canCancel&&
+            <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
+        </section>
+        <SaleFinancialSection sale={sale}/>
+      </aside>
+    </div>
     <ConfirmDialog open={!!action} onOpenChange={open=>{if(!open)setAction(null);}}
       title={action==='confirm'?'Подтвердить заказ?':
         action==='fulfill'?'Завершить выдачу кресел?':'Отменить заказ?'}
