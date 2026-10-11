@@ -8,6 +8,7 @@ import { authSession } from '../features/auth/session';
 import { createQueryClient } from '../shared/api/query';
 import type { Purchase, PurchaseLine, Supplier, ReceivingLine, PaymentSummary } from '../features/purchases/types';
 import { checkMoney, integerQuantity, purchaseInput, validatePurchase } from '../features/purchases/validation';
+import { purchasePreview } from '../features/purchases/components/PurchaseForm';
 
 const access = vi.hoisted(() => ({
   roles: ['CUSTOM_PURCHASE_TEAM'] as string[],
@@ -135,6 +136,12 @@ function mockApi(opts:{
       if(method==='PUT')Object.assign(s,JSON.parse(String(init?.body)) as Supplier);
       return json(s);
     }
+    if(path==='/api/products/'+MODEL && method==='GET')
+      return json({id:MODEL,name:'Ergo Comfort',category:null,description:null,active:true,
+        createdAt:TIME,updatedAt:TIME});
+    if(path==='/api/product-variants/'+VARIANT && method==='GET')
+      return json({id:VARIANT,productId:MODEL,name:'Чёрный',sku:'ERGO-BLK',color:'Чёрный',
+        active:true,recommendedSalePrice:8500,createdAt:TIME,updatedAt:TIME});
     if(path==='/api/products' && method==='GET') return json({page,size,items:[
       {id:MODEL,name:'Ergo Comfort',category:null,description:null,active:true,
         createdAt:TIME,updatedAt:TIME}],totalElements:1,totalPages:1});
@@ -277,6 +284,60 @@ describe('F06 list, filters and drafts',()=>{
     const row={productVariantId:VARIANT,orderedQuantity:1,purchaseUnitCost:'4500.00'};
     expect(validatePurchase({supplierId:SID,items:[row,row],cargoCost:'0',comment:null})).toMatch(/повторяться/);
     expect(validatePurchase({supplierId:SID,items:[],cargoCost:null,comment:null})).toMatch(/хотя бы одну/);
+  });
+  it('calculates precise subtotals and distinguishes unknown cargo from zero',()=>{
+    const unknown=purchasePreview([{quantity:'3',unitCost:'0,29'}],'');
+    expect(unknown.goods).toBe(87n);
+    expect(unknown.subtotals).toEqual([87n]);
+    expect(unknown.cargoCost).toBeNull();
+    expect(unknown.total).toBeNull();
+    const known=purchasePreview([{quantity:'3',unitCost:'0,29'}],'1.01');
+    expect(known.total).toBe(188n);
+    expect(purchasePreview([{quantity:'9007199254740991',unitCost:'1.01'}],'0').goods)
+      .toBe(909727124728840091n);
+    expect(purchasePreview([{quantity:'2',unitCost:'invalid'}],'0').total).toBeNull();
+  });
+  it('opens focused purchase creation without list/filters and safely restores list on cancel',async()=>{
+    const {calls}=mockApi();
+    renderAt();
+    expect(await screen.findByRole('region',{name:'Список закупок'})).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'+ Новая закупка'}));
+    expect(screen.getByRole('form',{name:'Создание закупки'})).toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Список закупок'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Фильтры закупок'})).not.toBeInTheDocument();
+    await userEvent.setup().click(within(screen.getByRole('form',{name:'Создание закупки'}))
+      .getByRole('button',{name:'Отмена'}));
+    expect(await screen.findByRole('region',{name:'Список закупок'})).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Фильтры закупок'})).toBeInTheDocument();
+    expect(calls.mock.calls.filter(([url,init])=>String(url)==='/api/purchases'&&
+      (init as RequestInit)?.method==='POST')).toHaveLength(0);
+  });
+  it('searches the full catalog on server and shows real variant name, SKU and exact cost preview',async()=>{
+    const {calls}=mockApi();
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    const form=within(screen.getByRole('form',{name:'Создание закупки'}));
+    expect(form.getByText('Пока не указано')).toBeInTheDocument();
+    await userEvent.setup().click(form.getByRole('button',{name:'Выбрать вариацию'}));
+    fireEvent.change(await form.findByRole('searchbox',{name:'Поиск моделей для закупки'}),
+      {target:{value:'Ergo'}});
+    await waitFor(()=>expect(calls.mock.calls.some(([url])=>{
+      const u=new URL(String(url),'http://chairx.local');
+      return u.pathname==='/api/products' && u.searchParams.get('search')==='Ergo';
+    })).toBe(true));
+    fireEvent.change(await form.findByRole('combobox',{name:'Модель для вариации'}),{target:{value:MODEL}});
+    await userEvent.setup().click(await form.findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+    expect(await form.findByText(/Выбрано:/)).toHaveTextContent('Ergo Comfort');
+    expect(form.getByText(/Выбрано:/)).toHaveTextContent('ERGO-BLK');
+    expect(screen.queryByText('UUID: '+VARIANT)).not.toBeInTheDocument();
+    fireEvent.change(form.getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'3'}});
+    fireEvent.change(form.getByRole('textbox',{name:'Цена позиции 1'}),{target:{value:'0,29'}});
+    expect(form.getByText(/Стоимость позиции 1:/)).toHaveTextContent('0,87 сом');
+    expect(form.getByRole('complementary',{name:'Шаг 4. Проверка закупки'}))
+      .toHaveTextContent('После указания карго');
+    fireEvent.change(form.getByRole('textbox',{name:'Карго закупки'}),{target:{value:'1,01'}});
+    expect(form.getByRole('complementary',{name:'Шаг 4. Проверка закупки'}))
+      .toHaveTextContent('1,88 сом');
   });
   it('creates DRAFT from selected real catalog product and variant UUID',async()=>{
     const {calls}=mockApi();
