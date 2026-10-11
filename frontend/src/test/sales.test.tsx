@@ -70,6 +70,15 @@ function mockBackend(options:{
     const path=url.pathname,method=init?.method||'GET';
     const rejected=options.deny?.[method+' '+path];
     if(rejected)return json({code:'REJECTED',message:'stacktrace-private',details:{}},rejected);
+    if(path==='/api/sales/statistics'&&method==='GET'){
+      const byStatus=(status:SaleStatus)=>rows.filter(r=>r.status===status).length;
+      const confirmedOrFulfilled=rows.filter(r=>r.status==='CONFIRMED'||r.status==='FULFILLED');
+      const average=confirmedOrFulfilled.length
+        ? Math.round(confirmedOrFulfilled.reduce((n,s)=>n+Number(s.total),0)/confirmedOrFulfilled.length)
+        : 0;
+      return json({orders30Days:rows.length,fulfilled30Days:byStatus('FULFILLED'),
+        inWork30Days:byStatus('DRAFT')+byStatus('CONFIRMED'),averageCheck30Days:average});
+    }
     if(path==='/api/sales'&&method==='GET'){
       const status=url.searchParams.get('status');
       const number=url.searchParams.get('number')?.toLowerCase();
