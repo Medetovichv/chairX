@@ -1,0 +1,20 @@
+# Isolated local DEMO environment. Keep this overlay out of production.
+# Usage: docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait
+# IMPORTANT: This creates an independent Compose project and PostgreSQL volume.
+name: chairx-demo
+
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: chairx_demo
+    volumes:
+      - chairx_demo_postgres_data:/var/lib/postgresql/data
+
+  backend:
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/chairx_demo
+      SPRING_PROFILES_ACTIVE: local
+      CHAIRX_DEMO_DATA_ENABLED: "true"
+
+volumes:
+  chairx_demo_postgres_data:
