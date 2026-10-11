@@ -40,6 +40,7 @@ function Detail({d}:{d:DeliveryResponse}){
   const [notice]=useState(state?.notice??'');
   async function updated(result:DeliveryResponse){
     queryClient.setQueryData(deliveryKeys.detail(d.id),result);
+    queryClient.setQueryData(deliveryKeys.bySale(d.saleId),result);
     await Promise.all([
       queryClient.invalidateQueries({queryKey:deliveryKeys.lists}),
       queryClient.invalidateQueries({queryKey:salesKeys.lists}),

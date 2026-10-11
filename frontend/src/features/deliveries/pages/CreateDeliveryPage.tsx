@@ -38,7 +38,10 @@ export function CreateDeliveryPage(){
     try{
       const result=await deliveryApi.create(payload);
       clearPendingCreate(user.id);
-      await client.invalidateQueries({queryKey:deliveryKeys.lists});
+      await Promise.all([
+        client.invalidateQueries({queryKey:deliveryKeys.lists}),
+        client.invalidateQueries({queryKey:deliveryKeys.bySale(result.saleId)}),
+      ]);
       navigate('/deliveries/'+encodeURIComponent(result.id),{replace:true,
         state:{notice:'Доставка создана.'}});
     }catch(cause){

@@ -52,6 +52,12 @@ public class DeliveryController {
                 .body(response);
     }
 
+    /** Read-only exact sale-to-delivery lookup. Returns 404 when not created. */
+    @GetMapping("/by-sale/{saleId}")
+    public DeliveryResponse getBySale(@PathVariable UUID saleId) {
+        return service.getBySaleId(saleId);
+    }
+
     @GetMapping("/{id}")
     public DeliveryResponse get(
             @PathVariable UUID id
