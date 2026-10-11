@@ -39,6 +39,7 @@ function CopyContact({ label, value }: { label: string; value: string | null }) 
 function CustomerRecord({ customer }: { customer: Customer }) {
   const { hasPermission } = useAuth();
   const canManage = hasPermission('CUSTOMERS_MANAGE');
+  const canCreateSale = hasPermission('SALES_CREATE') && customer.active;
   const client = useQueryClient();
   const location = useLocation();
   const noticeState = (location.state as { notice?: unknown } | null)?.notice;
@@ -82,10 +83,13 @@ function CustomerRecord({ customer }: { customer: Customer }) {
   return <div className="space-y-6">
     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to="/customers">← Все клиенты</Link>
     <PageHeader title={customerTitle(customer)} description="Карточка клиента"
-      action={canManage ? <div className="flex flex-wrap gap-2">
-        <Button variant="outline" disabled={editing || status.isPending} onClick={() => setEditing(true)}>Редактировать</Button>
-        <Button variant={customer.active ? 'outline' : 'default'} disabled={status.isPending || editing}
-          onClick={changeStatus}>{customer.active ? 'Деактивировать' : 'Активировать'}</Button>
+      action={canManage || canCreateSale ? <div className="flex flex-wrap gap-2">
+        {canCreateSale && <Button asChild><Link to={'/sales/new?customerId='+encodeURIComponent(customer.id)}>Новая продажа</Link></Button>}
+        {canManage && <>
+          <Button variant="outline" disabled={editing || status.isPending} onClick={() => setEditing(true)}>Редактировать</Button>
+          <Button variant={customer.active ? 'outline' : 'default'} disabled={status.isPending || editing}
+            onClick={changeStatus}>{customer.active ? 'Деактивировать' : 'Активировать'}</Button>
+        </>}
       </div> : undefined} />
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}

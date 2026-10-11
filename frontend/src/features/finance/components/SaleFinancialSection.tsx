@@ -22,6 +22,9 @@ type PaymentDraft=PaymentInput&{localOperationId:string};
 type CancelDraft={paymentId:string;reason:string;localOperationId:string};
 const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='http'&&error.status===404;
 const card='space-y-4 rounded-2xl border border-slate-200 bg-white p-5';
+// Only the two requested payment methods are offered for NEW sales.
+// Legacy MBANK and installment channel records remain readable in payment history.
+const salePaymentChannels=channels.filter(x=>x.value==='CASH'||x.value==='BANK_TRANSFER');
 export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const {hasPermission}=useAuth(),client=useQueryClient();
  const [query]=useSearchParams();
@@ -52,7 +55,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
  const canPay=paymentCreate&&canPayStatus&&(!paymentRead||noActive)&&
   (!financeRead||account?.initialized===true);
- const customerLabel=customer.data?.fullName||sale.customerId||'Без карточки клиента';
+ const customerLabel=customer.data?.fullName||customer.data?.phone||'Клиент без имени';
  async function refresh(){
   await Promise.all([
    client.invalidateQueries({queryKey:financeKeys.payments(sale.id)}),
@@ -96,13 +99,13 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:optional(reference),comment:optional(comment),
         localOperationId:crypto.randomUUID()};
        start(p,'Заказ '+sale.saleNumber+'. Клиент '+customerLabel+'. Полная сумма '+som(sale.total)+
-         '. '+(channels.find(x=>x.value===channel)?.label??channel)+'. Зачисление: '+accountFor(channel)+
-         '. При банковской рассрочке убедитесь, что деньги фактически поступили от банка.');}}>
+         '. '+(salePaymentChannels.find(x=>x.value===channel)?.label??channel)+'. Зачисление: '+accountFor(channel)+
+         '. Подтверждайте только фактически полученные деньги.');}}>
        <label className="block space-y-1 text-sm font-semibold">Как клиент оплатил
         <select aria-label="Канал клиентской оплаты" value={channel} disabled={locked}
           onChange={e=>setChannel(e.target.value as PaymentChannel)}
           className="min-h-11 w-full rounded-xl border p-2">
-          {channels.map(x=><option key={x.value} value={x.value}>{x.label}</option>)}
+          {salePaymentChannels.map(x=><option key={x.value} value={x.value}>{x.value==='BANK_TRANSFER'?'Перевод':x.label}</option>)}
         </select>
        </label>
        <p className="text-sm">Метод: <strong>{methodFor(channel)}</strong> · Счёт: <strong>{accountFor(channel)}</strong> · Сумма: <strong>{som(sale.total)}</strong></p>

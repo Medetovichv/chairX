@@ -330,6 +330,14 @@ describe('F05 customer detail, editing, history', () => {
     expect(callsTo(calls, '/api/sales/customer/' + id)).toHaveLength(1);
   });
 
+  it('offers a direct preselected new sale only when allowed and active', async () => {
+    access.permissions = ['CUSTOMERS_READ', 'SALES_CREATE'];
+    mockBackend();
+    renderAt('/customers/' + id);
+    const link = await screen.findByRole('link', { name: 'Новая продажа' });
+    expect(link).toHaveAttribute('href', '/sales/new?customerId=' + id);
+  });
+
   it('requires both CUSTOMER and SALES read for history and never shows fake zero orders', async () => {
     access.permissions = ['CUSTOMERS_READ'];
     const { calls } = mockBackend();
@@ -406,10 +414,10 @@ describe('F05 customer detail, editing, history', () => {
     expect(screen.getByRole('heading', { name: 'Страница не найдена' })).toBeInTheDocument();
   });
 
-  it('does not create dead links to unimplemented sale detail pages', async () => {
+  it('opens a sale directly from customer order history', async () => {
     mockBackend();
     renderAt('/customers/' + id);
     await screen.findByRole('cell', { name: 'S-1' });
-    expect(screen.queryByRole('link', { name: 'S-1' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'S-1' })).toHaveAttribute('href', '/sales/' + sale().id);
   });
 });
