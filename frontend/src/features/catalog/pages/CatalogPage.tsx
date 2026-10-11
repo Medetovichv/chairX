@@ -55,31 +55,29 @@ export function CatalogPage() {
               <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50">
-                    <tr>{['Название', 'Категория', 'Статус', 'Действия'].map((col) => (
+                    <tr>{['Название', 'Категория', 'Статус', ].map((col) => (
                       <th scope="col" key={col} className="px-5 py-3 font-semibold text-slate-600">{col}</th>
                     ))}</tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {data.items.map((model) => (
-                      <tr key={model.id}>
-                        <td className="px-5 py-4 font-semibold text-slate-800">{model.name}</td>
+                      <tr key={model.id} className="entity-clickable-row group transition-colors">
+                        <td className="px-5 py-4 font-semibold text-blue-700"><Link className="entity-stretched-link hover:underline" to={'/catalog/' + encodeURIComponent(model.id)} aria-label={'Открыть модель '+model.name}>{model.name}</Link></td>
                         <td className="px-5 py-4 text-slate-600">{model.category || '—'}</td>
                         <td className="px-5 py-4"><StatusBadge tone={model.active ? 'success' : 'neutral'}>{model.active ? 'Активен' : 'Неактивен'}</StatusBadge></td>
-                        <td className="px-5 py-4"><Link className="font-semibold text-indigo-700 hover:underline" to={'/catalog/' + model.id}>Открыть</Link></td>
-                      </tr>
+                                              </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
               <div className="divide-y divide-slate-100 md:hidden">
                 {data.items.map((model) => (
-                  <article key={model.id} className="space-y-3 p-4">
+                  <article key={model.id} className="entity-clickable-row group space-y-3 p-4 transition-colors">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-slate-900">{model.name}</h3>
+                      <h3 className="font-semibold text-blue-700"><Link className="entity-stretched-link" to={'/catalog/' + encodeURIComponent(model.id)} aria-label={'Открыть модель '+model.name}>{model.name}</Link></h3>
                       <StatusBadge tone={model.active ? 'success' : 'neutral'}>{model.active ? 'Активен' : 'Неактивен'}</StatusBadge>
                     </div>
                     <p className="text-sm text-slate-500">{model.category || 'Категория не указана'}</p>
-                    <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to={'/catalog/' + model.id}>Открыть модель</Link>
                   </article>
                 ))}
               </div>
