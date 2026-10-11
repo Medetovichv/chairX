@@ -91,7 +91,6 @@ export function ReceivingForm({ purchaseId, onClose, onPosted }: {
   return <section aria-label="Форма поступления"
     className="space-y-4 rounded-2xl border border-indigo-200 bg-white p-4 shadow-sm sm:p-6">
     <h3 className="text-xl font-bold">Приёмка по закупке</h3>
-    <p className="break-all text-xs text-slate-500">Закупка: {purchaseId}</p>
     <p className="text-sm text-slate-600">
       Данные себестоимости не включаются в ответ приёмки для складской роли.
     </p>
@@ -118,12 +117,19 @@ export function ReceivingForm({ purchaseId, onClose, onPosted }: {
             <p className="font-semibold">{line.model} · {line.variant}</p>
             <p className="text-xs text-slate-600">Заказано {line.orderedQuantity} · Принято {line.receivedQuantity} · Осталось {line.remainingQuantity}</p>
           </div>
-          <label className="text-sm font-semibold">Получено сейчас
-            <Input aria-label={'Получено: ' + line.model + ' / ' + line.variant} inputMode="numeric"
-              disabled={busy || !!uncertain || line.remainingQuantity===0}
-              value={quantities[line.purchaseItemId] ?? '0'}
-              onChange={e => setQuantities(old => ({...old, [line.purchaseItemId]: e.target.value}))} />
-          </label>
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold">Получено сейчас
+              <Input aria-label={'Получено: ' + line.model + ' / ' + line.variant} inputMode="numeric"
+                disabled={busy || !!uncertain || line.remainingQuantity===0}
+                value={quantities[line.purchaseItemId] ?? '0'}
+                onChange={e => setQuantities(old => ({...old, [line.purchaseItemId]: e.target.value}))} />
+            </label>
+            {line.remainingQuantity > 0 && <Button type="button" size="sm" variant="outline"
+              disabled={busy || !!uncertain}
+              onClick={() => setQuantities(old => ({...old, [line.purchaseItemId]: String(line.remainingQuantity)}))}>
+              Принять всё оставшееся
+            </Button>}
+          </div>
         </div>)}
         <label className="block space-y-2 text-sm font-semibold">Комментарий
           <textarea aria-label="Комментарий поступления" rows={2} maxLength={4000}
@@ -135,7 +141,6 @@ export function ReceivingForm({ purchaseId, onClose, onPosted }: {
         {uncertain && <div role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
           Результат поступления неизвестен. Товар мог быть уже принят.
           Не создавайте новую операцию. Повторите точно тот же запрос с тем же ключом.
-          <p className="mt-2 break-all text-xs">Ключ операции: {uncertain.idempotencyKey}</p>
           <Button type="button" className="mt-3" disabled={busy}
             onClick={() => void post(uncertain)}>Повторить ту же операцию</Button>
         </div>}
