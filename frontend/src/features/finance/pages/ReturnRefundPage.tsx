@@ -55,7 +55,7 @@ export function ReturnRefundPage(){
   <section className="rounded-xl border bg-white p-4 text-sm">
    <p>Продажа: {hasPermission('SALES_READ')? (sale.data?<Link className="font-semibold text-blue-700 underline" to={'/sales/'+encodeURIComponent(r.saleId)}>{displaySaleNumber(sale.data.saleNumber)}</Link>:'Номер заказа недоступен'):'Недоступно для вашей роли'}</p>
    <p>Причина физического возврата: {r.reason}</p>
-   <p>Здесь проводится только денежный Refund. Товар не возвращается на склад повторно.</p>
+   <p>Здесь проводится только денежная компенсация. Товар не возвращается на склад повторно.</p>
   </section>
   {confirmed&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
    Денежный возврат подтверждён backend: {som(confirmed.amount)}.
@@ -82,8 +82,7 @@ export function ReturnRefundPage(){
     const issue=validateRefund(p);
     if(issue){setError(issue);return;}
     setError('');
-    start(p,'Денежная компенсация '+som(p.amount)+' клиенту за физический возврат.
-     '. Способ списания: '+(p.method==='CASH'?'наличные':'перевод')+
+    start(p,'Денежная компенсация '+som(p.amount)+' клиенту за физический возврат. Способ списания: '+(p.method==='CASH'?'наличные':'перевод')+
      '. Backend проверит активную оплату, стоимость исходных позиций, ранее проведённые компенсации и обмены.');
    }}>
     <label className="block space-y-1 text-sm font-semibold">Сумма, целые сомы
