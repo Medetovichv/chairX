@@ -794,7 +794,7 @@ class RefundTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table
+                truncate table sale_comments,
                     inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, exchange_settlements, exchanges, refunds,
                     return_items,
                     returns,

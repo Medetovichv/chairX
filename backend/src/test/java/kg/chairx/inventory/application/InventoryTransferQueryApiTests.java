@@ -109,7 +109,7 @@ class InventoryTransferQueryApiTests {
 
     void clear() {
         jdbc.execute("""
-                TRUNCATE TABLE
+                TRUNCATE TABLE sale_comments,
                     inventory_transfer_cost_origins,
                     inventory_transfers,
                     inventory_cost_restorations,
