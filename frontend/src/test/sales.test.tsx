@@ -177,6 +177,10 @@ function mockBackend(options:{
       address:null,cityRegion:'Бишкек',comment:null,active:true,
       createdAt:TIME,updatedAt:TIME,
     });
+    if(path==='/api/products/'+MODEL_ID&&method==='GET')return json({
+      id:MODEL_ID,name:'Ergo Comfort',category:null,description:null,
+      active:true,createdAt:TIME,updatedAt:TIME,
+    });
     if(path==='/api/products'&&method==='GET')return json({
       items:[{id:MODEL_ID,name:'Ergo Comfort',category:null,description:null,
         active:true,createdAt:TIME,updatedAt:TIME}],
@@ -468,6 +472,29 @@ describe('F07 creation and idempotent drafts',()=>{
   });
 });
 describe('F07 detail, state transitions, reservations and RBAC',()=>{
+  it('shows a human-readable model, warehouse and confirmed event history',async()=>{
+    const api=mockBackend({sales:[sale('FULFILLED',{fulfilledAt:TIME})]});
+    renderAt('/sales/'+SALE_ID);
+    expect(await screen.findByRole('link',{name:'Ergo Comfort'}))
+      .toHaveAttribute('href','/catalog/'+MODEL_ID);
+    expect(screen.getByText('Склад:',{exact:false}).parentElement).toHaveTextContent('Дом');
+    const history=screen.getByRole('region',{name:'События заказа'});
+    expect(within(history).getByText('Заказ создан')).toBeInTheDocument();
+    expect(within(history).getByText('Продажа выполнена')).toBeInTheDocument();
+    expect(screen.getByRole('complementary',{name:'Итог и действия по заказу'}))
+      .toHaveTextContent('17');
+    expect(called(api,'/api/warehouses')).toHaveLength(1);
+  });
+  it('does not fetch inventory or catalog for sales-only role while showing timeline',async()=>{
+    granted.permissions=['SALES_READ'];
+    const api=mockBackend({sales:[sale('CONFIRMED')]});
+    renderAt('/sales/'+SALE_ID);
+    expect(await screen.findByRole('heading',{name:'Продажа #42'})).toBeInTheDocument();
+    expect(await screen.findByText('Данные склада доступны сотрудникам с INVENTORY_READ.'))
+      .toBeInTheDocument();
+    expect(called(api,'/api/warehouses')).toHaveLength(0);
+    expect(called(api,'/api/product-variants/')).toHaveLength(0);
+  });
   it('loads real detail with comment/amount and only available statuses',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
