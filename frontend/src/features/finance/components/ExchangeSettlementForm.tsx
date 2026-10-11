@@ -51,7 +51,7 @@ export function ExchangeSettlementForm({exchange:d}:{exchange:ExchangeResponse})
     const list=await exchangesApi.settlements(d.id);
     client.setQueryData(returnKeys.settlements(d.id),list);
     return list.some(s=>s.idempotencyKey===record.key&&s.direction===record.meta.direction&&
-      s.method===record.meta.method&&amountCents(s.amount)===BigInt(record.meta.amount)*100n);
+      s.method===record.meta.method&&record.meta.amount!==undefined&&amountCents(s.amount)===BigInt(record.meta.amount)*100n);
    }}>
    {({start,locked})=><form aria-label="Новый расчёт обмена" className="space-y-3"
     onSubmit={e=>{e.preventDefault();

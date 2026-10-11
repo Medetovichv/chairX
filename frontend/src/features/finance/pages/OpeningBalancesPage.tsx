@@ -31,7 +31,7 @@ export function OpeningBalancesPage(){
     const a=await financeApi.accounts();
     client.setQueryData(financeKeys.accounts,a);
     const item=a.find(x=>x.code===record.meta.account);
-    return !!item?.initialized&&amountMatch(item.balance,record.meta.amount);
+    return !!item?.initialized&&record.meta.amount!==undefined&&amountMatch(item.balance,record.meta.amount);
    }:undefined}>
    {({start,locked})=><form aria-label="Инициализация финансового счёта" className="space-y-4 rounded-xl border bg-white p-4"
       onSubmit={e=>{e.preventDefault();const p={account,amount:amount.trim()};
