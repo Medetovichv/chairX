@@ -316,11 +316,11 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   }));
   renderPath('/returns/'+RETURN+'/refund');
   const form=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Сумма Refund по Return'}),
+  fireEvent.change(within(form).getByRole('textbox',{name:'Сумма денежного возврата'}),
    {target:{value:'8500'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Причина Refund по Return'}),
+  fireEvent.change(within(form).getByRole('textbox',{name:'Причина денежного возврата'}),
    {target:{value:'Возврат кресла клиенту'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить Refund'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить возврат'}));
   expect(screen.getByRole('alertdialog')).toHaveTextContent(RETURN);
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Списать деньги клиенту'}));
@@ -352,17 +352,17 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
    <MemoryRouter initialEntries={['/returns/'+RETURN+'/refund']}><SwitchReturn/><AppRouter/></MemoryRouter>
   </QueryClientProvider>);
   const first=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
-  fireEvent.change(within(first).getByRole('textbox',{name:'Сумма Refund по Return'}),{target:{value:'8500'}});
-  fireEvent.change(within(first).getByRole('textbox',{name:'Причина Refund по Return'}),{target:{value:'Возврат A'}});
-  await userEvent.setup().click(within(first).getByRole('button',{name:'Подтвердить Refund'}));
+  fireEvent.change(within(first).getByRole('textbox',{name:'Сумма денежного возврата'}),{target:{value:'8500'}});
+  fireEvent.change(within(first).getByRole('textbox',{name:'Причина денежного возврата'}),{target:{value:'Возврат A'}});
+  await userEvent.setup().click(within(first).getByRole('button',{name:'Подтвердить возврат'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Списать деньги клиенту'}));
   expect(await screen.findByText(/Денежный возврат подтверждён backend:/)).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button',{name:'Другой Return'}));
-  await waitFor(()=>expect(screen.getByText('Физический Return: '+otherReturn)).toBeInTheDocument());
+  await waitFor(()=>expect(screen.getByText('Компенсация за оформленный физический возврат')).toBeInTheDocument());
   const second=screen.getByRole('form',{name:'Денежный Refund по физическому возврату'});
-  expect(within(second).getByRole('textbox',{name:'Сумма Refund по Return'})).toHaveValue('');
-  expect(within(second).getByRole('textbox',{name:'Причина Refund по Return'})).toHaveValue('');
+  expect(within(second).getByRole('textbox',{name:'Сумма денежного возврата'})).toHaveValue('');
+  expect(within(second).getByRole('textbox',{name:'Причина денежного возврата'})).toHaveValue('');
   expect(screen.queryByText(/Денежный возврат подтверждён backend:/)).not.toBeInTheDocument();
  });
  it('EXPENSES_CREATE-only employee posts an expense without privileged GET to accounts or list',async()=>{
