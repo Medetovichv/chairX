@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeftRight, Search, PackageCheck, History, Settings2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../../features/auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -104,11 +104,15 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, trans
 
 export function InventoryPage() {
   const { hasPermission } = useAuth();
+  const [searchParams] = useSearchParams();
+  const linkedWarehouseId = searchParams.get('warehouseId') ?? '';
+  const safeLinkedWarehouseId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(linkedWarehouseId)
+    ? linkedWarehouseId : null;
   const canTransfer = hasPermission('INVENTORY_READ') && hasPermission('INVENTORY_TRANSFER');
   const warehouses = useQuery({ queryKey: inventoryKeys.warehouses, queryFn: inventoryApi.warehouses });
   const summaries = useQuery({ queryKey: inventoryKeys.warehouseSummary,
     queryFn: inventoryApi.warehouseSummary, enabled: hasPermission('INVENTORY_READ'), staleTime: 30_000 });
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(safeLinkedWarehouseId);
   const [globalInput, setGlobalInput] = useState('');
   const [globalSearch, setGlobalSearch] = useState('');
   const [modelInput, setModelInput] = useState('');
@@ -121,6 +125,16 @@ export function InventoryPage() {
   const [transferLine, setTransferLine] = useState<StockLine | null>(null);
   const [notice, setNotice] = useState('');
   useEffect(() => {
+    if (!warehouses.isSuccess) return;
+    if (!safeLinkedWarehouseId) return;
+    if (!warehouses.data.some(w=>w.id===safeLinkedWarehouseId)) {
+      setSelectedWarehouseId(null);return;
+    }
+    setSelectedWarehouseId(safeLinkedWarehouseId);
+    setPage(0);
+    setSelectedLine(null);
+  }, [safeLinkedWarehouseId, warehouses.isSuccess, warehouses.data]);
+  useEffect(() => {
     const timer = setTimeout(() => { setGlobalSearch(globalInput.trim()); setModelQuery(modelInput.trim()); setVariationQuery(variationInput.trim()); }, 350);
     return () => clearTimeout(timer);
   }, [globalInput, modelInput, variationInput]);
@@ -130,7 +144,8 @@ export function InventoryPage() {
   const overview = useQuery({
     queryKey: inventoryKeys.overview(filters),
     queryFn: () => inventoryApi.overview(filters),
-    enabled: warehouses.isSuccess && (warehouses.data?.length ?? 0) > 0,
+    enabled: warehouses.isSuccess && (warehouses.data?.length ?? 0) > 0 &&
+      (!selectedWarehouseId||warehouses.data.some(w=>w.id===selectedWarehouseId)),
   });
   const dataset = overview.data;
   useEffect(() => {
