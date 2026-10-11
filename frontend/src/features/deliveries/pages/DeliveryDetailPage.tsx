@@ -3,7 +3,8 @@ import { Link, useLocation, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { inventoryApi, inventoryKeys } from '../../inventory/api';
-import { salesKeys } from '../../sales/api';
+import { salesApi, salesKeys } from '../../sales/api';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -38,6 +39,9 @@ function Detail({d}:{d:DeliveryResponse}){
   const state=location.state as {summary?:DeliverySummary;notice?:string}|null;
   const info=state?.summary?.id===d.id?state.summary:null;
   const [notice]=useState(state?.notice??'');
+  const sale=useQuery({queryKey:salesKeys.detail(d.saleId),
+    queryFn:()=>salesApi.get(d.saleId),enabled:hasPermission('SALES_READ')});
+  const saleNumber=info?.saleNumber||(sale.data?.saleNumber?displaySaleNumber(sale.data.saleNumber):'');
   const warehouses=useQuery({queryKey:inventoryKeys.warehouses,
     queryFn:inventoryApi.warehouses,
     enabled:hasPermission('INVENTORY_READ')&&!!d.returnedToWarehouseAt&&!!d.returnWarehouseId});
@@ -58,8 +62,8 @@ function Detail({d}:{d:DeliveryResponse}){
   return <div className="space-y-5">
     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/deliveries">← Все доставки</Link>
-    <PageHeader title={'Доставка '+(info?.saleNumber||'')}
-      description={'Заказ: '+(info?.saleNumber||'номер доступен в списке')}/>
+    <PageHeader title={saleNumber?'Доставка · '+saleNumber:'Карточка доставки'}
+      description={saleNumber?'Заказ: '+saleNumber:'Сведения о заказе доступны по разрешению SALES_READ'}/>
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <div className="flex flex-wrap items-center gap-3"><DeliveryStatusBadge status={d.status}/>
       {hasPermission('SALES_READ')&&<Link className="font-semibold text-indigo-700 underline"
