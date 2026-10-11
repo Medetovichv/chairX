@@ -22,6 +22,6 @@ export function formatBusinessDate(date: Date): string {
  * routes, tooltips and search. Never derive a document number from UUID.
  */
 export function displaySaleNumber(serverNumber: string): string {
-  const match = /^SALE-[0-9]{4}-0*([0-9]+)$/.exec(serverNumber);
+  const match = /^(?:SALE|CHX)-[0-9]{4}-0*([0-9]+)$/.exec(serverNumber);
   return match ? '#' + match[1] : serverNumber;
 }
