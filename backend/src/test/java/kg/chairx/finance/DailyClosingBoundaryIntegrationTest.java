@@ -63,6 +63,7 @@ class DailyClosingBoundaryIntegrationTest {
     @Autowired AdjustableClock clock;
 
     private final List<UUID> users = new ArrayList<>();
+    private final List<UUID> companyViewerRoles = new ArrayList<>();
     private UUID closingId;
     private String employee;
     private String manager;
@@ -78,6 +79,7 @@ class DailyClosingBoundaryIntegrationTest {
                 """, id, login, PasswordEncoderFactories.createDelegatingPasswordEncoder()
                 .encode("test-password"));
         jdbc.update("INSERT INTO security_user_roles(user_id,role_id) VALUES (?,?)", id, role);
+        if (EMPLOYEE_ROLE.equals(role)) companyViewerRoles.add(CorporateClosingTestGrant.grant(jdbc,id));
         return login;
     }
 
@@ -189,5 +191,6 @@ class DailyClosingBoundaryIntegrationTest {
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?", id);
             jdbc.update("DELETE FROM app_users WHERE id=?", id);
         }
+        for (UUID role : companyViewerRoles) CorporateClosingTestGrant.revoke(jdbc,role);
     }
 }

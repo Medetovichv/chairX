@@ -11,7 +11,7 @@ import { closingInputIssue, validClosingDate } from '../features/daily-closing/v
 import { postVerifiedClosing } from '../features/daily-closing/verified-close';
 import type { ClosingAccess, ClosingReport, CompletedSales } from '../features/daily-closing/types';
 
-const access = vi.hoisted(() => ({ permissions: ['DAILY_CLOSING_READ'] as string[] }));
+const access = vi.hoisted(() => ({ permissions: ['FINANCE_READ'] as string[] }));
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: {id:'operator-f11',username:'f11',displayName:'Operator',
@@ -47,7 +47,7 @@ function view(){
   </QueryClientProvider>);
 }
 beforeEach(()=>{
-  access.permissions=['DAILY_CLOSING_READ'];
+  access.permissions=['FINANCE_READ'];
   sessionStorage.clear();
   authSession.activate('Basic f11-test',{headerName:'X-CSRF-TOKEN',token:'csrf'});
 });
@@ -67,7 +67,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(validClosingDate('2099-01-01',day)).toBe(false);
   expect(validClosingDate(day,day)).toBe(true);
  });
- it('reads with DAILY_CLOSING_READ but never FINANCE_READ and never invents an old sales snapshot',async()=>{
+ it('reads company report only with FINANCE_READ and never invents an old sales snapshot',async()=>{
   const calls:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
     const path=String(url);calls.push(path);
@@ -91,7 +91,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(fetchMock).not.toHaveBeenCalled();
  });
  it('requires discrepancy reason, confirms once and shows the server-signed closing',async()=>{
-  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  access.permissions=['FINANCE_READ','DAILY_CLOSING_WRITE'];
   let closed=false;const posts:Record<string,unknown>[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
     const path=String(url);
@@ -125,7 +125,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
  });
 
  it('does not POST after displayed CASH/BANK expectation changed in a concurrent session',async()=>{
-  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  access.permissions=['FINANCE_READ','DAILY_CLOSING_WRITE'];
   const calls:string[]=[]; const posts:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
     const path=String(url);calls.push(path);
@@ -144,7 +144,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(calls).toContain('/api/finance/closings/'+day+'/preview');
  });
  it('does not POST when access changes to closed after the operator opened confirmation',async()=>{
-  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  access.permissions=['FINANCE_READ','DAILY_CLOSING_WRITE'];
   const posts:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
     const path=String(url);
@@ -190,7 +190,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(screen.getByText(/Исходное при закрытии/)).toHaveTextContent('5');
  });
  it('blocks closing if date access denies the operation',async()=>{
-  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  access.permissions=['FINANCE_READ','DAILY_CLOSING_WRITE'];
   const posts:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
     const path=String(url);

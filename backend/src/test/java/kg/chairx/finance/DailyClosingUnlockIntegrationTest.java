@@ -38,6 +38,7 @@ class DailyClosingUnlockIntegrationTest {
     @Autowired JdbcTemplate jdbc;
 
     private final List<UUID> createdUsers = new ArrayList<>();
+    private final List<UUID> companyViewerRoles = new ArrayList<>();
     private UUID closingId;
     private LocalDate reportDate;
 
@@ -51,6 +52,7 @@ class DailyClosingUnlockIntegrationTest {
                 """, id, username, PasswordEncoderFactories.createDelegatingPasswordEncoder()
                 .encode("p21-password"), "P21 Test");
         jdbc.update("INSERT INTO security_user_roles (user_id, role_id) VALUES (?, ?)", id, role);
+        if (EMPLOYEE_ROLE.equals(role)) companyViewerRoles.add(CorporateClosingTestGrant.grant(jdbc,id));
         return username;
     }
 
@@ -88,6 +90,8 @@ class DailyClosingUnlockIntegrationTest {
             jdbc.update("DELETE FROM app_users WHERE id=?", id);
         }
         createdUsers.clear();
+        for (UUID role : companyViewerRoles) CorporateClosingTestGrant.revoke(jdbc,role);
+
     }
 
     @Test
@@ -175,4 +179,6 @@ class DailyClosingUnlockIntegrationTest {
                 "SELECT count(*) FROM finance_daily_closing_unlocks WHERE business_date=?",
                 Integer.class, reportDate)).isEqualTo(1);
     }
+    // Test-only FINANCE_READ role must never remain in shared Testcontainers state.
+
 }

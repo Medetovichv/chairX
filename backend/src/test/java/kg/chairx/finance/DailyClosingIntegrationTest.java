@@ -305,7 +305,8 @@ class DailyClosingIntegrationTest {
         mvc.perform(post("/api/finance/closings/" + today)
                         .with(csrf())
                         .with(user("finance-manager").authorities(
-                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE")))
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ")))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated());
@@ -322,7 +323,8 @@ class DailyClosingIntegrationTest {
         jdbc.update("DELETE FROM finance_daily_closings");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
         var closer = user("finance-manager").authorities(
-                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"));
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
         mvc.perform(post("/api/finance/closings/" + today)
                         .with(csrf()).with(closer)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -472,7 +474,8 @@ class DailyClosingIntegrationTest {
     void businessValidationAndDuplicateClosingHaveCorrectHttpStatuses() throws Exception {
         jdbc.update("UPDATE finance_accounts SET opening_balance_initialized=TRUE");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
-        var writer = user("auditor").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"));
+        var writer = user("auditor").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
+                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
         mvc.perform(post("/api/finance/closings/" + today).with(writer).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":-1,\"actualBank\":0}"))
                 .andExpect(status().isBadRequest());

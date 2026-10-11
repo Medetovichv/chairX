@@ -1,0 +1,254 @@
+package kg.chairx.finance.application;
+
+import kg.chairx.audit.AuditService;
+import kg.chairx.finance.domain.FinanceAccount;
+import kg.chairx.finance.persistence.FinanceAccountRepository;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * Personal receipts and completed sales, never the company's financial closing.
+ *
+ * Collection attribution: immutable finance_movements (SALE_PAYMENT, PAYMENT)
+ * written under the username that accepted the funds, by business_date.
+ * Sales attribution: sales.created_by, completion time in Asia/Bishkek.
+ * No userId/username is accepted from the browser.
+ */
+@Service
+public class EmployeeDailyClosingService {
+    private final JdbcClient jdbc;
+    private final FinanceAccountRepository accounts;
+    private final AuditService audit;
+    private final DailyClosingAccessPolicy policy;
+
+    public EmployeeDailyClosingService(JdbcClient jdbc, FinanceAccountRepository accounts,
+                                       AuditService audit, Clock clock) {
+        this.jdbc = jdbc;
+        this.accounts = accounts;
+        this.audit = audit;
+        this.policy = new DailyClosingAccessPolicy(clock);
+    }
+
+    public record SaleLine(UUID saleId, String saleNumber, long quantity,
+                           BigDecimal total, Instant completedAt) {}
+    public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
+                          BigDecimal actualCash, BigDecimal actualBank,
+                          String cashNote, String bankNote) {}
+    public record Report(LocalDate businessDate, boolean closed, boolean canClose,
+                         BigDecimal expectedCash, BigDecimal expectedBank,
+                         BigDecimal actualCash, BigDecimal actualBank,
+                         String cashNote, String bankNote, long orders, long chairs,
+                         BigDecimal salesValue, List<SaleLine> sales,
+                         boolean collectionsChangedAfterClose) {}
+
+    private record Employee(UUID id, String username) {}
+    private record Collections(BigDecimal cash, BigDecimal bank) {}
+
+    private Employee employee(String username) {
+        return jdbc.sql("""
+            SELECT id, username FROM app_users
+            WHERE username=:username AND active=TRUE
+            """).param("username",username)
+            .query((rs,i)->new Employee(rs.getObject("id",UUID.class),rs.getString("username")))
+            .optional().orElseThrow(()->new AccessDeniedException("Active employee required"));
+    }
+
+    private void validateDate(LocalDate date) {
+        if(date==null || date.isAfter(policy.today())) {
+            throw new FinanceValidationException("Нельзя выбрать будущую дату");
+        }
+    }
+
+    /** Only personal reports are returned; no global balances or other employees' rows. */
+    @Transactional(readOnly = true)
+    public List<LocalDate> dates(String username) {
+        Employee actor=employee(username);
+        return jdbc.sql("""
+            SELECT business_date FROM employee_daily_closings
+            WHERE employee_id=:id ORDER BY business_date DESC LIMIT 100
+            """).param("id",actor.id()).query(LocalDate.class).list();
+    }
+
+    @Transactional(readOnly = true)
+    public Report get(String username, LocalDate date) {
+        validateDate(date);
+        Employee actor=employee(username);
+        return result(actor,date);
+    }
+
+    private Collections collections(String username, LocalDate date) {
+        // Each payment is posted once by FinancePostingService into this journal.
+        // Reversals/refunds are distinct manager-controlled events, not money collected.
+        List<java.util.Map.Entry<String,BigDecimal>> entries=jdbc.sql("""
+            SELECT account_code, COALESCE(SUM(amount),0) AS amount
+            FROM finance_movements
+            WHERE movement_type='SALE_PAYMENT' AND source_type='PAYMENT'
+              AND created_by=:actor AND business_date=:day
+            GROUP BY account_code
+            """).param("actor",username).param("day",date)
+            .query((rs,i)->java.util.Map.entry(rs.getString("account_code"),rs.getBigDecimal("amount")))
+            .list();
+        BigDecimal cash=BigDecimal.ZERO,bank=BigDecimal.ZERO;
+        for(var item:entries) {
+            if(item.getKey().equals("CASH"))cash=item.getValue();
+            if(item.getKey().equals("BANK"))bank=item.getValue();
+        }
+        return new Collections(cash,bank);
+    }
+
+    private List<SaleLine> liveSales(String username, LocalDate date) {
+        var from=date.atStartOfDay(DailyClosingAccessPolicy.BUSINESS_ZONE).toInstant().atOffset(ZoneOffset.UTC);
+        var until=date.plusDays(1).atStartOfDay(DailyClosingAccessPolicy.BUSINESS_ZONE).toInstant().atOffset(ZoneOffset.UTC);
+        return jdbc.sql("""
+            SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
+                   COALESCE(detail.total,0) AS total,
+                   CASE WHEN s.fulfillment_type='SELF_PICKUP'
+                        THEN s.fulfilled_at ELSE d.delivered_at END AS completed_at
+            FROM sales s
+            LEFT JOIN deliveries d ON d.sale_id=s.id
+            LEFT JOIN LATERAL (
+                SELECT SUM(si.quantity) AS quantity,
+                       SUM(si.quantity * si.unit_sale_price) AS total
+                FROM sale_items si WHERE si.sale_id=s.id
+            ) detail ON TRUE
+            WHERE s.created_by=:actor
+              AND ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
+                    AND s.fulfilled_at>=:fromDate AND s.fulfilled_at<:untilDate)
+               OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                    AND d.status='DELIVERED'
+                    AND d.delivered_at>=:fromDate AND d.delivered_at<:untilDate))
+            ORDER BY completed_at,s.id
+            """).param("actor",username).param("fromDate",from).param("untilDate",until)
+            .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
+                    rs.getString("sale_number"),rs.getLong("quantity"),
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+            .list();
+    }
+
+    private List<SaleLine> snapshot(UUID closingId) {
+        return jdbc.sql("""
+            SELECT sale_id,sale_number,quantity,total,completed_at
+            FROM employee_daily_closing_sales WHERE closing_id=:id
+            ORDER BY completed_at,sale_id
+            """).param("id",closingId)
+            .query((rs,i)->new SaleLine(rs.getObject("sale_id",UUID.class),
+                    rs.getString("sale_number"),rs.getLong("quantity"),
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+            .list();
+    }
+
+    private Report result(Employee actor, LocalDate date) {
+        var saved=jdbc.sql("""
+            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note
+            FROM employee_daily_closings
+            WHERE employee_id=:actor AND business_date=:day
+            """).param("actor",actor.id()).param("day",date)
+            .query((rs,i)->new Stored(rs.getObject("id",UUID.class),
+                    rs.getBigDecimal("expected_cash"),rs.getBigDecimal("expected_bank"),
+                    rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"),
+                    rs.getString("cash_note"),rs.getString("bank_note")))
+            .optional().orElse(null);
+        Collections now=collections(actor.username(),date);
+        List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
+        boolean changed=saved!=null && (saved.cash().compareTo(now.cash())!=0
+                || saved.bank().compareTo(now.bank())!=0);
+        return new Report(date,saved!=null,
+                saved==null && policy.normalWriteWindow(date,policy.now()),
+                saved==null?now.cash():saved.cash(),
+                saved==null?now.bank():saved.bank(),
+                saved==null?null:saved.actualCash(),
+                saved==null?null:saved.actualBank(),
+                saved==null?null:saved.cashNote(),
+                saved==null?null:saved.bankNote(),
+                sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
+                sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
+                sales,changed);
+    }
+
+    private record Stored(UUID id, BigDecimal cash, BigDecimal bank,
+                          BigDecimal actualCash, BigDecimal actualBank,
+                          String cashNote, String bankNote) {}
+
+    private static void amount(BigDecimal money) {
+        if(money==null || money.signum()<0 || money.stripTrailingZeros().scale()>0) {
+            throw new FinanceValidationException("Суммы указываются целыми неотрицательными сомами");
+        }
+    }
+    private static String note(String value) {
+        if(value!=null && value.length()>2000)throw new FinanceValidationException("Слишком длинное примечание");
+        return value==null || value.isBlank()?null:value.strip();
+    }
+
+    /**
+     * Account row locks serialize against sale payments, with the same
+     * BANK -> CASH ordering as the existing corporate daily close.
+     * Completion gate protects the sales snapshot; NO ledger posting occurs.
+     */
+    @Transactional
+    public Report close(String username, LocalDate date, Request input) {
+        validateDate(date);
+        if(input==null)throw new FinanceValidationException("Данные личного закрытия обязательны");
+        amount(input.expectedCash());amount(input.expectedBank());
+        amount(input.actualCash());amount(input.actualBank());
+        String cashNote=note(input.cashNote()),bankNote=note(input.bankNote());
+        if(input.actualCash().compareTo(input.expectedCash())!=0 && cashNote==null
+                || input.actualBank().compareTo(input.expectedBank())!=0 && bankNote==null)
+            throw new FinanceValidationException("Укажите причину расхождения CASH/BANK");
+
+        // Resolve identity server-side. Never accept actor or employee id from request.
+        Employee actor=employee(username);
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+        accounts.lockBalance(FinanceAccount.BANK);
+        accounts.lockBalance(FinanceAccount.CASH);
+        if(!policy.normalWriteWindow(date,policy.now()))
+            throw new FinanceConflictException("Личное закрытие за эту дату недоступно");
+        boolean existing=Boolean.TRUE.equals(jdbc.sql("""
+            SELECT EXISTS(SELECT 1 FROM employee_daily_closings
+                          WHERE employee_id=:id AND business_date=:day)
+            """).param("id",actor.id()).param("day",date).query(Boolean.class).single());
+        if(existing)throw new FinanceConflictException("Личный день уже закрыт");
+
+        Collections amount=collections(actor.username(),date);
+        if(input.expectedCash().compareTo(amount.cash())!=0
+                || input.expectedBank().compareTo(amount.bank())!=0)
+            throw new FinanceConflictException("Суммы изменились: обновите расчёт перед закрытием");
+        var sales=liveSales(actor.username(),date);
+        UUID id=UUID.randomUUID();
+        jdbc.sql("""
+            INSERT INTO employee_daily_closings
+            (id,employee_id,business_date,expected_cash,expected_bank,actual_cash,
+             actual_bank,cash_note,bank_note)
+            VALUES (:id,:actor,:day,:cash,:bank,:actualCash,:actualBank,:cashNote,:bankNote)
+            """).param("id",id).param("actor",actor.id()).param("day",date)
+            .param("cash",amount.cash()).param("bank",amount.bank())
+            .param("actualCash",input.actualCash()).param("actualBank",input.actualBank())
+            .param("cashNote",cashNote,java.sql.Types.VARCHAR)
+            .param("bankNote",bankNote,java.sql.Types.VARCHAR).update();
+        for(var sale:sales) {
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_sales
+                (closing_id,sale_id,sale_number,quantity,total,completed_at)
+                VALUES (:closing,:sale,:number,:quantity,:total,:completedAt)
+                """).param("closing",id).param("sale",sale.saleId())
+                .param("number",sale.saleNumber()).param("quantity",sale.quantity())
+                .param("total",sale.total())
+                .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC)).update();
+        }
+        audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
+                "PERSONAL_DAY_CLOSED",null,java.util.Map.of(
+                  "businessDate",date.toString(),"expectedCash",amount.cash(),
+                  "expectedBank",amount.bank(),"actualCash",input.actualCash(),
+                  "actualBank",input.actualBank(),"saleCount",sales.size()));
+        return result(actor,date);
+    }
+}

@@ -139,6 +139,8 @@ class DailyClosingMultiDayAcceptanceTest {
                 """, first, second)).isEqualTo(4);
     }
 
+    private final List<UUID> companyViewerRoles = new ArrayList<>();
+
     private String user(UUID role) {
         UUID id = UUID.randomUUID();
         users.add(id);
@@ -149,6 +151,7 @@ class DailyClosingMultiDayAcceptanceTest {
                 """, id, username, PasswordEncoderFactories.createDelegatingPasswordEncoder()
                 .encode(PASSWORD));
         jdbc.update("INSERT INTO security_user_roles(user_id,role_id) VALUES (?,?)", id, role);
+        if (EMPLOYEE_ROLE.equals(role)) companyViewerRoles.add(CorporateClosingTestGrant.grant(jdbc,id));
         return username;
     }
 
@@ -474,6 +477,7 @@ class DailyClosingMultiDayAcceptanceTest {
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?", id);
             jdbc.update("DELETE FROM app_users WHERE id=?", id);
         }
+        for (UUID role : companyViewerRoles) CorporateClosingTestGrant.revoke(jdbc,role);
         for (var item : originalAccounts.entrySet()) {
             jdbc.update("""
                     UPDATE finance_accounts SET balance=?,opening_balance_initialized=?

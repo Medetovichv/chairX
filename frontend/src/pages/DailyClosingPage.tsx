@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EmployeeDailyClosingPage } from '../features/daily-closing/EmployeeDailyClosingPage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthProvider';
 import { closingApi, closingKeys } from '../features/daily-closing/api';
@@ -42,7 +43,7 @@ function ExistingReport({ report }: { report: ClosingReport }) {
       Закрытие и перерасчёт не создают финансовых проводок.</p>
   </section>;
 }
-export function DailyClosingPage() {
+function CompanyDailyClosingPage() {
   const { hasPermission } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
   const write = hasPermission('DAILY_CLOSING_WRITE') || hasPermission('FINANCE_CLOSE');
@@ -222,4 +223,11 @@ export function DailyClosingPage() {
         </>}
     </section>}
   </div>;
+}
+
+/** Global company CASH/BANK is never fetched for an employee without FINANCE_READ. */
+export function DailyClosingPage(){
+ const {hasPermission}=useAuth();
+ if(!hasPermission('FINANCE_READ'))return <EmployeeDailyClosingPage/>;
+ return <CompanyDailyClosingPage/>;
 }

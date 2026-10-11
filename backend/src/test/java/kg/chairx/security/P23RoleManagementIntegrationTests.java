@@ -238,12 +238,15 @@ class P23RoleManagementIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
-    @Test void dailyClosingCanBeReadWithoutGeneralFinanceAndExpenseRead() throws Exception {
+    @Test void personalClosingCannotRevealGeneralFinanceAndExpenseRead() throws Exception {
         User employee=user(EMPLOYEE);
         mvc.perform(get("/api/finance/closings")
                         .with(httpBasic(employee.username(),PASSWORD)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
         mvc.perform(get("/api/finance/closings/2026-10-10/sales")
+                        .with(httpBasic(employee.username(),PASSWORD)))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/finance/my-closings/2026-10-10")
                         .with(httpBasic(employee.username(),PASSWORD)))
                 .andExpect(status().isOk());
         mvc.perform(get("/api/finance/cash-flow")
