@@ -273,10 +273,10 @@ describe('F07 DTOs, validation and server sales list',()=>{
     renderAt();
     await userEvent.setup().click(screen.getByRole('button',{name:'Канбан'}));
     const col=await screen.findByRole('region',{name:'Канбан: Подтверждён'});
-    expect(await within(col).findByText('20/22')).toBeInTheDocument();
+    expect(await within(col).findByText(/Показано 20\/22/)).toBeInTheDocument();
     expect(within(col).getByRole('button',{name:'Показать ещё'})).toBeInTheDocument();
     await userEvent.setup().click(within(col).getByRole('button',{name:'Показать ещё'}));
-    expect(await within(col).findByText('22/22')).toBeInTheDocument();
+    expect(await within(col).findAllByRole('link', {name:/Открыть продажу/})).toHaveLength(22);
     for(const status of saleStatuses){
       expect(api.fetchMock.mock.calls.some(([url])=>{
         const p=new URL(String(url),'http://chairx.test');
@@ -290,7 +290,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     granted.roles=['MY_CUSTOM_DEPARTMENT'];
     mockBackend();renderAt();
     await screen.findByRole('heading',{name:'Продажи',level:2});
-    expect(screen.queryByRole('link',{name:'+ Новая продажа'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Новая продажа'})).not.toBeInTheDocument();
     expect((await screen.findAllByText('#42')).length).toBeGreaterThan(0);
   });
 });
