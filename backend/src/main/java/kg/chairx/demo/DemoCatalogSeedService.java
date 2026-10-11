@@ -7,6 +7,11 @@ import kg.chairx.product.api.CreateProductVariantRequest;
 import kg.chairx.product.application.ProductService;
 import kg.chairx.product.application.ProductVariantService;
 import kg.chairx.supplier.api.CreateSupplierRequest;
+import kg.chairx.purchase.api.*;
+import kg.chairx.purchase.application.PurchaseService;
+import kg.chairx.operations.ReceivePurchase;
+import java.util.UUID;
+import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -26,14 +31,19 @@ public class DemoCatalogSeedService {
     private final ProductVariantService variants;
     private final SupplierService suppliers;
     private final CustomerService customers;
+    private final PurchaseService purchases;
+    private final ReceivePurchase receiving;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
-            ProductVariantService variants, SupplierService suppliers, CustomerService customers) {
+            ProductVariantService variants, SupplierService suppliers, CustomerService customers,
+            PurchaseService purchases, ReceivePurchase receiving) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
         this.suppliers = suppliers;
         this.customers = customers;
+        this.purchases = purchases;
+        this.receiving = receiving;
     }
 
     @Transactional
@@ -51,7 +61,13 @@ public class DemoCatalogSeedService {
                 """);
         Integer count = jdbc.queryForObject(
                 "select count(*) from chairx_demo_seed_versions where version=1", Integer.class);
-        if (count != null && count > 0) return;
+        if (count == null || count == 0) seedCatalog();
+        Integer purchasesInstalled = jdbc.queryForObject(
+                "select count(*) from chairx_demo_seed_versions where version=2", Integer.class);
+        if (purchasesInstalled == null || purchasesInstalled == 0) seedPurchases();
+    }
+
+    private void seedCatalog() {
 
         suppliers.create(new CreateSupplierRequest("DEMO · Фабрика кресел", "Демо-поставщик", null));
         suppliers.create(new CreateSupplierRequest("DEMO · Поставщик Б", "Демо-поставщик", null));
@@ -81,5 +97,46 @@ public class DemoCatalogSeedService {
                 "Синий", "DEMO-PRO-BLU", "Синий", new BigDecimal("12500")));
 
         jdbc.update("insert into chairx_demo_seed_versions(version) values (1)");
+    }
+
+    private void seedPurchases() {
+        UUID supplier = jdbc.queryForObject(
+                "select id from suppliers where name='DEMO · Фабрика кресел' order by created_at limit 1",UUID.class);
+        UUID black = jdbc.queryForObject(
+                "select id from product_variants where sku='DEMO-ERGO-BLK' limit 1",UUID.class);
+        UUID gray = jdbc.queryForObject(
+                "select id from product_variants where sku='DEMO-ERGO-GRY' limit 1",UUID.class);
+        UUID home = jdbc.queryForObject(
+                "select id from warehouses where code='HOME' limit 1",UUID.class);
+        UUID office = jdbc.queryForObject(
+                "select id from warehouses where code='OFFICE' limit 1",UUID.class);
+
+        // Distinct real business states: a draft, a partially received order,
+        // and a fully received order across both warehouses.
+        purchases.create(new CreatePurchaseRequest(supplier,
+                List.of(new PurchaseItemRequest(gray,4,new BigDecimal("5100"))),
+                BigDecimal.ZERO,"DEMO · Черновик закупки"));
+
+        var partial=purchases.confirm(purchases.create(new CreatePurchaseRequest(supplier,
+                List.of(new PurchaseItemRequest(black,10,new BigDecimal("5000"))),
+                BigDecimal.ZERO,"DEMO · Частичное поступление")).id());
+        receiving.receive(partial.id(),new CreatePurchaseReceiptRequest(
+                UUID.randomUUID(),home,
+                List.of(new ReceiptItemRequest(partial.items().getFirst().id(),5)),
+                "DEMO · Первая партия"));
+
+        var complete=purchases.confirm(purchases.create(new CreatePurchaseRequest(supplier,
+                List.of(new PurchaseItemRequest(gray,8,new BigDecimal("5100"))),
+                BigDecimal.ZERO,"DEMO · Закупка на два склада")).id());
+        receiving.receive(complete.id(),new CreatePurchaseReceiptRequest(
+                UUID.randomUUID(),home,
+                List.of(new ReceiptItemRequest(complete.items().getFirst().id(),4)),
+                "DEMO · Домашний склад"));
+        receiving.receive(complete.id(),new CreatePurchaseReceiptRequest(
+                UUID.randomUUID(),office,
+                List.of(new ReceiptItemRequest(complete.items().getFirst().id(),4)),
+                "DEMO · Офисный склад"));
+
+        jdbc.update("insert into chairx_demo_seed_versions(version) values (2)");
     }
 }
