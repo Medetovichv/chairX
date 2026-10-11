@@ -102,8 +102,8 @@ export function DefectActions({defect,onChanged}:{defect:Defect;onChanged:(value
     title={action==='writeoff'?'Необратимо списать неисправный товар?':
       action==='resolve'?'Подтвердить ремонт?':'Ожидание запчастей?'}
     description={action==='writeoff'?
-      'Вариация: '+defect.productVariantId+'. Склад: '+defect.warehouseId+
-      '. Количество: '+defect.quantity+'. Проблема: '+defect.description+
+      'Проверьте кресло и склад в карточке дефекта. Количество: '+defect.quantity+
+      '. Проблема: '+defect.description+
       '. Backend выполнит WRITE_OFF и FIFO списание. Операция необратима.':
       action==='resolve'?'Backend снимет блокировку товара после исправления.':
       'Товар останется заблокированным в ожидании запчастей.'}
