@@ -74,7 +74,7 @@ const payments:PaymentSummary={
 };
 function mockApi(opts:{
   purchases?:Purchase[]; suppliers?:Supplier[]; initialReceived?:number;
-  fail?:Record<string,number>; networkReceiptOnce?:boolean; network?:boolean; receiptHistory?:boolean;
+  fail?:Record<string,number>; networkReceiptOnce?:boolean; networkSupplierCreateOnce?:boolean; network?:boolean; receiptHistory?:boolean;
 }={}) {
   const list=[...(opts.purchases??[purchase()])];
   const allSuppliers=[...(opts.suppliers??[supplier()])];
@@ -84,6 +84,7 @@ function mockApi(opts:{
   }
   const receipts=new Map<string,unknown>();
   let failOnce=Boolean(opts.networkReceiptOnce);
+  let failSupplierOnce=Boolean(opts.networkSupplierCreateOnce);
   const calls=vi.fn(async (input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
     const url=new URL(String(input),'http://chairx.local');
     const path=url.pathname;const method=init?.method??'GET';
@@ -123,7 +124,9 @@ function mockApi(opts:{
     });
     if(path==='/api/suppliers' && method==='POST') {
       const data=JSON.parse(String(init?.body)) as Supplier;
-      const saved=supplier({...data,id:RID});allSuppliers.push(saved);return json(saved,201);
+      const saved=supplier({...data,id:RID});allSuppliers.push(saved);
+      if(failSupplierOnce){failSupplierOnce=false;throw new TypeError('Response lost after creating supplier');}
+      return json(saved,201);
     }
     const sState=/^\/api\/suppliers\/([^/]+)\/(activate|deactivate)$/.exec(path);
     if(sState && method==='POST') {
@@ -352,6 +355,54 @@ describe('F06 list, filters and drafts',()=>{
     fireEvent.change(form.getByRole('textbox',{name:'Карго закупки'}),{target:{value:'1,01'}});
     expect(form.getByRole('complementary',{name:'Шаг 4. Проверка закупки'}))
       .toHaveTextContent('1,88 сом');
+  });
+  it('creates a supplier in the purchase drawer without losing items or cargo',async()=>{
+    const {calls}=mockApi();
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    const form=within(screen.getByRole('form',{name:'Создание закупки'}));
+    fireEvent.change(form.getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'7'}});
+    fireEvent.change(form.getByRole('textbox',{name:'Цена позиции 1'}),{target:{value:'1500'}});
+    fireEvent.change(form.getByRole('textbox',{name:'Карго закупки'}),{target:{value:'100'}});
+    await userEvent.setup().click(form.getByRole('button',{name:'+ Новый поставщик'}));
+    const drawer=screen.getByRole('dialog',{name:'Новый поставщик для закупки'});
+    const supplierForm=within(drawer).getByRole('form',{name:'Создание поставщика'});
+    fireEvent.change(within(supplierForm).getByRole('textbox',{name:'Название поставщика'}),
+      {target:{value:'Шаньдун'}});
+    await userEvent.setup().click(within(supplierForm).getByRole('button',{name:'Сохранить поставщика'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Новый поставщик для закупки'})).not.toBeInTheDocument());
+    expect(form.getByRole('combobox',{name:'Поставщик закупки'})).toHaveValue(RID);
+    expect(form.getByRole('textbox',{name:'Количество позиции 1'})).toHaveValue('7');
+    expect(form.getByRole('textbox',{name:'Цена позиции 1'})).toHaveValue('1500');
+    expect(form.getByRole('textbox',{name:'Карго закупки'})).toHaveValue('100');
+    expect(calls.mock.calls.filter(([url,opts])=>String(url)==='/api/suppliers'&&
+      (opts as RequestInit)?.method==='POST')).toHaveLength(1);
+    expect(calls.mock.calls.filter(([url,opts])=>String(url)==='/api/purchases'&&
+      (opts as RequestInit)?.method==='POST')).toHaveLength(0);
+  });
+  it('hides inline supplier creation without SUPPLIERS_MANAGE',async()=>{
+    access.permissions=access.permissions.filter(p=>p!=='SUPPLIERS_MANAGE');
+    mockApi();
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    const form=within(screen.getByRole('form',{name:'Создание закупки'}));
+    expect(form.queryByRole('button',{name:'+ Новый поставщик'})).not.toBeInTheDocument();
+    expect(await form.findByRole('combobox',{name:'Поставщик закупки'})).toBeInTheDocument();
+  });
+  it('blocks duplicate supplier POST after a potentially committed network failure',async()=>{
+    const {calls}=mockApi({networkSupplierCreateOnce:true});
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(screen.getByRole('button',{name:'+ Новый поставщик'}));
+    const drawer=screen.getByRole('dialog',{name:'Новый поставщик для закупки'});
+    const inner=within(drawer).getByRole('form',{name:'Создание поставщика'});
+    fireEvent.change(within(inner).getByRole('textbox',{name:'Название поставщика'}),
+      {target:{value:'Тестовый поставщик'}});
+    await userEvent.setup().click(within(inner).getByRole('button',{name:'Сохранить поставщика'}));
+    expect(await within(drawer).findByText(/Повторная отправка заблокирована/)).toBeInTheDocument();
+    expect(within(inner).getByRole('button',{name:'Сохранить поставщика'})).toBeDisabled();
+    expect(calls.mock.calls.filter(([url,opts])=>String(url)==='/api/suppliers'&&
+      (opts as RequestInit)?.method==='POST')).toHaveLength(1);
   });
   it('creates DRAFT from selected real catalog product and variant UUID',async()=>{
     const {calls}=mockApi();

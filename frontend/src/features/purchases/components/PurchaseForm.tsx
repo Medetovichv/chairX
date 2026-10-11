@@ -1,15 +1,17 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { createPortal } from 'react-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { supplierApi, purchaseKeys } from '../api';
-import { userFacingApiError } from '../../../shared/api/api-error';
+import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { ProductVariantPicker } from './ProductVariantPicker';
+import { SupplierForm } from './SupplierForm';
 import { checkMoney, formatMoney, integerQuantity, purchaseInput, validatePurchase } from '../validation';
-import type { Purchase, PurchaseInput } from '../types';
+import type { Purchase, PurchaseInput, Supplier, SupplierInput } from '../types';
 
 type Row = { key: number; variantId: string; quantity: string; unitCost: string };
 function toCents(input: string): bigint | null {
@@ -38,6 +40,11 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
 }) {
   const { hasPermission } = useAuth();
   const mayChoose = hasPermission('SUPPLIERS_READ') && hasPermission('CATALOG_READ');
+  const canCreateSupplier = mayChoose && hasPermission('SUPPLIERS_MANAGE');
+  const client = useQueryClient();
+  const [creatingSupplier, setCreatingSupplier] = useState(false);
+  const [supplierBusy, setSupplierBusy] = useState(false);
+  const [supplierUncertain, setSupplierUncertain] = useState(false);
   const suppliers = useQuery({ queryKey: purchaseKeys.supplierAll, queryFn: supplierApi.all, enabled: mayChoose });
   const [supplierId, setSupplierId] = useState(initial?.supplierId ?? '');
   const [rows, setRows] = useState<Row[]>(() => initial?.items.map(item => ({
@@ -50,6 +57,32 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
   const [saving, setSaving] = useState(false);
   const pending = useRef(false);
   const preview = purchasePreview(rows, cargo);
+  async function addSupplier(data:SupplierInput) {
+    if (supplierBusy || supplierUncertain) {
+      throw new Error('Нельзя повторять создание поставщика без проверки предыдущего запроса.');
+    }
+    setSupplierBusy(true);
+    try {
+      const created=await supplierApi.create(data);
+      // Show the new supplier immediately while server-backed all-pages
+      // supplier list refreshes. Never clear any purchase item form state.
+      client.setQueryData<Supplier[]>(purchaseKeys.supplierAll,previous=>
+        [...(previous??[]).filter(item=>item.id!==created.id),created]);
+      client.setQueryData(['suppliers','detail',created.id],created);
+      setSupplierId(created.id);
+      setCreatingSupplier(false);
+      setError('');
+      void client.invalidateQueries({queryKey:purchaseKeys.suppliers});
+    } catch(cause) {
+      // A timeout/5xx/409 can mean the POST committed. Supplier creation has
+      // no idempotency token, so it must not be silently retried.
+      if(!(cause instanceof ApiClientError) || cause.kind!=='http' ||
+          cause.status===undefined || cause.status===409 || cause.status>=500) {
+        setSupplierUncertain(true);
+      }
+      throw cause;
+    } finally {setSupplierBusy(false);}
+  }
   function update(key: number, values: Partial<Row>) {
     setRows(previous => previous.map(row => row.key === key ? { ...row, ...values } : row));
     setError('');
@@ -68,7 +101,7 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
     try { await onSave(payload); } catch (cause) { setError(userFacingApiError(cause)); }
     finally { pending.current = false; setSaving(false); }
   }
-  return <form aria-label={initial ? 'Редактирование закупки' : 'Создание закупки'}
+  return <><form aria-label={initial ? 'Редактирование закупки' : 'Создание закупки'}
     onSubmit={e => void submit(e)} className="space-y-5">
     <div className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-slate-600">
       Поставщик → Товары и количество → Карго → Проверка итогов
@@ -91,6 +124,10 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
             <option key={s.id} value={s.id}>{s.name}{s.active ? '' : ' (неактивен)'}</option>)}
         </select>
       </label>}
+      {canCreateSupplier&&<Button type="button" variant="outline" size="sm"
+        disabled={saving||creatingSupplier} onClick={()=>setCreatingSupplier(true)}>
+        + Новый поставщик
+      </Button>}
     </section>
     <section aria-label="Шаг 2. Кресла" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <h3 className="text-lg font-bold">2. Кресла в закупке</h3>
@@ -169,5 +206,24 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
       <Button className="w-full" type="button" variant="outline" disabled={saving} onClick={onCancel}>Отмена</Button>
     </aside>
     </div>
-  </form>;
+  </form>
+  {canCreateSupplier&&creatingSupplier&&createPortal(
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40">
+      <aside role="dialog" aria-modal="true" aria-label="Новый поставщик для закупки"
+        className="h-full w-full max-w-xl overflow-y-auto bg-white p-4 shadow-xl sm:p-6">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="text-lg font-bold text-slate-900">Добавить поставщика</h3>
+          <Button type="button" variant="outline" disabled={supplierBusy}
+            onClick={()=>setCreatingSupplier(false)}>Закрыть</Button>
+        </div>
+        {supplierUncertain&&<p role="alert" className="mb-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          Ответ сервера неизвестен: поставщик мог быть создан. Повторная отправка заблокирована.
+          Закройте панель и проверьте список поставщиков перед новой попыткой.
+        </p>}
+        <fieldset disabled={supplierUncertain}>
+          <SupplierForm onSave={addSupplier} onCancel={()=>setCreatingSupplier(false)}/>
+        </fieldset>
+      </aside>
+    </div>,document.body)}
+  </>;
 }
