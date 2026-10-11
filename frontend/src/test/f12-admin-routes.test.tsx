@@ -18,7 +18,7 @@ const ID='11111111-1111-4111-8111-111111111111';
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});}
 function fakeApi(){
  const calls=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
-  const path=String(input).split('?')[0],method=init?.method??'GET';
+  const path=new URL(String(input),'http://chairx.test').pathname,method=init?.method??'GET';
   if(path==='/api/admin/users'&&method==='GET')return json([
     {id:ID,username:'cashier1',displayName:'Сотрудник',active:false,roles:['EMPLOYEE']}]);
   if(path==='/api/admin/users'&&method==='POST')return json({id:ID,username:'cashier1',displayName:'Сотрудник',active:true,roles:[]},201);
