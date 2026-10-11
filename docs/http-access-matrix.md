@@ -1,6 +1,6 @@
 # ChairX — точная HTTP-матрица контроля доступа
 
-**Автоматическая сверка по исходному `backend/src/main/java/kg/chairx/config/SecurityConfig.java`** в рабочей ветке PR #51 поверх `main` (после PR #48), 11.10.2026. Это **81 явная группа Spring Security HTTP matchers / 133 пары method+path-pattern**, а не подсчёт уникальных Java controller methods или гарантия, что каждый pattern имеет отдельный handler. Маршруты сгруппированы точно по применяемым правилам.
+**Автоматическая сверка по исходному `backend/src/main/java/kg/chairx/config/SecurityConfig.java`** в `main` после слияния [PR #51](https://github.com/Medetovichv/chairX/pull/51), commit `5aded0960f68de41f12eae1f614d55678881646b` (11.10.2026). Это **81 явная группа Spring Security HTTP matchers / 133 пары method+path-pattern**, а не подсчёт уникальных Java controller methods или гарантия, что каждый pattern имеет отдельный handler. Маршруты сгруппированы точно по применяемым правилам.
 
 ## Правила чтения
 
