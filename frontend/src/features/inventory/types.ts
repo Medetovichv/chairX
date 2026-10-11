@@ -23,7 +23,7 @@ export interface InventoryOverviewPage {
 }
 export interface InventoryFilters {
   warehouseId: string | null;
-  model: string; variation: string; includeZero: boolean; onlyAvailable: boolean;
+  model: string; variation: string; search?: string; includeZero: boolean; onlyAvailable: boolean;
   page: number; size: number;
 }
 export interface InventoryBalance {
@@ -71,3 +71,6 @@ export interface WarehouseStockSummary {
   onHand: number; reserved: number; blocked: number; available: number;
   stockedVariants: number; lowStockVariants: number;
 }
+
+export interface WarehouseCreateInput { name: string; code: string; address: string | null; }
+export interface WarehouseUpdateInput { name: string; address: string | null; }
