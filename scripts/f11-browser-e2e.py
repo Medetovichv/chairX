@@ -101,7 +101,7 @@ def main():
             page.get_by_label("Логин").fill("admin")
             page.get_by_label("Пароль",exact=True).fill(adminpass)
             page.get_by_role("button",name="Войти",exact=True).click()
-            page.get_by_role("heading",name="Закрытие дня").wait_for(timeout=30000)
+            page.get_by_role("heading",name="Закрытие дня",level=2).wait_for(timeout=30000)
             page.get_by_role("heading",name="Предварительный расчёт backend").wait_for()
             form=page.get_by_role("form",name="Закрытие финансового дня")
             cash=form.get_by_role("textbox",name="Факт CASH")
