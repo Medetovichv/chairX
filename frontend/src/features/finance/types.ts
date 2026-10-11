@@ -41,5 +41,5 @@ export interface SettlementResponse{
  reference:string|null;idempotencyKey:string;createdBy:string;createdAt:string;
 }
 export interface TransferInput{transferId:string;from:FinanceAccount;to:FinanceAccount;amount:string}
-export interface TransferResponse extends TransferInput{}
+export type TransferResponse=TransferInput;
 export interface OpeningInput{account:FinanceAccount;amount:string}

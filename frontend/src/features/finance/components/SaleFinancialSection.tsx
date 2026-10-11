@@ -11,10 +11,10 @@ import { Input } from '../../../shared/ui/input';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import {
- channels,accountFor,methodFor,optional,validUUID,som,validateRefund,positiveSom,amountCents,dateLabel
+ channels,accountFor,methodFor,optional,validUUID,som,validateRefund,positiveSom,dateLabel
 } from '../validation';
 import type {
- PaymentChannel,PaymentInput,PaymentResponse,RefundInput,RefundMethod,RefundResponse
+ PaymentChannel,PaymentInput,PaymentResponse,RefundInput,RefundMethod
 } from '../types';
 import type { SaleResponse } from '../../sales/types';
 type PaymentDraft=PaymentInput&{localOperationId:string};
@@ -77,7 +77,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId})}
     post={async p=>{const {localOperationId:_unused,...body}=p;void _unused;await financeApi.postPayment(body);}}
     onDone={refresh}
-    reconcile={paymentRead?async record=>{
+    reconcile={paymentRead?async _record=>{
       const latest=await financeApi.payments(sale.id);
       client.setQueryData(financeKeys.payments(sale.id),latest);
       // Backend has NO idempotencyKey in PaymentResponse; an existing

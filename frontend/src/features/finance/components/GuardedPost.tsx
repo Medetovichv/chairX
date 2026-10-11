@@ -12,6 +12,8 @@ interface Props<T>{
  kind:string;scope:string;allowed:boolean;title:string;label:string;destructive?:boolean;
  operationKey:(payload:T)=>string;meta:(payload:T)=>Record<string,string>;
  post:(payload:T)=>Promise<unknown>;onDone:()=>Promise<void>|void;
+ /** Only for backend idempotent POSTs with a stable key inside the original payload. */
+ canReplay?:boolean;
  /** GET-only reconciliation. Return true only if backend proves the same financial operation. */
  reconcile?:(record:PendingFinance)=>Promise<boolean>;
  children:(ctl:Control<T>)=>ReactNode;
@@ -23,7 +25,7 @@ interface Props<T>{
  * a matching backend-supported idempotency key.
  */
 export function GuardedPost<T>({
- kind,scope,allowed,title,label,destructive,operationKey,meta,post,onDone,reconcile,children
+ kind,scope,allowed,title,label,destructive,operationKey,meta,post,onDone,reconcile,canReplay=false,children
 }:Props<T>){
  const {user}=useAuth();
  const [initial]=useState<ReadFinance>(()=>readFinancePending(user?.id,kind,scope));
@@ -64,7 +66,7 @@ export function GuardedPost<T>({
    return;
   }
   if(isReplay){
-   if(!replay||JSON.stringify(replay)!==JSON.stringify(payload)||journal.kind!=='pending'||
+   if(!canReplay||!replay||JSON.stringify(replay)!==JSON.stringify(payload)||journal.kind!=='pending'||
     JSON.stringify(journal.record)!==JSON.stringify(record))return;
   }else if(journal.kind!=='missing')return;
   running.current=true;setBusy(true);setCandidate(null);setError('');
@@ -77,9 +79,11 @@ export function GuardedPost<T>({
    const ambiguous=!(cause instanceof ApiClientError)||cause.kind!=='http'||
     cause.status===undefined||cause.status>=500||cause.status===409;
    if(ambiguous||isReplay){
-    setReplay(payload);
+    if(canReplay)setReplay(payload);
     setError(userFacingApiError(cause)+' Результат неизвестен; новый финансовый POST заблокирован.');
    }else{
+    // Definitive validation rejection: there was no new confirmed debit/credit.
+    // Still fail closed when storage cleanup fails.
     if(clearFinancePending(user.id,kind,scope))setJournal({kind:'missing'});
     else setJournal({kind:'invalid'});
     setError(userFacingApiError(cause));
@@ -108,7 +112,7 @@ export function GuardedPost<T>({
    <div className="flex flex-wrap gap-2">
     {reconcile&&journal.kind==='pending'&&<Button type="button" variant="outline" disabled={busy}
        onClick={()=>void check()}>Сверить с backend</Button>}
-    {replay&&journal.kind==='pending'&&
+    {canReplay&&replay&&journal.kind==='pending'&&
      <Button type="button" disabled={busy} onClick={()=>void send(replay,true)}>
        Повторить исходный запрос с прежним ключом</Button>}
    </div>
