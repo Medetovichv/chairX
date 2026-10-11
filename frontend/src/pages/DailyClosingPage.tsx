@@ -6,6 +6,7 @@ import { closingInputIssue, validClosingDate } from '../features/daily-closing/v
 import type { ClosingAccount, ClosingInput, ClosingReport } from '../features/daily-closing/types';
 import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
+import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
 import { PageHeader } from '../shared/components/PageHeader';
 import { LoadingState } from '../shared/components/LoadingState';
 import { ErrorState } from '../shared/components/ErrorState';
@@ -113,6 +114,9 @@ export function DailyClosingPage() {
     {valid && exists && (report.isPending ? <LoadingState label="Загружаем закрытый отчёт…"/> :
       report.isError ? <ErrorState error={report.error} onRetry={() => void report.refetch()}/> :
       <ExistingReport report={report.data}/>)}
+    {valid && access.isSuccess && <ClosingMaintenance date={date}
+      access={access.data} report={report.data}
+      onChanged={refreshed}/>}
     {valid && access.isSuccess && !exists && <section className="space-y-4 rounded-xl border bg-white p-4">
       <h2 className="text-lg font-bold">Предварительный расчёт backend</h2>
       {preview.isPending ? <LoadingState label="Получаем ожидаемые остатки…"/> :

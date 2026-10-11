@@ -61,3 +61,25 @@ export interface CompletedSales {
   totals: {orders: number | null; chairs: number | null; value: Money | null};
   lateCompletionCount: number | null;
 }
+
+export interface ClosingUpdate extends ClosingInput {
+  expectedVersion: number;
+  reason: string;
+}
+export interface UnlockGrant {
+  id: string;
+  businessDate: string;
+  unlockedBy: string;
+  unlockedAt: string;
+  expiresAt: string;
+  reason: string;
+  revokedAt: string | null;
+  revokedBy: string | null;
+}
+export interface ClosingAudit {
+  action: string;
+  actor: string;
+  at: string;
+  before: string | null;
+  after: string | null;
+}
