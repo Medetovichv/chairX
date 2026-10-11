@@ -1,0 +1,86 @@
+name: F11 release gate — issue 32
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/f11-release-gate.yml'
+      - 'scripts/f11-browser-e2e.py'
+      - 'backend/**'
+      - 'frontend/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-integration:
+    name: Java 25 full Testcontainers and migration upgrade
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Confirm Docker is available for PostgreSQL 17
+        run: docker info --format '{{.ServerVersion}}'
+      - name: Full backend suite on isolated PostgreSQL Testcontainers
+        working-directory: backend
+        run: mvn --batch-mode --no-transfer-progress clean verify
+      - name: Upload failed test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-32-surefire-failure
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  real-browser-postgres:
+    name: Chromium → Vite → Spring → disposable PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate one-time local test credentials
+        run: bash scripts/init-local-env.sh
+      - name: Start fresh container stack with PostgreSQL 17
+        run: |
+          docker compose config --quiet
+          docker compose up -d --build --wait --wait-timeout 240
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned real Chromium automation
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Execute destructive acceptance only against empty CI DB
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/f11-browser-e2e.py
+      - name: Collect acceptance screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-32-browser-screenshots
+          path: artifacts/f11/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Diagnostic logs on failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs --tail=100 postgres backend frontend || true
+      - name: Destroy ephemeral test database
+        if: always()
+        run: docker compose down -v || true
