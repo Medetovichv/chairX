@@ -56,7 +56,7 @@ class API:
             if hasattr(self,"csrf_token"): headers[self.csrf_header]=self.csrf_token
         req=urllib.request.Request(BASE+path,data=data,headers=headers,method=method)
         try: response=self.opener.open(req,timeout=15)
-        except urllib.error.HTTPError as response: pass
+        except urllib.error.HTTPError as error: response=error
         with response:
             body=response.read().decode()
             return response.status,json.loads(body) if body else {}
