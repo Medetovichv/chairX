@@ -31,7 +31,7 @@ export function FinanceTransferPage(){
   <GuardedPost<TransferInput> kind="transfer" scope="cash-bank" canReplay allowed={allowed}
    title="Подтвердить перевод?" label="Перевести деньги"
    operationKey={x=>x.transferId} meta={x=>({from:x.from,to:x.to,amount:x.amount})}
-   post={financeApi.transfer} onDone={async()=>{await client.invalidateQueries({queryKey:financeKeys.accounts});}}>
+   post={financeApi.transfer} onDone={async()=>{setAmount('');await client.invalidateQueries({queryKey:financeKeys.accounts});}}>
    {({start,locked})=><form aria-label="Новый перевод" className="space-y-4 rounded-xl border bg-white p-4"
       onSubmit={e=>{e.preventDefault();const payload:TransferInput={transferId:crypto.randomUUID(),from,to,amount:amount.trim()};
        const issue=check(payload);if(issue){setError(issue);return;}setError('');

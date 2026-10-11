@@ -31,6 +31,7 @@ export function ExpensesPage(){
   setPeriodError('Выберите корректный период не длиннее 93 дней. Дата «по» исключительная.');
  }else{setPeriodError('');setPeriod({...draft});}}
  async function refreshed(){
+  setAmount('');setComment('');
   await Promise.all([
    client.invalidateQueries({queryKey:financeKeys.expenses}),
    client.invalidateQueries({queryKey:financeKeys.accounts}),

@@ -138,7 +138,10 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     allowed={refundCreate} title="Подтвердить возврат денег клиенту?" label="Вернуть деньги" destructive
     operationKey={p=>p.idempotencyKey}
     meta={p=>({sale:p.saleId,returnId:p.returnId||'',amount:p.amount,method:p.method})}
-    post={financeApi.createRefund} onDone={refresh}
+    post={financeApi.createRefund} onDone={async()=>{
+      setRefundAmount('');setRefundReason('');setRefundReference('');setRefundComment('');setRefundReturn('');
+      await refresh();
+    }}
     reconcile={refundRead?async ()=>{
       const latest=await financeApi.refunds(sale.id);
       client.setQueryData(financeKeys.refunds(sale.id),latest);

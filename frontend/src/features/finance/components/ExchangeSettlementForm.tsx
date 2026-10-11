@@ -53,7 +53,7 @@ export function ExchangeSettlementForm({exchange:d}:{exchange:ExchangeResponse})
    title="Подтвердить финансовый расчёт обмена?" label={direction==='IN'?'Принять доплату':'Вернуть разницу'}
    destructive={direction==='OUT'} operationKey={p=>p.idempotencyKey}
    meta={p=>({direction:p.direction,method:p.method,amount:p.amount})}
-   post={p=>financeApi.settle(d.id,p)} onDone={refreshed}
+   post={p=>financeApi.settle(d.id,p)} onDone={async()=>{setAmount('');setReference('');await refreshed();}}
    reconcile={async record=>{
     const list=await exchangesApi.settlements(d.id);
     client.setQueryData(returnKeys.settlements(d.id),list);
