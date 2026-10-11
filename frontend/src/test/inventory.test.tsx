@@ -566,3 +566,96 @@ describe('UI-V2-04 warehouse dashboard and readable transfer history', () => {
     expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
   });
 });
+
+describe('UI-V2-05 warehouse operations, unified SKU search and nested routes', () => {
+  it('searches all paged stock by one model/variation/SKU term using the server query', async () => {
+    const {calls}=fakeBackend({stock:[chair(),rowZero()]});
+    renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    const search=screen.getByRole('searchbox',{name:'Поиск товара по модели, вариации или SKU'});
+    const user=userEvent.setup();
+    await user.type(search,'ERGO-BLK-001');
+    await waitFor(()=>expect(calls.mock.calls.some(([url])=>
+      String(url).includes('search=ERGO-BLK-001'))).toBe(true),{timeout:2500});
+    await waitFor(()=>expect(stockTable().queryByRole('cell',{name:'Chair X5'})).not.toBeInTheDocument());
+    expect(stockTable().getByRole('button',{name:'Ergo Comfort'})).toBeInTheDocument();
+    await user.clear(search);
+    await user.type(search,'Бежевый');
+    await waitFor(()=>expect(calls.mock.calls.some(([url])=>
+      String(url).includes('search=%D0%91%D0%B5%D0%B6%D0%B5%D0%B2%D1%8B%D0%B9'))).toBe(true),
+      {timeout:2500});
+  });
+
+  it('separates transfer history route and keeps manager navigation privilege-scoped', async () => {
+    access.permissions=['INVENTORY_READ'];
+    fakeBackend();
+    renderAt('/inventory');
+    expect(await screen.findByRole('link',{name:'История перемещений'}))
+      .toHaveAttribute('href','/inventory/transfers');
+    expect(screen.queryByRole('link',{name:'Управление складами'})).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('link',{name:'История перемещений'}));
+    expect(await screen.findByRole('heading',{name:'История перемещений',level:2})).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'История перемещений'})).toBeInTheDocument();
+    expect(screen.queryByText('987654321')).not.toBeInTheDocument();
+  });
+
+  it('creates and edits warehouses using real API contracts and refreshes list', async () => {
+    access.permissions=['INVENTORY_READ','WAREHOUSES_MANAGE'];
+    const {calls}=fakeBackend();
+    renderAt('/inventory/warehouses');
+    expect(await screen.findByRole('heading',{name:'Управление складами'})).toBeInTheDocument();
+    const user=userEvent.setup();
+    await screen.findByRole('region',{name:'Список складов'});
+    await user.click(screen.getByRole('button',{name:'Новый склад'}));
+    expect(screen.getByRole('region',{name:'Создание склада'})).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox',{name:'Название склада'}),'Дополнительный');
+    await user.type(screen.getByRole('textbox',{name:'Код склада'}),'office_2');
+    await user.type(screen.getByRole('textbox',{name:'Адрес склада'}),'Бишкек');
+    await user.click(screen.getByRole('button',{name:'Сохранить склад'}));
+    expect(await screen.findByText('Изменения склада сохранены.')).toBeInTheDocument();
+    expect(screen.getByText('Дополнительный')).toBeInTheDocument();
+    const post=calls.mock.calls.find(([path,init])=>String(path)==='/api/warehouses' && init?.method==='POST');
+    expect(post).toBeDefined();
+    expect(JSON.parse(String(post?.[1]?.body))).toEqual({
+      name:'Дополнительный',code:'OFFICE_2',address:'Бишкек',
+    });
+    const row=screen.getByText('Дополнительный').closest('article');
+    expect(row).not.toBeNull();
+    await user.click(within(row!).getByRole('button',{name:'Изменить'}));
+    expect(screen.getByRole('textbox',{name:'Код склада'})).toBeDisabled();
+    await user.clear(screen.getByRole('textbox',{name:'Название склада'}));
+    await user.type(screen.getByRole('textbox',{name:'Название склада'}),'Склад регион');
+    await user.click(screen.getByRole('button',{name:'Сохранить склад'}));
+    expect(await screen.findByText('Склад регион')).toBeInTheDocument();
+    const updated=calls.mock.calls.filter(([,init])=>init?.method==='PUT');
+    expect(updated).toHaveLength(1);
+    expect(JSON.parse(String(updated[0]?.[1]?.body))).toMatchObject({name:'Склад регион'});
+  });
+
+  it('requires explicit confirmation for deactivation and does not POST before it', async () => {
+    access.permissions=['INVENTORY_READ','WAREHOUSES_MANAGE'];
+    const {calls}=fakeBackend();
+    renderAt('/inventory/warehouses');
+    const list=await screen.findByRole('region',{name:'Список складов'});
+    const first=within(list).getAllByRole('button',{name:'Деактивировать'})[0]!;
+    await userEvent.setup().click(first);
+    expect(screen.getByRole('alertdialog',{name:'Деактивировать склад?'})).toBeInTheDocument();
+    expect(calls.mock.calls.some(([path,init])=>
+      String(path).endsWith('/deactivate') && init?.method==='POST')).toBe(false);
+    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Отмена'}));
+    expect(calls.mock.calls.some(([path,init])=>
+      String(path).endsWith('/deactivate') && init?.method==='POST')).toBe(false);
+    await userEvent.setup().click(within(list).getAllByRole('button',{name:'Деактивировать'})[0]!);
+    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(calls.mock.calls.filter(([path,init])=>
+      String(path).endsWith('/deactivate') && init?.method==='POST')).toHaveLength(1));
+  });
+
+  it('denies management view without WAREHOUSES_MANAGE and makes no HTTP requests', () => {
+    access.permissions=['INVENTORY_READ'];
+    const {calls}=fakeBackend();
+    renderAt('/inventory/warehouses');
+    expect(screen.getByRole('heading',{name:'Доступ запрещён'})).toBeInTheDocument();
+    expect(calls).not.toHaveBeenCalled();
+  });
+});
