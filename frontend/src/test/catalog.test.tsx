@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
@@ -283,7 +283,7 @@ describe('F03 product detail and variants', () => {
     const { calls } = mockCatalog({ variants: [] }); renderAt('/catalog/' + productId);
     await screen.findByText('У этой модели пока нет вариаций');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '+ Добавить вариацию' }));
+    await user.click(screen.getByRole('button', { name: 'Добавить вариацию' }));
     const form = screen.getByRole('form', { name: 'Создание вариации' });
     await user.type(within(form).getByRole('textbox', { name: /Название вариации/ }), 'Светло-серый');
     await user.type(within(form).getByRole('combobox', { name: /^Цвет/ }), 'Светло-серый');
@@ -433,7 +433,7 @@ describe('UI-V2-06 catalog filters and zero-photo operational UX', () => {
     const user=userEvent.setup();
     await user.type(screen.getByRole('searchbox',{name:'Категория товара'}),'Игровые');
     expect(await screen.findByRole('cell',{name:'Игровое кресло'})).toBeInTheDocument();
-    expect(screen.queryByRole('cell',{name:'Ergo Comfort'})).not.toBeInTheDocument();
+    await waitFor(()=>expect(screen.queryByRole('cell',{name:'Ergo Comfort'})).not.toBeInTheDocument());
     expect(calls.mock.calls.some(([url])=>String(url).includes('category=%D0%98%D0%B3%D1%80%D0%BE%D0%B2%D1%8B%D0%B5'))).toBe(true);
     await user.click(screen.getByRole('button',{name:'Сбросить фильтры'}));
     expect(await screen.findByRole('cell',{name:'Ergo Comfort'})).toBeInTheDocument();
@@ -443,7 +443,7 @@ describe('UI-V2-06 catalog filters and zero-photo operational UX', () => {
     access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
     mockCatalog(); renderAt();
     await screen.findByRole('cell',{name:'Ergo Comfort'});
-    expect(screen.getByRole('link',{name:'Ergo Comfort'})).toHaveAttribute('href','/catalog/'+productId);
+    expect(table().getByRole('link',{name:'Ergo Comfort'})).toHaveAttribute('href','/catalog/'+productId);
     expect(screen.queryByRole('button',{name:'Создать товар'})).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/фото|изображен|загрузить/i)).not.toBeInTheDocument();
   });
@@ -454,7 +454,8 @@ describe('UI-V2-06 variant details without photos or raw IDs', () => {
     mockCatalog();
     renderAt('/catalog/'+productId);
     const user=userEvent.setup();
-    const title=await screen.findByRole('button',{name:'Редактировать вариацию Чёрный'});
+    await screen.findByRole('table');
+    const title=table().getByRole('button',{name:'Редактировать вариацию Чёрный'});
     await user.click(title);
     const edit=screen.getByRole('form',{name:'Редактирование вариации'});
     expect(within(edit).getByRole('textbox',{name:/SKU/})).toHaveValue('ERGO-BLK');
@@ -466,6 +467,7 @@ describe('UI-V2-06 variant details without photos or raw IDs', () => {
     access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
     mockCatalog();
     renderAt('/catalog/'+productId);
+    await screen.findByRole('table');
     expect(await table().findByRole('cell',{name:'ERGO-BLK'})).toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Редактировать вариацию Чёрный'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Изменить Чёрный'})).not.toBeInTheDocument();
