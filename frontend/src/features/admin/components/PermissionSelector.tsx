@@ -9,7 +9,10 @@ export function PermissionSelector({ all, selected, onChange, disabled }: {
   const [search, setSearch] = useState('');
   const filtered = all.filter(p => p.code.toLowerCase().includes(search.toLowerCase()) ||
     p.description.toLowerCase().includes(search.toLowerCase()));
-  const groups = Object.groupBy(filtered, x => x.group);
+  const groups = filtered.reduce<Record<string, Permission[]>>((acc, entry) => {
+    (acc[entry.group] ??= []).push(entry);
+    return acc;
+  }, {});
   const selectedSet = new Set(selected);
   const sensitive = selected.some(x => all.find(p => p.code === x)?.sensitive);
   return <section aria-label="Выбор разрешений" className="space-y-3">
