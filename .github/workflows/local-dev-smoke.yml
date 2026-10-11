@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'docker-compose.yml'
+      - 'docker-compose.demo.yml'
       - '.env.example'
       - 'backend/**'
       - 'frontend/**'
@@ -50,3 +51,36 @@ jobs:
       - name: Stop without deleting PostgreSQL volume
         if: always()
         run: docker compose down || true
+
+  demo-fixture-smoke:
+    name: Demo database seeding, restart and isolation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate disposable local credentials
+        run: bash scripts/init-local-env.sh
+      - name: Verify demo Compose configuration
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml config --quiet
+      - name: Start isolated demo stack
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build --wait --wait-timeout 240
+      - name: Verify complete fixture version and inventory
+        run: |
+          D="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
+          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)=3 THEN 'ok' ELSE 'fail' END FROM chairx_demo_seed_versions;" | grep -q '^ok$'
+          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM products WHERE name LIKE 'DEMO%';" | grep -q '^ok$'
+          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM purchases;" | grep -q '^ok$'
+          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM sales;" | grep -q '^ok$'
+          $D exec -T postgres psql -U chairx -d chairx_demo -Atc "SELECT count(*) FROM sales;" > /tmp/chairx-demo-sales-before
+      - name: Recreate backend and prove idempotency
+        run: |
+          D="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
+          $D up -d --force-recreate --wait --wait-timeout 180 backend frontend
+          $D exec -T postgres psql -U chairx -d chairx_demo -Atc "SELECT count(*) FROM sales;" > /tmp/chairx-demo-sales-after
+          diff -u /tmp/chairx-demo-sales-before /tmp/chairx-demo-sales-after
+      - name: Diagnostics on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml logs --tail=160 postgres backend || true
+      - name: Cleanup without wiping persistent data
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.demo.yml down || true
