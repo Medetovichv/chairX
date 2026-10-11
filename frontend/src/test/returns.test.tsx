@@ -123,6 +123,15 @@ function mockBackend(options:Setup={}){
   const ex=/^\/api\/exchanges\/([^/]+)$/.exec(path);
   if(ex&&method==='GET')return json(exchanges.find(x=>x.id===ex[1])??exchange());
   if(path==='/api/exchanges/'+EX+'/settlements'&&method==='GET')return json([]);
+  if(path==='/api/defects/receipt-origins'&&method==='GET'){
+   const warehouseId=url.searchParams.get('warehouseId'),variantId=url.searchParams.get('variantId');
+   const items=warehouseId===WH&&variantId===VAR?[{
+    id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',purchaseId:SALE,supplierId:ITEM,
+    postedAt:NOW,quantity:3,model:'Ergo Comfort',variant:'Чёрный',
+    warehouse:'Склад офис',supplier:'Поставщик',
+   }]:[];
+   return json({items,page:0,size:20,total:items.length});
+  }
   if(path==='/api/defects'&&method==='GET'){
    const page=Number(url.searchParams.get('page')??0),size=Number(url.searchParams.get('size')??20);
    const status=url.searchParams.get('status');
@@ -574,6 +583,25 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
    .getByRole('button',{name:'Подтвердить действие'}));
   await waitFor(()=>expect(a.count.resolve).toBe(1));
   expect(calls(a,'/api/inventory/')).toHaveLength(0);
+ });
+ it('offers actual receipt lines without UUID labels and clears selection on warehouse change',async()=>{
+  access.permissions.push('CATALOG_READ');
+  const a=mockBackend({defects:[]});renderAt('/returns/defects');
+  await screen.findByRole('heading',{name:'Брак',level:2});
+  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  const form=screen.getByRole('form',{name:'Регистрация дефекта'});
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+  fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+  const picker=await within(form).findByRole('combobox',{name:'Позиция поступления'});
+  await waitFor(()=>expect(within(picker).getByText(/Ergo Comfort.*Склад офис/)).toBeInTheDocument());
+  expect(picker).not.toHaveTextContent('bbbbbbbb-bbbb');
+  fireEvent.change(picker,{target:{value:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'}});
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:''}});
+  expect(calls(a,'/api/defects/receipt-origins')).toHaveLength(1);
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
+  expect((await within(form).findByRole('combobox',{name:'Позиция поступления'})) as HTMLSelectElement).toHaveValue('');
  });
  it('defect creation with no idempotency key stays locked after lost response/reload',async()=>{
   access.permissions.push('CATALOG_READ');
