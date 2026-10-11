@@ -6,3 +6,8 @@
 *.iml
 .DS_Store
 *.log
+
+# Sensitive database archives must never be committed.
+*.dump
+*.pgdump
+*.backup
