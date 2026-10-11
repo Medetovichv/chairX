@@ -62,7 +62,7 @@ function Detail({d}:{d:DeliveryResponse}){
   return <div className="space-y-5">
     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/deliveries">← Все доставки</Link>
-    <PageHeader title={saleNumber?'Доставка · '+saleNumber:'Карточка доставки'}
+    <PageHeader title={saleNumber?'Доставка · '+saleNumber :'Доставка'}
       description={saleNumber?'Заказ: '+saleNumber:'Сведения о заказе доступны по разрешению SALES_READ'}/>
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     <div className="flex flex-wrap items-center gap-3"><DeliveryStatusBadge status={d.status}/>
