@@ -252,7 +252,7 @@ describe('F04 warehouses and real overview', () => {
     expect(screen.getByRole('button', { name: 'Все товары' })).toHaveAttribute('aria-pressed', 'true');
     expect(await stockTable().findByRole('cell', { name: 'Chair X5' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'С остатком или резервом' }));
-    expect(await stockTable().findByRole('cell', { name: 'Chair X5' })).toBeInTheDocument();
+    await waitFor(() => expect(stockTable().queryByRole('cell', { name: 'Chair X5' })).not.toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Только доступные' }));
     await waitFor(() => expect(stockTable().queryByRole('cell', { name: 'Chair X5' })).not.toBeInTheDocument());
     expect(calls.mock.calls.some((c) => String(c[0]).includes('onlyAvailable=true'))).toBe(true);
@@ -513,6 +513,7 @@ describe('UI-V2-04 warehouse dashboard and readable transfer history', () => {
     expect(section).toHaveTextContent('Неактивен');
     expect(calls.mock.calls.some(([url]) => String(url)==='/api/inventory/warehouse-summary')).toBe(true);
     // Includes zero-stock lines in the default All view.
+    await screen.findByRole('columnheader',{name:'Модель'});
     expect(await stockTable().findByRole('cell',{name:'Chair X5'})).toBeInTheDocument();
     await userEvent.setup().click(within(section).getByRole('button',{name:'Показать склад Домашний'}));
     expect(within(section).getByRole('button',{name:'Показать склад Домашний'}))
