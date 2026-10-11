@@ -13,6 +13,7 @@ import { LoadingState } from '../../../shared/components/LoadingState';
 import { returnsApi,returnKeys } from '../api';
 import { uuid,positive,conditionLabels,validateReturn } from '../validation';
 import type { ReturnInput,ReturnCondition } from '../types';
+import { ReturnChairLabel } from './ReturnChairLabel';
 
 export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
  initialSaleId:string;onSubmit:(input:Omit<ReturnInput,'idempotencyKey'>)=>Promise<void>;disabled?:boolean;
@@ -138,20 +139,28 @@ export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
   {sale.data?.status==='FULFILLED'&&<div className="space-y-2">
     {history.isPending?<LoadingState label="Проверяем все предыдущие возвраты…"/>:
       history.isError?<ErrorState error={history.error} onRetry={()=>void history.refetch()}/>:
-      sale.data.items.map(i=>{
+      sale.data.items.map((i,index)=>{
        const already=history.data.reduce((n,r)=>n+r.items.filter(x=>x.saleItemId===i.id).reduce((sum,x)=>sum+x.quantity,0),0);
        const remaining=Math.max(0,i.quantity-already);
-       return <div key={i.id} className="space-y-2 rounded-xl border p-3 text-sm">
-        <p className="break-all font-semibold">Вариация: {i.productVariantId}</p>
-        <p className="break-all text-xs text-slate-500">saleItemId: {i.id} · Исходный склад: {i.warehouseId}</p>
+       const warehouse=warehouses.data?.find(w=>w.id===i.warehouseId);
+       return <div key={i.id} className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm">
+        <div>
+          <p className="text-xs font-semibold text-slate-500">Позиция {index+1}</p>
+          <p className="mt-1 font-semibold text-slate-950">
+            <ReturnChairLabel variantId={i.productVariantId}/>
+          </p>
+          {canInventory&&<p className="mt-1 text-xs text-slate-600">
+            Продано со склада: <strong>{warehouse?.name??'Название склада недоступно'}</strong>
+          </p>}
+        </div>
         <p>Продано: {i.quantity} · Возвращено: {already} · Можно вернуть: <strong>{remaining}</strong></p>
         <div className="grid gap-3 sm:grid-cols-2">
          <label className="space-y-1">Количество к возврату
-          <Input aria-label={'Количество возврата '+i.id} inputMode="numeric" value={quantities[i.id]??'0'}
+          <Input aria-label={'Количество возврата — позиция '+(index+1)} inputMode="numeric" value={quantities[i.id]??'0'}
            disabled={disabled||!safeToReturn||remaining===0} onChange={e=>setQuantities(s=>({...s,[i.id]:e.target.value}))}/>
          </label>
          <label className="space-y-1">Состояние товара
-          <select aria-label={'Состояние '+i.id} value={conditions[i.id]??'SELLABLE'}
+          <select aria-label={'Состояние товара — позиция '+(index+1)} value={conditions[i.id]??'SELLABLE'}
            disabled={disabled||!safeToReturn||remaining===0}
            onChange={e=>setConditions(s=>({...s,[i.id]:e.target.value as ReturnCondition}))}
            className="min-h-11 w-full rounded-xl border bg-white p-2">
