@@ -4,7 +4,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { EmptyState } from '../../../shared/components/EmptyState';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { inventoryApi, inventoryKeys } from '../api';
-import { displayTimestamp, shortId, warehouseLabel } from '../lib';
+import { displayTimestamp, warehouseLabel } from '../lib';
 import type { StockLine, Warehouse } from '../types';
 import { InventoryPager } from './InventoryPager';
 
@@ -44,7 +44,7 @@ export function TransferHistory({ warehouses, selectedWarehouseId, selectedLine 
         Только {selectedLine.model} / {selectedLine.variation}
       </label>}
     </div>
-    <p className="text-xs text-slate-500">Себестоимость намеренно не отображается. Названия товаров без подтверждённых данных API не угадываются.</p>
+    <p className="text-xs text-slate-500">История подтверждённых перемещений. Себестоимость и внутренние идентификаторы скрыты.</p>
     {history.isPending ? <LoadingState label="Загружаем перемещения…" />
       : history.isError ? <ErrorState title="История перемещений недоступна" error={history.error}
         onRetry={() => void history.refetch()} />
@@ -58,10 +58,11 @@ export function TransferHistory({ warehouses, selectedWarehouseId, selectedLine 
             <tbody className="divide-y divide-slate-100">
               {data.items.map((item) => <tr key={item.id}>
                 <td className="whitespace-nowrap px-4 py-3">{displayTimestamp(item.createdAt)}</td>
-                <td className="px-4 py-3" title={item.variantId}>
-                  {selectedLine?.productVariantId === item.variantId
-                    ? selectedLine.model + ' / ' + selectedLine.variation
-                    : <span>UUID: {shortId(item.variantId)}</span>}
+                <td className="px-4 py-3">
+                  {item.model && item.variation ? item.model + ' / ' + item.variation :
+                    selectedLine?.productVariantId === item.variantId
+                      ? selectedLine.model + ' / ' + selectedLine.variation
+                      : 'Товарная вариация'}
                 </td>
                 <td className="px-4 py-3">{warehouseLabel(item.sourceWarehouseId, warehouses)}</td>
                 <td className="px-4 py-3">{warehouseLabel(item.destinationWarehouseId, warehouses)}</td>
