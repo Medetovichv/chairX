@@ -86,6 +86,10 @@ function mockBackend(options:Options={}){
         (!f.get('cityRegion')||d.cityRegion?.toLowerCase().includes(f.get('cityRegion')!.toLowerCase())));
       return json({page,size,total:rows.length,items:rows.slice(page*size,(page+1)*size).map(asSummary)});
     }
+    if(path==='/api/deliveries/by-sale/'+SALE&&method==='GET'){
+      const existing=data.find(d=>d.saleId===SALE);
+      return existing?json(existing):json({code:'DELIVERY_NOT_FOUND',message:'',details:{}},404);
+    }
     if(path==='/api/deliveries'&&method==='POST'){
       const body=JSON.parse(String(init?.body)) as CreateDeliveryInput;
       if(body.saleId!==SALE||options.saleType==='SELF_PICKUP'||options.saleStatus==='DRAFT')
@@ -267,6 +271,23 @@ describe('F08 create delivery and non-idempotent network outcomes',()=>{
     expect(validateCreate({...p,deliveryCost:'-1'})).toMatch(/целое/);
     expect(validateCreate({...p,deliveryCost:'10000000000000000000'})).toMatch(/целое/);
     expect(validateCreate({...p,recipientPhone:'+'.repeat(51)})).toMatch(/Телефон/);
+  });
+  it('selects a sale by readable number without any UUID input',async()=>{
+    mockBackend({deliveries:[]});
+    renderAt('/deliveries/new');
+    const form=await screen.findByRole('form',{name:'Оформить доставку'});
+    expect(within(form).queryByRole('textbox',{name:'UUID заказа'})).not.toBeInTheDocument();
+    const select=await within(form).findByRole('button',{name:/#101.*Айбек/});
+    await userEvent.setup().click(select);
+    expect(await within(form).findByRole('link',{name:'#101'})).toHaveAttribute('href','/sales/'+SALE);
+  });
+  it('blocks duplicate delivery before POST and links to the existing document',async()=>{
+    const api=mockBackend();
+    renderAt('/deliveries/new?saleId='+SALE);
+    const form=await screen.findByRole('form',{name:'Оформить доставку'});
+    expect(await within(form).findByRole('link',{name:'Открыть доставку'})).toHaveAttribute('href','/deliveries/'+ID);
+    expect(within(form).getByRole('button',{name:'Создать доставку'})).toBeDisabled();
+    expect(api.counts().creates).toBe(0);
   });
   it('creates CITY_DELIVERY using real Sale UUID without client payment',async()=>{
     const api=mockBackend({deliveries:[]});
