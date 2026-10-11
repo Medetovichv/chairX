@@ -1,6 +1,6 @@
 // Strictly the backend inventory and warehouse read contracts.
-// The transfer list backend additionally sends totalCost. Never display it here;
-// SERVER-SIDE disclosure to INVENTORY_READ remains a security issue (see docs).
+// Server-side transfer DTOs exclude internal FIFO costs (security fix #20).
+// Do not add cost fields to warehouse-facing response contracts.
 export interface Warehouse {
   id: string; name: string; code: string; address: string | null;
   active: boolean; createdAt: string; updatedAt: string;
@@ -45,8 +45,7 @@ export interface InventoryTransfer {
   id: string; sourceWarehouseId: string; destinationWarehouseId: string;
   variantId: string; quantity: number; actor: string | null;
   createdAt: string; outMovementId: string; inMovementId: string;
-  // The actual backend also returns totalCost, but it is intentionally
-  // omitted from UI types. Browser network access STILL exposes it.
+  // The backend intentionally excludes FIFO cost from warehouse-facing JSON.
 }
 export interface TransferPage {
   items: InventoryTransfer[]; page: number; size: number;
@@ -59,7 +58,7 @@ export interface TransferInput {
 export interface TransferResult {
   transferId: string; outMovementId: string; inMovementId: string;
   quantity: number;
-  // totalCost intentionally omitted; backend currently sends this field.
+  // This response deliberately contains no purchase/FIFO cost information.
 }
 export interface TransferFilters {
   warehouseId: string | null; variantId: string | null; page: number; size: number;
