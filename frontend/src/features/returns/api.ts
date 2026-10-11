@@ -2,14 +2,15 @@ import { apiClient } from '../../shared/api/client';
 import type { ReturnPage,ReturnResponse,ReturnInput,ExchangeInput,ExchangeResponse,ExchangeSettlement,Defect,DefectPage,DefectStatus,OpenDefectInput } from './types';
 const enc=(id:string)=>encodeURIComponent(id);
 export const F09_PAGE_SIZE=20;
-export const returnKeys={lists:['returns','list'] as const,list:(saleId:string,page:number)=>['returns','list',saleId,page] as const,
+export const returnKeys={lists:['returns','list'] as const,list:(saleId:string,page:number,number='')=>['returns','list',saleId,page,number] as const,
   detail:(id:string)=>['returns','detail',id] as const,history:(saleId:string)=>['returns','history',saleId] as const,
   exchange:(id:string)=>['exchanges','detail',id] as const,settlements:(id:string)=>['exchanges','settlements',id] as const,
   defects:['defects','list'] as const,defectList:(status:DefectStatus|'',page:number)=>['defects','list',status,page] as const,
   defect:(id:string)=>['defects','detail',id] as const};
 export const returnsApi={
-  list:(saleId:string,page:number):Promise<ReturnPage>=>apiClient.get('/api/returns?'+new URLSearchParams({
+  list:(saleId:string,page:number,number=''):Promise<ReturnPage>=>apiClient.get('/api/returns?'+new URLSearchParams({
     page:String(page),size:String(F09_PAGE_SIZE),...(saleId?{saleId}:{}),
+    ...(number.trim()?{number:number.trim()}:{})
   })),
   get:(id:string):Promise<ReturnResponse>=>apiClient.get('/api/returns/'+enc(id)),
   create:(input:ReturnInput):Promise<ReturnResponse>=>apiClient.post('/api/returns',input),

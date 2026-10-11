@@ -238,6 +238,21 @@ class ReturnApiTests {
                         .get("id")
                         .asText();
 
+        // Returns can be searched by the readable sale number, without UUID input.
+        mvc.perform(get("/api/returns")
+                        .param("number", sale.saleNumber().substring(
+                                Math.max(0,sale.saleNumber().length()-4)))
+                        .param("page","0").param("size","20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.items[0].saleNumber").value(sale.saleNumber()))
+                .andExpect(jsonPath("$.items[0].id").value(returnId));
+
+        mvc.perform(get("/api/returns").param("number","no-such-sale"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.items").isEmpty());
+
         mvc.perform(
                         get(
                                 "/api/returns/"

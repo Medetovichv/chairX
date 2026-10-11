@@ -1,8 +1,9 @@
 import type { FulfillmentType, Money } from '../sales/types';
 export type ReturnCondition='SELLABLE'|'BLOCKED';
 export interface ReturnItem {id:string;saleItemId:string;quantity:number;condition:ReturnCondition}
-export interface ReturnSummary {id:string;saleId:string;warehouseId:string;createdAt:string;reason:string;createdBy:string}
-export interface ReturnResponse extends ReturnSummary {items:ReturnItem[];comment:string|null}
+export interface ReturnCore {id:string;saleId:string;warehouseId:string;createdAt:string;reason:string;createdBy:string}
+export interface ReturnSummary extends ReturnCore {saleNumber:string}
+export interface ReturnResponse extends ReturnCore {items:ReturnItem[];comment:string|null}
 export interface ReturnPage {items:ReturnSummary[];page:number;size:number;total:number}
 export interface ReturnInput {saleId:string;warehouseId:string;idempotencyKey:string;items:{saleItemId:string;quantity:number;condition:ReturnCondition}[];reason:string;comment:string|null}
 export interface ExchangeInput {idempotencyKey:string;returnId:string;fulfillmentType:FulfillmentType;items:{productVariantId:string;warehouseId:string;quantity:number;unitSalePrice:string}[]}
