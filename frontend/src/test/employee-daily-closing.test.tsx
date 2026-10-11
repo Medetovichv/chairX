@@ -72,7 +72,7 @@ describe('Employee daily closing isolation',()=>{
   await waitFor(()=>expect(requests.filter(r=>r.method==='POST')).toHaveLength(1));
   const post=requests.find(r=>r.method==='POST')!;
   expect(post.path).toBe('/api/finance/my-closings/'+day);
-  expect(JSON.parse(post.body)).toEqual({
+  expect(JSON.parse(post.body || '')).toEqual({
    expectedCash:'300',expectedBank:'0',actualCash:'300',actualBank:'0',
    cashNote:null,bankNote:null,
   });

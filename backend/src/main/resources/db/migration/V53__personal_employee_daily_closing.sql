@@ -27,7 +27,7 @@ CREATE TABLE employee_daily_closings (
 CREATE INDEX idx_employee_daily_closings_date ON employee_daily_closings(business_date DESC);
 CREATE TABLE employee_daily_closing_sales (
     closing_id UUID NOT NULL REFERENCES employee_daily_closings(id),
-    sale_id UUID NOT NULL REFERENCES sales(id),
+    sale_id UUID NOT NULL,
     sale_number VARCHAR(30) NOT NULL,
     quantity BIGINT NOT NULL,
     total NUMERIC(19,2) NOT NULL,
