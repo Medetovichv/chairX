@@ -500,3 +500,46 @@ describe('F04 contracts and regression', () => {
     // Backend exposure is tracked separately in Issue #20.
   });
 });
+
+describe('UI-V2-04 warehouse dashboard and readable transfer history', () => {
+  it('shows sums from dedicated all-rows API and filters by warehouse card', async () => {
+    const { calls } = fakeBackend({ stock: [chair(), rowZero()] });
+    renderAt();
+    const section = await screen.findByRole('region', {name:'Сводка складов'});
+    expect(within(section).getByRole('button', {name:'Показать все склады'})).toHaveAttribute('aria-pressed','true');
+    expect(section).toHaveTextContent('10');
+    expect(section).toHaveTextContent('Домашний');
+    expect(section).toHaveTextContent('Офисный');
+    expect(section).toHaveTextContent('Неактивен');
+    expect(calls.mock.calls.some(([url]) => String(url)==='/api/inventory/warehouse-summary')).toBe(true);
+    // Includes zero-stock lines in the default All view.
+    expect(await stockTable().findByRole('cell',{name:'Chair X5'})).toBeInTheDocument();
+    await userEvent.setup().click(within(section).getByRole('button',{name:'Показать склад Домашний'}));
+    expect(within(section).getByRole('button',{name:'Показать склад Домашний'}))
+      .toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('combobox',{name:'Выбор склада'})).toHaveValue(HOME);
+    expect(calls.mock.calls.some(([url]) => String(url).includes('warehouseId='+HOME))).toBe(true);
+  });
+
+  it('never displays internal UUID or transferred FIFO valuation in the stock card and transfer history', async () => {
+    fakeBackend(); renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    await userEvent.setup().click(stockAction('Подробнее'));
+    const detail=screen.getByRole('region',{name:'Карточка складской позиции'});
+    expect(detail).toHaveTextContent('Ergo Comfort / Чёрный');
+    expect(detail).not.toHaveTextContent(VARIANT);
+    const history=await screen.findByRole('region',{name:'История перемещений'});
+    expect(history).not.toHaveTextContent('UUID:');
+    expect(history).not.toHaveTextContent('987654321');
+    expect(history).toHaveTextContent('Домашний');
+  });
+
+  it('fetches warehouse summary only with inventory read rights, without any transfers for read-only roles', async () => {
+    access.permissions=['INVENTORY_READ'];
+    const {calls}=fakeBackend(); renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    expect(calls.mock.calls.some(([url])=>String(url)==='/api/inventory/warehouse-summary')).toBe(true);
+    expect(stockTable().queryByRole('button',{name:'Переместить'})).not.toBeInTheDocument();
+    expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
+  });
+});
