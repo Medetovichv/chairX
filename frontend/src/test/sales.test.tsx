@@ -202,6 +202,15 @@ function mockBackend(options:{
           active:true,createdAt:TIME,updatedAt:TIME}]:[])],
       page:0,size:100,totalPages:1,totalElements:options.alternateWarehouse?2:1,
     });
+    if(path==='/api/inventory/overview'&&method==='GET'){
+      const search=url.searchParams.get('search')??'';
+      return json({items:search.toUpperCase().includes('ERGO-BLK')?[{
+        productVariantId:BLACK_ID,model:'Ergo Comfort',variation:'Чёрный',
+        onHand:10,reserved:2,blocked:0,available:8,
+        warehouses:[{warehouseId:WH,warehouseCode:'HOME',onHand:10,
+          reserved:2,blocked:0,available:8}],
+      }]:[],page:0,size:20,total:search.toUpperCase().includes('ERGO-BLK')?1:0});
+    }
     if(path==='/api/inventory/balances/'+OFFICE+'/'+BLACK_ID&&options.alternateWarehouse)
       return json({warehouseId:OFFICE,productVariantId:BLACK_ID,onHand:9,reserved:0,blocked:0,available:9});
     if(path==='/api/inventory/balances/'+OFFICE+'/'+GREY_ID&&options.alternateWarehouse)
@@ -385,6 +394,22 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(api.count().creates).toBe(1);
     expect(readPendingDraft('s-user').kind).toBe('none');
   });
+  it('finds an available chair by SKU using real inventory search, with warehouse prefilling',async()=>{
+    const api=mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+    fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),
+      {target:{value:'ERGO-BLK'}});
+    await userEvent.setup().click(await within(form).findByRole('button',{name:'Добавить Ergo Comfort — Чёрный'}));
+    expect(within(form).getByRole('combobox',{name:'Склад позиции 1'})).toHaveValue(WH);
+    expect(api.fetchMock.mock.calls.some(([raw])=>{
+      const url=new URL(String(raw),'http://chairx.test');
+      return url.pathname==='/api/inventory/overview'&&url.searchParams.get('search')==='ERGO-BLK';
+    })).toBe(true);
+  });
+
   it('offers an alternate warehouse when the selected source is out of stock',async()=>{
     mockBackend({sales:[],alternateWarehouse:true});
     renderAt('/sales/new');

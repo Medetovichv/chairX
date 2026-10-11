@@ -43,9 +43,11 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
         <Button type="button" variant="outline" size="sm" disabled={disabled}
           onClick={()=>onChange(rows.filter(r=>r.key!==row.key))}>Удалить позицию</Button>
       </div>
-      <SaleVariantPicker value={row.productVariantId} disabled={disabled} onSelect={v=>patch(row.key,{
-        productVariantId:v.id,recommended:v.recommendedSalePrice,
-      })}/>
+      <SaleVariantPicker value={row.productVariantId} disabled={disabled}
+        onSelect={(v,preferredWarehouse)=>patch(row.key,{
+          productVariantId:v.id,recommended:v.recommendedSalePrice,
+          warehouseId:row.warehouseId||preferredWarehouse||'',
+        })}/>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="space-y-1 text-sm font-semibold">Склад *
           <select aria-label={'Склад позиции '+(index+1)} value={row.warehouseId}
