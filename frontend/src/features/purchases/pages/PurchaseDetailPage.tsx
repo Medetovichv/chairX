@@ -14,7 +14,7 @@ import { Input } from '../../../shared/ui/input';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { purchaseApi, purchaseKeys, supplierApi } from '../api';
 import { PurchaseTabs } from '../components/PurchaseTabs';
-import { PurchaseForm } from '../components/PurchaseForm';
+import { PurchaseForm, moneyFromCents, purchasePreview } from '../components/PurchaseForm';
 import { PurchaseStatusBadge } from '../components/PurchaseStatusBadge';
 import { checkMoney, formatDate, formatMoney } from '../validation';
 import type { Purchase } from '../types';
@@ -123,13 +123,40 @@ function Detail({ purchase }: { purchase: Purchase }) {
     <section aria-label="Позиции закупки" className="space-y-3">
       <h3 className="text-xl font-bold">Позиции закупки</h3>
       <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
-        {purchase.items.map(line => <article key={line.id} className="space-y-2 p-4 text-sm">
-          <div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold">
-            Позиция #{line.lineNumber}</h4><p className="text-xs text-slate-500">Закупочная позиция</p></div>
-          <p>Заказано: {line.orderedQuantity} · Принято: {line.receivedQuantity} · Осталось: {line.orderedQuantity - line.receivedQuantity}</p>
-          <p>Цена за единицу: <strong>{formatMoney(line.purchaseUnitCost)}</strong> · Распределённое карго: {formatMoney(line.allocatedCargoCost)}</p>
-          <p>Итоговая себестоимость единицы: {formatMoney(line.finalUnitCost)}</p>
-        </article>)}
+        {purchase.items.map(line => {
+          const gross = purchasePreview([{
+            quantity: String(line.orderedQuantity), unitCost: String(line.purchaseUnitCost),
+          }], '0').goods;
+          return <article key={line.id} aria-label={'Закупочная позиция '+line.lineNumber}
+            className="space-y-3 p-4 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h4 className="font-bold text-slate-900">
+                  {line.modelName ?? 'Кресло — название недоступно'}
+                  {line.variantName && <span> · {line.variantName}</span>}
+                </h4>
+                {line.sku && <p className="mt-1 text-xs text-slate-500">Артикул: {line.sku}</p>}
+                {line.productId && hasPermission('CATALOG_READ') && <Link
+                  to={'/catalog/'+encodeURIComponent(line.productId)}
+                  className="mt-2 inline-flex text-sm font-semibold text-blue-700 hover:underline">
+                  Открыть в каталоге</Link>}
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-slate-500">Закупочная позиция</span>
+                <p className="font-semibold">№{line.lineNumber}</p>
+              </div>
+            </div>
+            <div className="grid gap-2 rounded-xl bg-slate-50 p-3 text-sm sm:grid-cols-2">
+              <p>Заказано: <strong>{line.orderedQuantity} шт.</strong></p>
+              <p>Принято: <strong>{line.receivedQuantity} шт.</strong></p>
+              <p>Осталось: <strong>{line.orderedQuantity - line.receivedQuantity} шт.</strong></p>
+              <p>Цена за единицу: <strong>{formatMoney(line.purchaseUnitCost)}</strong></p>
+              <p>Стоимость позиции: <strong>{gross === null ? 'Не рассчитана' : moneyFromCents(gross)}</strong></p>
+              <p>Распределённое карго: {formatMoney(line.allocatedCargoCost)}</p>
+              <p className="sm:col-span-2">Итоговая себестоимость единицы: {formatMoney(line.finalUnitCost)}</p>
+            </div>
+          </article>;
+        })}
       </div>
     </section>
     <div className="flex flex-wrap gap-2">

@@ -17,7 +17,7 @@ function toCents(input: string): bigint | null {
   const [whole, decimals = ''] = input.trim().replace(',', '.').split('.');
   return BigInt(whole!) * 100n + BigInt((decimals + '00').slice(0, 2));
 }
-function moneyFromCents(cents: bigint): string {
+export function moneyFromCents(cents: bigint): string {
   return formatMoney(String(cents / 100n) + '.' + String(cents % 100n).padStart(2, '0'));
 }
 export function purchasePreview(rows: ReadonlyArray<{quantity: string; unitCost: string}>, cargo: string) {

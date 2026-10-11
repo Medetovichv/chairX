@@ -4,6 +4,7 @@ export interface PurchaseItem {
   id: string; productVariantId: string; lineNumber: number;
   orderedQuantity: number; receivedQuantity: number;
   purchaseUnitCost: Money; allocatedCargoCost: Money | null; finalUnitCost: Money | null;
+  productId?: string | null; modelName?: string | null; variantName?: string | null; sku?: string | null;
 }
 export interface Purchase {
   id: string; supplierId: string; status: PurchaseStatus; cargoCost: Money | null;
