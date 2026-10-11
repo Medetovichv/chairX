@@ -135,7 +135,6 @@ export function PurchaseForm({ initial, onSave, onCancel }: {
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
       </label>
     </div>
-    </div>
     <p className="text-xs text-slate-600">Карго должно быть явно указано до первой приёмки. Для нулевого карго введите 0.</p>
     </section>
     </div>
