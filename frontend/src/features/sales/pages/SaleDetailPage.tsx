@@ -312,7 +312,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     {isDraft&&!sale.fulfillmentType&&<p className="text-sm text-amber-800">
       Для подтверждения выберите способ получения.</p>}
     <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,23rem)]">
-      <main className="min-w-0 space-y-5">
+      <div className="min-w-0 space-y-5">
     {requiresDelivery&&
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
@@ -379,7 +379,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         </li>)}
       </ol>
     </section>
-      </main>
+      </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
         <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-sm font-semibold text-slate-600">Сумма заказа</p>
