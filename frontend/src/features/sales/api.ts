@@ -1,5 +1,5 @@
 import { apiClient } from '../../shared/api/client';
-import type { CreateDraftInput, DraftInput, SaleFilters, SalePageResponse, SaleResponse, SaleStatus, SaleHistoryPage } from './types';
+import type { CreateDraftInput, DraftInput, SaleFilters, SalePageResponse, SaleResponse, SaleStatus, SaleHistoryPage, SaleCommentsPage, SaleComment, CreateSaleCommentInput } from './types';
 
 export const SALES_PAGE_SIZE = 20;
 const enc = (id: string) => encodeURIComponent(id);
@@ -12,6 +12,8 @@ export const salesKeys = {
   detail: (id: string) => ['sales', 'detail', id] as const,
   historyPrefix: (id: string) => ['sales', 'history', id] as const,
   history: (id: string, page: number) => ['sales', 'history', id, page] as const,
+  commentsPrefix: (id: string) => ['sales', 'comments', id] as const,
+  comments: (id: string, page: number) => ['sales', 'comments', id, page] as const,
   customerSearch: (q: string) => ['customers', 'search', q] as const,
 };
 export const salesApi = {
@@ -27,6 +29,11 @@ export const salesApi = {
   history: (id: string, page = 0): Promise<SaleHistoryPage> =>
     apiClient.get<SaleHistoryPage>('/api/sales/' + enc(id) +
       '/history?page=' + encodeURIComponent(String(page)) + '&size=20'),
+  comments: (id: string, page = 0): Promise<SaleCommentsPage> =>
+    apiClient.get<SaleCommentsPage>('/api/sales/' + enc(id) +
+      '/comments?page=' + encodeURIComponent(String(page)) + '&size=20'),
+  addComment: (id: string, input: CreateSaleCommentInput) =>
+    apiClient.post<SaleComment>('/api/sales/' + enc(id) + '/comments', input),
   createDraft: (input: CreateDraftInput) => apiClient.post<SaleResponse>('/api/sales/drafts', input),
   updateDraft: (id: string, input: DraftInput) =>
     apiClient.put<SaleResponse>('/api/sales/' + enc(id) + '/draft', input),

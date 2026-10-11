@@ -172,7 +172,7 @@ class BackendMvpWorkflowIntegrationTests {
     }
     private void clear() {
         jdbc.execute("""
-                TRUNCATE TABLE
+                TRUNCATE TABLE sale_comments,
                     inventory_transfer_cost_origins, inventory_transfers,
                     inventory_cost_movements,inventory_cost_allocations,
                     inventory_cost_restorations,inventory_cost_write_offs,

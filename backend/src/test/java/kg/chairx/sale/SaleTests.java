@@ -1338,7 +1338,7 @@ class SaleTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table
+                truncate table sale_comments,
                     inventory_transfer_cost_origins,
                     inventory_transfers,
                     inventory_cost_allocations,

@@ -81,7 +81,7 @@ class FifoIntegrityTests {
     void clear() {
         assertThat(jdbc.queryForObject("select current_database()",String.class)).isEqualTo("chairx_test");
         jdbc.execute("""
-                truncate inventory_transfer_cost_origins, inventory_transfers, inventory_cost_restorations,inventory_cost_write_offs,inventory_cost_allocations,
+                truncate sale_comments, inventory_transfer_cost_origins, inventory_transfers, inventory_cost_restorations,inventory_cost_write_offs,inventory_cost_allocations,
                 inventory_cost_movements,inventory_cost_layers,exchange_settlements,exchanges,refunds,
                 return_items,returns,payments,deliveries,sale_items,sales,defects,purchase_payments,purchase_receipt_items,
                 purchase_receipts,purchase_items,purchases,stock_movements,inventory_balances

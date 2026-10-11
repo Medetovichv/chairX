@@ -21,6 +21,7 @@ import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
+import { SaleCommentsPanel } from '../components/SaleCommentsPanel';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
@@ -425,6 +426,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         </ol>
       </div>}
     </section>
+    <SaleCommentsPanel saleId={sale.id}/>
       </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
         <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">

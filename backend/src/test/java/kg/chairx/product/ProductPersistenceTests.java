@@ -73,6 +73,7 @@ class ProductPersistenceTests {
                 "defects",
                         "customers",
                         "sales",
+                        "sale_comments",
                         "sale_items",
                         "deliveries",
                         "payments",
