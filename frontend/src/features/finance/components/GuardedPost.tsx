@@ -24,7 +24,14 @@ interface Props<T>{
  * Replays are possible only with the exact payload still held in memory and
  * a matching backend-supported idempotency key.
  */
-export function GuardedPost<T>({
+export function GuardedPost<T>(props:Props<T>){
+ const {user}=useAuth();
+ // A dynamic route can switch from one cached Sale/Return/Exchange to
+ // another without unmounting the React tree. Never reuse the old financial
+ // in-memory journal across users, kinds, or document IDs.
+ return <ScopedGuardedPost key={JSON.stringify([user?.id,props.kind,props.scope])} {...props}/>;
+}
+function ScopedGuardedPost<T>({
  kind,scope,allowed,title,label,destructive,operationKey,meta,post,onDone,reconcile,canReplay=false,children
 }:Props<T>){
  const {user}=useAuth();
