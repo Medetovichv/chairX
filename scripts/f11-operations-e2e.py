@@ -126,6 +126,54 @@ def main():
     stock(admin,office,variant_id,2)
     money(admin,20000,100000,2) # Receipt is *not* a payment.
 
+    # F13: genuine two-warehouse transfers before the existing sale chain.
+    # These are real HTTP operations on FIFO-valued stock, not direct SQL
+    # balance changes. Reversing a transfer preserves total on-hand and
+    # accounting while changing transfer history. No hidden cost in JSON.
+    def no_transfer_cost(payload):
+        as_json=__import__("json").dumps(payload)
+        for forbidden in ("totalCost","unitCost","allocatedCost",
+                          "purchaseUnitCost","costAllocations","purchasePrice"):
+            assert '"' + forbidden + '"' not in as_json, (
+                f"Warehouse REST endpoint exposed internal valuation: {forbidden}")
+
+    move_out={
+        "transferId":uuid4(), "sourceWarehouseId":home,
+        "destinationWarehouseId":office, "variantId":variant_id,"quantity":2}
+    forward=admin.must("POST","/api/inventory/transfers",move_out,201)
+    assert forward["quantity"]==2
+    no_transfer_cost(forward)
+    replay=admin.must("POST","/api/inventory/transfers",move_out,201)
+    assert replay==forward, "Same transfer ID must replay without new movements"
+    stock(admin,home,variant_id,2)
+    stock(admin,office,variant_id,4)
+    db_number("SELECT count(*) FROM inventory_transfers",1)
+    conflict=dict(move_out,quantity=1)
+    bad,_=admin.request("POST","/api/inventory/transfers",conflict)
+    assert bad==409,f"Transfer key reused with different quantity: {bad}"
+    stock(admin,home,variant_id,2)
+
+    move_back={
+        "transferId":uuid4(), "sourceWarehouseId":office,
+        "destinationWarehouseId":home, "variantId":variant_id,"quantity":2}
+    reverse=admin.must("POST","/api/inventory/transfers",move_back,201)
+    assert reverse["quantity"]==2
+    no_transfer_cost(reverse)
+    stock(admin,home,variant_id,4)
+    stock(admin,office,variant_id,2)
+    db_number("SELECT count(*) FROM inventory_transfers",2)
+    db_number("SELECT count(*) FROM stock_movements WHERE type IN "
+              "('TRANSFER_OUT','TRANSFER_IN')",4)
+    db_number("SELECT count(*) FROM inventory_transfer_cost_origins",2)
+    movement_history=admin.must("GET","/api/inventory/transfers",None,200)
+    assert movement_history["totalElements"]==2
+    no_transfer_cost(movement_history)
+    for transfer_id in (move_out["transferId"],move_back["transferId"]):
+        details=admin.must("GET","/api/inventory/transfers/"+transfer_id,None,200)
+        assert details["id"]==transfer_id and details["quantity"]==2
+        no_transfer_cost(details)
+    money(admin,20000,100000,2)  # Stock movements are NOT financial money.
+
     # One sale with two warehouses, real BANK settlement, physical dispatch.
     sale=admin.must("POST","/api/sales",{
         "idempotencyKey":uuid4(),"customerId":customer["id"],
