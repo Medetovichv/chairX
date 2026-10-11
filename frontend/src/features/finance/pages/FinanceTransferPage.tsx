@@ -28,7 +28,7 @@ export function FinanceTransferPage(){
  return <div className="space-y-5">
   <PageHeader title="Перевод между CASH и BANK" description="Внутреннее перемещение денег — не расход и не поступление."/>
   <FinanceTabs/>
-  <GuardedPost<TransferInput> kind="transfer" scope="cash-bank" allowed={allowed}
+  <GuardedPost<TransferInput> kind="transfer" scope="cash-bank" canReplay allowed={allowed}
    title="Подтвердить перевод?" label="Перевести деньги"
    operationKey={x=>x.transferId} meta={x=>({from:x.from,to:x.to,amount:x.amount})}
    post={financeApi.transfer} onDone={async()=>{await client.invalidateQueries({queryKey:financeKeys.accounts});}}>

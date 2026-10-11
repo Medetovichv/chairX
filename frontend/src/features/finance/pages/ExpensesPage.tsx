@@ -65,7 +65,7 @@ export function ExpensesPage(){
   </section>}
   {create&&<section className="space-y-3">
    <h3 className="text-lg font-bold">Новый расход</h3>
-   <GuardedPost<ExpenseInput> kind="expense" scope="create" allowed={create}
+   <GuardedPost<ExpenseInput> kind="expense" scope="create" canReplay allowed={create}
     title="Подтвердить списание расхода?" label="Провести расход" destructive
     operationKey={p=>p.idempotencyKey} meta={p=>({date:p.expenseDate,category:p.category,amount:p.amount,account:p.paymentMethod})}
     post={financeApi.createExpense} onDone={refreshed}>

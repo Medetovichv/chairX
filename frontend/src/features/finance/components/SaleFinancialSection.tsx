@@ -130,7 +130,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     refunds.data.map(r=><p key={r.id} className="border-b p-2 text-sm">
      {som(r.amount)} · {r.method} · {r.reason} · {dateLabel(r.refundedAt)} · {r.returnId||'Без физического возврата'}
     </p>))}
-   {refundCreate&&<GuardedPost<RefundInput> kind="refund-create" scope={sale.id}
+   {refundCreate&&<GuardedPost<RefundInput> kind="refund-create" scope={sale.id} canReplay
     allowed={refundCreate} title="Подтвердить возврат денег клиенту?" label="Вернуть деньги" destructive
     operationKey={p=>p.idempotencyKey}
     meta={p=>({sale:p.saleId,returnId:p.returnId||'',amount:p.amount,method:p.method})}

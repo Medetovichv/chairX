@@ -42,7 +42,7 @@ export function ExchangeSettlementForm({exchange:d}:{exchange:ExchangeResponse})
   <h3 className="font-bold">{direction==='IN'?'Принять доплату клиента':'Выплатить разницу клиенту'}</h3>
   <p className="text-sm">Обязательство: {som(due)}. Уже проведено: {som((posted/100n).toString()+'.'+(posted%100n).toString().padStart(2,'0'))}. Остаток: {
    remaining!==null&&remaining>=0n?som((remaining/100n).toString()+'.'+(remaining%100n).toString().padStart(2,'0')):'Недоступен'}</p>
-  <GuardedPost<SettlementInput> kind="settlement" scope={d.id} allowed={allowed}
+  <GuardedPost<SettlementInput> kind="settlement" scope={d.id} canReplay allowed={allowed}
    title="Подтвердить финансовый расчёт обмена?" label={direction==='IN'?'Принять доплату':'Вернуть разницу'}
    destructive={direction==='OUT'} operationKey={p=>p.idempotencyKey}
    meta={p=>({direction:p.direction,method:p.method,amount:p.amount})}
