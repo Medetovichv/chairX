@@ -71,8 +71,8 @@ class WarehouseStockSummaryApiTests {
         for(int i=0;i<25;i++) {
             UUID variant=UUID.randomUUID();
             jdbc.update("""
-                    INSERT INTO product_variants(id,product_id,name,active,created_at,updated_at)
-                    VALUES (?,?,?,TRUE,now(),now())
+                    INSERT INTO product_variants(id,product_id,name,recommended_sale_price,active,created_at,updated_at)
+                    VALUES (?,?,?,8500,TRUE,now(),now())
                     """, variant,product,"UI4 variant "+i);
             jdbc.update("""
                     INSERT INTO inventory_balances(warehouse_id,product_variant_id,on_hand,reserved,blocked)
