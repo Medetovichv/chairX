@@ -536,3 +536,52 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     expect(called(api,'/api/sales/'+SALE_ID)).toHaveLength(1);
   });
 });
+
+describe('UI-V2-03 Kanban initiation never mutates before explicit server confirmation', () => {
+  it('selecting a draft transition opens existing guarded confirm dialog; POST only after approval', async () => {
+    const api = mockBackend({sales: [sale('DRAFT')]});
+    renderAt();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', {name: 'Канбан'}));
+    const column = await screen.findByRole('region', {name: 'Канбан: Черновик'});
+    const selector = await within(column).findByRole('combobox', {
+      name: 'Изменить статус заказа CHX-2026-0042',
+    });
+    await user.selectOptions(selector, 'CONFIRMED');
+    expect(await screen.findByRole('heading', {name: 'Продажа #42'})).toBeInTheDocument();
+    expect(await screen.findByRole('alertdialog', {name: 'Подтвердить заказ?'})).toBeInTheDocument();
+    expect(api.count().confirms).toBe(0);
+    await user.click(screen.getByRole('button', {name: 'Подтвердить', exact: true}));
+    await waitFor(() => expect(api.count().confirms).toBe(1));
+  });
+
+  it('dragging draft to confirmed requests confirmation without posting; cancellation posts nothing', async () => {
+    const api = mockBackend({sales: [sale('DRAFT')]});
+    renderAt();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', {name: 'Канбан'}));
+    const source = await screen.findByRole('region', {name: 'Канбан: Черновик'});
+    const target = screen.getByRole('region', {name: 'Канбан: Подтверждён'});
+    const card = (await within(source).findByRole('link', {name: 'Открыть продажу CHX-2026-0042'}))
+      .closest('article');
+    expect(card).not.toBeNull();
+    const dataTransfer = {effectAllowed: 'none', dropEffect: 'none', setData: vi.fn()};
+    fireEvent.dragStart(card!, {dataTransfer});
+    fireEvent.dragOver(target, {dataTransfer});
+    fireEvent.drop(target, {dataTransfer});
+    expect(await screen.findByRole('alertdialog', {name: 'Подтвердить заказ?'})).toBeInTheDocument();
+    expect(api.count().confirms).toBe(0);
+    await user.click(screen.getByRole('button', {name: 'Отмена', exact: true}));
+    expect(api.count()).toMatchObject({confirms: 0, fulfills: 0, cancels: 0});
+  });
+
+  it('warehouse/delivery RBAC cannot reveal forbidden sale mutations on Kanban', async () => {
+    granted.permissions = ['SALES_READ'];
+    const api = mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'REGION_DELIVERY'})]});
+    renderAt();
+    await userEvent.setup().click(screen.getByRole('button', {name: 'Канбан'}));
+    const column = await screen.findByRole('region', {name: 'Канбан: Подтверждён'});
+    expect(within(column).queryByRole('combobox', {name:/Изменить статус заказа/})).not.toBeInTheDocument();
+    expect(api.count()).toMatchObject({confirms:0,fulfills:0,cancels:0});
+  });
+});
