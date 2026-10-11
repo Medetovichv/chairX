@@ -231,9 +231,14 @@ public class PurchaseService {
     private PurchaseResponse response(Purchase purchase) {
         return new PurchaseResponse(purchase.id(),purchase.supplierId(),purchase.status(),purchase.cargoCost(),
                 purchase.cargoAllocationMethod(),purchase.costsLockedAt(),purchase.confirmedAt(),purchase.comment(),purchase.createdBy(),
-                purchase.createdAt(),purchase.updatedAt(),repository.items(purchase.id()).stream().map(i -> new PurchaseItemResponse(
-                        i.id(),i.productVariantId(),i.lineNumber(),i.orderedQuantity(),i.receivedQuantity(),
-                        i.purchaseUnitCost(),i.allocatedCargoCost(),i.finalUnitCost())).toList());
+                purchase.createdAt(),purchase.updatedAt(),repository.labeledItems(purchase.id()).stream().map(label -> {
+                    var i = label.item();
+                    return new PurchaseItemResponse(
+                        i.id(), i.productVariantId(), i.lineNumber(), i.orderedQuantity(),
+                        i.receivedQuantity(), i.purchaseUnitCost(), i.allocatedCargoCost(),
+                        i.finalUnitCost(), label.productId(), label.modelName(),
+                        label.variantName(), label.sku());
+                }).toList());
     }
 
     private PurchaseReceiptResponse receiptResponse(PurchaseReceipt receipt) {

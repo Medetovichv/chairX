@@ -44,6 +44,7 @@ function purchase(changes:Partial<Purchase>={}):Purchase {
     cargoAllocationMethod:'QUANTITY',costsLockedAt:null,confirmedAt:TIME,
     comment:'Первая партия',createdBy:'manager',createdAt:TIME,updatedAt:TIME,
     items:[{id:ITEM,productVariantId:VARIANT,lineNumber:1,
+      productId:MODEL,modelName:'Ergo Comfort',variantName:'Чёрный',sku:'ERGO-BLK',
       orderedQuantity:10,receivedQuantity:0,purchaseUnitCost:'4500.00',
       allocatedCargoCost:'1000.00',finalUnitCost:'4600.00'}],...changes};
 }
@@ -111,6 +112,7 @@ function mockApi(opts:{
       const p=purchase({id:RID,status:'DRAFT',supplierId:value.supplierId,cargoCost:value.cargoCost,
         comment:value.comment,confirmedAt:null,items:value.items.map((v,i)=>({
           id:i===0?ITEM:RID,productVariantId:v.productVariantId,lineNumber:i+1,
+          productId:MODEL,modelName:'Ergo Comfort',variantName:'Чёрный',sku:'ERGO-BLK',
           orderedQuantity:v.orderedQuantity,receivedQuantity:0,purchaseUnitCost:v.purchaseUnitCost,
           allocatedCargoCost:null,finalUnitCost:null,
         }))});list.push(p);return json(p,201);
@@ -365,14 +367,28 @@ describe('F06 list, filters and drafts',()=>{
 });
 
 describe('F06 purchase details and mutations',()=>{
-  it('shows real PurchaseResponse financial fields and UUIDs; does not hydrate every variant',async()=>{
+  it('shows real product model, variation and SKU from purchase response with no extra catalog lookup',async()=>{
     const {calls}=mockApi();
     renderAt('/purchases/'+PID);
     expect(await screen.findByRole('heading',{name:'Карточка закупки'})).toBeInTheDocument();
-    expect(screen.getByText('Закупочная позиция')).toBeInTheDocument();
+    const lines=screen.getByRole('region',{name:'Позиции закупки'});
+    expect(within(lines).getByRole('heading',{name:/Ergo Comfort\s*·\s*Чёрный/})).toBeInTheDocument();
+    expect(within(lines).getByText('Артикул: ERGO-BLK')).toBeInTheDocument();
+    expect(within(lines).getByRole('link',{name:'Открыть в каталоге'}))
+      .toHaveAttribute('href','/catalog/'+MODEL);
+    expect(within(lines).getByText('Закупочная позиция')).toBeInTheDocument();
     expect(screen.queryByText(/Вариация UUID: /)).not.toBeInTheDocument();
     expect(screen.getAllByText(/4\s?500,00 сом/).length).toBeGreaterThan(0);
     expect(requests(calls,'/api/product-variants/')).toHaveLength(0);
+    expect(requests(calls,'/api/products/'+MODEL)).toHaveLength(0);
+  });
+  it('shows readable line labels but no catalog link to users without CATALOG_READ',async()=>{
+    access.permissions=access.permissions.filter(p=>p!=='CATALOG_READ');
+    const {calls}=mockApi();
+    renderAt('/purchases/'+PID);
+    expect(await screen.findByRole('heading',{name:/Ergo Comfort\s*·\s*Чёрный/})).toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Открыть в каталоге'})).not.toBeInTheDocument();
+    expect(requests(calls,'/api/products/')).toHaveLength(0);
   });
   it('edits full DRAFT PUT and keeps all items',async()=>{
     const {calls}=mockApi({purchases:[purchase({status:'DRAFT'})]});
