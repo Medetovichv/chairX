@@ -31,3 +31,42 @@ A separate disposable Compose/Chromium job executes one cohesive *real HTTP* bus
 - Catalog-only HTTP credentials cannot mutate logistics or see financial reports; every financial negative path asserts the absence of unintended writes.
 
 **Precise scope:** API is used to perform procurement/warehouse/sale/delivery/refund actions; Chromium renders the **real stored** sale, delivery and closes the day interactively. This proves real browser presentation and API→database transactions, but does not assert every create/dispatch/refund button in the React UI. A fully click-driven sales-and-returns walk-through is still part of manual acceptance. Real-data migration and a multi-date historical correction scenario also remain distinct from this test.
+
+
+## Historical two-day PostgreSQL acceptance (Issue #32)
+
+A dedicated Java 25/Spring MockMvc/real PostgreSQL 17 Testcontainers gate
+uses adjustable test time for **two authentic REST closing transactions** on
+two consecutive Asia/Bishkek business dates. Neither business policy nor the
+production server clock are replaced in deployable code.
+
+Acceptance asserts:
+- Correct first and second day close (normal business-day windows), with
+  exactly two saved closing records and independently frozen sales snapshot
+  markers. Closing/observation writes do not post fictitious finance money.
+- Three days later, normal employee permission does not bypass historical
+  locks; manager unlock is scoped to one specific date.
+- One authorized, backdated cash expense produces **one** document, **one**
+  journal movement and one real account delta, but recalculates expectations
+  for *both* previously closed days atomically.
+- Original expected balances remain in the original closing account rows;
+  recalculated values are separate adjustments. First shortage is reconciled,
+  while the later day explicitly displays \`requiresReview\` until a human
+  enters a new observation; saved sales snapshots remain unchanged.
+- Same-key expense replay produces zero further postings or revisions; use of
+  the same key with a different amount is rejected.
+- Manual report update requires a per-day unlock plus current version; stale
+  version 409 causes zero state changes. A fresh counted observation resets
+  \`requiresReview\` **without changing account money**.
+- Audit exposes prior observation, initial close, recalculation and manual
+  update; admin revocation blocks later financial correction, a 60-minute
+  manager unlock expires exactly at the cutoff, manager historical age limit
+  applies, and admin unlock/revoke remains independently auditable.
+
+**Test-only time travel**: injected \`Clock\` in an isolated Testcontainers
+Spring context; financial posting date still uses actual application guards.
+This tests the cross-day API/domain invariants without touching a real retained
+database. Browser presentation is exercised in the existing Chromium gates;
+this new scenario uses MockMvc as the real HTTP layer rather than claiming a
+multi-day Playwright GUI run. A rehearsal of migrations against a suitably
+consented, sanitized old database and human UAT are still required.
