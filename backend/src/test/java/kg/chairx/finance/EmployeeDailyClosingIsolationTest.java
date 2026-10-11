@@ -75,9 +75,9 @@ class EmployeeDailyClosingIsolationTest {
         UUID id=UUID.randomUUID(); sales.add(id);
         String number="P"+id.toString().replace("-","").substring(0,16);
         jdbc.update("""
-            INSERT INTO sales(id,sale_number,fulfillment_type,status,created_by,created_at,fulfilled_by,fulfilled_at)
-            VALUES (?,?,'SELF_PICKUP','FULFILLED',?,clock_timestamp(),?,clock_timestamp())
-            """,id,number,actor,actor);
+            INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,fulfillment_type,status,created_by,created_at,fulfilled_by,fulfilled_at)
+            VALUES (?,?,?,?,'SELF_PICKUP','FULFILLED',?,clock_timestamp(),?,clock_timestamp())
+            """,id,number,UUID.randomUUID(),"fixture",actor,actor);
     }
     void collection(String actor,String account,int money){
         UUID id=UUID.randomUUID();movements.add(id);
