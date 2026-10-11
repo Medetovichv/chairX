@@ -2,7 +2,7 @@
 
 ChairX — собственная внутренняя система для небольшого магазина кресел в Кыргызстане. Она объединяет **каталог, закупки, два склада, продажи, доставку, клиентов, возвраты, финансы, закрытие дня и управление сотрудниками**. Интерфейс адаптирован под работу с телефона и компьютера.
 
-> **Статус на 11.10.2026:** описана фактическая кодовая база `main` (`687c93605a5a`), включая UI-улучшения до PR #46 и F12. Это **не подтверждение готовности к production**: перед реальной эксплуатацией остаются проверки из [F13](docs/f13-production-readiness.md). Черновая работа над изолированными demo-fixtures (PR #47) не включена в `main` на момент аудита.
+> **Актуально после PR #51 (11.10.2026):** сверено с `main` ([`5aded096`](https://github.com/Medetovichv/chairX/commit/5aded0960f68de41f12eae1f614d55678881646b)), включая F12, UI-v2 до PR #46 и разделение личного/общего закрытия дня. Это **не означает готовность к production**: см. [F13](docs/f13-production-readiness.md). Отдельная ветка demo-fixtures [PR #47](https://github.com/Medetovichv/chairX/pull/47) и цепочка FLOW-01–FLOW-07 [PR #49–#56](https://github.com/Medetovichv/chairX/pulls) **открыты и не входят в этот срез `main`**.
 
 ## Что реализовано
 
@@ -36,15 +36,15 @@ ChairX — собственная внутренняя система для н�
 
 Безопасность обеспечивается сервером (Spring Security, HTTP Basic, CSRF, deny-by-default). Скрытие кнопок в React **не заменяет** проверки на API. Дополнительно: [Security/RBAC](docs/security-rbac.md), [F12](docs/f12-administration.md).
 
-## Важное ограничение: закрытие дня
+## Личное и общее закрытие дня
 
-**Разделение исправлено в ветке персонального закрытия:** сотрудник с `DAILY_CLOSING_READ` видит только собственные завершённые продажи и оформленные им поступления; POST фиксирует отдельный персональный snapshot. Общие CASH/BANK доступны только при `FINANCE_READ`, операции закрытия компании требуют дополнительных прав. Личный snapshot не переводит деньги и не заменяет общий бухгалтерский отчёт. См. [личное закрытие](docs/employee-daily-closing.md) и [аудит](docs/audit/2026-10-11-documentation-audit.md).
+**Разделение введено в `main` через [PR #51](https://github.com/Medetovichv/chairX/pull/51):** сотрудник с `DAILY_CLOSING_READ` видит только собственные завершённые продажи и оформленные им поступления; POST фиксирует отдельный персональный snapshot. Общие CASH/BANK доступны только при `FINANCE_READ`, операции закрытия компании требуют дополнительных прав. Личный snapshot не переводит деньги и не заменяет общий бухгалтерский отчёт. См. [личное закрытие](docs/employee-daily-closing.md) и [аудит](docs/audit/2026-10-11-documentation-audit.md).
 
 ## Технологии
 
 - **Backend:** Java 25, Spring Boot 4.1.1, Maven, Spring Security, Spring JDBC/JdbcClient, Flyway.
 - **Frontend:** React 19, TypeScript, Vite 8, React Router, TanStack Query, Tailwind CSS.
-- **Данные:** PostgreSQL 17; миграции Flyway **V1–V52**, денежная единица — **сом (KGS)**; расчётный день — **Asia/Bishkek**.
+- **Данные:** PostgreSQL 17; миграции Flyway **V1–V53**, денежная единица — **сом (KGS)**; расчётный день — **Asia/Bishkek**.
 - **Среда:** Docker Compose (PostgreSQL + backend + frontend), Testcontainers для backend интеграционных тестов.
 
 Архитектура, таблицы, транзакции, REST, тесты и эксплуатация: [Технический справочник](docs/technical-reference.md).

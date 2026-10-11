@@ -1,6 +1,6 @@
 # ChairX — технический справочник по реализации и сопровождению
 
-**Срез:** `main` `687c93605a5abf52be53ce15c5eda00a042268c7` (11.10.2026). Данный справочник описывает наблюдаемое устройство **исходников**. Считайте `SecurityConfig`, Flyway, приложения и тесты первичными источниками при расхождении с историческими отчётами F/P-пакетов.
+**Срез:** `main` `5aded0960f68de41f12eae1f614d55678881646b` после [PR #51](https://github.com/Medetovichv/chairX/pull/51) (11.10.2026). Данный справочник описывает наблюдаемое устройство **исходников**. Считайте `SecurityConfig`, Flyway, приложения и тесты первичными источниками при расхождении с историческими отчётами F/P-пакетов.
 
 ## 1. Система в целом
 
@@ -16,7 +16,7 @@ Spring Boot 4.1.1 / Java 25 / HTTP Basic + CSRF
               |
     Spring JDBC / JdbcClient repositories
               |
-     PostgreSQL 17 + Flyway V1…V52
+     PostgreSQL 17 + Flyway V1…V53
 ```
 
 **Стиль:** прагматичный **модульный монолит**, а не набор микросервисов; `backend/src/main/java/kg/chairx/{module}/{api,web,application,domain,persistence}` (в отдельных пакетах слой хранилища называется `infrastructure`). Данные хранятся в одной PostgreSQL. Транзакции оформляются через `@Transactional` и явные блокировки там, где участвуют деньги, FIFO, роли и финансовое закрытие. В `pom.xml` присутствует JPA starter, но прикладные репозитории изученных модулей опираются на Spring JDBC/JdbcClient — не заменяйте это предположениями о JPA-автогенерации.
@@ -84,7 +84,7 @@ Frontend сгруппирован по `frontend/src/features/{admin,auth,catalo
 - Закупка: `purchases`, `purchase_items`, `purchase_receipts`, `purchase_payments`.
 - Склад/стоимость: `inventory_balances`, `stock_movements`, `inventory_cost_layers`, `inventory_cost_allocations`, `inventory_transfers`.
 - Продажа/выдача: `sales`, `sale_items`, `deliveries`, `payments`, `returns`, `refunds`, `exchanges`, `defects`.
-- Деньги: `finance_accounts`, `finance_movements`, `finance_daily_closings`, `finance_daily_closing_accounts`, версии, unlock/grant, изменения ожиданий и завершённые продажи.
+- Деньги: `finance_accounts`, `finance_movements`, `finance_daily_closings`, `finance_daily_closing_accounts`, версии, unlock/grant, изменения ожиданий и завершённые продажи. Личные сверки: отдельные `employee_daily_closings` и `employee_daily_closing_sales` (V53), без движения общих денег.
 - Доступ: `app_users`, `security_roles`, `security_permissions`, `security_user_roles`, `security_role_permissions`, `security_audit_log`; отдельно доменный журнал `audit_entries`.
 
 **Заметка:** это перечень основных таблиц, не полная ER-диаграмма и не инструкция для ручного исправления данных. Денежные суммы CASH/BANK хранятся в сомах; в FIFO используются точные стоимостные вычисления. Физические остатки учитываются по паре склад/вариация.

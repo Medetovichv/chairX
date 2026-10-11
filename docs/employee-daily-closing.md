@@ -1,6 +1,6 @@
 # ChairX — отдельное личное закрытие дня сотрудника
 
-**Реализация:** ветка `fix/employee-personal-daily-closing` поверх объединённой документации PR #48. Её цель — устранить выявленное в аудите смешение общего CASH/BANK и доступного сотруднику отчёта.
+**Статус:** реализовано и объединено с `main` в [PR #51](https://github.com/Medetovichv/chairX/pull/51), merge commit [`5aded096`](https://github.com/Medetovichv/chairX/commit/5aded0960f68de41f12eae1f614d55678881646b) (11.10.2026). Исправлена прежняя доступность общего CASH/BANK сотруднику, но эта функция не является заменой общего бухгалтерского отчёта.
 
 ## Безопасность и разграничение
 
@@ -20,6 +20,6 @@
 
 ## Тесты
 
-`EmployeeDailyClosingIsolationTest` создаёт двух реальных сотрудников в PostgreSQL Testcontainers, проверяет непересечение их поступлений/продаж и запрет глобальных closing GET/POST; повторный POST, CSRF, технический catalog, неизменность `finance_accounts` и `finance_movements`, позднее поступление после snapshot. Дополнительно выполняется существующая F11/F12 backend+frontend регрессия и Docker/Chromium smoke.
+`EmployeeDailyClosingIsolationTest` создаёт двух реальных сотрудников в PostgreSQL Testcontainers, проверяет непересечение их поступлений/продаж и запрет глобальных closing GET/POST; повторный POST, CSRF, технический catalog, неизменность `finance_accounts` и `finance_movements`, позднее поступление после snapshot. Проверено для PR #51: backend 689 тестов (0 failures/errors, 1 skipped), frontend 386/386 тестов, Docker Compose smoke и F11 release gate; [GitHub Actions](https://github.com/Medetovichv/chairX/actions/runs/38159413176). Это не заменяет реальный приёмочный учёт наличных.
 
 Разрешения из V29–V52 **не удаляются** из существующих ролей; принудительный server-level `FINANCE_READ` отделяет корпоративные API от personal-view. При выдаче `FINANCE_READ` кастомной роли этот пользователь получает право читать общий финансовый отчёт согласно общей политике; подобные назначения требует ревью администратора.
