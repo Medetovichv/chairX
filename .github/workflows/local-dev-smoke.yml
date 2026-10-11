@@ -67,7 +67,7 @@ jobs:
       - name: Verify complete fixture version and inventory
         run: |
           D="docker compose -f docker-compose.yml -f docker-compose.demo.yml"
-          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)=3 THEN 'ok' ELSE 'fail' END FROM chairx_demo_seed_versions;" | grep -q '^ok$'
+          $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)=4 THEN 'ok' ELSE 'fail' END FROM chairx_demo_seed_versions;" | grep -q '^ok$'
           $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM products WHERE name LIKE 'DEMO%';" | grep -q '^ok$'
           $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM purchases;" | grep -q '^ok$'
           $D exec -T postgres psql -U chairx -d chairx_demo -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN count(*)>=3 THEN 'ok' ELSE 'fail' END FROM sales;" | grep -q '^ok$'
