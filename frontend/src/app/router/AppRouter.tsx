@@ -10,6 +10,8 @@ import { NotFoundPage } from '../../pages/NotFoundPage';
 import { CatalogPage } from '../../features/catalog/pages/CatalogPage';
 import { ProductDetailPage } from '../../features/catalog/pages/ProductDetailPage';
 import { InventoryPage } from '../../features/inventory/pages/InventoryPage';
+import { InventoryTransfersPage } from '../../features/inventory/pages/InventoryTransfersPage';
+import { WarehouseManagementPage } from '../../features/inventory/pages/WarehouseManagementPage';
 import { PurchasesPage } from '../../features/purchases/pages/PurchasesPage';
 import { PurchaseDetailPage } from '../../features/purchases/pages/PurchaseDetailPage';
 import { ReceivingPage } from '../../features/purchases/pages/ReceivingPage';
@@ -131,6 +133,9 @@ function ProtectedSection({ path }: { path: string }) {
   if(path==='/admin/audit')return <AdminAuditPage/>;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
+  if (path === '/inventory/transfers') return <InventoryTransfersPage />;
+  if (path === '/inventory/warehouses') return hasPermission('INVENTORY_READ') && hasPermission('WAREHOUSES_MANAGE') ?
+    <WarehouseManagementPage /> : <ForbiddenPage />;
   if (path === '/purchases') return <PurchasesPage />;
   if (path === '/purchases/receipts') return <ReceivingPage />;
   if (path === '/purchases/suppliers') return <SuppliersPage />;
