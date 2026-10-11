@@ -4,7 +4,7 @@ import { userFacingApiError } from '../../../shared/api/api-error';
 import { Button } from '../../../shared/ui/button';
 import { CustomerPicker } from './CustomerPicker';
 import { SaleItemsEditor, nextKey, type SaleEditorRow } from './SaleItemsEditor';
-import { checkDraft, countValid, fulfillmentNames, integerSom, salePriceValid } from '../validation';
+import { checkDraft, countValid, fulfillmentNames, integerSom, money, salePriceValid } from '../validation';
 import type { DraftInput, FulfillmentType, SaleResponse } from '../types';
 
 export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked=false}:{
