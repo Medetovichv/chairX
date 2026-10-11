@@ -61,8 +61,7 @@ export const inventoryApi = {
       warehouseId: filters.warehouseId, variantId: filters.variantId,
       page: filters.page, size: filters.size,
     })),
-  // Backend includes cost in these two responses. The UI must never
-  // render it, but the response itself remains a data-exposure risk.
+  // Transfer DTOs omit internal FIFO cost on the SERVER, not just in the UI.
   transfer: (payload: TransferInput) =>
     apiClient.post<TransferResult>('/api/inventory/transfers', payload),
   transferById: (id: string) =>

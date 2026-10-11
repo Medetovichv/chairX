@@ -6,6 +6,7 @@ on:
       - '.github/workflows/f11-release-gate.yml'
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/f11-operations-e2e.py'
+      - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
   workflow_dispatch:
@@ -132,6 +133,19 @@ jobs:
         run: |
           python -m pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
+      # F13 shares this disposable stack and existing Playwright install.
+      # Admin fixtures do not touch financial/stock data, so the previously
+      # verified F11 operations guard still requires empty business tables.
+      - name: F13 real Chromium + Spring + PostgreSQL employee/RBAC acceptance
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/f13-admin-e2e.py
       - name: Run populated ChairX business operations acceptance
         shell: bash
         env:
@@ -147,7 +161,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: issue-32-operations-browser-screenshots
-          path: artifacts/issue32-operations/
+          path: |
+            artifacts/issue32-operations/
+            artifacts/f13/
           if-no-files-found: ignore
           retention-days: 14
       - name: Show isolated stack diagnostics on failure
