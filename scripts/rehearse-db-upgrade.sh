@@ -50,7 +50,7 @@ if ! docker info >/dev/null 2>&1; then
   echo "ERROR: Docker daemon is not running." >&2
   exit 2
 fi
-if ! java -version 2>&1 | head -n 1 | grep -Eq '"25(\\.|")'; then
+if ! java -version 2>&1 | head -n 1 | grep -Eq '"25([.]|")'; then
   echo "ERROR: run with Java 25 LTS." >&2
   exit 2
 fi
