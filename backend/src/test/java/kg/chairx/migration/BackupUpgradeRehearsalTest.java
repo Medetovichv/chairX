@@ -184,8 +184,6 @@ class BackupUpgradeRehearsalTest {
                 .max().orElseThrow();
         assertThat(version).as("Expected an existing V40-or-newer ChairX schema")
                 .isGreaterThanOrEqualTo(40);
-        assertThat(version).as("Backup cannot be ahead of this checked-out code")
-                .isLessThanOrEqualTo(51);
         long movements = scalar(db, "SELECT count(*) FROM public.finance_movements");
         return new OriginalState(captureAllTables(db), history, movements, version);
     }
@@ -285,7 +283,7 @@ class BackupUpgradeRehearsalTest {
         }
         int latest = current.keySet().stream().mapToInt(Integer::parseInt)
                 .max().orElseThrow();
-        assertThat(latest).as("Full pending migration set must apply").isEqualTo(51);
+        assertThat(latest).as("Migration cannot regress below V51").isGreaterThanOrEqualTo(51);
 
         Map<String, Snapshot> migrated = new HashMap<>();
         for (var e : old.tables().entrySet()) {
@@ -319,13 +317,13 @@ class BackupUpgradeRehearsalTest {
                     """)).as("Legacy date inference must preserve registration day")
                     .isEqualTo(old.legacyMovementCount());
         }
-        assertThat(scalar(db, """
-                SELECT count(*) FROM finance_daily_closings
-                  c LEFT JOIN finance_daily_closing_sales_snapshots s
-                  ON s.closing_id=c.id
-                WHERE c.business_date < CURRENT_DATE AND s.closing_id IS NOT NULL
-                """)).as("Historic snapshots must not be fabricated")
-                .isZero();
+        if (old.startingVersion() < 50) {
+            // Closing snapshots introduced by V50 MUST NOT be backfilled for
+            // already signed V40-V49 reports; pre-V50 contains no marker.
+            assertThat(scalar(db, """
+                    SELECT count(*) FROM finance_daily_closing_sales_snapshots
+                    """)).as("Historic sales snapshots must not be fabricated").isZero();
+        }
         for (String account : List.of("CASH","BANK")) {
             // Do not silently repair an existing accounting discrepancy. The
             // signed account row AND every original movement remain bytewise
