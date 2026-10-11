@@ -35,6 +35,11 @@ import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
 import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
 import { FinanceTransferPage } from '../../features/finance/pages/FinanceTransferPage';
 import { OpeningBalancesPage } from '../../features/finance/pages/OpeningBalancesPage';
+import { AdminUsersPage } from '../../features/admin/pages/AdminUsersPage';
+import { AdminUserDetailPage } from '../../features/admin/pages/AdminUserDetailPage';
+import { AdminRolesPage } from '../../features/admin/pages/AdminRolesPage';
+import { AdminRoleDetailPage } from '../../features/admin/pages/AdminRoleDetailPage';
+import { AdminAuditPage } from '../../features/admin/pages/AdminAuditPage';
 import { ReturnRefundPage } from '../../features/finance/pages/ReturnRefundPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
@@ -90,8 +95,13 @@ function PurchaseDetailGate() {
   return hasPermission('PURCHASE_READ') ? <PurchaseDetailPage /> : <ForbiddenPage />;
 }
 
+function AdminGate({permission,children}:{permission:string;children:React.ReactNode}) {
+  const {user,hasPermission}=useAuth();
+  return user?.roles.includes('ADMIN')&&hasPermission(permission)?children:<ForbiddenPage/>;
+}
 function ProtectedSection({ path }: { path: string }) {
-  const { hasPermission } = useAuth();
+  const { hasPermission,user } = useAuth();
+  if(path.startsWith('/admin')&&!user?.roles.includes('ADMIN'))return <ForbiddenPage/>;
   const route = routeDefinitions.find((item) => item.path === path);
   if (!route) return <NotFoundPage />;
   if (['/purchases', '/returns', '/finance', '/admin'].includes(path)) {
@@ -116,6 +126,9 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/finance/cash-flow') return <CashFlowPage />;
   if (path === '/finance/transfers') return <FinanceTransferPage />;
   if (path === '/finance/opening-balances') return <OpeningBalancesPage />;
+  if(path==='/admin/users')return <AdminUsersPage/>;
+  if(path==='/admin/roles')return <AdminRolesPage/>;
+  if(path==='/admin/audit')return <AdminAuditPage/>;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/purchases') return <PurchasesPage />;
@@ -153,6 +166,8 @@ export function AppRouter() {
           <Route path="deliveries/new" element={<DeliveryCreateGate />} />
           <Route path="deliveries/:deliveryId" element={<DeliveryDetailGate />} />
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
+          <Route path="admin/users/:userId" element={<AdminGate permission="USERS_READ"><AdminUserDetailPage/></AdminGate>}/>
+          <Route path="admin/roles/:roleId" element={<AdminGate permission="ROLES_READ"><AdminRoleDetailPage/></AdminGate>}/>
           <Route path="customers/:customerId" element={<CustomerDetailGate />} />
           <Route path="purchases/:purchaseId" element={<PurchaseDetailGate />} />
           {Object.entries(legacyRedirects).map(([oldPath, target]) => (
