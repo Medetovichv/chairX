@@ -4,6 +4,7 @@ import { useAuth } from '../features/auth/AuthProvider';
 import { closingApi, closingKeys } from '../features/daily-closing/api';
 import { closingInputIssue, validClosingDate } from '../features/daily-closing/validation';
 import type { ClosingAccount, ClosingInput, ClosingReport } from '../features/daily-closing/types';
+import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-closing/verified-close';
 import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
 import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
@@ -125,11 +126,11 @@ export function DailyClosingPage() {
           <p>CASH: <strong>{som(preview.data.expectedCash)}</strong></p>
           <p>BANK: <strong>{som(preview.data.expectedBank)}</strong></p>
         </div>}
-      {write && <GuardedPost<ClosingInput> kind="daily-close" scope={date}
+      {write && <GuardedPost<ApprovedClosing> kind="daily-close" scope={date}
         allowed={write} title="Закрыть финансовый день?" label="Зафиксировать отчёт"
         operationKey={() => crypto.randomUUID()}
         meta={p => ({date, cash: p.actualCash, bank: p.actualBank})}
-        post={p => closingApi.close(date, p)} onDone={refreshed}>
+        post={p => postVerifiedClosing(date, p)} onDone={refreshed}>
         {({start, locked}) => <form aria-label="Закрытие финансового дня" className="space-y-3"
           onSubmit={e => {
             e.preventDefault();
@@ -143,7 +144,9 @@ export function DailyClosingPage() {
             const issue = closingInputIssue(payload, preview.data);
             if (issue) { setError(issue); return; }
             setError('');
-            start(payload, 'Дата ' + date + '. CASH факт ' + som(payload.actualCash) +
+            start({...payload, approvedExpectedCash: preview.data.expectedCash,
+              approvedExpectedBank: preview.data.expectedBank},
+              'Дата ' + date + '. CASH факт ' + som(payload.actualCash) +
               ', BANK факт ' + som(payload.actualBank) +
               '. Система запишет отчёт и неизменяемый снимок завершённых продаж. Остатки и журнал не изменятся.');
           }}>
