@@ -63,3 +63,10 @@ export interface TransferResult {
 export interface TransferFilters {
   warehouseId: string | null; variantId: string | null; page: number; size: number;
 }
+
+/** Complete warehouse-level PostgreSQL totals, not a paginated row sum. */
+export interface WarehouseStockSummary {
+  warehouseId: string;
+  onHand: number; reserved: number; blocked: number; available: number;
+  stockedVariants: number; lowStockVariants: number;
+}
