@@ -1,7 +1,11 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { salesApi, salesKeys } from '../../sales/api';
+import { deliveryApi, deliveryKeys } from '../api';
+import { ApiClientError } from '../../../shared/api/api-error';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { PurchasePager } from '../../purchases/components/PurchasePager';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -17,6 +21,12 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   const canReadSales=hasPermission('SALES_READ');
   const [saleId,setSaleId]=useState(initialSaleId);
   const [page,setPage]=useState(0);
+  const [search,setSearch]=useState('');
+  const [term,setTerm]=useState('');
+  useEffect(()=>{
+    const timeout=setTimeout(()=>setTerm(search.trim().replace(/^#/,'')),300);
+    return ()=>clearTimeout(timeout);
+  },[search]);
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
   const [address,setAddress]=useState('');
@@ -28,20 +38,29 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   const [comment,setComment]=useState('');
   const [problem,setProblem]=useState('');
   const list=useQuery({
-    queryKey:[...salesKeys.lists,'delivery-picker','CONFIRMED',page],
-    queryFn:()=>salesApi.list({status:'CONFIRMED',from:'',to:'',number:'',page}),
-    enabled:canReadSales&&!disabled,
+    queryKey:[...salesKeys.lists,'delivery-picker','CONFIRMED',term,page],
+    queryFn:()=>salesApi.list({status:'CONFIRMED',from:'',to:'',number:term,page}),
+    enabled:canReadSales&&!disabled&&!saleId,
   });
   const sale=useQuery({
     queryKey:salesKeys.detail(saleId),
     queryFn:()=>salesApi.get(saleId),
     enabled:canReadSales&&validUUID(saleId),
   });
-  // With SALES_READ, do not permit POST until actual sale eligibility is proven.
-  // Without SALES_READ we cannot call the endpoint; backend remains authority.
-  const eligibility=canReadSales?
-    validUUID(saleId)&&sale.isSuccess&&sale.data.status==='CONFIRMED'&&
-    (sale.data.fulfillmentType==='CITY_DELIVERY'||sale.data.fulfillmentType==='REGION_DELIVERY'):true;
+  const existing=useQuery({
+    queryKey:deliveryKeys.bySale(saleId),
+    queryFn:()=>deliveryApi.bySale(saleId),
+    enabled:validUUID(saleId)&&hasPermission('DELIVERIES_READ'),
+    retry:false,
+  });
+  const deliveryAbsent=existing.isError&&existing.error instanceof ApiClientError&&
+    existing.error.status===404;
+  // With SALES_READ validate the sale type/status locally; without it only a
+  // preselected sale can be submitted, after independent duplicate detection.
+  const eligibility=validUUID(saleId)&&(canReadSales?
+    sale.isSuccess&&sale.data.status==='CONFIRMED'&&
+      (sale.data.fulfillmentType==='CITY_DELIVERY'||sale.data.fulfillmentType==='REGION_DELIVERY'):true);
+  const canCreate=eligibility&&deliveryAbsent;
   async function submit(event:FormEvent){
     event.preventDefault();
     if(disabled)return;
@@ -53,22 +72,35 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
       plannedDeliveryDate:plannedDeliveryDate||null,
     };
     const error=validateCreate(payload);
-    if(error||!eligibility){setProblem(error||'Доставка допустима только для подтверждённой продажи с доставкой.');return;}
+    if(error||!canCreate){setProblem(error||'Проверьте заказ и отсутствие существующей доставки.');return;}
     setProblem('');await onSubmit(payload);
   }
   return <form aria-label="Оформить доставку" className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6"
     onSubmit={e=>void submit(e)}>
-    <section className="space-y-2">
+    <section className="space-y-3">
       <h3 className="font-semibold">Подтверждённый заказ с доставкой</h3>
-      <label className="block space-y-1 text-sm font-semibold">UUID заказа *
-        <Input aria-label="UUID заказа" value={saleId} disabled={disabled} autoComplete="off"
-          onChange={e=>setSaleId(e.target.value)} placeholder="UUID из F07"/>
-      </label>
-      {!canReadSales&&<p className="text-sm text-amber-800">
-        SALES_READ не назначен. Введите реальный UUID заказа: backend проверит статус и тип.
-        Список продаж не запрашивается.
+      {!saleId&&!canReadSales&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+        Чтобы выбрать заказ, нужен доступ к продажам. Откройте оформление из карточки заказа
+        или обратитесь к администратору. Технический идентификатор вводить не требуется.
       </p>}
-      {canReadSales&&<section aria-label="Выбор заказа" className="space-y-2 rounded-xl bg-slate-50 p-3">
+      {saleId&&<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm">
+        <div>
+          <p className="font-semibold">Выбранный заказ</p>
+          {canReadSales&&sale.data
+            ? <Link to={'/sales/'+encodeURIComponent(saleId)}
+                className="font-bold text-blue-700 underline-offset-2 hover:underline">
+                {displaySaleNumber(sale.data.saleNumber)}</Link>
+            : <p>Заказ выбран для оформления доставки</p>}
+        </div>
+        {canReadSales&&<Button type="button" variant="outline" size="sm" disabled={disabled}
+          onClick={()=>{setSaleId('');setProblem('');}}>Выбрать другой</Button>}
+      </div>}
+      {canReadSales&&!saleId&&<section aria-label="Выбор заказа" className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+        <label className="block space-y-1 text-sm font-semibold">Найти заказ по номеру
+          <Input type="search" aria-label="Поиск заказа для доставки" value={search}
+            disabled={disabled} maxLength={100} placeholder="Например, #1258"
+            onChange={event=>{setSearch(event.target.value);setPage(0);}}/>
+        </label>
         {list.isPending?<LoadingState label="Подтверждённые продажи…"/>:
           list.isError?<ErrorState error={list.error} onRetry={()=>void list.refetch()}/>:
           <>
@@ -76,20 +108,31 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
               s.fulfillmentType==='CITY_DELIVERY'||s.fulfillmentType==='REGION_DELIVERY').map(s=>
               <Button key={s.id} type="button" variant="outline" className="w-full justify-start"
                 disabled={disabled} onClick={()=>setSaleId(s.id)}>
-                {s.saleNumber} · {s.customerName||'Без имени'} · {s.fulfillmentType==='REGION_DELIVERY'?'Регион':'Город'}
+                {displaySaleNumber(s.saleNumber)} · {s.customerName||'Клиент не указан'} ·
+                {s.fulfillmentType==='REGION_DELIVERY'?' Регион':' Город'}
               </Button>)}</div>
             <PurchasePager page={list.data?.page??page} size={list.data?.size??20}
-              total={list.data?.total??0} label="подтверждённых продаж"
-              onPage={setPage}/>
-            <p className="text-xs text-slate-600">Список постраничный; продажи с самовывозом скрыты в текущей странице.</p>
+              total={list.data?.total??0} label="подтверждённых заказов" onPage={setPage}/>
+            <p className="text-xs text-slate-600">Список постраничный; самовывоз скрыт из выбора.
+              Если нужного заказа нет, уточните номер или переключите страницу.</p>
           </>}
-        {validUUID(saleId)&&sale.isPending&&<LoadingState label="Проверяем заказ…"/>}
-        {validUUID(saleId)&&sale.isError&&<ErrorState error={sale.error} onRetry={()=>void sale.refetch()}/>}
-        {validUUID(saleId)&&sale.data&&<p className="text-sm">
-          {sale.data.saleNumber} · {sale.data.status} · {sale.data.fulfillmentType||'Тип не задан'}
-          {!eligibility&&<strong className="block text-red-700">Для этого заказа оформление доставки запрещено.</strong>}
-        </p>}
       </section>}
+      {saleId&&canReadSales&&sale.isPending&&<LoadingState label="Проверяем заказ…"/>}
+      {saleId&&canReadSales&&sale.isError&&
+        <ErrorState error={sale.error} onRetry={()=>void sale.refetch()}/>}
+      {saleId&&canReadSales&&sale.data&&!eligibility&&
+        <p role="alert" className="text-sm font-semibold text-red-700">
+          Для этого заказа оформление доставки запрещено.</p>}
+      {saleId&&existing.isPending&&<p role="status" className="text-sm text-slate-500">
+        Проверяем, не создана ли уже доставка…</p>}
+      {existing.data&&<p className="text-sm text-amber-900">
+        Для этой продажи доставка уже существует. <Link
+          className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+          to={'/deliveries/'+encodeURIComponent(existing.data.id)}>Открыть доставку</Link>
+      </p>}
+      {saleId&&existing.isError&&!deliveryAbsent&&
+        <ErrorState title="Не удалось проверить существующую доставку"
+          error={existing.error} onRetry={()=>void existing.refetch()}/>}
     </section>
     <div className="grid gap-4 sm:grid-cols-2">
       {([
@@ -122,6 +165,6 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
       Стоимость — целые сомы, это не регистрация оплаты. Доставка создаётся в статусе READY.
       Дублирование заказа блокирует backend.
     </p>
-    <Button type="submit" disabled={disabled||!eligibility||!saleId.trim()}>Создать доставку</Button>
+    <Button type="submit" disabled={disabled||!canCreate}>Создать доставку</Button>
   </form>;
 }

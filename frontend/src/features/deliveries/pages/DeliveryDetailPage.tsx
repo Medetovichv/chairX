@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
-import { inventoryKeys } from '../../inventory/api';
+import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { salesKeys } from '../../sales/api';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -38,6 +38,10 @@ function Detail({d}:{d:DeliveryResponse}){
   const state=location.state as {summary?:DeliverySummary;notice?:string}|null;
   const info=state?.summary?.id===d.id?state.summary:null;
   const [notice]=useState(state?.notice??'');
+  const warehouses=useQuery({queryKey:inventoryKeys.warehouses,
+    queryFn:inventoryApi.warehouses,
+    enabled:hasPermission('INVENTORY_READ')&&!!d.returnedToWarehouseAt&&!!d.returnWarehouseId});
+  const returnWarehouseName=warehouses.data?.find(w=>w.id===d.returnWarehouseId)?.name;
   async function updated(result:DeliveryResponse){
     queryClient.setQueryData(deliveryKeys.detail(d.id),result);
     queryClient.setQueryData(deliveryKeys.bySale(d.saleId),result);
@@ -92,7 +96,7 @@ function Detail({d}:{d:DeliveryResponse}){
       {d.returnedToWarehouseAt&&<div className="sm:col-span-2 rounded-xl bg-emerald-50 p-3">
         <p className="font-semibold">Товар возвращён на склад</p>
         <p>Дата: {dateLabel(d.returnedToWarehouseAt)}</p>
-        <p className="break-all">Склад: {label(d.returnWarehouseId)}</p>
+        <p>Склад: {returnWarehouseName??'Название склада недоступно'}</p>
         <p>Оформил: {label(d.returnedToWarehouseBy)}</p>
         <p className="text-xs">Статус доставки остаётся FAILED; продажа после dispatch остаётся FULFILLED.</p>
       </div>}
