@@ -479,6 +479,32 @@ describe('F09 exchange and settlements boundaries',()=>{
  });
 });
 describe('F09 defect states, permissions and stock boundaries',()=>{
+ it('shows real chair/warehouse labels and exact stock links in defect list',async()=>{
+  access.permissions.push('CATALOG_READ');
+  const api=mockBackend({defects:[defect()]});
+  renderAt('/returns/defects');
+  const region=await screen.findByRole('region',{name:'Список дефектов'});
+  expect(await within(region).findAllByRole('link',{name:'Ergo Comfort'})).toHaveLength(2);
+  expect(within(region).getAllByRole('link',{name:'Склад офис'})[0])
+    .toHaveAttribute('href','/inventory?warehouseId='+WH);
+  expect(region).not.toHaveTextContent(VAR);
+  expect(region).not.toHaveTextContent(WH);
+  expect(calls(api,'/api/warehouses').length).toBeGreaterThan(0);
+ });
+ it('keeps registration in a focused form without raw technical identifiers',async()=>{
+  access.permissions.push('CATALOG_READ');
+  const api=mockBackend({defects:[defect()]});
+  renderAt('/returns/defects');
+  expect(await screen.findByRole('region',{name:'Список дефектов'})).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  const form=screen.getByRole('form',{name:'Регистрация дефекта'});
+  expect(screen.queryByRole('region',{name:'Список дефектов'})).not.toBeInTheDocument();
+  expect(within(form).queryByRole('textbox',{name:/UUID/})).not.toBeInTheDocument();
+  expect(within(form).getByRole('button',{name:'Зарегистрировать брак'})).toBeEnabled();
+  await userEvent.setup().click(screen.getByRole('button',{name:'← К списку дефектов'}));
+  expect(await screen.findByRole('region',{name:'Список дефектов'})).toBeInTheDocument();
+  expect(api.count.defectPOST).toBe(0);
+ });
  it('lists actual paginated defects and filters WAITING_PARTS',async()=>{
   const a=mockBackend({defects:[defect('WAITING_PARTS'),defect('OPEN')]});
   renderAt('/returns/defects');
@@ -486,6 +512,18 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   fireEvent.change(screen.getByRole('combobox',{name:'Фильтр статуса брака'}),
    {target:{value:'WAITING_PARTS'}});
   await waitFor(()=>expect(calls(a,'/api/defects?').some(([url])=>String(url).includes('status=WAITING_PARTS'))).toBe(true));
+ });
+ it('links defect details to real chair and warehouse without UUID in text',async()=>{
+  access.permissions.push('CATALOG_READ');
+  mockBackend({defects:[defect()]});
+  renderAt('/returns/defects/'+DEF);
+  expect(await screen.findByRole('link',{name:'Ergo Comfort'}))
+    .toHaveAttribute('href','/catalog/'+SALE);
+  expect(await screen.findByRole('link',{name:'Склад офис'}))
+    .toHaveAttribute('href','/inventory?warehouseId='+WH);
+  expect(screen.queryByText(DEF)).not.toBeInTheDocument();
+  expect(screen.queryByText(VAR)).not.toBeInTheDocument();
+  expect(screen.queryByText(WH)).not.toBeInTheDocument();
  });
  it('renders defect detail without forbidden catalog lookup',async()=>{
   access.permissions=['DEFECTS_READ'];
@@ -538,13 +576,17 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   expect(calls(a,'/api/inventory/')).toHaveLength(0);
  });
  it('defect creation with no idempotency key stays locked after lost response/reload',async()=>{
+  access.permissions.push('CATALOG_READ');
   const a=mockBackend({defects:[],afterDefectNetwork:true});
   const first=renderAt('/returns/defects');
   await screen.findByRole('heading',{name:'Брак',level:2});
   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'UUID вариации брака'}),{target:{value:VAR}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+  fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
+    {target:{value:SALE}});
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
   fireEvent.change(within(form).getByRole('textbox',{name:'Описание брака'}),
    {target:{value:'Сломан механизм'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Зарегистрировать брак'}));
@@ -595,7 +637,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
    expect(a.count.writeOff).toBe(1);
    expect(calls(a,'/api/inventory/')).toHaveLength(0);
  });
- it('create-only defect operator can register without triggering restricted list GET',async()=>{
+ it('create-only defect operator sees safe form but never reads restricted list',async()=>{
    access.permissions=['DEFECTS_MANAGE','INVENTORY_READ'];
    const a=mockBackend({defects:[]});
    renderAt('/returns');
@@ -603,7 +645,10 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
    expect(screen.getByText(/Для списка и карточек дефектов требуется DEFECTS_READ/)).toBeInTheDocument();
    expect(calls(a,'/api/defects?')).toHaveLength(0);
    await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
-   expect(screen.getByRole('form',{name:'Регистрация дефекта'})).toBeInTheDocument();
+   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
+   expect(within(form).getByRole('alert')).toHaveTextContent('CATALOG_READ');
+   expect(within(form).queryByRole('textbox',{name:/UUID/})).not.toBeInTheDocument();
+   expect(within(form).getByRole('button',{name:'Зарегистрировать брак'})).toBeDisabled();
    expect(calls(a,'/api/defects?')).toHaveLength(0);
  });
  it('return-create-only operator gets creation route rather than hidden menu or forbidden list',async()=>{

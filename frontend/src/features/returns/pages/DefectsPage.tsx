@@ -15,39 +15,46 @@ import { defectsApi,returnKeys } from '../api';
 import { dateLabel,defectLabels,defectStatuses } from '../validation';
 import type { DefectStatus } from '../types';
 import { DefectForm } from '../components/DefectForm';
+import { ReturnChairLabel } from '../components/ReturnChairLabel';
+import { DefectWarehouseLabel } from '../components/DefectWarehouseLabel';
 export function DefectsPage(){
  const {hasPermission}=useAuth(),read=hasPermission('DEFECTS_READ'),manage=hasPermission('DEFECTS_MANAGE');
  const [status,setStatus]=useState<DefectStatus|''>(''),[page,setPage]=useState(0),[creating,setCreating]=useState(false);
- const q=useQuery({queryKey:returnKeys.defectList(status,page),queryFn:()=>defectsApi.list(status,page),enabled:read});
+ const q=useQuery({queryKey:returnKeys.defectList(status,page),queryFn:()=>defectsApi.list(status,page),enabled:read&&!creating});
  if((!read&&!manage)||(read&&q.error instanceof ApiClientError&&q.error.status===403))return <ForbiddenPage/>;
  return <div className="space-y-5">
-  <PageHeader title="Брак" description="Регистрация и обработка неисправных кресел."
-   action={manage?<Button onClick={()=>setCreating(x=>!x)}>{creating?'Закрыть форму':'+ Зарегистрировать брак'}</Button>:undefined}/>
+  <PageHeader title={creating?'Регистрация брака':'Брак'}
+   action={manage&&!creating?<Button onClick={()=>setCreating(true)}>+ Зарегистрировать брак</Button>:undefined}/>
   <ReturnsTabs/>
-  {creating&&manage&&<DefectForm onCreated={()=>{setCreating(false);void q.refetch();}}/>}
-  {read&&<label className="block space-y-1 text-sm font-semibold">Статус дефекта
+  {creating&&manage&&<div className="space-y-3">
+    <Button variant="outline" type="button" onClick={()=>setCreating(false)}>← К списку дефектов</Button>
+    <DefectForm onCreated={()=>{setCreating(false);void q.refetch();}}/>
+   </div>}
+  {read&&!creating&&<label className="block space-y-1 text-sm font-semibold">Статус дефекта
    <select aria-label="Фильтр статуса брака" className="min-h-11 w-full rounded-xl border bg-white p-2"
     value={status} onChange={e=>{setStatus(e.target.value as DefectStatus|'');setPage(0);}}>
     <option value="">Все</option>
     {defectStatuses.map(s=><option key={s} value={s}>{defectLabels[s]}</option>)}
    </select>
   </label>}
-  {!read&&<p className="rounded-xl bg-amber-50 p-3 text-sm">Для списка и карточек дефектов требуется DEFECTS_READ. Регистрация доступна с DEFECTS_MANAGE.</p>}
-  {read&&(q.isPending?<LoadingState label="Загружаем брак…"/>:
+  {!read&&!creating&&<p className="rounded-xl bg-amber-50 p-3 text-sm">Для списка и карточек дефектов требуется DEFECTS_READ. Регистрация доступна с DEFECTS_MANAGE.</p>}
+  {read&&!creating&&(q.isPending?<LoadingState label="Загружаем брак…"/>:
    q.isError?<ErrorState error={q.error} onRetry={()=>void q.refetch()}/>:
    !q.data.items.length?<EmptyState title="Дефектов не найдено" description="Попробуйте другой статус или зарегистрируйте дефект."/>:
    <section aria-label="Список дефектов" className="space-y-3">
     <div className="hidden overflow-x-auto rounded-xl border bg-white lg:block">
       <table className="w-full text-left text-sm"><thead><tr>{['Вариация','Склад','Кол-во','Статус','Описание','Дата','Сотрудник',''].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead>
         <tbody>{q.data.items.map(d=><tr key={d.id} className="border-t">
-        <td className="break-all p-3">{d.productVariantId}</td><td className="break-all p-3">{d.warehouseId}</td>
+        <td className="p-3"><ReturnChairLabel variantId={d.productVariantId}/></td>
+        <td className="p-3"><DefectWarehouseLabel warehouseId={d.warehouseId}/></td>
         <td className="p-3">{d.quantity}</td><td className="p-3">{defectLabels[d.status]}</td>
         <td className="p-3">{d.description}</td><td className="p-3">{dateLabel(d.createdAt)}</td>
         <td className="p-3">{d.createdBy}</td><td className="p-3"><Link className="font-semibold text-indigo-700 underline" to={'/returns/defects/'+d.id}>Открыть</Link></td>
        </tr>)}</tbody></table>
     </div>
     <div className="space-y-3 lg:hidden">{q.data.items.map(d=><article key={d.id} className="space-y-2 rounded-xl border bg-white p-4 text-sm">
-      <p className="break-all">Вариация: {d.productVariantId} · Склад: {d.warehouseId}</p>
+      <p>Кресло: <ReturnChairLabel variantId={d.productVariantId}/></p>
+      <p>Склад: <DefectWarehouseLabel warehouseId={d.warehouseId}/></p>
       <p>{d.quantity} шт. · {defectLabels[d.status]}</p>
       <p>{d.description}</p><p>{dateLabel(d.createdAt)} · {d.createdBy}</p>
       <Link className="font-semibold text-indigo-700 underline" to={'/returns/defects/'+d.id}>Открыть</Link>
