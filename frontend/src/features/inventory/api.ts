@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared/api/client';
 import type {
-  Warehouse, WarehousePage, InventoryOverviewPage, InventoryFilters, InventoryBalance,
+  Warehouse, WarehousePage, WarehouseStockSummary, InventoryOverviewPage, InventoryFilters, InventoryBalance,
   MovementPage, TransferInput, TransferPage, TransferResult, InventoryTransfer, TransferFilters,
 } from './types';
 
@@ -16,6 +16,7 @@ const urlId = (id: string) => encodeURIComponent(id);
 export const inventoryKeys = {
   warehouses: ['inventory', 'warehouses'] as const,
   overviewPrefix: ['inventory', 'overview'] as const,
+  warehouseSummary: ['inventory', 'warehouse-summary'] as const,
   overview: (f: InventoryFilters) =>
     ['inventory', 'overview', f.warehouseId, f.model, f.variation,
       f.includeZero, f.onlyAvailable, f.page, f.size] as const,
@@ -44,6 +45,7 @@ export const inventoryApi = {
     }
     return all;
   },
+  warehouseSummary: () => apiClient.get<WarehouseStockSummary[]>('/api/inventory/warehouse-summary'),
   overview: (filters: InventoryFilters) =>
     apiClient.get<InventoryOverviewPage>('/api/inventory/overview?' + query({
       warehouseId: filters.warehouseId, model: filters.model, variation: filters.variation,
