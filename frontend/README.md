@@ -33,4 +33,4 @@ npm run build
 
 UI: `http://localhost:5173`; `/api` проксируется к backend. Локальные учетные данные хранятся в корневом `.env`, **не** во frontend/VITE переменных. Авторизация HTTP Basic и CSRF действует через in-memory session; UI guards — только удобство, серверные права обязательны. `docker compose down` сохраняет БД, `down -v` удаляет volume.
 
-**Ограничение:** текущий экран дневного закрытия относится ко всей CASH/BANK компании, а не к кассе конкретного employee. Подробнее в [аудите](../docs/audit/2026-10-11-documentation-audit.md). Также не путайте green CI с production/UAT signoff.
+**Личное закрытие:** сотрудник работает со своими завершёнными продажами и оформленными им платежами через `/api/finance/my-closings/**`. Для общего CASH/BANK необходим `FINANCE_READ`; личный snapshot ничего не проводит по счетам. См. [протокол](../docs/employee-daily-closing.md). Подробнее в [аудите](../docs/audit/2026-10-11-documentation-audit.md). Также не путайте green CI с production/UAT signoff.
