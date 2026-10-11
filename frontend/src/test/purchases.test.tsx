@@ -294,7 +294,7 @@ describe('F06 list, filters and drafts',()=>{
     fireEvent.change(form.getByRole('textbox',{name:'Цена позиции 1'}),{target:{value:'4500,00'}});
     fireEvent.change(form.getByRole('textbox',{name:'Карго закупки'}),{target:{value:'0'}});
     await userEvent.setup().click(form.getByRole('button',{name:'Сохранить закупку'}));
-    expect(await screen.findByRole('heading',{name:/Закупка 77777777/})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Карточка закупки'})).toBeInTheDocument();
     const post=calls.mock.calls.find(([url,init])=>String(url)==='/api/purchases'&&(init as RequestInit).method==='POST');
     expect(post).toBeTruthy();
     const body=JSON.parse(String((post?.[1] as RequestInit).body)) as {items:Array<{productVariantId:string;purchaseUnitCost:string}>;cargoCost:string};
@@ -307,15 +307,16 @@ describe('F06 purchase details and mutations',()=>{
   it('shows real PurchaseResponse financial fields and UUIDs; does not hydrate every variant',async()=>{
     const {calls}=mockApi();
     renderAt('/purchases/'+PID);
-    expect(await screen.findByRole('heading',{name:/Закупка 55555555/})).toBeInTheDocument();
-    expect(screen.getByText(/Вариация UUID: /)).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Карточка закупки'})).toBeInTheDocument();
+    expect(screen.getByText('Закупочная позиция')).toBeInTheDocument();
+    expect(screen.queryByText(/Вариация UUID: /)).not.toBeInTheDocument();
     expect(screen.getAllByText(/4\s?500,00 сом/).length).toBeGreaterThan(0);
     expect(requests(calls,'/api/product-variants/')).toHaveLength(0);
   });
   it('edits full DRAFT PUT and keeps all items',async()=>{
     const {calls}=mockApi({purchases:[purchase({status:'DRAFT'})]});
     renderAt('/purchases/'+PID);
-    await screen.findByRole('heading',{name:/Закупка 55555555/});
+    await screen.findByRole('heading',{name:'Карточка закупки'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать'}));
     const form=within(screen.getByRole('form',{name:'Редактирование закупки'}));
     await form.findByRole('combobox',{name:'Поставщик закупки'});
@@ -329,14 +330,14 @@ describe('F06 purchase details and mutations',()=>{
   });
   it('does not edit a RECEIVED purchase; cost lock prevents cargo change',async()=>{
     mockApi({purchases:[purchase({status:'RECEIVED',costsLockedAt:TIME})]});
-    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:/Закупка 55555555/});
+    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:'Карточка закупки'});
     expect(screen.queryByRole('button',{name:'Редактировать'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Изменить карго'})).not.toBeInTheDocument();
     expect(screen.getByText(/Себестоимость заблокирована/)).toBeInTheDocument();
   });
   it('confirms DRAFT only after confirmation dialog',async()=>{
     const {calls}=mockApi({purchases:[purchase({status:'DRAFT'})]});
-    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:/Закупка 55555555/});
+    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:'Карточка закупки'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить'}));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Шэньчжэнь');
     expect(requests(calls,'/confirm')).toHaveLength(0);
@@ -346,7 +347,7 @@ describe('F06 purchase details and mutations',()=>{
   });
   it('cancels only with confirmation, changes cargo only when unlocked',async()=>{
     const {calls}=mockApi();
-    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:/Закупка 55555555/});
+    renderAt('/purchases/'+PID);await screen.findByRole('heading',{name:'Карточка закупки'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Изменить карго'}));
     fireEvent.change(screen.getByRole('textbox',{name:'Новая стоимость карго'}),{target:{value:'1500.00'}});
     await userEvent.setup().click(screen.getByRole('button',{name:'Сохранить карго'}));
