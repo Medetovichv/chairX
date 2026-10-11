@@ -31,7 +31,7 @@ class P23RoleMigrationIntegrationTests {
         Flyway before = Flyway.configure().dataSource(dataSource)
                 .schemas(schema).defaultSchema(schema).target("50").load();
         Flyway upgrade = Flyway.configure().dataSource(dataSource)
-                .schemas(schema).defaultSchema(schema).cleanDisabled(false).load();
+                .schemas(schema).defaultSchema(schema).target("51").cleanDisabled(false).load();
         UUID user = UUID.randomUUID(), customRole = UUID.randomUUID(), log = UUID.randomUUID();
         try {
             before.migrate();
