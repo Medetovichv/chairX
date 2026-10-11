@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
@@ -13,6 +13,7 @@ import { NotFoundPage } from '../../../pages/NotFoundPage';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { Button } from '../../../shared/ui/button';
 import { salesApi, salesKeys } from '../api';
+import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { inventoryKeys } from '../../inventory/api';
@@ -69,9 +70,8 @@ function ItemLine({item}: {item:SaleResponse['items'][number]}) {
   });
   return <article className="grid gap-2 border-b border-slate-100 p-4 text-sm sm:grid-cols-[1fr_auto]">
     <div>
-      <p className="font-semibold">{variant.data?.name??'Вариация '+item.productVariantId}</p>
-      <p className="break-all text-xs text-slate-500">Вариация: {item.productVariantId}</p>
-      <p className="break-all text-xs text-slate-500">Склад: {item.warehouseId}</p>
+      <p className="font-semibold">{variant.data?.name??'Товарная позиция'}</p>
+      <p className="text-xs text-slate-500">Складские реквизиты доступны в учёте остатков.</p>
     </div>
     <div className="sm:text-right">
       <p>{item.quantity} шт. × {money(item.unitSalePrice)}</p>
@@ -108,6 +108,25 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const canFulfill=isConfirmed&&sale.fulfillmentType==='SELF_PICKUP'&&hasPermission('SALES_UPDATE');
   const canCancel=hasPermission('SALES_CANCEL')&&
     (isDraft||isConfirmed&&sale.fulfillmentType==='SELF_PICKUP');
+  // A Kanban drop is only a REQUEST to use this existing confirmation flow.
+  // The server's current sale is loaded before mounting this component;
+  // explicit confirmation still triggers the pre-POST stale-data check.
+  const handledKanbanIntent=useRef(false);
+  const requestedAction=(loc.state as {kanbanAction?:unknown}|null)?.kanbanAction;
+  useEffect(()=>{
+    if(handledKanbanIntent.current||!requestedAction)return;
+    handledKanbanIntent.current=true;
+    const valid=requestedAction==='confirm'&&canConfirm||
+      requestedAction==='fulfill'&&canFulfill||
+      requestedAction==='cancel'&&canCancel;
+    if(valid){
+      setNotice('Перемещение из Kanban: проверьте заказ и подтвердите действие. Остатки пока не изменились.');
+      setAction(requestedAction as Action);
+    }else{
+      setError('Переход из Kanban больше недоступен: проверьте актуальные данные и права. Никаких изменений не выполнено.');
+    }
+  },[requestedAction,canConfirm,canFulfill,canCancel]);
+
   const customer=useQuery({
     queryKey:['customers','customer',sale.customerId],
     queryFn:()=>customersApi.get(sale.customerId!),
@@ -120,6 +139,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     await Promise.all([
       client.invalidateQueries({queryKey:salesKeys.lists}),
       client.invalidateQueries({queryKey:salesKeys.kanban}),
+      client.invalidateQueries({queryKey:saleStatisticsKeys.last30Days}),
+      client.invalidateQueries({queryKey:['dashboard']}),
       client.invalidateQueries({queryKey:inventoryKeys.overviewPrefix}),
       client.invalidateQueries({queryKey:inventoryKeys.balancePrefix}),
       client.invalidateQueries({queryKey:inventoryKeys.movementsPrefix}),
