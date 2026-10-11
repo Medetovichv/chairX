@@ -98,6 +98,25 @@ class PurchaseTests {
         jdbc.update("delete from audit_entries where entity_type in ('PURCHASE','PURCHASE_RECEIPT','STOCK_MOVEMENT')");
     }
     @Test
+    void detailContainsRealCatalogNamesAndSkuFromSingleJoinedPurchaseProjection() throws Exception {
+        jdbc.update("UPDATE product_variants SET sku='CHAIRX-FIXTURE' WHERE id=?", variant);
+        var created = purchases.create(new CreatePurchaseRequest(supplier,
+            List.of(line(variant, 3, "8.75")), money("1.25"), "Тестовая закупка"));
+        var item = purchases.get(created.id()).items().getFirst();
+        assertThat(item.productId()).isEqualTo(product);
+        assertThat(item.modelName()).isEqualTo("Purchase fixture");
+        assertThat(item.variantName()).isEqualTo("Purchase variant");
+        assertThat(item.sku()).isEqualTo("CHAIRX-FIXTURE");
+        assertThat(item.purchaseUnitCost()).isEqualByComparingTo("8.75");
+        mvc.perform(get("/api/purchases/" + created.id()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.items[0].modelName").value("Purchase fixture"))
+            .andExpect(jsonPath("$.items[0].variantName").value("Purchase variant"))
+            .andExpect(jsonPath("$.items[0].sku").value("CHAIRX-FIXTURE"))
+            .andExpect(jsonPath("$.items[0].productId").value(product.toString()));
+    }
+
+    @Test
     void valuedAdjustmentCreatesStockAndCostLayer() {
         UUID operationId = UUID.randomUUID();
 

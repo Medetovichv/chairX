@@ -63,6 +63,26 @@ public class PurchaseRepository {
                 .param("id",purchaseId).query(PurchaseRepository::item).list();
     }
 
+    /** Single joined read supplies real catalog labels without N+1 frontend requests. */
+    public record CatalogLine(PurchaseItem item, UUID productId,
+                              String modelName, String variantName, String sku) {}
+    public List<CatalogLine> labeledItems(UUID purchaseId) {
+        return jdbc.sql("""
+                SELECT pi.*, pv.product_id AS model_id, pv.name AS variation_name,
+                       pv.sku, p.name AS model_name
+                FROM purchase_items pi
+                JOIN product_variants pv ON pv.id = pi.product_variant_id
+                JOIN products p ON p.id = pv.product_id
+                WHERE pi.purchase_id = :purchase
+                ORDER BY pi.line_number
+                """)
+                .param("purchase", purchaseId)
+                .query((rs, row) -> new CatalogLine(item(rs, row),
+                    rs.getObject("model_id", UUID.class),
+                    rs.getString("model_name"), rs.getString("variation_name"),
+                    rs.getString("sku"))).list();
+    }
+
     public void setStatus(UUID id, PurchaseStatus status) {
         jdbc.sql("""
                 UPDATE purchases SET status=:status,updated_at=clock_timestamp(),
