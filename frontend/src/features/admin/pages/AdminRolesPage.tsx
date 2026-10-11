@@ -57,10 +57,9 @@ export function AdminRolesPage(){
   {roles.isPending?<LoadingState label="Загружаем роли…"/>:
    roles.isError?<ErrorState error={roles.error} onRetry={()=>void roles.refetch()}/>:
    <section className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white p-5">
-    {(roles.data??[]).map(role=><article key={role.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-     <div><h3 className="font-bold">{role.name} ({role.code})</h3>
+    {(roles.data??[]).map(role=><article key={role.id} className="entity-clickable-row group flex flex-wrap items-center justify-between gap-3 px-3 py-3 transition-colors">
+     <div><h3 className="font-bold"><Link className="entity-stretched-link text-blue-700 hover:underline" to={'/admin/roles/'+encodeURIComponent(role.id)} aria-label={'Открыть роль '+role.name}>{role.name}</Link> ({role.code})</h3>
       <p className="text-sm text-slate-500">{role.systemRole?'Системная':'Пользовательская'} · Сотрудников: {role.assignedUsersCount} · Разрешений: {role.permissions.length}</p></div>
-     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to={'/admin/roles/'+role.id}>Открыть роль</Link>
     </article>)}
    </section>}
  </div>;
