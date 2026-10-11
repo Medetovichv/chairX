@@ -14,7 +14,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,7 +39,8 @@ public class DashboardService {
         Long orders = canSales ? count("""
                 SELECT count(*) FROM sales
                 WHERE created_at >= :fromDate
-                """, today.minusDays(29)) : null;
+                  AND created_at < :untilDate
+                """, today.minusDays(29), today.plusDays(1)) : null;
         Long inWork = canSales ? jdbc.sql("""
                 SELECT count(*) FROM sales
                 WHERE status IN ('DRAFT','CONFIRMED')
@@ -75,9 +75,10 @@ public class DashboardService {
                 canSales ? sales.listSummaries(null, null, null, null, 0, 5) : List.of());
     }
 
-    private Long count(String query, LocalDate from) {
+    private Long count(String query, LocalDate from, LocalDate until) {
         return jdbc.sql(query)
                 .param("fromDate", from.atStartOfDay(BUSINESS_ZONE).toOffsetDateTime())
+                .param("untilDate", until.atStartOfDay(BUSINESS_ZONE).toOffsetDateTime())
                 .query(Long.class).single();
     }
 
