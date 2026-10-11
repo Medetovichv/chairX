@@ -162,7 +162,7 @@ def main():
     stock(admin,home,variant_id,4)
     stock(admin,office,variant_id,2)
     db_number("SELECT count(*) FROM inventory_transfers",2)
-    db_number("SELECT count(*) FROM stock_movements WHERE type IN "
+    db_number("SELECT count(*) FROM stock_movements WHERE movement_type IN "
               "('TRANSFER_OUT','TRANSFER_IN')",4)
     db_number("SELECT count(*) FROM inventory_transfer_cost_origins",2)
     movement_history=admin.must("GET","/api/inventory/transfers",None,200)
