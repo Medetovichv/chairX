@@ -132,15 +132,15 @@ class BackupUpgradeRehearsalTest {
                     .cleanDisabled(true)
                     .baselineOnMigrate(false)
                     .locations("classpath:db/migration").load();
-            flyway.migrate();
+            var migration = flyway.migrate();
             flyway.validate();
             try (Connection db = connection(restored)) {
                 compareAfter(db, baseline);
             }
-            var migrationCount = flyway.info().applied().length;
+            var migrationCount = migration.migrationsExecuted;
             System.out.printf(
                     "CHAIRX_UPGRADE_REHEARSAL=PASS source=%s "
-                            + "preVersion=V%d appliedMigrations=%d "
+                            + "preVersion=V%d migrationsExecuted=%d "
                             + "comparedTables=%d originalLegacyMovements=%d "
                             + "noOriginalRowChanged=true nonProductionDatabase=true%n",
                     synthetic ? "SYNTHETIC_V40" : "OPERATOR_BACKUP",
@@ -334,10 +334,9 @@ class BackupUpgradeRehearsalTest {
                     SELECT COALESCE(sum(amount),0) FROM finance_movements
                     WHERE account_code=?
                     """, account);
-            if (accountBalance.compareTo(journal)!=0) {
-                System.out.println("CHAIRX_UPGRADE_REHEARSAL=NEEDS_RECONCILIATION"
-                        + " account=" + account + " preexistingJournalDrift=true");
-            }
+            assertThat(accountBalance).as("Cannot sign off source journal reconciliation for "
+                    + account + " (no data was modified; investigate source backup)")
+                    .isEqualByComparingTo(journal);
         }
     }
 
