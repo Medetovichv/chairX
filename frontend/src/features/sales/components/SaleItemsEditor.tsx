@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { Button } from '../../../shared/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '../../../shared/ui/input';
 import { SaleVariantPicker } from './SaleVariantPicker';
 import { integerSom, money } from '../validation';
 import type { Money } from '../types';
+import type { Warehouse } from '../../inventory/types';
 
 export interface SaleEditorRow {
   key: number; productVariantId: string; warehouseId: string;
@@ -30,7 +31,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     </p>
     {!inventoryRead&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
       Нет INVENTORY_READ: нельзя выбрать склад или проверить остаток для новых строк.
-      При редактировании существующих строк UUID склада сохраняется.
+      При редактировании существующих строк выбранный склад сохраняется.
     </p>}
     {warehouses.isError&&inventoryRead&&<p role="alert" className="text-sm text-red-700">
       Не удалось загрузить список складов.
@@ -53,7 +54,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
             <option value="">Выберите склад</option>
             {!!row.warehouseId&&!warehouses.data?.some(w=>w.id===row.warehouseId)&&
-              <option value={row.warehouseId}>Текущий склад: {row.warehouseId}</option>}
+              <option value={row.warehouseId}>Ранее выбранный склад недоступен</option>}
             {warehouses.data?.filter(w=>w.active||w.id===row.warehouseId).map(w=>
               <option key={w.id} value={w.id}>{w.name}{w.active?'':' (неактивен)'}</option>)}
           </select>
@@ -77,7 +78,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
         </Button>
       </div>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
-        enabled={inventoryRead}/>
+        enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
+        onSwitch={id=>patch(row.key,{warehouseId:id})}/>
     </div>)}
     <Button type="button" variant="outline" disabled={disabled||rows.length>=1000}
       onClick={()=>onChange([...rows,{
@@ -88,19 +90,47 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
 let keySequence=0;
 export function nextKey(){return ++keySequence;}
 
-function SaleAvailability({warehouseId,variantId,enabled}:{
-  warehouseId:string;variantId:string;enabled:boolean;
+function SaleAvailability({warehouseId,variantId,enabled,warehouses,quantity,onSwitch}:{
+  warehouseId:string;variantId:string;enabled:boolean;warehouses:Warehouse[];
+  quantity:string;onSwitch:(warehouseId:string)=>void;
 }) {
   const q=useQuery({
     queryKey:inventoryKeys.balance(warehouseId,variantId),
     queryFn:()=>inventoryApi.balance(warehouseId,variantId),
     enabled:enabled&&!!warehouseId&&!!variantId,
   });
+  const alternatives=warehouses.filter(w=>w.active&&w.id!==warehouseId);
+  const stocks=useQueries({queries:alternatives.map(w=>({
+    queryKey:inventoryKeys.balance(w.id,variantId),
+    queryFn:()=>inventoryApi.balance(w.id,variantId),
+    enabled:enabled&&!!warehouseId&&!!variantId,
+    staleTime:15_000,
+  }))});
   if(!enabled||!warehouseId||!variantId)return null;
-  return q.isPending?<p className="text-xs text-slate-500">Проверяем доступный остаток…</p>:
-    q.isError?<p className="text-xs text-amber-800">Остаток не загружен: подтвердит backend.</p>:
-    <p className="text-xs text-slate-600">
-      Склад: {q.data?.onHand} · Резерв: {q.data?.reserved} · Доступно: <strong>{q.data?.available}</strong>.
-      Черновик не резервирует товар.
-    </p>;
+  if(q.isPending)return <p role="status" className="text-xs text-slate-500">Проверяем доступный остаток…</p>;
+  if(q.isError)return <p role="alert" className="text-xs text-amber-800">
+    Остаток не загружен: подтвердит backend.</p>;
+  const requested=Number(quantity);
+  const shortage=Number.isSafeInteger(requested)&&requested>0&&requested>q.data.available;
+  const availableAlternatives=alternatives.filter((_,index)=>
+    stocks[index]?.isSuccess&&(stocks[index]?.data?.available??0)>=requested);
+  return <div className="space-y-2 text-xs text-slate-600">
+    <p>Склад: {q.data.onHand} · Резерв: {q.data.reserved} · Доступно:
+      <strong> {q.data.available} шт.</strong> Черновик не резервирует товар.</p>
+    {shortage&&<div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-amber-900">
+      <p role="alert" className="font-semibold">
+        На выбранном складе недостаточно товара: нужно {requested}, доступно {q.data.available}.
+      </p>
+      {stocks.some(s=>s.isPending)&&<p>Проверяем другие склады…</p>}
+      {availableAlternatives.map(w=>{
+        const remaining=stocks[alternatives.indexOf(w)]?.data?.available??0;
+        return <Button key={w.id} type="button" variant="outline" size="sm"
+          onClick={()=>onSwitch(w.id)}>
+          Использовать {w.name} · {remaining} шт.
+        </Button>;
+      })}
+      {!availableAlternatives.length&&!stocks.some(s=>s.isPending)&&
+        <p>Подходящий другой склад не найден. Измените количество или товар.</p>}
+    </div>}
+  </div>;
 }
