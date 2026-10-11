@@ -26,21 +26,36 @@ public class InventoryOverviewService {
     }
 
     public InventoryOverviewPage list(UUID warehouseId, String model, String variation,
+                                      boolean includeZero, boolean onlyAvailable,
+                                      int page, int size) {
+        return list(warehouseId, model, variation, null, includeZero, onlyAvailable, page, size);
+    }
+
+    public InventoryOverviewPage list(UUID warehouseId, String model, String variation, String search,
                                        boolean includeZero, boolean onlyAvailable,
                                        int page, int size) {
         if (page < 0 || size < 1 || size > 100 || (model != null && model.length() > 200)
-                || (variation != null && variation.length() > 200)) {
+                || (variation != null && variation.length() > 200)
+                || (search != null && search.length() > 200)) {
             throw new InvalidQueryException("Некорректные параметры складской сводки");
         }
         if (warehouseId != null) warehouses.get(warehouseId);
         String modelQuery = model == null || model.isBlank() ? null : "%" + model.strip() + "%";
         String variationQuery = variation == null || variation.isBlank() ? null : "%" + variation.strip() + "%";
+        // One independent server-side term searches the complete dataset,
+        // including variant SKU, before LIMIT/OFFSET pagination.
+        String searchQuery = search == null || search.isBlank() ? null : "%" +
+                search.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
 
         String filter = """
                 FROM product_variants v
                 JOIN products p ON p.id = v.product_id
                 WHERE (CAST(:model AS varchar) IS NULL OR p.name ILIKE :model)
                   AND (CAST(:variation AS varchar) IS NULL OR v.name ILIKE :variation)
+                  AND (CAST(:search AS varchar) IS NULL
+                    OR p.name ILIKE :search ESCAPE '\\'
+                    OR v.name ILIKE :search ESCAPE '\\'
+                    OR v.sku ILIKE :search ESCAPE '\\')
                   AND (:includeZero = TRUE OR EXISTS (
                         SELECT 1 FROM inventory_balances b
                         WHERE b.product_variant_id = v.id
@@ -73,6 +88,7 @@ public class InventoryOverviewService {
         var rows = jdbc.sql(sql)
                 .param("model", modelQuery, Types.VARCHAR)
                 .param("variation", variationQuery, Types.VARCHAR)
+                .param("search", searchQuery, Types.VARCHAR)
                 .param("warehouse", warehouseId, Types.OTHER)
                 .param("includeZero", includeZero)
                 .param("onlyAvailable", onlyAvailable)
@@ -98,6 +114,7 @@ public class InventoryOverviewService {
         long total = jdbc.sql("SELECT COUNT(*) " + filter)
                 .param("model", modelQuery, Types.VARCHAR)
                 .param("variation", variationQuery, Types.VARCHAR)
+                .param("search", searchQuery, Types.VARCHAR)
                 .param("warehouse", warehouseId, Types.OTHER)
                 .param("includeZero", includeZero)
                 .param("onlyAvailable", onlyAvailable)
