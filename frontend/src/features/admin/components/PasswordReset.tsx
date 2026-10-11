@@ -22,6 +22,9 @@ export function PasswordReset({id,onSaved}:{id:string;onSaved:()=>void}){
    setPassword('');setRepeat('');setConfirm(false);
    if(user?.id===id)logout();else onSaved();
   }catch{
+   // A lost response may follow a committed reset; do not retain the old
+   // credential in memory after an uncertain self-password change.
+   if(user?.id===id){setPassword('');setRepeat('');setConfirm(false);logout();return;}
    setError('Результат сброса неизвестен либо запрос отклонён. Проверьте права и журнал аудита.');
    setPassword('');setRepeat('');setConfirm(false);
   }finally{pending.current=false;}

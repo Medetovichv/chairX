@@ -50,7 +50,7 @@ describe('F12 route access and real data',()=>{
  });
  it('lists inactive employees from real API and supports local filtering',async()=>{
   const calls=fakeApi();renderAt('/admin/users');
-  expect(await screen.findByText('cashier1')).toBeInTheDocument();
+  expect(await screen.findByText(/cashier1/)).toBeInTheDocument();
   expect(screen.getByText(/Неактивен/)).toBeInTheDocument();
   await userEvent.setup().type(screen.getByRole('searchbox',{name:'Поиск сотрудника'}),'not-found');
   expect(screen.getByText('Сотрудники не найдены.')).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('F12 route access and real data',()=>{
  it('creates an employee separately from roles and navigates to the detail',async()=>{
   const calls=fakeApi();renderAt('/admin/users');
   const user=userEvent.setup();
-  await screen.findByText('cashier1');
+  await screen.findByText(/cashier1/);
   await user.click(screen.getByRole('button',{name:'+ Создать сотрудника'}));
   const form=screen.getByRole('form',{name:'Создание сотрудника'});
   await user.type(within(form).getByRole('textbox',{name:'Логин'}),'cashier1');
@@ -84,7 +84,7 @@ describe('F12 route access and real data',()=>{
  it('hides write controls for admin without corresponding write permission',async()=>{
   profile.permissions=['USERS_READ','ROLES_READ'];
   fakeApi();renderAt('/admin/users');
-  await screen.findByText('cashier1');
+  await screen.findByText(/cashier1/);
   expect(screen.queryByRole('button',{name:'+ Создать сотрудника'})).not.toBeInTheDocument();
  });
 });

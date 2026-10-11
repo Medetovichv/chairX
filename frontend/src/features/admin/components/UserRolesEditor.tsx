@@ -14,10 +14,12 @@ export function UserRolesEditor({person}:{person:AdminUser}){
   remove?adminApi.removeRole(person.id,id):adminApi.assignRole(person.id,id)});
  async function save(id:string,remove:boolean){
   if(action.isPending)return;
+  setError('');
   try{
    await action.mutateAsync({id,remove});setChoice('');setRemoving(null);
    if(user?.id===person.id){logout();return;}
    await Promise.all([qc.invalidateQueries({queryKey:adminKeys.users}),
+    qc.invalidateQueries({queryKey:adminKeys.user(person.id)}),
     qc.invalidateQueries({queryKey:adminKeys.roles}),qc.invalidateQueries({queryKey:adminKeys.auditPrefix})]);
   }catch{setError('Изменение роли отклонено. Проверьте права, активность и защиту последнего ADMIN.');setRemoving(null);}
  }

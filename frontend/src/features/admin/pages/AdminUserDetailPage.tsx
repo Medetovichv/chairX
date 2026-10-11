@@ -21,7 +21,8 @@ export function AdminUserDetailPage(){
   try{
    await status.mutateAsync(operation);setOperation(null);
    if(me?.id===id){logout();return;}
-   await Promise.all([qc.invalidateQueries({queryKey:adminKeys.users}),qc.invalidateQueries({queryKey:adminKeys.auditPrefix})]);
+   await Promise.all([qc.invalidateQueries({queryKey:adminKeys.users}),
+    qc.invalidateQueries({queryKey:adminKeys.user(id)}),qc.invalidateQueries({queryKey:adminKeys.auditPrefix})]);
    setNotice('Статус сотрудника обновлён.');
   }catch{setError('Операция отклонена: проверьте права, существование сотрудника и защиту последнего ADMIN.');setOperation(null);}
  }
