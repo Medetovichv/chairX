@@ -60,7 +60,7 @@ class WarehouseStockSummaryApiTests {
         jdbc.update("""
                 INSERT INTO warehouses(id,name,code,active,created_at,updated_at)
                 VALUES (?, 'F13 stock summary', ?, TRUE, now(), now())
-                """, warehouseId,"UI4-"+warehouseId.toString().substring(0,8));
+                """, warehouseId,"UI4_"+warehouseId.toString().substring(0,8).toUpperCase(java.util.Locale.ROOT));
         // We cannot rely on catalog fixtures: create our own real product/variants
         // through insertable schema and verify the FULL aggregate, not page 1.
         UUID product=UUID.randomUUID();
