@@ -14,6 +14,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/chairx_demo
       SPRING_PROFILES_ACTIVE: local
+      CHAIRX_DEMO_DATA_ENABLED: "true"
 
 volumes:
   chairx_demo_postgres_data:
