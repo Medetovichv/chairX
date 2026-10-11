@@ -60,7 +60,7 @@ describe('UI-V2-01 semantically navigable entities', () => {
       fulfillmentType: 'CITY_DELIVERY', deliveredAt: null,
     };
     render(<MemoryRouter><CustomerTable items={[customer]} withSales={false} /><DeliveriesTable rows={[delivery]} /></MemoryRouter>);
-    const customerLinks = screen.getAllByRole('link', { name: 'Открыть клиента Тестовый клиент' });
+    const customerLinks = screen.getAllByRole('link', { name: 'Тестовый клиент' });
     expect(customerLinks).toHaveLength(2);
     customerLinks.forEach(link => expect(link).toHaveAttribute('href', '/customers/' + CUSTOMER_ID));
     const deliveryLinks = screen.getAllByRole('link', { name: 'Открыть доставку SALE-2026-000123' });
