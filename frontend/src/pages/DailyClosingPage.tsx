@@ -82,6 +82,9 @@ export function DailyClosingPage() {
   return <div className="space-y-5">
     <PageHeader title="Закрытие дня"
       description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
+    <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
+      <span>CASH</span><span>BANK</span>
+    </div>
     <div className="space-y-3 rounded-xl border bg-white p-4">
       <label className="block space-y-1 text-sm font-semibold">Отчётная дата (Asia/Bishkek)
         <Input type="date" aria-label="Дата закрытия" value={date}

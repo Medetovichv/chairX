@@ -106,7 +106,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   }));
   view();
   const form=await screen.findByRole('form',{name:'Закрытие финансового дня'});
-  await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и закрыть'})).toBeEnabled());
+  await waitFor(()=>expect(within(form).getByRole('textbox',{name:'Факт CASH'})).toBeEnabled());
   fireEvent.change(within(form).getByRole('textbox',{name:'Факт CASH'}),{target:{value:'4900'}});
   fireEvent.change(within(form).getByRole('textbox',{name:'Факт BANK'}),{target:{value:'2000'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и закрыть'}));
