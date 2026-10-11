@@ -36,7 +36,7 @@ export function AdminUserDetailPage(){
   {error&&<p role="alert" className="rounded-xl bg-red-50 p-3">{error}</p>}
   {notice&&<p role="status" className="rounded-xl bg-green-50 p-3">{notice}</p>}
   <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-   <p className="break-all text-sm">UUID: {p.id}</p><p>Статус: {p.active?'Активен':'Неактивен'}</p>
+   <p>Статус: {p.active?'Активен':'Неактивен'}</p>
    <p>Роли: {p.roles.join(', ')||'Не назначены'}</p>
    {(p.active?hasPermission('USERS_DEACTIVATE'):hasPermission('USERS_ACTIVATE'))&&
     <Button variant="outline" disabled={status.isPending}
