@@ -34,8 +34,12 @@ public class InventoryTransferQueryService {
                     t.actor,
                     t.created_at,
                     t.out_movement_id,
-                    t.in_movement_id
+                    t.in_movement_id,
+                    p.name AS model,
+                    v.name AS variation
                 FROM inventory_transfers t
+                JOIN product_variants v ON v.id = t.product_variant_id
+                JOIN products p ON p.id = v.product_id
                 WHERE t.id = :id
                   AND t.out_movement_id IS NOT NULL
                   AND t.in_movement_id IS NOT NULL
@@ -70,6 +74,8 @@ public class InventoryTransferQueryService {
 
         StringBuilder filter = new StringBuilder("""
             FROM inventory_transfers t
+            JOIN product_variants v ON v.id = t.product_variant_id
+            JOIN products p ON p.id = v.product_id
             WHERE t.out_movement_id IS NOT NULL
               AND t.in_movement_id IS NOT NULL
             """);
@@ -134,7 +140,9 @@ public class InventoryTransferQueryService {
                 t.actor,
                 t.created_at,
                 t.out_movement_id,
-                t.in_movement_id
+                t.in_movement_id,
+                p.name AS model,
+                v.name AS variation
             """ + filter + """
             ORDER BY t.created_at DESC, t.id DESC
             LIMIT :limit OFFSET :offset
@@ -174,7 +182,9 @@ public class InventoryTransferQueryService {
                 rs.getString("actor"),
                 rs.getObject("created_at", OffsetDateTime.class),
                 rs.getObject("out_movement_id", UUID.class),
-                rs.getObject("in_movement_id", UUID.class)
+                rs.getObject("in_movement_id", UUID.class),
+                rs.getString("model"),
+                rs.getString("variation")
         );
     }
 }
