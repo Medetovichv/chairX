@@ -37,8 +37,12 @@ export function VariantForm({ initial, onSave, onCancel }: {
   return (
     <form aria-label={initial ? 'Редактирование вариации' : 'Создание вариации'}
       onSubmit={(event) => void submit(event)}
-      className="space-y-4 rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm sm:p-6">
+      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
       <h3 className="text-lg font-bold">{initial ? 'Изменить вариацию' : 'Новая вариация кресла'}</h3>
+      <p className="text-sm text-slate-600">
+        Название отличает комплектацию, цвет уточняет её, SKU — отдельный артикул.
+        Цена рекомендуется для новых продаж и не меняет стоимость уже оформленных заказов.
+      </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="space-y-2 text-sm font-semibold text-slate-700">Название вариации *
           <Input required maxLength={200} value={name} disabled={saving}

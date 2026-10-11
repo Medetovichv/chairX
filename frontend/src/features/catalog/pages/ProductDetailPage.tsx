@@ -123,18 +123,27 @@ function Detail({ id, product }: { id: string; product: Product }) {
       <section aria-label="Вариации товара" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><h3 className="flex items-center gap-2 text-xl font-bold text-slate-900"><Layers3 className="size-5 text-blue-600" aria-hidden="true"/>Вариации товара</h3><p className="mt-1 text-xs text-slate-500">У каждой вариации собственные цвет, артикул (SKU) и рекомендуемая цена.</p></div>
-          {canManage && <Button disabled={creatingVariant} onClick={() => { setEditingVariant(null); setCreatingVariant(true); }}><Plus className="size-4" aria-hidden="true"/>Добавить вариацию</Button>}
+          {canManage && !creatingVariant && !editingVariant &&
+            <Button onClick={() => { setEditingVariant(null); setCreatingVariant(true); }}>
+              <Plus className="size-4" aria-hidden="true"/>Добавить вариацию
+            </Button>}
         </div>
         {creatingVariant && canManage && (
+          <div className="space-y-3">
+            <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+              Добавьте цвет или другую комплектацию для модели «{product.name}».
+              Складской остаток здесь не создаётся.
+            </p>
           <VariantForm onCancel={() => setCreatingVariant(false)}
             onSave={async (input) => { await addVariant.mutateAsync(input); }} />
+          </div>
         )}
         {editingVariant && canManage && (
           <VariantForm key={editingVariant.id} initial={editingVariant}
             onCancel={() => setEditingVariant(null)}
             onSave={async (input) => { await editVariant.mutateAsync({ variantId: editingVariant.id, input }); }} />
         )}
-        {variants.isPending ? <LoadingState label="Загружаем вариации…" />
+        {!creatingVariant && !editingVariant && (variants.isPending ? <LoadingState label="Загружаем вариации…" />
           : variants.isError ? <ErrorState error={variants.error} onRetry={() => void variants.refetch()} />
             : variants.data && variants.data.totalElements === 0 ? (
               <EmptyState title="У этой модели пока нет вариаций"
@@ -199,7 +208,7 @@ function Detail({ id, product }: { id: string; product: Product }) {
                 <CatalogPager page={variants.data.page} totalPages={variants.data.totalPages}
                   totalElements={variants.data.totalElements} onPage={setPage} />
               </div>
-            ) : null}
+            ) : null)}
       </section>
       <ConfirmDialog open={target !== null} onOpenChange={(open) => { if (!open) setTarget(null); }}
         title="Деактивировать запись?"

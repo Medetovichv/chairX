@@ -173,6 +173,22 @@ describe('F03 catalog product list', () => {
     expect(within(bc).getByText('Каталог товаров')).toBeInTheDocument();
     expect(within(bc).getByText('Карточка модели')).toBeInTheDocument();
   });
+  it('previews a model name without inventing variants or stock', async () => {
+    mockCatalog({ products: [] });
+    renderAt();
+    await screen.findByText('Каталог пока пуст');
+    await userEvent.setup().click(createButton());
+    const form = productForm();
+    const summary = within(form).getByRole('complementary', { name: 'Проверка модели' });
+    fireEvent.change(within(form).getByRole('textbox', { name: /Название/ }),
+      { target: { value: 'ChairX Pro' } });
+    fireEvent.change(within(form).getByRole('textbox', { name: /Категория/ }),
+      { target: { value: 'Офисные кресла' } });
+    expect(summary).toHaveTextContent('ChairX Pro');
+    expect(summary).toHaveTextContent('Офисные кресла');
+    expect(summary).toHaveTextContent('не изменяет остатки');
+    expect(screen.queryByText(/загрузить фото/i)).not.toBeInTheDocument();
+  });
   it('saves a model through POST + CSRF and opens created card', async () => {
     const { calls } = mockCatalog({ products: [] }); renderAt();
     await screen.findByText('Каталог пока пуст');
@@ -186,6 +202,26 @@ describe('F03 catalog product list', () => {
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({ name: 'Новое кресло', category: null, description: null });
     expect(new Headers(post?.[1]?.headers).get('X-CSRF-TOKEN')).toBe('csrf-value');
     expect(new Headers(post?.[1]?.headers).get('Authorization')).toBe('Basic test-credential');
+  });
+  it('focuses new model creation and restores previous catalog filters on cancellation', async () => {
+    const { calls } = mockCatalog();
+    renderAt();
+    await screen.findByRole('cell', { name: 'Ergo Comfort' });
+    const search = screen.getByRole('searchbox', { name: 'Поиск модели или категории' });
+    fireEvent.change(search, { target: { value: 'Ergo' } });
+    await userEvent.setup().click(createButton());
+    const form = productForm();
+    expect(form).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Новая модель кресла', level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Фильтры каталога' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Список моделей' })).not.toBeInTheDocument();
+    expect(within(form).getByRole('complementary', { name: 'Проверка модели' }))
+      .toHaveTextContent('После создания');
+    await userEvent.setup().click(within(form).getByRole('button', { name: 'Отмена' }));
+    expect(screen.getByRole('searchbox', { name: 'Поиск модели или категории' })).toHaveValue('Ergo');
+    expect(screen.getByRole('region', { name: 'Фильтры каталога' })).toBeInTheDocument();
+    expect(calls.mock.calls.filter((c) => c[0] === '/api/products' &&
+      c[1]?.method === 'POST')).toHaveLength(0);
   });
   it('disables double submission while the save request is in flight', async () => {
     let release: () => void = () => undefined;
@@ -294,6 +330,22 @@ describe('F03 product detail and variants', () => {
     expect(JSON.parse(String(post?.[1]?.body))).toEqual({
       name: 'Светло-серый', sku: null, color: 'Светло-серый', recommendedSalePrice: '8500.25',
     });
+  });
+  it('focuses variant creation without duplicate variant table and returns on cancel', async () => {
+    const { calls } = mockCatalog();
+    renderAt('/catalog/' + productId);
+    await screen.findByRole('table');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить вариацию' }));
+    const form = screen.getByRole('form', { name: 'Создание вариации' });
+    expect(form).toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Редактировать вариацию Чёрный/ }))
+      .not.toBeInTheDocument();
+    expect(screen.getByText(/Складской остаток здесь не создаётся/)).toBeInTheDocument();
+    await userEvent.setup().click(within(form).getByRole('button', { name: 'Отмена' }));
+    expect(await screen.findByRole('table')).toBeInTheDocument();
+    expect(calls.mock.calls.filter((c) => String(c[0]).endsWith('/variants') &&
+      c[1]?.method === 'POST')).toHaveLength(0);
   });
   it('updates the model and refreshes its name without reloading', async () => {
     const { calls } = mockCatalog(); renderAt('/catalog/' + productId);
