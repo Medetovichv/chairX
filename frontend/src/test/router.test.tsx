@@ -69,6 +69,11 @@ describe('F02.1 navigation structure', () => {
   it('opens F07 live sales filters and never fabricates sales', async () => {
     const fetchMock = vi.fn(async (raw: RequestInfo | URL) => {
       const url=new URL(String(raw),'http://chairx.test');
+      if(url.pathname==='/api/sales/statistics') {
+        return new Response(JSON.stringify({orders30Days:0, fulfilled30Days:0,
+          inWork30Days:0,averageCheck30Days:0}),
+          {status:200,headers:{'Content-Type':'application/json'}});
+      }
       if(url.pathname!=='/api/sales') throw new Error('Unexpected '+url.pathname);
       return new Response(JSON.stringify({items:[],page:0,size:20,total:0}),
         {status:200,headers:{'Content-Type':'application/json'}});
@@ -83,7 +88,7 @@ describe('F02.1 navigation structure', () => {
     expect(await screen.findByText('Продажи не найдены')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Фильтр статуса продажи' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Таблица' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('link', { name: '+ Новая продажа' })).toHaveAttribute('href','/sales/new');
+    expect(screen.getByRole('link', { name: 'Новая продажа' })).toHaveAttribute('href','/sales/new');
     await user.click(screen.getByRole('button', { name: 'Канбан' }));
     expect(screen.getByRole('button', { name: 'Канбан' })).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByRole('region', { name: 'Канбан: Черновик' })).toBeInTheDocument();
