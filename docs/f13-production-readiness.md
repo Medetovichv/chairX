@@ -26,7 +26,7 @@
 | Purchasing and partial receiving | Authenticated API, real PG, two warehouses, replay and over-receipt guard | Cargo allocation variants, purchase-payment browser workflow |
 | Stock / FIFO / transfers | Backend inventory/cost integration tests | F13 real API + PG transfer HOME→OFFICE→HOME, idempotent replay, historical list/detail cost-free JSON now passed; employee browser clicks and blocked inventory still pending |
 | Sale/reservations | Backend, multi-warehouse sale API and Chromium detail | Parallel reservation last-chair UI, draft edit/cancel |
-| Deliveries and returns | Dispatch/delivery, partial sellable return, refund and read-only SQL invariants | Failed city/region delivery UX, BLOCKED return end-to-end |
+| Deliveries and returns | Dispatch/delivery, partial sellable return, refund and read-only SQL invariants; **F13 two-source REGION_DELIVERY → FAILED → one destination warehouse** real MockMvc/PG test, exact-once inventory+FIFO, forbidden ordinary customer return | Failed city/region **browser clicks**, BLOCKED return end-to-end |
 | Exchange and defects | Backend module integration tests | Full backend+UI purchase-to-exchange, defect parts/write-off scenario |
 | Finance | Payment, refund, CASH/BANK balances, idempotency, purchase payment tests | Finance-transfer and mixed payment browser workflow |
 | Daily Closing (F11) | Real Chromium + PG, multi-day HTTP+PG historical correction, optimistic version and grant expiry | Physical bank/cash reconciliation and accountant acceptance |
@@ -71,7 +71,20 @@ Issues found in later test runs must be added here with actual proof and PR.
    to the real inventory page in mobile Chromium and is denied finance.
    Same isolated runner and backend as existing populated flow.
 4. **F13 extended populated operations:** HOME→OFFICE→HOME inventory transfers through real authenticated HTTP after partial receipts, unchanged overall on-hand, duplicate transfer key/replay and conflict guards, 4 transfer stock movements, 2 FIFO origins, no cashier/bank journal effect, no cost fields in raw POST/list/detail JSON. The preexisting real sale/delivery/refund/closing flow still passes afterward.
-5. **Not yet marked as complete:** full browser click paths for every workflow,
+5. **F13 new PostgreSQL-backed Spring API test**:
+   `DeliveryApiTests.failedMultiWarehouseRegionDeliveryReturnsOnceWithoutMoneyOrCustomerReturn`
+   creates a `REGION_DELIVERY` sale with one HOME and one OFFICE sourced
+   product. Dispatch consumes from **both** sources; a FAILED status cannot
+   auto-restock, be silently marked DELIVERED/CANCELLED or create a customer
+   return. An explicit `return-to-warehouse` returns **both** variants to
+   HOME with two matched stock/FIFO value layers; HTTP replay does not credit
+   inventory twice. A separate `RETURNS_CREATE`-authorized employee is
+   rejected (`DELIVERY_RETURN_WORKFLOW_REQUIRED`) both **before and after**
+   physical warehouse receipt. Money balances and finance journal remain
+   unchanged, and customer return count stays zero. This test uses real
+   services, security/CSRF and PostgreSQL Testcontainers, but **not** a
+   full Chromium click path.
+6. **Not yet marked as complete:** full browser click paths for every workflow,
    chaos/network response-loss recovery, staff device/accessibility and
    human physical stock/cash signoff. Automated test results will be linked
    here after verification, not assumed.
@@ -123,6 +136,7 @@ asserts the existing populated F11 scenario still starts from zero.
 - [x] Backend, frontend, Docker smoke and Flyway/PG Testcontainers CI exist.
 - [x] Real Chromium + Spring + PG flow exists and uses synthetic data.
 - [x] F13 real limited-role browser/admin lifecycle check passed in CI (synthetic data).
+- [x] F13 PG-backed two-source failed regional delivery + exactly-once physical return and unauthorized customer-return bypass blocked.
 - [x] #38 transfer-cost bug already fixed in main by #20; raw-response and FIFO regression tests exist and pass.
 - [ ] Full critical operational scenarios and retry/concurrency gates signed.
 - [ ] Real authorized prior-business backup tested for restore and migration.
@@ -151,6 +165,6 @@ populated F11 business chain; never point the script at personal Compose data.
 - Baseline head: `b3afbfa` after F12 #35.
 - Source audit: SecurityConfig, F12 controllers/services, route/auth session,
   daily closing, F11 scripts, Docker Compose, Flyway upgrade script.
-- New F13 Chromium test: **PASS** on [latest F13 Actions run 38137153409](https://github.com/Medetovichv/chairX/actions/runs/38137153409). Browser admin creates an employee, backend assigns/revokes custom roles, reset invalidates old HTTP Basic, mobile warehouse renders with finance forbidden. The same runner subsequently completed stock transfers both directions and the purchase→delivery→refund→closing chain.
-- All six F11 release gate jobs on the validated F13 code: **PASS** — Java 25/PostgreSQL Testcontainers full suite **676 tests, 0 failures, 0 errors, 1 skipped (operator-only private backup)**; Node 24 **355/355 frontend tests**, ESLint, typecheck and build; both Chromium E2Es, two-day financial correction and synthetic V40 PGDMP upgrade. Separate frontend verification and Docker Compose smoke: PASS. The document-only commits after this run do not change business or test code.
+- New F13 Chromium test: **PASS** on [latest F13 Actions run 38138723515](https://github.com/Medetovichv/chairX/actions/runs/38138723515). Browser admin creates an employee, backend assigns/revokes custom roles, reset invalidates old HTTP Basic, mobile warehouse renders with finance forbidden. The same runner subsequently completed stock transfers both directions and the purchase→delivery→refund→closing chain.
+- All six F11 release gate jobs on the validated F13 code: **PASS** — Java 25/PostgreSQL Testcontainers full suite **677 tests, 0 failures, 0 errors, 1 skipped (operator-only private backup)**; Node 24 **355/355 frontend tests**, ESLint, typecheck and build; both Chromium E2Es, two-day financial correction and synthetic V40 PGDMP upgrade. Separate frontend verification and Docker Compose smoke: PASS. Test evidence includes 13/13 passing `DeliveryApiTests`. Documentation-only commits after this run do not change business or test code.
 - Full signoff and final audit: **pending**. No production deployment or merge.
