@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/f11-release-gate.yml'
       - 'scripts/f11-browser-e2e.py'
+      - 'scripts/f11-operations-e2e.py'
       - 'backend/**'
       - 'frontend/**'
   workflow_dispatch:
@@ -111,3 +112,105 @@ jobs:
       - name: Destroy ephemeral test database
         if: always()
         run: docker compose down -v || true
+
+  populated-operations-postgres:
+    name: Purchase → receipts → sale → delivery → refund → Chromium closing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fresh one-time test credentials
+        run: bash scripts/init-local-env.sh
+      - name: Start independently isolated finance and inventory database
+        run: |
+          docker compose config --quiet
+          docker compose up -d --build --wait --wait-timeout 240
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Chromium and pinned Playwright
+        run: |
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+      - name: Run populated ChairX business operations acceptance
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/f11-operations-e2e.py
+      - name: Upload purchase and settlement browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-32-operations-browser-screenshots
+          path: artifacts/issue32-operations/
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Show isolated stack diagnostics on failure
+        if: failure()
+        run: |
+          docker compose ps || true
+          docker compose logs --tail=120 postgres backend frontend || true
+      - name: Destroy disposable PostgreSQL and containers
+        if: always()
+        run: docker compose down -v || true
+
+  historical-multiday-postgres:
+    name: Two closed dates / late expense / RBAC / audit PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Ensure isolated Docker/Testcontainers is available
+        run: docker info --format '{{.ServerVersion}}'
+      - name: Real HTTP Basic/CSRF/PostgreSQL historical multi-date acceptance
+        working-directory: backend
+        run: >-
+          mvn --batch-mode --no-transfer-progress test
+          -Dtest=DailyClosingMultiDayAcceptanceTest
+      - name: Save failing multi-day report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue32-historical-multiday-failure
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  backup-restore-upgrade-contract:
+    name: V40 pg_dump → fresh PG17 pg_restore → current Flyway fingerprints
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Verify Docker for isolated Postgres source and target
+        run: docker info --format '{{.ServerVersion}}'
+      - name: Exercise the REAL custom-dump restore/upgrade path on V40 fixtures
+        working-directory: backend
+        run: >-
+          mvn --batch-mode --no-transfer-progress test
+          '-Dtest=BackupUpgradeRehearsalTest#syntheticV40DumpRoundTripVerifiesRealPgRestoreAndFlywayPath'
+      - name: Archive redacted JUnit failure report (NO backup contents)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue32-pgdump-restore-contract-failure
+          path: backend/target/surefire-reports/TEST-kg.chairx.migration.BackupUpgradeRehearsalTest.xml
+          if-no-files-found: ignore
+          retention-days: 14
