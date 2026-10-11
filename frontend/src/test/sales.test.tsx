@@ -27,6 +27,7 @@ vi.mock('../features/auth/AuthProvider',()=>({
 }));
 const SALE_ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const DELIVERY_ID='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const NEW_CUSTOMER_ID='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const NEW_ID='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CUSTOMER_ID='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const MODEL_ID='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -158,6 +159,10 @@ function mockBackend(options:{
         cancels++;s.status='CANCELLED';s.cancelledAt=TIME;
       }
       return json(s);
+    }
+    if(path==='/api/customers'&&method==='POST'){
+      const input=JSON.parse(String(init?.body)) as Record<string,unknown>;
+      return json({id:NEW_CUSTOMER_ID,...input,active:true,createdAt:TIME,updatedAt:TIME},201);
     }
     if(path==='/api/customers/search'&&method==='GET')return json([{
       id:CUSTOMER_ID,fullName:null,phone:'+996555123456',
@@ -371,6 +376,29 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(api.count().creates).toBe(1);
     expect(readPendingDraft('s-user').kind).toBe('none');
   });
+  it('creates a customer without leaving the sale form or losing entered data',async()=>{
+    const api=mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const saleForm=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    fireEvent.change(within(saleForm).getByRole('textbox',{name:'Комментарий продажи'}),
+      {target:{value:'Подготовить кресла перед выдачей'}});
+    await userEvent.setup().click(within(saleForm).getByRole('button',{name:'+ Новый клиент'}));
+    const drawer=screen.getByRole('dialog',{name:'Новый клиент для продажи'});
+    const customerForm=within(drawer).getByRole('form',{name:'Создание клиента'});
+    fireEvent.change(within(customerForm).getByRole('textbox',{name:'Имя'}),
+      {target:{value:'Азамат Клиент'}});
+    fireEvent.change(within(customerForm).getByRole('textbox',{name:'Основной телефон'}),
+      {target:{value:'+996700123456'}});
+    await userEvent.setup().click(within(customerForm).getByRole('button',{name:'Сохранить клиента'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Новый клиент для продажи'})).not.toBeInTheDocument());
+    expect(within(saleForm).getByRole('textbox',{name:'Комментарий продажи'}))
+      .toHaveValue('Подготовить кресла перед выдачей');
+    expect(await within(saleForm).findByText(/Выбран:/)).toHaveTextContent('Азамат Клиент');
+    const posts=api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/customers'&&
+      (init as RequestInit).method==='POST');
+    expect(posts).toHaveLength(1);
+  });
+
   it('can create draft with SALES_CREATE only but cannot read sale detail',async()=>{
     granted.permissions=['SALES_CREATE'];
     const api=mockBackend({sales:[]});
