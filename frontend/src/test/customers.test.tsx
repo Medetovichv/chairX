@@ -418,6 +418,6 @@ describe('F05 customer detail, editing, history', () => {
     mockBackend();
     renderAt('/customers/' + id);
     await screen.findByRole('cell', { name: 'S-1' });
-    expect(screen.getByRole('link', { name: 'S-1' })).toHaveAttribute('href', '/sales/' + sale().id);
+    expect(screen.getAllByRole('link', { name: 'S-1' }).map(link => link.getAttribute('href'))).toEqual(['/sales/' + sale().id, '/sales/' + sale().id]);
   });
 });
