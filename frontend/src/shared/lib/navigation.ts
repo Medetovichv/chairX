@@ -34,6 +34,8 @@ export const navigationItems: readonly NavigationItem[] = [
 ];
 
 export const childRoutes: readonly RouteMeta[] = [
+  { path: '/inventory/transfers', parent: '/inventory', label: 'История перемещений', permissions: ['INVENTORY_READ'] },
+  { path: '/inventory/warehouses', parent: '/inventory', label: 'Управление складами', permissions: ['INVENTORY_READ', 'WAREHOUSES_MANAGE'] },
   { path: '/purchases/receipts', parent: '/purchases', label: 'Поступления', permissions: ['INVENTORY_RECEIVE'] },
   { path: '/purchases/payments', parent: '/purchases', label: 'Оплаты', permissions: ['PURCHASE_PAYMENTS_READ'] },
   { path: '/purchases/suppliers', parent: '/purchases', label: 'Поставщики', permissions: ['SUPPLIERS_READ'] },
