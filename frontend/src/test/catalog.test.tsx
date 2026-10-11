@@ -159,7 +159,7 @@ describe('F03 catalog product list', () => {
   it('opens a model card and preserves F02.1 breadcrumbs', async () => {
     mockCatalog(); renderAt();
     await screen.findByRole('cell', { name: 'Ergo Comfort' });
-    await userEvent.setup().click(table().getByRole('link', { name: 'Открыть модель Chair X5' }));
+    await userEvent.setup().click(table().getByRole('link', { name: 'Chair X5' }));
     expect(await screen.findByRole('heading', { name: 'Ergo Comfort', level: 2 })).toBeInTheDocument();
     const bc = screen.getByRole('navigation', { name: 'Навигационная цепочка' });
     expect(within(bc).getByText('Каталог товаров')).toBeInTheDocument();
