@@ -39,7 +39,7 @@ function Detail({ purchase }: { purchase: Purchase }) {
   const [confirming, setConfirming] = useState<StatusAction | null>(null);
   const supplier = useQuery({ queryKey: ['suppliers','detail',purchase.supplierId],
     queryFn: () => supplierApi.get(purchase.supplierId), enabled: hasPermission('SUPPLIERS_READ') });
-  const supplierLabel = supplier.data?.name ?? purchase.supplierId;
+  const supplierLabel = supplier.data?.name ?? 'Поставщик недоступен';
   async function refreshed(saved: Purchase) {
     client.setQueryData(purchaseKeys.detail(purchase.id), saved);
     await Promise.all([
@@ -73,8 +73,8 @@ function Detail({ purchase }: { purchase: Purchase }) {
   return <div className="space-y-6">
     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to="/purchases">
       ← Все закупки</Link>
-    <PageHeader title={'Закупка ' + purchase.id.slice(0,8) + '…'}
-      description={'UUID: ' + purchase.id}
+    <PageHeader title="Карточка закупки"
+      description={'Поставщик: ' + supplierLabel + ' · Создана ' + formatDate(purchase.createdAt)}
       action={<div className="flex flex-wrap gap-2">
         {canUpdate && <Button variant="outline" disabled={editing || status.isPending}
           onClick={() => setEditing(true)}>Редактировать</Button>}
@@ -125,8 +125,7 @@ function Detail({ purchase }: { purchase: Purchase }) {
       <div className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white">
         {purchase.items.map(line => <article key={line.id} className="space-y-2 p-4 text-sm">
           <div className="flex flex-wrap justify-between gap-2"><h4 className="font-semibold">
-            Позиция #{line.lineNumber}</h4><p className="break-all text-xs text-slate-500">
-              Вариация UUID: {line.productVariantId}</p></div>
+            Позиция #{line.lineNumber}</h4><p className="text-xs text-slate-500">Закупочная позиция</p></div>
           <p>Заказано: {line.orderedQuantity} · Принято: {line.receivedQuantity} · Осталось: {line.orderedQuantity - line.receivedQuantity}</p>
           <p>Цена за единицу: <strong>{formatMoney(line.purchaseUnitCost)}</strong> · Распределённое карго: {formatMoney(line.allocatedCargoCost)}</p>
           <p>Итоговая себестоимость единицы: {formatMoney(line.finalUnitCost)}</p>

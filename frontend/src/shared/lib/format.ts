@@ -16,3 +16,12 @@ export function formatBusinessDate(date: Date): string {
   }).format(date);
 }
 
+
+/**
+ * Display a readable sale number, preserving the exact server number for
+ * routes, tooltips and search. Never derive a document number from UUID.
+ */
+export function displaySaleNumber(serverNumber: string): string {
+  const match = /^(?:SALE|CHX)-[0-9]{4}-0*([0-9]+)$/.exec(serverNumber);
+  return match ? '#' + match[1] : serverNumber;
+}

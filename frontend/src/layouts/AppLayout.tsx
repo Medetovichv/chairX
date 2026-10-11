@@ -15,11 +15,11 @@ export function AppLayout() {
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen min-w-0 bg-slate-50">
+    <div className="flex min-h-screen min-w-0 bg-[#f5f9fe]">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header title={routeLabel(pathname)} onOpenMenu={() => setMobileOpen(true)} />
-        <main id="main-content" className="mx-auto w-full max-w-350 min-w-0 flex-1 px-4 py-6 sm:px-7 sm:py-8 lg:px-10 lg:py-10">
+        <main id="main-content" className="mx-auto w-full max-w-[1600px] min-w-0 flex-1 px-4 py-5 sm:px-7 sm:py-7 lg:px-8 lg:py-8">
           <Breadcrumbs />
           <Outlet />
         </main>

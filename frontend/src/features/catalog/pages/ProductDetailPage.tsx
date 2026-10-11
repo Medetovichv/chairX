@@ -137,7 +137,7 @@ function Detail({ id, product }: { id: string; product: Product }) {
           : variants.isError ? <ErrorState error={variants.error} onRetry={() => void variants.refetch()} />
             : variants.data && variants.data.totalElements === 0 ? (
               <EmptyState title="У этой модели пока нет вариаций"
-                description="Каждая вариация получает собственный UUID и может иметь отдельный цвет, SKU и цену."
+                description="У каждой вариации может быть отдельный цвет, артикул и цена."
                 action={canManage ? <Button disabled={creatingVariant} onClick={() => setCreatingVariant(true)}>Добавить первую вариацию</Button> : undefined} />
             ) : variants.data ? (
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">

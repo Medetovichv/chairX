@@ -18,6 +18,7 @@ import { SaleForm } from '../components/SaleForm';
 import { inventoryKeys } from '../../inventory/api';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary } from '../types';
 
 type Action='confirm'|'fulfill'|'cancel';
@@ -113,7 +114,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId,
   });
   const customerLabel=customer.data?.fullName||customer.data?.phone||
-    customer.data?.whatsappPhone||sale.customerId||'Без клиента';
+    customer.data?.whatsappPhone||'Клиент недоступен';
   async function changed(result:SaleResponse) {
     client.setQueryData(salesKeys.detail(sale.id),result);
     await Promise.all([
@@ -199,7 +200,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   return <div className="space-y-6">
     <Link to="/sales" className="inline-flex min-h-11 items-center font-semibold text-indigo-700">
       ← Все продажи</Link>
-    <PageHeader title={'Продажа '+sale.saleNumber} description={'UUID: '+sale.id}/>
+    <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)} description={'Номер документа: '+sale.saleNumber}/>
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">

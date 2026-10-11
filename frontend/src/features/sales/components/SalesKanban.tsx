@@ -1,9 +1,9 @@
 import { Link } from 'react-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useAuth } from '../../auth/AuthProvider';
 import { salesApi, salesKeys } from '../api';
 import { saleStatuses, saleStatusNames, saleDate, money } from '../validation';
 import { Button } from '../../../shared/ui/button';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import type { SaleFilters, SaleStatus } from '../types';
@@ -13,7 +13,6 @@ import type { SaleFilters, SaleStatus } from '../types';
  * an exhaustive board; users can load all remaining rows for each status.
  */
 function KanbanColumn({status,filters}: {status:SaleStatus;filters:SaleFilters}) {
-  const {hasPermission}=useAuth();
   const q=useInfiniteQuery({
     queryKey:[...salesKeys.kanbanColumn(status),filters.from,filters.to,filters.number],
     initialPageParam:0,
@@ -34,20 +33,16 @@ function KanbanColumn({status,filters}: {status:SaleStatus;filters:SaleFilters})
       q.isError?<ErrorState error={q.error} onRetry={()=>void q.refetch()}/>:
       rows.length===0?<p className="py-5 text-center text-sm text-slate-500">Нет заказов</p>:
       <div className="space-y-3">{rows.map(s=><article key={s.id}
-        className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
-        <Link className="font-bold text-indigo-700 hover:underline"
-          state={{summary:s}} to={'/sales/'+encodeURIComponent(s.id)}>{s.saleNumber}</Link>
-        <p>{s.customerName||s.customerId||'Без клиента'} · {saleDate(s.createdAt)}</p>
+        className="entity-clickable-row group space-y-2 rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm transition-colors">
+        <Link className="entity-stretched-link font-bold text-blue-700 hover:underline"
+          state={{summary:s}} to={'/sales/'+encodeURIComponent(s.id)} title={s.saleNumber}
+          aria-label={'Открыть продажу '+s.saleNumber}>{displaySaleNumber(s.saleNumber)}</Link>
+        <p>{s.customerName||'Без клиента'} · {saleDate(s.createdAt)}</p>
         <p className="break-words text-slate-600">{s.products||'Позиции не указаны'}</p>
         <p>Шт.: {s.quantity} · <strong>{money(s.total)}</strong></p>
         <p>Оплата: {s.paymentStatus||'—'}</p>
         <p>Доставка: {s.deliveryStatus||'—'}</p>
         {s.plannedDeliveryDate&&<p>План: {s.plannedDeliveryDate}</p>}
-        <Link to={'/sales/'+encodeURIComponent(s.id)} state={{summary:s}}
-          className="inline-flex min-h-10 items-center font-semibold text-indigo-700 underline">
-          {status==='DRAFT'&&hasPermission('SALES_DRAFT_MANAGE')?'Открыть и подтвердить':
-            status==='CONFIRMED'&&hasPermission('SALES_UPDATE')&&s.fulfillmentType==='SELF_PICKUP'?'Открыть и завершить':
-            'Открыть заказ'}</Link>
       </article>)}</div>}
     {q.hasNextPage&&<Button className="mt-3 w-full" variant="outline" disabled={q.isFetchingNextPage}
       onClick={()=>void q.fetchNextPage()}>{q.isFetchingNextPage?'Загружаем…':'Показать ещё'}</Button>}

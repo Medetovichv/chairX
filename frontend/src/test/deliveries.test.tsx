@@ -200,7 +200,7 @@ describe('F08 backend DTOs, filters and list',()=>{
     const api=mockBackend();
     renderAt();
     await screen.findByRole('heading',{name:'Доставки',level:2});
-    expect((await screen.findAllByText('CHX-2026-0101')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('#101')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('+996700123456').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Тестовая 12/).length).toBeGreaterThan(0);
     expect(requests(api,'/api/sales/')).toHaveLength(0);

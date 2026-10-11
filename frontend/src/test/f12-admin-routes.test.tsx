@@ -88,7 +88,8 @@ describe('F12 route access and real data',()=>{
   await user.type(within(form).getByLabelText('Начальный пароль'),'InitialStrong123');
   await user.type(within(form).getByLabelText('Повтор пароля'),'InitialStrong123');
   await user.click(within(form).getByRole('button',{name:'Создать'}));
-  expect(await screen.findByText('UUID: '+ID)).toBeInTheDocument();
+  expect(await screen.findByRole('heading',{name:'Сотрудник'})).toBeInTheDocument();
+  expect(screen.queryByText('UUID: '+ID)).not.toBeInTheDocument();
   const posts=calls.mock.calls.filter(call=>call[1]?.method==='POST');
   expect(posts).toHaveLength(1);
   expect(JSON.parse(String(posts[0]?.[1]?.body))).toEqual({username:'cashier1',displayName:'Сотрудник',password:'InitialStrong123'});
