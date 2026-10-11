@@ -45,42 +45,86 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     try{await onSave(data);}catch(cause){setError(userFacingApiError(cause));}
     finally{inFlight.current=false;setSaving(false);}
   }
+  const validPrices=rows.every(row=>countValid(row.quantity)&&salePriceValid(row.unitSalePrice));
+  const total=validPrices?rows.reduce((sum,row)=>
+    sum+BigInt(row.quantity)*BigInt(row.unitSalePrice),0n):null;
+  const quantity=rows.reduce((sum,row)=>sum+(countValid(row.quantity)?Number(row.quantity):0),0);
+
   return <form aria-label={initial?'Редактирование черновика':'Новый черновик продажи'}
-    className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6"
-    onSubmit={e=>void submit(e)}>
-    <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
-    <label className="block space-y-2 text-sm font-semibold">Способ получения
-      <select aria-label="Способ получения" disabled={saving||blocked} value={type??''}
-        onChange={e=>setType(e.target.value?e.target.value as FulfillmentType:null)}
-        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
-        <option value="">Уточним позже</option>
-        {(Object.keys(fulfillmentNames) as FulfillmentType[]).map(k=>
-          <option value={k} key={k}>{fulfillmentNames[k]}</option>)}
-      </select>
-    </label>
-    <SaleItemsEditor rows={rows} onChange={setRows} disabled={saving||blocked}/>
-    {(!hasPermission('CATALOG_READ')||!hasPermission('INVENTORY_READ'))&&
-      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-        Для добавления новых товарных позиций требуются CATALOG_READ и INVENTORY_READ.
-        Можно сохранить черновик без позиций и заполнить позже.
-      </p>}
-    <label className="block space-y-2 text-sm font-semibold">Комментарий
-      <textarea aria-label="Комментарий продажи" maxLength={2000} rows={3}
-        value={comment} disabled={saving||blocked} onChange={e=>setComment(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 bg-white p-3"/>
-    </label>
-    <p className="text-sm text-slate-600">
-      Черновик допускает отсутствие клиента, товаров и способа получения.
-      Резервирование и проверка доступности происходят только при подтверждении заказа.
-    </p>
-    {blocked&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-      Данные формы сохранены на экране, но отправка заблокирована:
-      результат предыдущего PUT неизвестен. Проверьте состояние сервера.
-    </p>}
-    {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-    <div className="flex flex-wrap gap-2">
-      <Button type="submit" disabled={saving||blocked}>{saving?'Сохраняем…':'Сохранить черновик'}</Button>
-      {onCancel&&<Button type="button" variant="outline" disabled={saving||blocked} onClick={onCancel}>Отмена</Button>}
+    className="space-y-5" onSubmit={e=>void submit(e)}>
+    <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-slate-600">
+      <span>1. Клиент</span><span aria-hidden="true">→</span>
+      <span>2. Товары</span><span aria-hidden="true">→</span>
+      <span>3. Получение</span><span aria-hidden="true">→</span>
+      <span>4. Проверка</span>
+    </div>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)]">
+      <div className="min-w-0 space-y-5">
+        <section aria-label="Этап 1. Клиент" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <h3 className="text-lg font-bold text-slate-950">1. Клиент</h3>
+          <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
+        </section>
+        <section aria-label="Этап 2. Товары" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <h3 className="mb-4 text-lg font-bold text-slate-950">2. Выбор кресел</h3>
+          <SaleItemsEditor rows={rows} onChange={setRows} disabled={saving||blocked}/>
+          {(!hasPermission('CATALOG_READ')||!hasPermission('INVENTORY_READ'))&&
+            <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+              Для добавления новых товарных позиций нужны CATALOG_READ и INVENTORY_READ.
+              Черновик можно сохранить без позиций и заполнить позже.
+            </p>}
+        </section>
+        <section aria-label="Этап 3. Получение" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <h3 className="text-lg font-bold text-slate-950">3. Получение заказа</h3>
+          <label className="block space-y-2 text-sm font-semibold">Способ получения
+            <select aria-label="Способ получения" disabled={saving||blocked} value={type??''}
+              onChange={e=>setType(e.target.value?e.target.value as FulfillmentType:null)}
+              className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
+              <option value="">Уточним позже</option>
+              {(Object.keys(fulfillmentNames) as FulfillmentType[]).map(k=>
+                <option value={k} key={k}>{fulfillmentNames[k]}</option>)}
+            </select>
+          </label>
+          {type&&type!=='SELF_PICKUP'&&<p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+            Адрес и сведения доставки заполняются отдельно после подтверждения заказа.
+          </p>}
+          <label className="block space-y-2 text-sm font-semibold">Комментарий
+            <textarea aria-label="Комментарий продажи" maxLength={2000} rows={3}
+              value={comment} disabled={saving||blocked} onChange={e=>setComment(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 bg-white p-3"/>
+          </label>
+        </section>
+      </div>
+      <aside aria-label="Этап 4. Итог заказа" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-bold text-slate-950">4. Итог заказа</h3>
+        <dl className="space-y-3 text-sm">
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Клиент</dt>
+            <dd className="font-semibold">{customerId?'Выбран':'Не выбран'}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Позиций</dt>
+            <dd className="font-semibold">{rows.length}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Всего кресел</dt>
+            <dd className="font-semibold">{quantity} шт.</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-slate-500">Получение</dt>
+            <dd className="text-right font-semibold">{type?fulfillmentNames[type]:'Не указано'}</dd></div>
+          <div className="flex justify-between gap-3 border-t border-slate-200 pt-3 text-base">
+            <dt className="font-bold">Предварительный итог</dt>
+            <dd className="font-extrabold text-blue-700">{total===null?'Проверьте цены':money(total.toString())}</dd>
+          </div>
+        </dl>
+        <p className="text-xs leading-relaxed text-slate-500">
+          Сохранение черновика не резервирует кресла. Остатки проверяются при подтверждении заказа.
+        </p>
+        {blocked&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+          Данные формы сохранены на экране, но отправка заблокирована:
+          результат предыдущего PUT неизвестен. Проверьте состояние сервера.
+        </p>}
+        {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
+        <Button className="w-full" type="submit" disabled={saving||blocked}>
+          {saving?'Сохраняем…':'Сохранить черновик'}
+        </Button>
+        {onCancel&&<Button className="w-full" type="button" variant="outline" disabled={saving||blocked}
+          onClick={onCancel}>Отмена</Button>}
+      </aside>
     </div>
   </form>;
+}
 }
