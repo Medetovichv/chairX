@@ -24,11 +24,15 @@ This is a **source-code and CI review, not a manual acceptance-test certificate*
 4. Refund view uses nontechnical wording and permission-scoped human order number; financial test selectors updated.
 5. Exchanges page opens saved links instead of showing raw UUIDs, and hides recovery keys; regression added.
 
+## Verified CI baseline
+
+At commit `35efd9163410a785bf3314494f62c88713cd27d9`, all six GitHub Actions completed successfully: Frontend verification, F08 delivery PostgreSQL integration, F09 returns/exchanges/defects PostgreSQL integration, F10 finance PostgreSQL integration, Local development stack smoke, and F11 release gate. This is an automated-regression pass, **not** proof of manual end-to-end testing of all entities or permission combinations.
+
 ## Blocking closure criteria
-- All latest-head CI checks green (frontend, F08/F09/F10, F11 and Docker).
+- [x] All latest-head CI checks green (frontend, F08/F09/F10, F11 and Docker) as of the verified baseline above.
 - Add a human-readable backend exchange search/list API in a follow-on task if operationally needed; ensure recovery remains safe.
-- Run real browser tests at desktop and mobile widths with custom roles.
-- Final rebase/integration of stacked PRs with main is FLOW-25, **not** FLOW-24. No merge authorization assumed.
+- [ ] Run real browser tests at desktop and mobile widths with custom roles; GitHub Actions do not provide this evidence.
+- [ ] Final rebase/integration of stacked PRs with main is FLOW-25, **not** FLOW-24. No merge authorization assumed.
 
 ## Nonnegotiables
 No chair photos; no extra payment methods; no fake history; no disclosure of cost data outside authorized backend APIs; no automatic repeat of unconfirmed financial or stock mutations.
