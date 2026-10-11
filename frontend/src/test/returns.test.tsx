@@ -487,6 +487,16 @@ describe('F09 exchange and settlements boundaries',()=>{
   expect(calls(a,'/api/exchanges')).toHaveLength(0);
  });
 });
+describe('FLOW-24 link-based exchange retrieval',()=>{
+ it('accepts a saved exchange link without asking for a UUID input',async()=>{
+  mockBackend();renderAt('/returns/exchanges');
+  const input=await screen.findByRole('textbox',{name:'Ссылка на обмен'});
+  expect(screen.queryByText('UUID существующего обмена')).not.toBeInTheDocument();
+  fireEvent.change(input,{target:{value:'https://chairx.example/returns/exchanges/'+EX}});
+  await userEvent.setup().click(screen.getByRole('button',{name:'Открыть обмен'}));
+  expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
+ });
+});
 describe('FLOW-24 exchange human labels and permission gating',()=>{
  it('does not print exchange or related UUIDs when sale and return read permissions are absent',async()=>{
   access.permissions=['EXCHANGES_READ'];
