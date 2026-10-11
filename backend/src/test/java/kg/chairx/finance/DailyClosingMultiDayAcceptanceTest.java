@@ -82,7 +82,7 @@ class DailyClosingMultiDayAcceptanceTest {
 
     @TestConfiguration(proxyBeanMethods = false)
     static class ClockConfig {
-        @Bean @Primary MutableClock businessClock() {
+        @Bean @Primary MutableClock testClock() {
             MutableClock clock = new MutableClock();
             clock.set(0, 12, 0);
             return clock;
