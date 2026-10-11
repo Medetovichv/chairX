@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { salesKeys } from '../../sales/api';
@@ -23,6 +24,7 @@ const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='ht
 const card='space-y-4 rounded-2xl border border-slate-200 bg-white p-5';
 export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const {hasPermission}=useAuth(),client=useQueryClient();
+ const [query]=useSearchParams();
  const paymentRead=hasPermission('PAYMENTS_READ'),paymentCreate=hasPermission('PAYMENTS_CREATE'),
   paymentCancel=hasPermission('PAYMENTS_CANCEL'),refundRead=hasPermission('REFUNDS_READ'),
   refundCreate=hasPermission('REFUNDS_CREATE'),financeRead=hasPermission('FINANCE_READ');
@@ -39,7 +41,9 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
  const [channel,setChannel]=useState<PaymentChannel>('CASH'),[reference,setReference]=useState('');
  const [comment,setComment]=useState(''),[refundAmount,setRefundAmount]=useState('');
- const [refundMethod,setRefundMethod]=useState<RefundMethod>('CASH'),[refundReturn,setRefundReturn]=useState('');
+ const [refundMethod,setRefundMethod]=useState<RefundMethod>('CASH'),[refundReturn,setRefundReturn]=useState(()=>{
+  const supplied=query.get('returnId')??'';return validUUID(supplied)?supplied:'';
+ });
  const [refundReason,setRefundReason]=useState(''),[refundReference,setRefundReference]=useState('');
  const [refundComment,setRefundComment]=useState(''),[error,setError]=useState('');
  const activePayment=payments.data?.find(p=>p.status==='PAID');

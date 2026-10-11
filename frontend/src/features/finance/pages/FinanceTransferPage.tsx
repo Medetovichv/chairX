@@ -26,7 +26,7 @@ export function FinanceTransferPage(){
  };
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-5">
-  <PageHeader title="Перевод между CASH и BANK" description="Внутреннее перемещение денег — не расход и не поступление."/>
+  <PageHeader title="Переводы" description="Внутреннее перемещение денег — не расход и не поступление."/>
   <FinanceTabs/>
   <GuardedPost<TransferInput> kind="transfer" scope="cash-bank" canReplay allowed={allowed}
    title="Подтвердить перевод?" label="Перевести деньги"
