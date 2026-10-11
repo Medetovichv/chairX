@@ -1,4 +1,5 @@
 import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
@@ -12,7 +13,6 @@ import { ExpensesPage } from '../features/finance/pages/ExpensesPage';
 import { FinanceOverviewPage } from '../features/finance/pages/FinanceOverviewPage';
 import { ExchangeSettlementForm } from '../features/finance/components/ExchangeSettlementForm';
 import { readFinancePending } from '../features/finance/pending';
-import { financeApi } from '../features/finance/api';
 import {
  accountFor,methodFor,amountCents,som,positiveSom,nonnegativeSom,validateRefund,
  validateSettlement,validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,
@@ -50,7 +50,7 @@ const exchange:ExchangeResponse={
  creditApplied:'8500',additionalPaymentDue:'1000',refundDue:'0',
 };
 const j=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
-function wrapper(children:React.ReactNode){
+function wrapper(children:ReactNode){
  return render(<QueryClientProvider client={createQueryClient()}>
   <MemoryRouter initialEntries={['/sales/'+SALE]}>{children}</MemoryRouter>
  </QueryClientProvider>);
