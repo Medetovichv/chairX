@@ -162,7 +162,8 @@ function Detail({ purchase }: { purchase: Purchase }) {
     <div className="flex flex-wrap gap-2">
       {hasPermission('INVENTORY_RECEIVE') &&
         ['CONFIRMED','PARTIALLY_RECEIVED'].includes(purchase.status) && <Button asChild>
-          <Link to="/purchases/receipts">Перейти к поступлениям</Link></Button>}
+          <Link to={'/purchases/receipts?purchaseId='+encodeURIComponent(purchase.id)}>
+            Перейти к поступлениям</Link></Button>}
       {hasPermission('PURCHASE_PAYMENTS_READ') && <Button asChild variant="outline">
         <Link to={'/purchases/payments?purchaseId='+encodeURIComponent(purchase.id)}>Просмотр оплат</Link></Button>}
     </div>

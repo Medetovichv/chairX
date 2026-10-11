@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
@@ -14,26 +15,44 @@ import { PurchasePager } from '../components/PurchasePager';
 import { ReceivingForm } from '../components/ReceivingForm';
 import { PurchaseStatusBadge } from '../components/PurchaseStatusBadge';
 import { formatDate } from '../validation';
+const validUUID=(value:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export function ReceivingPage() {
   const { hasPermission } = useAuth();
   const canReceive = hasPermission('INVENTORY_RECEIVE');
   const [page, setPage] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [params,setParams]=useSearchParams();
+  const linkId=params.get('purchaseId');
+  const selected=linkId&&validUUID(linkId)?linkId:null;
+  const invalidLink=linkId!==null&&!selected;
+  const canReadPurchases=hasPermission('PURCHASE_READ');
+  function openReceiving(id:string){
+    setParams(prev=>{const next=new URLSearchParams(prev);next.set('purchaseId',id);return next;});
+    setNotice('');
+  }
+  function closeReceiving(){
+    setParams(prev=>{const next=new URLSearchParams(prev);next.delete('purchaseId');return next;});
+  }
   const [notice, setNotice] = useState('');
   const list = useQuery({
     queryKey: purchaseKeys.receivingPage(page), queryFn: () => purchaseApi.receiving(page),
-    enabled: canReceive,
+    enabled: canReceive && !selected,
   });
   if (!canReceive || list.error instanceof ApiClientError && list.error.status===403) return <ForbiddenPage />;
   return <div className="space-y-6">
-    <PageHeader title="Поступления" description="Рабочие позиции закупок для кладовщика. Стоимость здесь не показывается." />
-    <PurchaseTabs />
+    <PageHeader title={selected?'Приёмка по закупке':'Поступления'}
+      description="Складская приёмка без раскрытия закупочных цен и себестоимости." />
+    {!selected&&<PurchaseTabs />}
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    {selected && <ReceivingForm key={selected} purchaseId={selected}
-      onClose={() => setSelected(null)}
-      onPosted={() => { setSelected(null); setNotice('Поступление проведено. Остатки обновлены сервером.'); }} />}
-    {list.isPending ? <LoadingState label="Загружаем ожидаемые поступления…" /> :
+    {invalidLink&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
+      Неверная ссылка на закупку. Выберите поступление из списка.
+    </p>}
+    {selected&&canReadPurchases&&<Link className="text-sm font-semibold text-blue-700 hover:underline"
+      to={'/purchases/'+encodeURIComponent(selected)}>Открыть карточку закупки</Link>}
+    {selected&&<ReceivingForm key={selected} purchaseId={selected}
+      onClose={closeReceiving}
+      onPosted={() => { closeReceiving(); setNotice('Поступление проведено. Остатки обновлены сервером.'); }} />}
+    {!selected&&(list.isPending ? <LoadingState label="Загружаем ожидаемые поступления…" /> :
       list.isError ? <ErrorState error={list.error} onRetry={() => void list.refetch()} /> :
       !list.data?.items.length ? <EmptyState title="Нет позиций для приёмки"
         description="Все ожидаемые позиции уже получены или ещё не подтверждены." /> :
@@ -44,30 +63,36 @@ export function ReceivingPage() {
               <th scope="col" key={s} className="px-4 py-3 font-semibold">{s}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{list.data.items.map(line =>
               <tr key={line.purchaseItemId}>
-                <td className="px-4 py-4 break-all">{line.purchaseId.slice(0,8)}…</td>
+                <td className="px-4 py-4">{canReadPurchases?
+                  <Link className="font-semibold text-blue-700 hover:underline"
+                    to={'/purchases/'+encodeURIComponent(line.purchaseId)}>Открыть закупку</Link>:
+                  <span>Закупка</span>}</td>
                 <td className="px-4 py-4">{formatDate(line.createdAt)}</td>
                 <td className="px-4 py-4 font-semibold">{line.model}</td><td className="px-4 py-4">{line.variant}</td>
                 <td className="px-4 py-4"><PurchaseStatusBadge status={line.status} /></td>
                 <td className="px-4 py-4">{line.orderedQuantity}</td><td className="px-4 py-4">{line.receivedQuantity}</td>
                 <td className="px-4 py-4 font-bold">{line.remainingQuantity}</td>
                 <td className="px-4 py-4"><Button type="button" variant="outline" disabled={!!selected}
-                  onClick={() => { setSelected(line.purchaseId); setNotice(''); }}>Принять</Button></td>
+                  onClick={() => openReceiving(line.purchaseId)}>Принять</Button></td>
               </tr>)}</tbody>
           </table>
         </div>
         <div className="divide-y divide-slate-100 md:hidden">{list.data.items.map(line =>
           <article key={line.purchaseItemId} className="space-y-2 p-4 text-sm">
             <p className="font-bold">{line.model} · {line.variant}</p>
-            <p className="break-all text-xs">Закупка: {line.purchaseId}</p>
+            <p className="text-xs text-slate-600">
+              {canReadPurchases?
+                <Link className="font-semibold text-blue-700 hover:underline"
+                  to={'/purchases/'+encodeURIComponent(line.purchaseId)}>Карточка закупки</Link>:
+                'Закупка'} · {formatDate(line.createdAt)}
+            </p>
             <PurchaseStatusBadge status={line.status} />
             <p>Заказано: {line.orderedQuantity} · Принято: {line.receivedQuantity} · Осталось: {line.remainingQuantity}</p>
             <Button type="button" variant="outline" disabled={!!selected}
-              onClick={() => {setSelected(line.purchaseId);setNotice('');}}>Принять</Button>
+              onClick={() => openReceiving(line.purchaseId)}>Принять</Button>
           </article>)}</div>
-        {selected ? <p className="p-4 text-sm text-amber-800">
-          Для перехода к другой странице сначала завершите или закройте форму приёмки.
-        </p> : <PurchasePager page={list.data.page} total={list.data.total} size={list.data.size}
-          label="позиций" onPage={setPage} />}
-      </section>}
+        <PurchasePager page={list.data.page} total={list.data.total} size={list.data.size}
+          label="позиций" onPage={setPage} />
+      </section>)}
   </div>;
 }

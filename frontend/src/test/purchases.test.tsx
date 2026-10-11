@@ -437,6 +437,42 @@ describe('F06 purchase details and mutations',()=>{
 });
 
 describe('F06 receiving and idempotency',()=>{
+  it('opens this purchase in the receiving workflow instead of the general list',async()=>{
+    const {calls}=mockApi();
+    renderAt('/purchases/'+PID);
+    const link=await screen.findByRole('link',{name:'Перейти к поступлениям'});
+    expect(link).toHaveAttribute('href','/purchases/receipts?purchaseId='+PID);
+    expect(calls.mock.calls.some(([url])=>String(url)==='/api/purchases/'+PID)).toBe(true);
+  });
+  it('uses the cost-free preselected receiving summary with INVENTORY_RECEIVE and INVENTORY_READ only',async()=>{
+    access.permissions=['INVENTORY_RECEIVE','INVENTORY_READ'];
+    const {calls}=mockApi();
+    renderAt('/purchases/receipts?purchaseId='+PID);
+    expect(await screen.findByRole('region',{name:'Форма поступления'})).toBeInTheDocument();
+    expect(await screen.findByRole('combobox',{name:'Склад назначения'})).toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Позиции к приёмке'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Открыть карточку закупки'})).not.toBeInTheDocument();
+    expect(calls.mock.calls.filter(([url])=>String(url)==='/api/purchases/'+PID)).toHaveLength(0);
+    expect(requests(calls,'/api/purchases/overview')).toHaveLength(0);
+    expect(requests(calls,'/api/purchases/receiving?')).toHaveLength(0);
+    expect(screen.queryByText(/45\\s?000/)).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Закрыть'}));
+    expect(await screen.findByRole('region',{name:'Позиции к приёмке'})).toBeInTheDocument();
+  });
+  it('does not show UUIDs to warehouse-only operators in the receiving worklist',async()=>{
+    access.permissions=['INVENTORY_RECEIVE'];
+    mockApi();
+    renderAt('/purchases/receipts');
+    expect(await screen.findByRole('region',{name:'Позиции к приёмке'})).toBeInTheDocument();
+    expect(screen.queryByText(PID,{exact:false})).not.toBeInTheDocument();
+  });
+  it('rejects malformed purchase deep links without fetching unknown purchase data',async()=>{
+    const {calls}=mockApi();
+    renderAt('/purchases/receipts?purchaseId=not-an-id');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Неверная ссылка');
+    expect(await screen.findByRole('region',{name:'Позиции к приёмке'})).toBeInTheDocument();
+    expect(calls.mock.calls.filter(([url])=>String(url).includes('/api/purchases/not-an-id'))).toHaveLength(0);
+  });
   it('warehouse-only role can see cost-free worklist without PURCHASE_READ or other private APIs',async()=>{
     access.permissions=['INVENTORY_RECEIVE'];
     const {calls}=mockApi();
