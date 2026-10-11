@@ -1,63 +1,36 @@
-# ChairX frontend — F03 Catalog
+# ChairX frontend — актуальный интерфейс
 
-React 19 + TypeScript + Vite + Tailwind CSS + React Router + TanStack Query.
-Existing F01 foundation, F02 memory-only HTTP Basic/CSRF login and F02.1
-permission-aware navigation are retained.
+**На 11.10.2026** React 19 + TypeScript + Vite 8 + Tailwind 4 + React Router + TanStack Query. Это **реальный frontend F03–F12 + UI-v2 (PR #40–#46)**, а не F01-заглушка. Backend — источник данных, бизнес-ограничений и прав.
 
-**F03 connects /catalog and /catalog/:productId to the real backend**
-using the existing ApiClient and Product/Variant REST endpoints. Other
-business areas remain F02.1 read-only page shells until their own packages.
+Список всех экранов, URL, функций, permission и бизнес-процессов: **[Функции и разделы](../docs/system-features.md)**. Полная штатная ролевая матрица: **[Роли и разрешения](../docs/roles-and-permissions.md)**. Слой API и архитектура: **[Технический справочник](../docs/technical-reference.md)**.
 
-## Run locally
-Requires Node.js 24, npm and the ChairX Java 25/PostgreSQL 17 backend.
-From the repository root:
+## Основные разделы
 
-\`\`\`bash
+- **Работа:** главная, продажи с канбаном/черновиками, доставки и карточки, остатки/перемещения, клиенты, закрытие дня.
+- **Управление:** каталог с вариациями и SKU, закупки/частичная приёмка/платежи, поставщики, возвраты/обмены/брак, расходы, CashFlow, CASH/BANK.
+- **Система:** сотрудник, роли/разрешения, активация/сброс пароля и security audit (только system ADMIN).
+
+Маршруты в `src/app/router/AppRouter.tsx`; меню и route permission в `src/shared/lib/navigation.ts`; бизнес-клиенты в `src/features/*/api.ts`.
+
+## Запуск и проверка
+
+```bash
+# из корня: PostgreSQL+Spring+Vite
+bash scripts/init-local-env.sh
+docker compose up -d --build --wait
+
+# или при запущенном backend — из frontend/
 cd frontend
 npm ci
 npm run dev
-\`\`\`
 
-Open http://localhost:5173. For Docker from repository root:
-
-\`\`\`bash
-docker compose up -d --build --wait
-\`\`\`
-
-Do not use \`docker compose down -v\` with a database you wish to preserve.
-
-## F03 catalog
-- /catalog: real server-paginated product list, create model.
-- /catalog/:productId: product detail; paged variants; create/edit/activate/
-  deactivate product and variant, confirmation before deactivation.
-- Requires \`CATALOG_READ\` to read and \`CATALOG_MANAGE\` to mutate.
-- No fake records, no inventory, no client-side pseudo-global search.
-  Backend list API currently has only page/size.
-- All prices in KGS; exact decimal string sent to Java BigDecimal.
-- Backend SecurityConfig remains authoritative; F02 authorization/CSRF are
-  preserved in memory, never localStorage/sessionStorage.
-
-See [F03 API, route/permissions, limitations](../docs/f03-product-catalog.md)
-and [F02.1 navigation](../docs/f02-1-navigation.md).
-
-## Quality gates
-\`\`\`bash
-npm ci
+# качество
 npm run lint
 npm run typecheck
-npm run test
+npm test
 npm run build
-\`\`\`
+```
 
-GitHub Actions runs the same frontend gates and a full Docker stack smoke
-check on the PR. Runtime network and backend errors use existing safe API
-error messages.
+UI: `http://localhost:5173`; `/api` проксируется к backend. Локальные учетные данные хранятся в корневом `.env`, **не** во frontend/VITE переменных. Авторизация HTTP Basic и CSRF действует через in-memory session; UI guards — только удобство, серверные права обязательны. `docker compose down` сохраняет БД, `down -v` удаляет volume.
 
-## F04 Inventory & Warehouse Operations
-
-`/inventory` now provides real warehouse selection, stock by model/variation,
-server-backed search and filters, movement and transfer history, plus guarded
-idempotent cross-warehouse transfers. `INVENTORY_READ` grants views;
-`INVENTORY_TRANSFER` alongside read grants the transfer action. No direct
-manual stock adjustments. See [F04 inventory documentation](../docs/f04-inventory.md)
-for API contracts, error handling and **unresolved backend cost-data exposure**.
+**Ограничение:** текущий экран дневного закрытия относится ко всей CASH/BANK компании, а не к кассе конкретного employee. Подробнее в [аудите](../docs/audit/2026-10-11-documentation-audit.md). Также не путайте green CI с production/UAT signoff.
