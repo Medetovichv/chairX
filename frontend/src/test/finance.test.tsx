@@ -312,7 +312,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   const form=screen.getByRole('form',{name:'Создание расхода'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Сумма расхода'}),
    {target:{value:'1500'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Дата расхода'}),
+  fireEvent.change(within(form).getByLabelText('Дата расхода'),
    {target:{value:'2026-10-11'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Создать расход'}));
   expect(screen.getByRole('alertdialog')).toHaveTextContent(/1500|1.*500/);
@@ -336,13 +336,13 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   const form=screen.getByRole('form',{name:'Создание расхода'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Сумма расхода'}),
    {target:{value:'1500'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Дата расхода'}),
+  fireEvent.change(within(form).getByLabelText('Дата расхода'),
    {target:{value:'2026-10-01'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Создать расход'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Провести расход'}));
   expect(await screen.findByText(/Результат финансовой операции неизвестен/)).toBeInTheDocument();
-  expect(screen.getByRole('textbox',{name:'Дата расхода'})).toHaveValue('2026-10-01');
+  expect(screen.getByLabelText('Дата расхода')).toHaveValue('2026-10-01');
   expect(screen.getByRole('button',{name:'Создать расход'})).toBeDisabled();
  });
  it('exchange OUT calculation is fully authorized and accounts absent without FINANCE_READ',async()=>{
