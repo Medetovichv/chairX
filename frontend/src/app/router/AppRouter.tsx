@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
+import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { AppLayout } from '../../layouts/AppLayout';
 import { HomePage } from '../../pages/HomePage';
@@ -80,7 +80,7 @@ function DeliveryDetailGate() {
 }
 
 function ReturnCreateGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_CREATE')?<CreateReturnPage/>:<ForbiddenPage/>;}
-function ReturnRefundGate(){const {hasPermission}=useAuth();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<ReturnRefundPage/>:<ForbiddenPage/>;}
+function ReturnRefundGate(){const {hasPermission}=useAuth(),{returnId}=useParams();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<ReturnRefundPage key={returnId}/>:<ForbiddenPage/>;}
 function ReturnDetailGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_READ')?<ReturnDetailPage/>:<ForbiddenPage/>;}
 function ExchangeDetailGate(){const {hasPermission}=useAuth();return hasPermission('EXCHANGES_READ')?<ExchangeDetailPage/>:<ForbiddenPage/>;}
 function DefectDetailGate(){const {hasPermission}=useAuth();return hasPermission('DEFECTS_READ')?<DefectDetailPage/>:<ForbiddenPage/>;}

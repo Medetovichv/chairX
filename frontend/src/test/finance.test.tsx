@@ -2,7 +2,7 @@ import { afterEach,beforeEach,describe,expect,it,vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useNavigate } from 'react-router';
 import { AppRouter } from '../app/router/AppRouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '../shared/api/query';
@@ -330,6 +330,39 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   });
   expect(requested.some(x=>x.startsWith('/api/sales')||
    x.startsWith('/api/payments')||x.startsWith('/api/refunds/sale'))).toBe(false);
+ });
+ 
+ it('clears confirmed refund and its form on in-app navigation to a different Return',async()=>{
+  access.permissions=['RETURNS_READ','REFUNDS_CREATE'];
+  const otherReturn='66666666-6666-4666-8666-666666666666';
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);
+   if(path==='/api/returns/'+RETURN||path==='/api/returns/'+otherReturn)
+    return j({id:path.endsWith(otherReturn)?otherReturn:RETURN,saleId:SALE,warehouseId:validID,
+     reason:'Возврат',comment:null,createdBy:'f10',createdAt:NOW,
+     items:[{id:PAYMENT,saleItemId:validID,quantity:1,condition:'SELLABLE'}]});
+   if(path==='/api/refunds'&&init?.method==='POST')
+    return j({id:PAYMENT,...JSON.parse(String(init.body)),refundedBy:'f10',refundedAt:NOW},201);
+   throw Error('Unexpected '+path);
+  }));
+  function SwitchReturn(){const navigate=useNavigate();return <button type="button"
+   onClick={()=>navigate('/returns/'+otherReturn+'/refund')}>Другой Return</button>;}
+  render(<QueryClientProvider client={createQueryClient()}>
+   <MemoryRouter initialEntries={['/returns/'+RETURN+'/refund']}><SwitchReturn/><AppRouter/></MemoryRouter>
+  </QueryClientProvider>);
+  const first=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
+  fireEvent.change(within(first).getByRole('textbox',{name:'Сумма Refund по Return'}),{target:{value:'8500'}});
+  fireEvent.change(within(first).getByRole('textbox',{name:'Причина Refund по Return'}),{target:{value:'Возврат A'}});
+  await userEvent.setup().click(within(first).getByRole('button',{name:'Подтвердить Refund'}));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+   .getByRole('button',{name:'Списать деньги клиенту'}));
+  expect(await screen.findByText(/Денежный возврат подтверждён backend:/)).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Другой Return'}));
+  await waitFor(()=>expect(screen.getByText('Физический Return: '+otherReturn)).toBeInTheDocument());
+  const second=screen.getByRole('form',{name:'Денежный Refund по физическому возврату'});
+  expect(within(second).getByRole('textbox',{name:'Сумма Refund по Return'})).toHaveValue('');
+  expect(within(second).getByRole('textbox',{name:'Причина Refund по Return'})).toHaveValue('');
+  expect(screen.queryByText(/Денежный возврат подтверждён backend:/)).not.toBeInTheDocument();
  });
  it('EXPENSES_CREATE-only employee posts an expense without privileged GET to accounts or list',async()=>{
   access.permissions=['EXPENSES_CREATE'];

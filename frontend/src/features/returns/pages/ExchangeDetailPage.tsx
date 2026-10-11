@@ -58,6 +58,6 @@ export function ExchangeDetailPage(){
     </p>)}
    <p className="text-xs text-slate-600">История отображает только подтверждённые backend расчёты CASH/BANK.</p>
   </section>
-  {hasPermission('EXCHANGES_SETTLE')&&<ExchangeSettlementForm exchange={d}/>}
+  {hasPermission('EXCHANGES_SETTLE')&&<ExchangeSettlementForm key={d.id} exchange={d}/>}
  </div>;
 }
