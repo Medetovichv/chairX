@@ -114,9 +114,9 @@ export function DailyClosingPage() {
     {valid && exists && (report.isPending ? <LoadingState label="Загружаем закрытый отчёт…"/> :
       report.isError ? <ErrorState error={report.error} onRetry={() => void report.refetch()}/> :
       <ExistingReport report={report.data}/>)}
-    {valid && access.isSuccess && <ClosingMaintenance date={date}
-      access={access.data} report={report.data}
-      onChanged={refreshed}/>}
+    {valid && access.isSuccess && (!exists || report.isSuccess) &&
+      <ClosingMaintenance key={date + ':' + (report.data?.version ?? 'new')} date={date}
+        access={access.data} report={report.data} onChanged={refreshed}/>}
     {valid && access.isSuccess && !exists && <section className="space-y-4 rounded-xl border bg-white p-4">
       <h2 className="text-lg font-bold">Предварительный расчёт backend</h2>
       {preview.isPending ? <LoadingState label="Получаем ожидаемые остатки…"/> :
