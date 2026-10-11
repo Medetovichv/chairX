@@ -60,6 +60,7 @@ interface MockOptions {
 }
 function fakeBackend(options: MockOptions = {}) {
   const records: TransferInput[] = [];
+  let warehouseRows = [...(options.warehouses ?? warehousesBase)];
   const calls = vi.fn(async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(String(input), 'http://chairx.local');
     const method = init?.method ?? 'GET';
@@ -67,7 +68,24 @@ function fakeBackend(options: MockOptions = {}) {
     if (options.network) throw new TypeError('Offline');
     const rejected = options.fail?.[method + ' ' + path];
     if (rejected) return json({ code: 'INVENTORY_TEST_ERROR', message: 'Private Java stack trace', details: {} }, rejected);
-    const wh = options.warehouses ?? warehousesBase;
+    const wh = warehouseRows;
+    if (path === '/api/warehouses' && method === 'POST') {
+      const body = JSON.parse(String(init?.body)) as {name:string; code:string; address:string|null};
+      if (warehouseRows.some(w => w.code === body.code)) return json({code:'WAREHOUSE_CODE_EXISTS',message:'Duplicated',details:{}},409);
+      const created: Warehouse = {id:crypto.randomUUID(),...body,active:true,createdAt:time,updatedAt:time};
+      warehouseRows=[...warehouseRows,created];
+      return json(created,201);
+    }
+    const warehouseAction=/^\/api\/warehouses\/([^/]+)(?:\/(activate|deactivate))?$/.exec(path);
+    if (warehouseAction && method !== 'GET') {
+      const warehouse=warehouseRows.find(w=>w.id===warehouseAction[1]);
+      if(!warehouse) return json({code:'NOT_FOUND',message:'',details:{}},404);
+      const input=method==='PUT'? JSON.parse(String(init?.body)) as {name:string;address:string|null}:null;
+      const updated:Warehouse={...warehouse,...(input??{}),
+        active:warehouseAction[2]?warehouseAction[2]==='activate':warehouse.active};
+      warehouseRows=warehouseRows.map(w=>w.id===warehouse.id?updated:w);
+      return json(updated);
+    }
     const stock = options.stock ?? [chair()];
     if (path === '/api/warehouses' && method === 'GET') {
       const page = Number(url.searchParams.get('page') ?? 0);
@@ -91,6 +109,7 @@ function fakeBackend(options: MockOptions = {}) {
       const warehouseId = url.searchParams.get('warehouseId');
       const model = url.searchParams.get('model')?.toLowerCase() ?? '';
       const variation = url.searchParams.get('variation')?.toLowerCase() ?? '';
+      const search = url.searchParams.get('search')?.toLowerCase() ?? '';
       const onlyAvailable = url.searchParams.get('onlyAvailable') === 'true';
       const includeZero = url.searchParams.get('includeZero') === 'true';
       const page = Number(url.searchParams.get('page') ?? 0);
@@ -103,6 +122,9 @@ function fakeBackend(options: MockOptions = {}) {
           warehouses: chosen ? [chosen] : [] };
       }).filter((item) => item.model.toLowerCase().includes(model) &&
         item.variation.toLowerCase().includes(variation) &&
+        (!search || item.model.toLowerCase().includes(search) ||
+          item.variation.toLowerCase().includes(search) ||
+          (item.productVariantId===VARIANT && 'ergo-blk-001'.includes(search))) &&
         (includeZero || item.onHand !== 0 || item.reserved !== 0 || item.blocked !== 0) &&
         (!onlyAvailable || item.available > 0));
       return json({ items: rows.slice(page * size, (page + 1) * size), page, size,
