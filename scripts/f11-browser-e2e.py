@@ -99,7 +99,7 @@ def main():
         try:
             page.goto(BASE+"/daily-closing",wait_until="domcontentloaded")
             page.get_by_label("Логин").fill("admin")
-            page.get_by_label("Пароль").fill(adminpass)
+            page.get_by_label("Пароль",exact=True).fill(adminpass)
             page.get_by_role("button",name="Войти",exact=True).click()
             page.get_by_role("heading",name="Закрытие дня").wait_for(timeout=30000)
             page.get_by_role("heading",name="Предварительный расчёт backend").wait_for()
