@@ -114,6 +114,8 @@ class DailyClosingCorrectionIntegrationTest {
         return target;
     }
 
+    private final List<UUID> companyViewerRoles = new ArrayList<>();
+
     private String newUser(UUID role) {
         UUID id = UUID.randomUUID();
         newUsers.add(id);
@@ -124,6 +126,7 @@ class DailyClosingCorrectionIntegrationTest {
                 """, id, username,
                 PasswordEncoderFactories.createDelegatingPasswordEncoder().encode("test-password"));
         jdbc.update("INSERT INTO security_user_roles (user_id,role_id) VALUES (?,?)", id, role);
+        if (EMPLOYEE_ROLE.equals(role)) companyViewerRoles.add(CorporateClosingTestGrant.grant(jdbc,id));
         return username;
     }
 
@@ -553,6 +556,7 @@ class DailyClosingCorrectionIntegrationTest {
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?", id);
             jdbc.update("DELETE FROM app_users WHERE id=?", id);
         }
+        for (UUID role : companyViewerRoles) CorporateClosingTestGrant.revoke(jdbc,role);
         for (var e : originalAccounts.entrySet()) {
             jdbc.update("UPDATE finance_accounts SET balance=?, opening_balance_initialized=? WHERE code=?",
                     e.getValue().balance(), e.getValue().initialized(), e.getKey());
