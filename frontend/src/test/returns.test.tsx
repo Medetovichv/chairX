@@ -71,9 +71,12 @@ function mockBackend(options:Setup={}){
   const url=new URL(String(input),'http://chairx.test'),path=url.pathname,method=init?.method??'GET';
   if(path==='/api/returns'&&method==='GET'){
    const page=Number(url.searchParams.get('page')??0),size=Number(url.searchParams.get('size')??20);
-   const selected=returns.filter(r=>!url.searchParams.get('saleId')||r.saleId===url.searchParams.get('saleId'));
+   const number=url.searchParams.get('number')?.trim().replace(/^#/,'').toLowerCase();
+   const selected=returns.filter(r=>(!url.searchParams.get('saleId')||
+     r.saleId===url.searchParams.get('saleId'))&&(!number||'chx-101'.includes(number)));
    return json({items:selected.slice(page*size,(page+1)*size).map(x=>({
-    id:x.id,saleId:x.saleId,warehouseId:x.warehouseId,createdAt:x.createdAt,reason:x.reason,createdBy:x.createdBy,
+    id:x.id,saleId:x.saleId,warehouseId:x.warehouseId,saleNumber:'CHX-101',
+    createdAt:x.createdAt,reason:x.reason,createdBy:x.createdBy,
    })),page,size,total:selected.length});
   }
   if(path==='/api/returns'&&method==='POST'){
@@ -223,16 +226,37 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(screen.queryByText('RETURN_COMPLETED')).not.toBeInTheDocument();
   expect(calls(a,'/api/payments')).toHaveLength(0);
  });
- it('filters by real saleId and fetches server page 2',async()=>{
+ it('filters by readable sale number and fetches server page 2',async()=>{
   const entries=Array.from({length:22},(_,i)=>({...returned(),
    id:'aaaaaaaa-aaaa-4aaa-8aaa-'+String(i).padStart(12,'0')}));
   const a=mockBackend({returns:entries});renderAt();
   expect(await screen.findByText(/Всего возвратов: 22/)).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button',{name:'Следующая'}));
   await screen.findByText(/Страница 2 из 2/);
-  fireEvent.change(screen.getByRole('textbox',{name:'Фильтр по UUID продажи'}),{target:{value:SALE}});
-  await userEvent.setup().click(screen.getByRole('button',{name:'Применить'}));
-  await waitFor(()=>expect(calls(a,'/api/returns?').some(([url])=>String(url).includes('saleId='+SALE))).toBe(true));
+  fireEvent.change(screen.getByRole('searchbox',{name:'Поиск по номеру заказа'}),
+    {target:{value:'CHX-101'}});
+  await userEvent.setup().click(screen.getByRole('button',{name:'Найти'}));
+  await waitFor(()=>expect(calls(a,'/api/returns?').some(([url])=>
+    new URL(String(url),'http://chairx.test').searchParams.get('number')==='CHX-101')).toBe(true));
+ });
+ it('shows readable return list without sales or inventory permissions',async()=>{
+  access.permissions=['RETURNS_READ'];
+  const api=mockBackend({returns:[returned()]});
+  renderAt('/returns');
+  await waitFor(()=>expect(screen.getAllByText('CHX-101')).toHaveLength(2));
+  expect(screen.getAllByText('Данные склада недоступны')).toHaveLength(2);
+  const visible=document.body.textContent??'';
+  for(const id of [RET,SALE,ITEM,VAR,WH])expect(visible).not.toContain(id);
+  expect(calls(api,'/api/sales')).toHaveLength(0);
+  expect(calls(api,'/api/warehouses')).toHaveLength(0);
+ });
+ it('uses one authorized warehouse lookup and accurate sale links',async()=>{
+  const api=mockBackend({returns:[returned()]});
+  renderAt('/returns');
+  await waitFor(()=>expect(screen.getAllByText('Склад офис')).toHaveLength(2));
+  expect(screen.getAllByRole('link',{name:'CHX-101'})).toHaveLength(2);
+  expect(calls(api,'/api/warehouses')).toHaveLength(1);
+  expect(calls(api,'/api/sales')).toHaveLength(0);
  });
  it('shows return detail without leaking raw identifiers or restricted catalog and inventory',async()=>{
   access.permissions=['RETURNS_READ'];
