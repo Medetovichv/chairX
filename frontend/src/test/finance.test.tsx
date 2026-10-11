@@ -315,7 +315,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
    throw Error('Unexpected protected API: '+path);
   }));
   renderPath('/returns/'+RETURN+'/refund');
-  const form=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
+  const form=await screen.findByRole('form',{name:'Денежный возврат по физическому возврату'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Сумма денежного возврата'}),
    {target:{value:'8500'}});
   fireEvent.change(within(form).getByRole('textbox',{name:'Причина денежного возврата'}),
@@ -351,7 +351,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   render(<QueryClientProvider client={createQueryClient()}>
    <MemoryRouter initialEntries={['/returns/'+RETURN+'/refund']}><SwitchReturn/><AppRouter/></MemoryRouter>
   </QueryClientProvider>);
-  const first=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
+  const first=await screen.findByRole('form',{name:'Денежный возврат по физическому возврату'});
   fireEvent.change(within(first).getByRole('textbox',{name:'Сумма денежного возврата'}),{target:{value:'8500'}});
   fireEvent.change(within(first).getByRole('textbox',{name:'Причина денежного возврата'}),{target:{value:'Возврат A'}});
   await userEvent.setup().click(within(first).getByRole('button',{name:'Подтвердить возврат'}));
@@ -360,7 +360,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(await screen.findByText(/Денежный возврат подтверждён backend:/)).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button',{name:'Другой Return'}));
   await waitFor(()=>expect(screen.getByText('Компенсация за оформленный физический возврат')).toBeInTheDocument());
-  const second=screen.getByRole('form',{name:'Денежный Refund по физическому возврату'});
+  const second=screen.getByRole('form',{name:'Денежный возврат по физическому возврату'});
   expect(within(second).getByRole('textbox',{name:'Сумма денежного возврата'})).toHaveValue('');
   expect(within(second).getByRole('textbox',{name:'Причина денежного возврата'})).toHaveValue('');
   expect(screen.queryByText(/Денежный возврат подтверждён backend:/)).not.toBeInTheDocument();
