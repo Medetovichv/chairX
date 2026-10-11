@@ -27,26 +27,26 @@ describe('F12 admin API and input contracts',()=>{
   expect(validateRole('WAREHOUSE','Кладовщик',['INVENTORY_READ'])).toBeNull();
  });
  it('sends activate as PATCH with CSRF and no extra request body',async()=>{
-  const fetcher=vi.fn(async()=>new Response(null,{status:204}));
+  const fetcher=vi.fn(async(_input:RequestInfo|URL,_options?:RequestInit)=>new Response(null,{status:204}));
   vi.stubGlobal('fetch',fetcher);
   await adminApi.activate('11111111-1111-4111-8111-111111111111');
-  const [url,init]=fetcher.mock.calls[0] as [string,RequestInit];
+  const [url,init]=fetcher.mock.calls[0] as unknown as [string,RequestInit];
   expect(url).toContain('/api/admin/users/11111111-1111-4111-8111-111111111111/activate');
   expect(init.method).toBe('PATCH');
   expect(new Headers(init.headers).get('X-CSRF-TOKEN')).toBe('f12-csrf');
  });
  it('sends only newPassword and never caches it or expects a response',async()=>{
-  const fetcher=vi.fn(async()=>new Response(null,{status:204}));
+  const fetcher=vi.fn(async(_input:RequestInfo|URL,_options?:RequestInit)=>new Response(null,{status:204}));
   vi.stubGlobal('fetch',fetcher);
   await adminApi.resetPassword('11111111-1111-4111-8111-111111111111','StrongNewPassword123');
-  const [url,init]=fetcher.mock.calls[0] as [string,RequestInit];
+  const [url,init]=fetcher.mock.calls[0] as unknown as [string,RequestInit];
   expect(url).toContain('/reset-password');
   expect(init.method).toBe('POST');
   expect(JSON.parse(String(init.body))).toEqual({newPassword:'StrongNewPassword123'});
   expect(new Headers(init.headers).get('X-CSRF-TOKEN')).toBe('f12-csrf');
  });
  it('assigns and removes exact role UUID without replacing other roles',async()=>{
-  const fetcher=vi.fn(async()=>new Response(null,{status:204}));
+  const fetcher=vi.fn(async(_input:RequestInfo|URL,_options?:RequestInit)=>new Response(null,{status:204}));
   vi.stubGlobal('fetch',fetcher);
   await adminApi.assignRole('user-id','role-id');
   await adminApi.removeRole('user-id','role-id');
@@ -55,7 +55,7 @@ describe('F12 admin API and input contracts',()=>{
   expect(String(fetcher.mock.calls[1]?.[0])).toContain('/users/user-id/roles/role-id');
  });
  it('PUT uses expectedVersion and reason and surface 409',async()=>{
-  const fetcher=vi.fn(async()=>json({code:'VERSION_CONFLICT',message:'outdated',details:{}},409));
+  const fetcher=vi.fn(async(_input:RequestInfo|URL,_options?:RequestInit)=>json({code:'VERSION_CONFLICT',message:'outdated',details:{}},409));
   vi.stubGlobal('fetch',fetcher);
   await expect(adminApi.updateRole('role-id',{name:'New',permissions:[],expectedVersion:2,reason:'Изменение обязанностей'})).rejects.toMatchObject({status:409,code:'VERSION_CONFLICT'});
   const body=JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body));
