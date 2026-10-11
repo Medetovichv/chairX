@@ -244,6 +244,33 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(await screen.findByText(/Продано: 3 · Возвращено: 1/)).toBeInTheDocument();
   expect(calls(a,'/api/returns?').some(([url])=>String(url).includes('page=1'))).toBe(true);
  });
+ it('selects a finished sale by its readable number without a UUID input',async()=>{
+  const api=mockBackend();
+  renderAt('/returns/new');
+  const form=await screen.findByRole('form',{name:'Создание возврата'});
+  expect(within(form).queryByRole('textbox',{name:'UUID продажи'})).not.toBeInTheDocument();
+  const found=await within(form).findByRole('button',{name:/CHX-101/});
+  await userEvent.setup().click(found);
+  expect(await within(form).findByRole('link',{name:'CHX-101'}))
+   .toHaveAttribute('href','/sales/'+SALE);
+  expect(api.fetchMock.mock.calls.some(([input])=>{
+   const u=new URL(String(input),'http://chairx.test');
+   return u.pathname==='/api/sales' && u.searchParams.get('status')==='FULFILLED';
+  })).toBe(true);
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать другой'}));
+  expect(within(form).getByRole('searchbox',{name:'Поиск выполненной продажи'})).toBeInTheDocument();
+  expect(api.count.returnPOST).toBe(0);
+ });
+ it('does not expose a warehouse UUID entry when inventory permissions are absent',async()=>{
+  access.permissions=['SALES_READ','RETURNS_READ','RETURNS_CREATE'];
+  const api=mockBackend();
+  renderAt('/returns/new?saleId='+SALE);
+  const form=await screen.findByRole('form',{name:'Создание возврата'});
+  expect(await within(form).findByText(/Для выбора склада возврата необходимо INVENTORY_READ/)).toBeInTheDocument();
+  expect(within(form).queryByRole('textbox',{name:'Склад возврата UUID'})).not.toBeInTheDocument();
+  expect(within(form).getByRole('button',{name:'Подтвердить физический возврат'})).toBeDisabled();
+  expect(api.fetchMock.mock.calls.some(([raw])=>String(raw)==='/api/warehouses')).toBe(false);
+ });
  it('creates an exact partial BLOCKED return with no extra defect or stock POST',async()=>{
   const a=mockBackend();renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
