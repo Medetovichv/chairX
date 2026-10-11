@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthProvider';
 import { closingApi, closingKeys } from '../features/daily-closing/api';
+import { ApiClientError } from '../shared/api/api-error';
 import { closingInputIssue, validClosingDate } from '../features/daily-closing/validation';
 import type { ClosingAccount, ClosingInput, ClosingReport } from '../features/daily-closing/types';
 import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-closing/verified-close';
@@ -130,7 +131,18 @@ export function DailyClosingPage() {
         allowed={write} title="Закрыть финансовый день?" label="Зафиксировать отчёт"
         operationKey={() => crypto.randomUUID()}
         meta={p => ({date, cash: p.actualCash, bank: p.actualBank})}
-        post={p => postVerifiedClosing(date, p)} onDone={refreshed}>
+        post={async p => {
+          try { return await postVerifiedClosing(date, p); }
+          catch (cause) {
+            if (cause instanceof ApiClientError &&
+              cause.code.startsWith('CLOSING_')) {
+              setError('Проверка перед закрытием не пройдена: данные, ожидаемые остатки или права могли измениться. Проверьте обновлённый расчёт и подтвердите заново.');
+              void access.refetch();
+              void preview.refetch();
+            }
+            throw cause;
+          }
+        }} onDone={refreshed}>
         {({start, locked}) => <form aria-label="Закрытие финансового дня" className="space-y-3"
           onSubmit={e => {
             e.preventDefault();

@@ -8,6 +8,7 @@ import { authSession } from '../features/auth/session';
 import { DailyClosingPage } from '../pages/DailyClosingPage';
 import { bishkekToday } from '../features/finance/validation';
 import { closingInputIssue, validClosingDate } from '../features/daily-closing/validation';
+import { postVerifiedClosing } from '../features/daily-closing/verified-close';
 import type { ClosingAccess, ClosingReport, CompletedSales } from '../features/daily-closing/types';
 
 const access = vi.hoisted(() => ({ permissions: ['DAILY_CLOSING_READ'] as string[] }));
@@ -121,6 +122,56 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(posts[0]).toEqual({actualCash:'4900',actualBank:'2000',cashNote:'Пересчёт кассы',bankNote:null});
   expect(await screen.findByText(/День закрыт/)).toBeInTheDocument();
   expect(screen.queryByRole('form',{name:'Закрытие финансового дня'})).not.toBeInTheDocument();
+ });
+
+ it('does not POST after displayed CASH/BANK expectation changed in a concurrent session',async()=>{
+  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  const calls:string[]=[]; const posts:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+    const path=String(url);calls.push(path);
+    if(init?.method==='POST'){posts.push(path);return json(report(),201);}
+    if(path.endsWith('/access'))return json(accessResult(false,true));
+    if(path.endsWith('/preview'))return json({
+      businessDate:day,expectedCash:'5100',expectedBank:'2000',
+    });
+    throw Error('Unexpected '+path);
+  }));
+  await expect(postVerifiedClosing(day,{
+    actualCash:'5000',actualBank:'2000',cashNote:null,bankNote:null,
+    approvedExpectedCash:'5000',approvedExpectedBank:'2000',
+  })).rejects.toMatchObject({code:'CLOSING_EXPECTED_BALANCE_CHANGED',status:400});
+  expect(posts).toHaveLength(0);
+  expect(calls).toContain('/api/finance/closings/'+day+'/preview');
+ });
+ it('does not POST when access changes to closed after the operator opened confirmation',async()=>{
+  access.permissions=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+  const posts:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+    const path=String(url);
+    if(init?.method==='POST'){posts.push(path);return json(report(),201);}
+    if(path.endsWith('/access'))return json(accessResult(true,false));
+    if(path.endsWith('/preview'))return json({
+      businessDate:day,expectedCash:'5000',expectedBank:'2000',
+    });
+    throw Error('Unexpected '+path);
+  }));
+  await expect(postVerifiedClosing(day,{
+    actualCash:'5000',actualBank:'2000',cashNote:null,bankNote:null,
+    approvedExpectedCash:'5000',approvedExpectedBank:'2000',
+  })).rejects.toMatchObject({code:'CLOSING_PREFLIGHT_DENIED_OR_CHANGED',status:400});
+  expect(posts).toHaveLength(0);
+ });
+ it('never sends closing POST when the preflight network request fails',async()=>{
+  const post=vi.fn();
+  vi.stubGlobal('fetch',vi.fn(async(_url:RequestInfo|URL,init?:RequestInit)=>{
+    if(init?.method==='POST')return post();
+    throw Error('Connection lost before POST');
+  }));
+  await expect(postVerifiedClosing(day,{
+    actualCash:'5000',actualBank:'2000',cashNote:null,bankNote:null,
+    approvedExpectedCash:'5000',approvedExpectedBank:'2000',
+  })).rejects.toMatchObject({code:'CLOSING_PREFLIGHT_UNAVAILABLE',status:400});
+  expect(post).not.toHaveBeenCalled();
  });
  it('shows revised expectation and explicitly requires reconciliation',async()=>{
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
