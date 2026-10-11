@@ -53,7 +53,9 @@ class API:
         if body is not None:
             data=json.dumps(body).encode()
             headers["Content-Type"]="application/json"
-            if hasattr(self,"csrf_token"): headers[self.csrf_header]=self.csrf_token
+        # Spring's CSRF also protects zero-body POSTs (confirm, dispatch, etc.).
+        if method.upper() in ("POST","PUT","PATCH","DELETE") and hasattr(self,"csrf_token"):
+            headers[self.csrf_header]=self.csrf_token
         req=urllib.request.Request(BASE+path,data=data,headers=headers,method=method)
         try: response=self.opener.open(req,timeout=15)
         except urllib.error.HTTPError as error: response=error

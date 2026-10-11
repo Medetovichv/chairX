@@ -16,3 +16,18 @@ The browser test is **destructive** and refuses to run without CI=true, an expli
 ## Not proven by CI
 
 Synthetic upgrade tests are not a migration rehearsal with a copy of existing business data. This automated browser scenario uses a closing with zero completed sales; the real business sale/delivery/returns workflow has dedicated PostgreSQL service-level integration tests, but no single real-browser purchase-to-refund journey is claimed here. A real-data migration rehearsal, comprehensive business-browser run, manual cash/bank reconciliation and human acceptance remain separate release gates. Keep Issue #32 open until these are explicitly done, even if automated CI turns green.
+
+
+## Populated cross-module acceptance — added in subsequent PR
+
+A separate disposable Compose/Chromium job executes one cohesive *real HTTP* business process end to end. It deliberately has a **different empty PostgreSQL volume** from the original empty-day closing test:
+
+- Create supplier, product, variant, customer and opening balances through authenticated REST APIs.
+- Attempt to sell without stock: business rejection, zero sales or ledger side effects.
+- Purchase six chairs; receive four into HOME and two into OFFICE; repeat receipt with the **same idempotency key**; verify one receipt, correct stock and no invented payment movement.
+- Sell three chairs across two warehouses for 25,500 som; record genuine MBANK payment; reject second active payment and assert no duplicate journal.
+- Dispatch and deliver, verify completed sale and stock consumption; return one sellable chair to HOME and refund 8,500 som, twice with the exact same operation keys; assert only one return/refund movement and final CASH/BANK 20,000 / 117,000 som.
+- Load real sale, delivery and populated daily closing in **Chromium**, confirm the financial day through the UI, and assert a saved immutable one-sale P22 snapshot, two closing account observations, unchanged finance ledger, and immutable today's close blocking further transfers.
+- Catalog-only HTTP credentials cannot mutate logistics or see financial reports; every financial negative path asserts the absence of unintended writes.
+
+**Precise scope:** API is used to perform procurement/warehouse/sale/delivery/refund actions; Chromium renders the **real stored** sale, delivery and closes the day interactively. This proves real browser presentation and API→database transactions, but does not assert every create/dispatch/refund button in the React UI. A fully click-driven sales-and-returns walk-through is still part of manual acceptance. Real-data migration and a multi-date historical correction scenario also remain distinct from this test.
