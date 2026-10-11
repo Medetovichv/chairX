@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | Catalog, supplier, customer | Integration tests and populated REST/Chromium purchase chain | Full desktop/mobile click workflow pending |
 | Purchasing and partial receiving | Authenticated API, real PG, two warehouses, replay and over-receipt guard | Cargo allocation variants, purchase-payment browser workflow |
-| Stock / FIFO / transfers | Backend inventory/cost integration tests | Cross-warehouse transfer browser walkthrough; existing server-side cost suppression is covered by backend integration tests |
+| Stock / FIFO / transfers | Backend inventory/cost integration tests | F13 real API + PG transfer HOME→OFFICE→HOME, idempotent replay, historical list/detail cost-free JSON now passed; employee browser clicks and blocked inventory still pending |
 | Sale/reservations | Backend, multi-warehouse sale API and Chromium detail | Parallel reservation last-chair UI, draft edit/cancel |
 | Deliveries and returns | Dispatch/delivery, partial sellable return, refund and read-only SQL invariants | Failed city/region delivery UX, BLOCKED return end-to-end |
 | Exchange and defects | Backend module integration tests | Full backend+UI purchase-to-exchange, defect parts/write-off scenario |
@@ -62,7 +62,7 @@ Issues found in later test runs must be added here with actual proof and PR.
    preview-vs-posting race, close exactly once, frozen closing.
 2. Previous Issue #32 populated flow: purchase, partial home/office receiving,
    sale, bank payment, deliver, partial refund, closing with real PG assertions.
-3. **F13 newly added:** real browser creates an unprivileged employee;
+3. **F13 passed in CI:** real browser creates an unprivileged employee;
    Admin API creates **test-only** warehouse/cashier roles and their permissions,
    assigns/revokes both roles; tests restricted actual API access, admin
    privilege injection denial, optimistic role version conflicts, permission
@@ -70,7 +70,8 @@ Issues found in later test runs must be added here with actual proof and PR.
    deactivation/reactivation, audit redaction. Restricted employee authenticates
    to the real inventory page in mobile Chromium and is denied finance.
    Same isolated runner and backend as existing populated flow.
-4. **Not yet marked as complete:** full browser click paths for every workflow,
+4. **F13 extended populated operations:** HOME→OFFICE→HOME inventory transfers through real authenticated HTTP after partial receipts, unchanged overall on-hand, duplicate transfer key/replay and conflict guards, 4 transfer stock movements, 2 FIFO origins, no cashier/bank journal effect, no cost fields in raw POST/list/detail JSON. The preexisting real sale/delivery/refund/closing flow still passes afterward.
+5. **Not yet marked as complete:** full browser click paths for every workflow,
    chaos/network response-loss recovery, staff device/accessibility and
    human physical stock/cash signoff. Automated test results will be linked
    here after verification, not assumed.
@@ -150,6 +151,6 @@ populated F11 business chain; never point the script at personal Compose data.
 - Baseline head: `b3afbfa` after F12 #35.
 - Source audit: SecurityConfig, F12 controllers/services, route/auth session,
   daily closing, F11 scripts, Docker Compose, Flyway upgrade script.
-- New F13 Chromium test: **PASS** on [GitHub Actions run 38136800992](https://github.com/Medetovichv/chairX/actions/runs/38136800992). Browser admin creates an employee, backend assigns/revokes custom roles, reset invalidates old HTTP Basic, mobile warehouse renders with finance forbidden. The same runner subsequently completed the purchase→delivery→refund→closing chain.
-- All six F11 release gate jobs on this F13 commit: **PASS** (Java full verify, frontend lint/type/Vitest/build, two Chromium jobs, multiday historical finance, V40 restore). Docker Compose smoke workflow: PASS.
+- New F13 Chromium test: **PASS** on [latest F13 Actions run 38137153409](https://github.com/Medetovichv/chairX/actions/runs/38137153409). Browser admin creates an employee, backend assigns/revokes custom roles, reset invalidates old HTTP Basic, mobile warehouse renders with finance forbidden. The same runner subsequently completed stock transfers both directions and the purchase→delivery→refund→closing chain.
+- All six F11 release gate jobs on the validated F13 code: **PASS** — Java 25/PostgreSQL Testcontainers full suite **676 tests, 0 failures, 0 errors, 1 skipped (operator-only private backup)**; Node 24 **355/355 frontend tests**, ESLint, typecheck and build; both Chromium E2Es, two-day financial correction and synthetic V40 PGDMP upgrade. Separate frontend verification and Docker Compose smoke: PASS. The document-only commits after this run do not change business or test code.
 - Full signoff and final audit: **pending**. No production deployment or merge.
