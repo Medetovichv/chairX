@@ -182,6 +182,18 @@ describe('F10 financial transaction journal and recovery',()=>{
   expect(screen.queryByRole('button',{name:'Повторить исходный запрос с прежним ключом'})).not.toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(1);
  });
+ it('does not mark an exactly reconciled financial posting unknown when only refresh fails',async()=>{
+  const post=vi.fn().mockRejectedValue(new ApiClientError('network','LOST'));
+  renderGuard({post,kind:'reconciled-refresh-error',reconcile:async p=>p.key===validID,
+   onDone:async()=>{throw Error('React Query refresh failed');}});
+  await confirm();
+  expect(await screen.findByText(/Результат финансовой операции неизвестен/)).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Сверить с backend'}));
+  expect(await screen.findByText(/Операция подтверждена backend, но обновить данные не удалось/)).toBeInTheDocument();
+  expect(screen.queryByText(/Результат всё ещё неизвестен/)).not.toBeInTheDocument();
+  expect(readFinancePending('f10-operator','reconciled-refresh-error','test-scope').kind).toBe('missing');
+  expect(post).toHaveBeenCalledTimes(1);
+ });
  it('confirms a previously ambiguous operation via exact backend lookup without POST replay',async()=>{
   const post=vi.fn().mockRejectedValue(new ApiClientError('network','LOST'));
   const first=renderGuard({post,kind:'reconcile',reconcile:async()=>true});
