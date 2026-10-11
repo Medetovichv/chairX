@@ -9,6 +9,16 @@ on:
       - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/f11-release-gate.yml'
+      - 'scripts/f11-browser-e2e.py'
+      - 'scripts/f11-operations-e2e.py'
+      - 'scripts/f13-admin-e2e.py'
+      - 'backend/**'
+      - 'frontend/**'
   workflow_dispatch:
 
 permissions:
