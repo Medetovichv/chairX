@@ -25,6 +25,9 @@ export function CatalogPage() {
   const [categoryInput, setCategoryInput] = useState('');
   const [filters, setFilters] = useState<CatalogListFilters>({ search: '', category: '', active: null });
   useEffect(() => {
+    // Do not reset pagination on initial mount or a no-op filter update.
+    // Otherwise the delayed 350ms callback can race a user's "Next" click.
+    if (searchInput.trim() === filters.search && categoryInput.trim() === filters.category) return;
     const timer = setTimeout(() => {
       setPage(0);
       setFilters(previous => {
@@ -33,7 +36,7 @@ export function CatalogPage() {
       });
     }, 350);
     return () => clearTimeout(timer);
-  }, [searchInput, categoryInput]);
+  }, [searchInput, categoryInput, filters.search, filters.category]);
   const listing = useQuery({
     queryKey: catalogKeys.products(page, filters),
     queryFn: () => catalogApi.listProducts(page, filters),
