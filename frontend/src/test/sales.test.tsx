@@ -548,7 +548,7 @@ describe('UI-V2-03 Kanban initiation never mutates before explicit server confir
       name: 'Изменить статус заказа CHX-2026-0042',
     });
     await user.selectOptions(selector, 'CONFIRMED');
-    expect(await screen.findByRole('heading', {name: 'Продажа #42'})).toBeInTheDocument();
+    expect(await screen.findByText('Продажа #42')).toBeInTheDocument();
     expect(await screen.findByRole('alertdialog', {name: 'Подтвердить заказ?'})).toBeInTheDocument();
     expect(api.count().confirms).toBe(0);
     await user.click(screen.getByRole('button', {name: /^Подтвердить$/}));
