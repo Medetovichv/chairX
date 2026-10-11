@@ -66,7 +66,7 @@ export function MovementHistory({ line, warehouses, preferredWarehouseId }: {
                   <td className="px-4 py-3">{movementNames[entry.type] ?? entry.type}</td>
                   <td className="px-4 py-3">{entry.quantity}</td>
                   <td className="px-4 py-3">{entry.actor ?? '—'}</td>
-                  <td className="px-4 py-3">{entry.sourceType}{entry.sourceId ? ' · ' + entry.sourceId : ''}</td>
+                  <td className="px-4 py-3">{entry.sourceType || 'Операция'}</td>
                 </tr>)}
               </tbody>
             </table>
