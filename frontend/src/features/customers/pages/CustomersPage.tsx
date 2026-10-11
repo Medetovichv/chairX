@@ -58,11 +58,11 @@ export function CustomersPage() {
   const pageSize = result && result.kind !== 'limited-search' ? result.data.size : 20;
 
   return <div className="space-y-6">
-    <PageHeader title="Клиенты" description="Контакты и история заказов для ежедневной работы."
-      action={canCreate ? <Button disabled={creating} onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
+    <PageHeader title={creating?'Новый клиент':'Клиенты'}
+      action={canCreate&&!creating ? <Button onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
     {creating && canCreate && <CustomerForm onSave={async (data) => { await create.mutateAsync(data); }}
       onCancel={() => setCreating(false)} />}
-    <section aria-label="Поиск и список клиентов" className="space-y-3">
+    {!creating&&<section aria-label="Поиск и список клиентов" className="space-y-3">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
         <CustomerSearch value={search} onChange={(value) => { setSearch(value); setPage(0); }} />
       </div>
@@ -81,6 +81,6 @@ export function CustomersPage() {
                 </p> : total !== null ? <CustomerPager page={pageIndex} size={pageSize}
                   total={total} onPage={setPage} /> : null}
             </div>}
-    </section>
+    </section>}
   </div>;
 }
