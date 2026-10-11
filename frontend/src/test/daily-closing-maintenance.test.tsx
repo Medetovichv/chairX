@@ -146,6 +146,6 @@ describe('F11 maintenance: RBAC, optimistic edit and corrections',()=>{
     await waitFor(()=>expect(posts).toHaveLength(1));
     expect(posts[0]).toMatchObject({expenseDate:day,amount:'1500',
       paymentMethod:'CASH',category:'OTHER'});
-    expect(posts[0].idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+    expect(posts[0]?.idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
