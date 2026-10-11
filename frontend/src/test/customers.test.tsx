@@ -228,6 +228,21 @@ describe('F05 customer list / permissions', () => {
 });
 
 describe('F05 customer creation and validation', () => {
+  it('shows a focused new-customer form and restores the previous list on cancellation',async()=>{
+    const {calls}=mockBackend();
+    renderAt();
+    await screen.findByRole('cell',{name:'Алия'});
+    await userEvent.setup().click(screen.getByRole('button',{name:'+ Добавить клиента'}));
+    expect(screen.getByRole('form',{name:'Создание клиента'})).toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Поиск и список клиентов'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox',{name:'Поиск клиентов'})).not.toBeInTheDocument();
+    await userEvent.setup().click(form().getByRole('button',{name:'Отмена'}));
+    expect(screen.getByRole('searchbox',{name:'Поиск клиентов'})).toBeInTheDocument();
+    expect(screen.getByRole('cell',{name:'Алия'})).toBeInTheDocument();
+    expect(calls.mock.calls.filter(([url,init])=>String(url)==='/api/customers'&&
+      (init as RequestInit)?.method==='POST')).toHaveLength(0);
+  });
+
   it.each([['Основной телефон', 'phone', '+996700445566'], ['WhatsApp', 'whatsappPhone', '+996777555666'],
     ['Instagram', 'instagramUsername', 'some.client']])(
     'creates a nameless client using only %s', async (label, field, value) => {
