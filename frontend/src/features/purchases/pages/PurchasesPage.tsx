@@ -61,7 +61,7 @@ export function PurchasesPage() {
     setFilters(f => ({ ...f, [field]: value, page:0 }));
   }
   const overview = useQuery({
-    queryKey: purchaseKeys.overview(filters), queryFn: () => purchaseApi.overview(filters), enabled: allowed,
+    queryKey: purchaseKeys.overview(filters), queryFn: () => purchaseApi.overview(filters), enabled: allowed && !creating,
   });
   const suppliers = useQuery({
     queryKey: purchaseKeys.supplierAll, queryFn: supplierApi.all,
@@ -74,13 +74,13 @@ export function PurchasesPage() {
   } });
   if (!allowed || overview.error instanceof ApiClientError && overview.error.status===403) return <ForbiddenPage />;
   return <div className="space-y-6">
-    <PageHeader title="Закупки" description="Закупки у поставщиков и фактические поступления кресел."
-      action={canCreate ? <Button disabled={creating} onClick={() => setCreating(true)}>+ Новая закупка</Button> : undefined} />
-    <PurchaseTabs />
+    <PageHeader title={creating ? 'Новая закупка' : 'Закупки'}
+      action={canCreate && !creating ? <Button onClick={() => setCreating(true)}>+ Новая закупка</Button> : undefined} />
+    {!creating && <PurchaseTabs />}
     {notice && <p role="status">{notice}</p>}
     {creating && canCreate && <PurchaseForm onCancel={() => setCreating(false)}
       onSave={async value => { await create.mutateAsync(value); }} />}
-    <section aria-label="Фильтры закупок" className="rounded-2xl border border-slate-200 bg-white p-4">
+    {!creating && <><section aria-label="Фильтры закупок" className="rounded-2xl border border-slate-200 bg-white p-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-sm font-semibold">Статус
           <select aria-label="Фильтр статуса закупки" value={filters.status}
@@ -123,6 +123,6 @@ export function PurchasesPage() {
       !overview.data?.items.length ? <EmptyState title="Закупки не найдены" description="Измените фильтры или добавьте первую закупку." /> :
       <div><PurchaseTable lines={overview.data.items} />
         <PurchasePager page={overview.data.page} total={overview.data.total} size={overview.data.size}
-          label="закупок" onPage={page => setFilters(old => ({...old,page}))} /></div>}
+          label="закупок" onPage={page => setFilters(old => ({...old,page}))} /></div>}</>}
   </div>;
 }
