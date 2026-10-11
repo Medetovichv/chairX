@@ -21,10 +21,11 @@ public class InventoryOverviewController {
             @RequestParam(required = false) UUID warehouseId,
             @RequestParam(required = false) String model,
             @RequestParam(required = false) String variation,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "false") boolean includeZero,
             @RequestParam(defaultValue = "false") boolean onlyAvailable,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return overview.list(warehouseId, model, variation, includeZero, onlyAvailable, page, size);
+        return overview.list(warehouseId, model, variation, search, includeZero, onlyAvailable, page, size);
     }
 }
