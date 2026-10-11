@@ -133,7 +133,7 @@ function Detail({ purchase }: { purchase: Purchase }) {
               <div className="min-w-0">
                 <h4 className="font-bold text-slate-900">
                   {line.modelName ?? 'Кресло — название недоступно'}
-                  {line.variantName && <span> · {line.variantName}</span>}
+                  {line.variantName ? ' · ' + line.variantName : ''}
                 </h4>
                 {line.sku && <p className="mt-1 text-xs text-slate-500">Артикул: {line.sku}</p>}
                 {line.productId && hasPermission('CATALOG_READ') && <Link
