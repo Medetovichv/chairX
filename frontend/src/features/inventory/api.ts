@@ -1,6 +1,6 @@
 import { apiClient } from '../../shared/api/client';
 import type {
-  Warehouse, WarehousePage, WarehouseStockSummary, InventoryOverviewPage, InventoryFilters, InventoryBalance,
+  Warehouse, WarehousePage, WarehouseCreateInput, WarehouseUpdateInput, WarehouseStockSummary, InventoryOverviewPage, InventoryFilters, InventoryBalance,
   MovementPage, TransferInput, TransferPage, TransferResult, InventoryTransfer, TransferFilters,
 } from './types';
 
@@ -18,7 +18,7 @@ export const inventoryKeys = {
   overviewPrefix: ['inventory', 'overview'] as const,
   warehouseSummary: ['inventory', 'warehouse-summary'] as const,
   overview: (f: InventoryFilters) =>
-    ['inventory', 'overview', f.warehouseId, f.model, f.variation,
+    ['inventory', 'overview', f.warehouseId, f.model, f.variation, f.search ?? '',
       f.includeZero, f.onlyAvailable, f.page, f.size] as const,
   balancePrefix: ['inventory', 'balance'] as const,
   balance: (warehouseId: string, variantId: string) =>
@@ -46,9 +46,15 @@ export const inventoryApi = {
     return all;
   },
   warehouseSummary: () => apiClient.get<WarehouseStockSummary[]>('/api/inventory/warehouse-summary'),
+  createWarehouse: (input: WarehouseCreateInput) => apiClient.post<Warehouse>('/api/warehouses', input),
+  updateWarehouse: (id: string, input: WarehouseUpdateInput) =>
+    apiClient.put<Warehouse>('/api/warehouses/' + urlId(id), input),
+  activateWarehouse: (id: string) => apiClient.post<Warehouse>('/api/warehouses/' + urlId(id) + '/activate', {}),
+  deactivateWarehouse: (id: string) => apiClient.post<Warehouse>('/api/warehouses/' + urlId(id) + '/deactivate', {}),
   overview: (filters: InventoryFilters) =>
     apiClient.get<InventoryOverviewPage>('/api/inventory/overview?' + query({
       warehouseId: filters.warehouseId, model: filters.model, variation: filters.variation,
+      search: filters.search ?? '',
       includeZero: filters.includeZero, onlyAvailable: filters.onlyAvailable,
       page: filters.page, size: filters.size,
     })),
