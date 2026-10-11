@@ -23,6 +23,9 @@ import kg.chairx.returning.api.CreateReturnRequest;
 import kg.chairx.returning.api.CreateReturnItemRequest;
 import kg.chairx.returning.application.ReturnService;
 import kg.chairx.returning.domain.ReturnCondition;
+import kg.chairx.refund.api.CreateRefundRequest;
+import kg.chairx.refund.application.RefundService;
+import kg.chairx.refund.domain.RefundMethod;
 import java.util.UUID;
 import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
@@ -50,11 +53,12 @@ public class DemoCatalogSeedService {
     private final DeliveryService deliveries;
     private final PaymentService payments;
     private final ReturnService returns;
+    private final RefundService refunds;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
             ProductVariantService variants, SupplierService suppliers, CustomerService customers,
             PurchaseService purchases, ReceivePurchase receiving, SaleService sales, DeliveryService deliveries,
-            PaymentService payments, ReturnService returns) {
+            PaymentService payments, ReturnService returns, RefundService refunds) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
@@ -66,6 +70,7 @@ public class DemoCatalogSeedService {
         this.deliveries = deliveries;
         this.payments = payments;
         this.returns = returns;
+        this.refunds = refunds;
     }
 
     @Transactional
@@ -197,9 +202,12 @@ public class DemoCatalogSeedService {
         payments.create(new CreatePaymentRequest(completed.id(),PaymentMethod.TRANSFER,
                 "DEMO-MBANK-001", "DEMO · Оплата заказа"));
         sales.fulfill(completed.id());
-        returns.create(new CreateReturnRequest(completed.id(),home,UUID.randomUUID(),
+        var returned = returns.create(new CreateReturnRequest(completed.id(),home,UUID.randomUUID(),
                 List.of(new CreateReturnItemRequest(completed.items().getFirst().id(),1,
                         ReturnCondition.SELLABLE)),"DEMO · Клиент вернул кресло",null));
+        refunds.create(new CreateRefundRequest(completed.id(),returned.id(),
+                new BigDecimal("8500"),RefundMethod.TRANSFER,
+                "DEMO · Компенсация за возврат",null,null,UUID.randomUUID()));
 
         jdbc.update("insert into chairx_demo_seed_versions(version) values (3)");
     }
