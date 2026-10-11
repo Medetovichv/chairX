@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -6,6 +7,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { customerKeys, customersApi } from '../api';
 import { customerDate, saleAmount } from '../validation';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { CustomerPager } from './CustomerPager';
 import type { SaleSummary } from '../types';
 
@@ -19,7 +21,7 @@ function SaleLines({ lines }: { lines: SaleSummary[] }) {
         </tr></thead>
         <tbody className="divide-y divide-slate-100">
           {lines.map((sale) => <tr key={sale.id}>
-            <td className="px-4 py-4 font-semibold">{sale.saleNumber}</td>
+            <td className="px-4 py-4 font-semibold"><Link className="text-blue-700 underline-offset-2 hover:underline focus-visible:underline" to={'/sales/'+encodeURIComponent(sale.id)}>{displaySaleNumber(sale.saleNumber)}</Link></td>
             <td className="px-4 py-4">{customerDate(sale.createdAt)}</td>
             <td className="px-4 py-4">{sale.products || '—'}</td>
             <td className="px-4 py-4">{sale.quantity}</td>
@@ -34,7 +36,7 @@ function SaleLines({ lines }: { lines: SaleSummary[] }) {
     <div className="divide-y divide-slate-100 lg:hidden">
       {lines.map((sale) => <article key={sale.id} className="space-y-2 p-4 text-sm">
         <div className="flex items-center justify-between gap-3">
-          <strong className="break-all">{sale.saleNumber}</strong>
+          <Link className="font-bold text-blue-700 underline-offset-2 hover:underline focus-visible:underline" to={'/sales/'+encodeURIComponent(sale.id)}>{displaySaleNumber(sale.saleNumber)}</Link>
           <span className="text-slate-500">{customerDate(sale.createdAt)}</span>
         </div>
         <p>{sale.products || 'Товары не указаны'} · {sale.quantity} шт.</p>

@@ -259,7 +259,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(urls.some(x=>x.includes('/api/expenses?from='))).toBe(true);
   expect(urls.some(x=>x.includes('/api/expenses/total?from='))).toBe(true);
  });
- it('client payment is always full sale total and MBANK maps to TRANSFER, without amount request field',async()=>{
+ it('client payment offers only cash and transfer and posts the full total without amount' ,async()=>{
   access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE'];
   const recorded:unknown[]=[];
   let paid:unknown[]=[];
@@ -281,14 +281,15 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   wrapper(<SaleFinancialSection sale={sale}/>);
   const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
   await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
+  expect(within(form).getAllByRole('option').map(o => o.textContent)).toEqual(['Наличные', 'Перевод']);
   fireEvent.change(within(form).getByRole('combobox',{name:'Канал клиентской оплаты'}),
-   {target:{value:'MBANK'}});
+   {target:{value:'BANK_TRANSFER'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'}));
   expect(screen.getByRole('alertdialog')).toHaveTextContent(/8.*500 сом/);
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Подтвердить оплату'}));
   await waitFor(()=>expect(recorded).toHaveLength(1));
-  expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'MBANK',reference:null,comment:null});
+  expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:null});
   expect((recorded[0] as Record<string,unknown>).amount).toBeUndefined();
  });
  it('draft sale cannot send a normal customer payment',()=>{

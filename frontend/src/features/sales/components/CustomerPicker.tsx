@@ -12,7 +12,7 @@ import type { Customer } from '../../customers/types';
 
 function display(customer:Customer):string {
   return customer.fullName?.trim() || customer.phone || customer.whatsappPhone ||
-    (customer.instagramUsername ? '@'+customer.instagramUsername : '') || customer.id;
+    (customer.instagramUsername ? '@'+customer.instagramUsername : '') || 'Клиент без имени';
 }
 export function CustomerPicker({value,onChange,disabled=false}:{
   value:string|null;onChange:(id:string|null)=>void;disabled?:boolean;
@@ -44,14 +44,14 @@ export function CustomerPicker({value,onChange,disabled=false}:{
         + Создать клиента через F05</Link>}
     </div>
     {value && <div className="rounded-xl bg-indigo-50 p-3 text-sm">
-      <p>Выбран: <strong>{picked?display(picked):value}</strong></p>
+      <p>Выбран: <strong>{picked?display(picked):'Загружаем клиента…'}</strong></p>
       {picked && <p className="text-slate-600">{[picked.phone,picked.whatsappPhone,picked.cityRegion].filter(Boolean).join(' · ')}</p>}
       <Button type="button" variant="outline" size="sm" disabled={disabled}
         className="mt-2" onClick={()=>{onChange(null);setSelected(null);}}>Убрать клиента</Button>
     </div>}
     {!allowed && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
       Без CUSTOMERS_READ поиск клиентов недоступен. Можно сохранить черновик без клиента.
-      {value&&' Указанный ранее UUID сохранится при редактировании.'}
+      {value&&' Ранее выбранный клиент сохранится при редактировании.'}
     </p>}
     {allowed && <>
       <label className="block space-y-2 text-sm font-semibold">Найти клиента
@@ -68,7 +68,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
           {results.data?.map(customer=><div key={customer.id} className="flex flex-wrap justify-between gap-3 p-3 text-sm">
             <div className="min-w-0">
               <p className="font-semibold">{display(customer)}</p>
-              <p className="text-xs text-slate-500">{[customer.phone,customer.whatsappPhone,customer.cityRegion].filter(Boolean).join(' · ')||customer.id}</p>
+              <p className="text-xs text-slate-500">{[customer.phone,customer.whatsappPhone,customer.cityRegion].filter(Boolean).join(' · ')||'Контакты не указаны'}</p>
             </div>
             <Button type="button" variant="outline" disabled={disabled||!customer.active}
               onClick={()=>{setSelected(customer);onChange(customer.id);setSearch('');setQuery('');}}>

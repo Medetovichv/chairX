@@ -270,7 +270,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       </div>}
     <section aria-label="Карточка заказа" className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm sm:grid-cols-2">
       <div><p className="text-slate-500">Статус</p><SaleStatusBadge status={sale.status}/></div>
-      <div><p className="text-slate-500">Клиент</p><p className="font-semibold break-all">{customerLabel}</p></div>
+      <div><p className="text-slate-500">Клиент</p>
+        {sale.customerId && hasPermission('CUSTOMERS_READ') && customer.data
+          ? <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline focus-visible:underline" to={'/customers/'+encodeURIComponent(sale.customerId)}>{customerLabel}</Link>
+          : <p className="font-semibold">{customerLabel}</p>}
+      </div>
       <div><p className="text-slate-500">Создан</p><p className="font-semibold">{saleDate(sale.createdAt)}</p></div>
       <div><p className="text-slate-500">Способ получения</p><p className="font-semibold">
         {sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:'Не указан'}</p></div>
