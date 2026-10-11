@@ -14,6 +14,8 @@ import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
+import kg.chairx.delivery.api.CreateDeliveryRequest;
+import kg.chairx.delivery.application.DeliveryService;
 import java.util.UUID;
 import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
@@ -38,10 +40,11 @@ public class DemoCatalogSeedService {
     private final PurchaseService purchases;
     private final ReceivePurchase receiving;
     private final SaleService sales;
+    private final DeliveryService deliveries;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
             ProductVariantService variants, SupplierService suppliers, CustomerService customers,
-            PurchaseService purchases, ReceivePurchase receiving, SaleService sales) {
+            PurchaseService purchases, ReceivePurchase receiving, SaleService sales, DeliveryService deliveries) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
@@ -50,6 +53,7 @@ public class DemoCatalogSeedService {
         this.purchases = purchases;
         this.receiving = receiving;
         this.sales = sales;
+        this.deliveries = deliveries;
     }
 
     @Transactional
@@ -166,9 +170,13 @@ public class DemoCatalogSeedService {
         sales.create(new CreateSaleRequest(UUID.randomUUID(),aybek,
                 FulfillmentType.SELF_PICKUP,
                 List.of(new CreateSaleItemRequest(black,home,1,new BigDecimal("8500")))));
-        sales.create(new CreateSaleRequest(UUID.randomUUID(),alina,
+        var deliverySale = sales.create(new CreateSaleRequest(UUID.randomUUID(),alina,
                 FulfillmentType.CITY_DELIVERY,
                 List.of(new CreateSaleItemRequest(gray,office,1,new BigDecimal("8500")))));
+        deliveries.create(new CreateDeliveryRequest(deliverySale.id(),
+                "DEMO · Алина","+996700000002","Бишкек, учебная улица, 1",
+                "Бишкек",BigDecimal.ZERO,"DEMO · Курьер",null,
+                "DEMO · Доставка ожидает отправки"));
 
         jdbc.update("insert into chairx_demo_seed_versions(version) values (3)");
     }
