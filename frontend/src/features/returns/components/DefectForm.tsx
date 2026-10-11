@@ -124,15 +124,15 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
         onChange={e=>setReceiptItemId(e.target.value)}
         className="min-h-11 w-full rounded-xl border border-slate-200 bg-white p-2">
         <option value="">Не привязывать поступление</option>
-        {receipts.data?.items.map(item=><option key={item.id} value={item.id}>
+        {receipts.data?.items?.map(item=><option key={item.id} value={item.id}>
           {item.model} — {item.variant} · {item.warehouse} · {new Date(item.postedAt).toLocaleDateString('ru-RU')} · {item.quantity} шт. · {item.supplier}
         </option>)}
        </select>
       </label>
       {receipts.isError&&<p role="alert" className="text-sm text-red-700">Не удалось получить поступления.
        <Button type="button" variant="outline" onClick={()=>void receipts.refetch()}>Повторить</Button></p>}
-      {receipts.data&&!receipts.data.items.length&&<p className="text-xs text-slate-600">Подходящих поступлений на этой странице нет. Можно зарегистрировать брак без привязки.</p>}
-      {receipts.data&&receipts.data.total>20&&<div className="flex items-center gap-2 text-sm">
+      {receipts.data&&!receipts.data.items?.length&&<p className="text-xs text-slate-600">Подходящих поступлений на этой странице нет. Можно зарегистрировать брак без привязки.</p>}
+      {receipts.data&&(receipts.data.total??0)>20&&<div className="flex items-center gap-2 text-sm">
        <Button type="button" variant="outline" disabled={receiptPage===0||blocked} onClick={()=>{setReceiptPage(p=>p-1);setReceiptItemId('');}}>Назад</Button>
        <span>Страница {receiptPage+1}</span>
        <Button type="button" variant="outline" disabled={(receiptPage+1)*20>=receipts.data.total||blocked}
