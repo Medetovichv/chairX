@@ -25,9 +25,10 @@ public class ReturnController {
 
     @GetMapping
     public ReturnPageResponse list(@RequestParam(required=false) UUID saleId,
+            @RequestParam(required=false) String number,
             @RequestParam(defaultValue="0") int page,
             @RequestParam(defaultValue="20") int size) {
-        return service.list(saleId,page,size);
+        return service.list(saleId,number,page,size);
     }
 
     @PostMapping

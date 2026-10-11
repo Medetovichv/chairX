@@ -239,11 +239,13 @@ public class ReturnService {
     }
 
     @Transactional(readOnly = true)
-    public ReturnPageResponse list(UUID saleId,int page,int size) {
-        if(page<0 || size<1 || size>100)
+    public ReturnPageResponse list(UUID saleId,String number,int page,int size) {
+        if(page<0 || size<1 || size>100 || (number!=null && number.length()>100))
             throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры поиска возвратов");
-        return new ReturnPageResponse(returnRepository.list(saleId,page,size),
-                page,size,returnRepository.count(saleId));
+        String term=number==null||number.isBlank()?null:number.trim().replaceFirst("^#", "");
+        if(term!=null && term.isEmpty())term=null;
+        return new ReturnPageResponse(returnRepository.list(saleId,term,page,size),
+                page,size,returnRepository.count(saleId,term));
     }
 
     @Transactional(readOnly = true)

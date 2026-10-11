@@ -27,26 +27,37 @@ public class ReturnRepository {
         this.jdbc = jdbc;
     }
 
-    public List<ReturnSummary> list(UUID saleId,int page,int size) {
+    public List<ReturnSummary> list(UUID saleId,String number,int page,int size) {
+        // Join once on the server. No N+1 sales lookup from the return list.
         return jdbc.sql("""
-                SELECT id,sale_id,warehouse_id,created_at,reason,created_by
-                FROM returns
-                WHERE (CAST(:sale AS uuid) IS NULL OR sale_id=:sale)
-                ORDER BY created_at DESC,id DESC LIMIT :size OFFSET :offset
+                SELECT r.id,r.sale_id,r.warehouse_id,r.created_at,r.reason,r.created_by,
+                       s.sale_number
+                FROM returns r
+                JOIN sales s ON s.id = r.sale_id
+                WHERE (CAST(:sale AS uuid) IS NULL OR r.sale_id=:sale)
+                  AND (CAST(:number AS text) IS NULL OR
+                       position(lower(:number) in lower(s.sale_number)) > 0)
+                ORDER BY r.created_at DESC,r.id DESC LIMIT :size OFFSET :offset
                 """).param("sale",saleId,Types.OTHER)
+                .param("number",number,Types.VARCHAR)
                 .param("size",size).param("offset",(long)page*size)
                 .query((r,row)->new ReturnSummary(
                         r.getObject("id",UUID.class),r.getObject("sale_id",UUID.class),
                         r.getObject("warehouse_id",UUID.class),
                         r.getTimestamp("created_at").toInstant(),r.getString("reason"),
-                        r.getString("created_by"))).list();
+                        r.getString("created_by"),r.getString("sale_number"))).list();
     }
 
-    public long count(UUID saleId) {
+    public long count(UUID saleId,String number) {
         return jdbc.sql("""
-                SELECT COUNT(*) FROM returns
-                WHERE (CAST(:sale AS uuid) IS NULL OR sale_id=:sale)
-                """).param("sale",saleId,Types.OTHER).query(Long.class).single();
+                SELECT COUNT(*) FROM returns r
+                JOIN sales s ON s.id = r.sale_id
+                WHERE (CAST(:sale AS uuid) IS NULL OR r.sale_id=:sale)
+                  AND (CAST(:number AS text) IS NULL OR
+                       position(lower(:number) in lower(s.sale_number)) > 0)
+                """).param("sale",saleId,Types.OTHER)
+                .param("number",number,Types.VARCHAR)
+                .query(Long.class).single();
     }
 
     public boolean tryInsert(
