@@ -3,6 +3,8 @@ import { Link,useParams } from 'react-router';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { returnsApi,returnKeys } from '../../returns/api';
+import { salesApi,salesKeys } from '../../sales/api';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { financeApi,financeKeys } from '../api';
 import { GuardedPost } from '../components/GuardedPost';
 import { validateRefund,positiveSom,optional,som,validUUID } from '../validation';
@@ -27,6 +29,8 @@ export function ReturnRefundPage(){
  const client=useQueryClient();
  const q=useQuery({queryKey:returnKeys.detail(returnId),
   queryFn:()=>returnsApi.get(returnId),enabled:allowed&&validUUID(returnId)});
+ const sale=useQuery({queryKey:salesKeys.detail(q.data?.saleId??''),
+  queryFn:()=>salesApi.get(q.data!.saleId),enabled:allowed&&hasPermission('SALES_READ')&&!!q.data});
  const [amount,setAmount]=useState(''),[method,setMethod]=useState<RefundMethod>('CASH');
  const [reason,setReason]=useState(''),[reference,setReference]=useState('');
  const [comment,setComment]=useState(''),[error,setError]=useState('');
@@ -47,15 +51,15 @@ export function ReturnRefundPage(){
  }
  return <div className="space-y-5">
   <Link to={'/returns/'+r.id} className="font-semibold text-indigo-700 underline">← Физический возврат</Link>
-  <PageHeader title="Денежный возврат" description={'Физический Return: '+r.id}/>
+  <PageHeader title="Денежный возврат" description="Компенсация за оформленный физический возврат"/>
   <section className="rounded-xl border bg-white p-4 text-sm">
-   <p className="break-all">Продажа: <strong>{r.saleId}</strong></p>
+   <p>Продажа: {hasPermission('SALES_READ')? (sale.data?<Link className="font-semibold text-blue-700 underline" to={'/sales/'+encodeURIComponent(r.saleId)}>{displaySaleNumber(sale.data.saleNumber)}</Link>:'Номер заказа недоступен'):'Недоступно для вашей роли'}</p>
    <p>Причина физического возврата: {r.reason}</p>
-   <p>Здесь проводится только денежный Refund. Товар не возвращается на склад повторно.</p>
+   <p>Здесь проводится только денежная компенсация. Товар не возвращается на склад повторно.</p>
   </section>
   {confirmed&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
    Денежный возврат подтверждён backend: {som(confirmed.amount)}.
-   Номер операции: {confirmed.id}.
+   Операция зарегистрирована.
   </p>}
   <GuardedPost<RefundInput> kind="return-refund" scope={r.id} allowed={allowed}
    title="Подтвердить денежный возврат?" label="Списать деньги клиенту" destructive canReplay
@@ -70,7 +74,7 @@ export function ReturnRefundPage(){
     client.setQueryData(financeKeys.refunds(r.saleId),list);
     return false;
    }:undefined}>
-   {({start,locked})=><form aria-label="Денежный Refund по физическому возврату"
+   {({start,locked})=><form aria-label="Денежный возврат по физическому возврату"
     className="space-y-3 rounded-xl border bg-white p-4" onSubmit={e=>{
     e.preventDefault();
     const p:RefundInput={idempotencyKey:crypto.randomUUID(),saleId:r.saleId,returnId:r.id,
@@ -78,31 +82,30 @@ export function ReturnRefundPage(){
     const issue=validateRefund(p);
     if(issue){setError(issue);return;}
     setError('');
-    start(p,'Денежная компенсация '+som(p.amount)+' клиенту за Return '+r.id+
-     '. Счёт списания: '+(p.method==='CASH'?'CASH':'BANK')+
+    start(p,'Денежная компенсация '+som(p.amount)+' клиенту за физический возврат. Способ списания: '+(p.method==='CASH'?'наличные':'перевод')+
      '. Backend проверит активную оплату, стоимость исходных позиций, ранее проведённые компенсации и обмены.');
    }}>
     <label className="block space-y-1 text-sm font-semibold">Сумма, целые сомы
-     <Input aria-label="Сумма Refund по Return" value={amount} maxLength={17} inputMode="numeric"
+     <Input aria-label="Сумма денежного возврата" value={amount} maxLength={17} inputMode="numeric"
       disabled={locked} onChange={e=>setAmount(e.target.value)}/></label>
     <label className="block space-y-1 text-sm font-semibold">Метод денежного возврата
-     <select aria-label="Способ Refund по Return" value={method} disabled={locked}
+     <select aria-label="Способ денежного возврата" value={method} disabled={locked}
       onChange={e=>setMethod(e.target.value as RefundMethod)}
       className="min-h-11 w-full rounded-xl border p-2">
-      <option value="CASH">CASH — наличные</option><option value="TRANSFER">TRANSFER — банк</option>
+      <option value="CASH" >Наличные</option><option value="TRANSFER">Перевод</option>
      </select></label>
     <label className="block space-y-1 text-sm font-semibold">Причина *
-     <Input aria-label="Причина Refund по Return" value={reason} maxLength={500}
+     <Input aria-label="Причина денежного возврата" value={reason} maxLength={500}
       disabled={locked} onChange={e=>setReason(e.target.value)}/></label>
-    <label className="block space-y-1 text-sm font-semibold">Reference
-     <Input aria-label="Reference Refund по Return" value={reference} maxLength={200}
+    <label className="block space-y-1 text-sm font-semibold">Назначение перевода
+     <Input aria-label="Назначение перевода" value={reference} maxLength={200}
       disabled={locked} onChange={e=>setReference(e.target.value)}/></label>
     <label className="block space-y-1 text-sm font-semibold">Комментарий
-     <textarea aria-label="Комментарий Refund по Return" className="w-full rounded-xl border p-2"
+     <textarea aria-label="Комментарий денежного возврата" className="w-full rounded-xl border p-2"
       value={comment} maxLength={1000} disabled={locked} onChange={e=>setComment(e.target.value)}/></label>
     <p className="text-xs text-slate-600">Точная доступная сумма неизвестна frontend: не рассчитываем её по текущему каталогу. Бизнес-правила проверит backend.</p>
     {error&&<p role="alert" className="text-red-700">{error}</p>}
-    <Button type="submit" disabled={locked||!positiveSom(amount)}>Подтвердить Refund</Button>
+    <Button type="submit" disabled={locked||!positiveSom(amount)}>Подтвердить возврат</Button>
    </form>}
   </GuardedPost>
  </div>;

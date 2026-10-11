@@ -5,6 +5,15 @@ import kg.chairx.purchase.api.*;
 import kg.chairx.purchase.application.*;
 import kg.chairx.purchase.domain.*;
 import kg.chairx.sale.api.*;
+import kg.chairx.delivery.api.CreateDeliveryRequest;
+import kg.chairx.delivery.application.DeliveryService;
+import kg.chairx.returning.api.CreateReturnRequest;
+import kg.chairx.returning.api.CreateReturnItemRequest;
+import kg.chairx.returning.application.ReturnService;
+import kg.chairx.returning.domain.ReturnCondition;
+import kg.chairx.refund.api.CreateRefundRequest;
+import kg.chairx.refund.application.RefundService;
+import kg.chairx.refund.domain.RefundMethod;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.payment.api.CreatePaymentRequest;
@@ -41,6 +50,9 @@ class BackendMvpWorkflowIntegrationTests {
     @Autowired ReceivePurchase receipts;
     @Autowired SaleService sales;
     @Autowired PaymentService salePayments;
+    @Autowired DeliveryService deliveries;
+    @Autowired ReturnService returns;
+    @Autowired RefundService refunds;
     @Autowired InventoryService inventory;
     @Autowired CashFlowService cashFlow;
 
@@ -79,7 +91,7 @@ class BackendMvpWorkflowIntegrationTests {
         SecurityContextHolder.clearContext();
     }
 
-    @Test void purchasePartialReceiptsAndMultiWarehouseSaleKeepMoneyAndFifoSeparate() {
+    @Test void purchaseReceiptsDeliveryReturnRefundAndCashFlowStayConsistent() {
         var zone=ZoneId.of("Asia/Bishkek");
         var today=LocalDate.now(zone);
         var from=today.atStartOfDay(zone).toInstant();
@@ -124,13 +136,17 @@ class BackendMvpWorkflowIntegrationTests {
                 BigDecimal.class)).isEqualByComparingTo("120000");
 
         var sale=sales.create(new CreateSaleRequest(
-                UUID.randomUUID(),customer,FulfillmentType.SELF_PICKUP,
+                UUID.randomUUID(),customer,FulfillmentType.CITY_DELIVERY,
                 List.of(new CreateSaleItemRequest(variant,home,2,new BigDecimal("8500")),
                         new CreateSaleItemRequest(variant,office,3,new BigDecimal("8500")))));
         var payment=salePayments.create(new CreatePaymentRequest(
                 sale.id(),PaymentMethod.TRANSFER,"MBANK-20",null,
                 kg.chairx.payment.domain.PaymentChannel.MBANK));
-        sales.fulfill(sale.id());
+        var delivery=deliveries.create(new CreateDeliveryRequest(
+                sale.id(),"Тестовый получатель","+996555111999","Бишкек, тестовая улица 1",
+                "Бишкек",new BigDecimal("0"),"Курьер",null,"Интеграционный сценарий"));
+        deliveries.dispatch(delivery.id());
+        deliveries.markDelivered(delivery.id());
         assertThat(payment.amount()).isEqualByComparingTo("42500");
         assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(8);
         assertThat(inventory.getBalance(office,variant).onHand()).isEqualTo(7);
@@ -155,6 +171,26 @@ class BackendMvpWorkflowIntegrationTests {
                 .isEqualByComparingTo("120000");
         assertThat(after.netCashFlow().subtract(baseline.netCashFlow()))
                 .isEqualByComparingTo("-77500");
+        // A partial physical return restores exactly one item to the source warehouse.
+        var receivedReturn=returns.create(new CreateReturnRequest(
+                sale.id(),home,UUID.randomUUID(),
+                List.of(new CreateReturnItemRequest(
+                        sale.items().getFirst().id(),1,ReturnCondition.SELLABLE)),
+                "Клиент вернул одно кресло",null));
+        assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(9);
+        assertThat(inventory.getBalance(office,variant).onHand()).isEqualTo(7);
+
+        var refunded=refunds.create(new CreateRefundRequest(
+                sale.id(),receivedReturn.id(),new BigDecimal("8500"),
+                RefundMethod.CASH,"Возврат после доставки",null,null,UUID.randomUUID()));
+        assertThat(refunded.amount()).isEqualByComparingTo("8500");
+        assertThat(balance("CASH")).isEqualByComparingTo("71500");
+        assertThat(balance("BANK")).isEqualByComparingTo("142500");
+        assertThat(jdbc.queryForObject("select count(*) from refunds where return_id=?",
+                Long.class,receivedReturn.id())).isEqualTo(1);
+        var withRefund=cashFlow.summary(from,to);
+        assertThat(withRefund.netCashFlow().subtract(after.netCashFlow()))
+                .isEqualByComparingTo("-8500");
     }
 
     private CreatePurchasePaymentRequest supplierPayment(long amount) {
