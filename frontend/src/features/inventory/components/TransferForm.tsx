@@ -32,6 +32,8 @@ export function TransferForm({ line, warehouses, preferredWarehouseId, onClose, 
       client.invalidateQueries({ queryKey: inventoryKeys.balancePrefix }),
       client.invalidateQueries({ queryKey: inventoryKeys.movementsPrefix }),
       client.invalidateQueries({ queryKey: inventoryKeys.transfersPrefix }),
+      client.invalidateQueries({ queryKey: inventoryKeys.warehouseSummary }),
+      client.invalidateQueries({ queryKey: ['dashboard'] }),
     ]);
     onSuccess('Перемещение выполнено. Остатки и история обновлены.');
   }
@@ -155,10 +157,10 @@ export function TransferForm({ line, warehouses, preferredWarehouseId, onClose, 
       {phase === 'sending' && <p role="status" className="text-sm font-semibold text-indigo-700">Проверяем или сохраняем перемещение…</p>}
       {phase === 'uncertain' && (
         <div className="space-y-2">
-          <p className="text-sm font-semibold text-amber-900">Неизвестен итог операции {payload?.transferId}.</p>
+          <p className="text-sm font-semibold text-amber-900">Неизвестен результат отправленного перемещения.</p>
           <p className="text-sm text-slate-600">Не закрывайте форму и не оформляйте новое перемещение, пока результат не установлен.</p>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" onClick={() => void checkTransfer()}>Проверить по ID</Button>
+            <Button type="button" onClick={() => void checkTransfer()}>Проверить результат</Button>
             <Button type="button" variant="outline" onClick={() => void sendTransfer()}>Повторить прежний запрос</Button>
           </div>
         </div>

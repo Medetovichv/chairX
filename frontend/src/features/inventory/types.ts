@@ -45,6 +45,7 @@ export interface InventoryTransfer {
   id: string; sourceWarehouseId: string; destinationWarehouseId: string;
   variantId: string; quantity: number; actor: string | null;
   createdAt: string; outMovementId: string; inMovementId: string;
+  model?: string | null; variation?: string | null;
   // The backend intentionally excludes FIFO cost from warehouse-facing JSON.
 }
 export interface TransferPage {
@@ -62,4 +63,11 @@ export interface TransferResult {
 }
 export interface TransferFilters {
   warehouseId: string | null; variantId: string | null; page: number; size: number;
+}
+
+/** Complete warehouse-level PostgreSQL totals, not a paginated row sum. */
+export interface WarehouseStockSummary {
+  warehouseId: string;
+  onHand: number; reserved: number; blocked: number; available: number;
+  stockedVariants: number; lowStockVariants: number;
 }

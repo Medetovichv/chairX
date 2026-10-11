@@ -75,6 +75,18 @@ function fakeBackend(options: MockOptions = {}) {
       return json({ items: wh.slice(page * size, (page + 1) * size), page, size,
         totalElements: wh.length, totalPages: Math.ceil(wh.length / size) });
     }
+    if (path === '/api/inventory/warehouse-summary') {
+      return json(wh.map(w => {
+        const balances = stock.flatMap(x => x.warehouses.filter(v => v.warehouseId === w.id));
+        return {warehouseId:w.id,
+          onHand:balances.reduce((n,b)=>n+b.onHand,0),
+          reserved:balances.reduce((n,b)=>n+b.reserved,0),
+          blocked:balances.reduce((n,b)=>n+b.blocked,0),
+          available:balances.reduce((n,b)=>n+b.available,0),
+          stockedVariants:balances.filter(b=>b.onHand>0).length,
+          lowStockVariants:balances.filter(b=>b.available>=1&&b.available<=5).length};
+      }));
+    }
     if (path === '/api/inventory/overview') {
       const warehouseId = url.searchParams.get('warehouseId');
       const model = url.searchParams.get('model')?.toLowerCase() ?? '';
@@ -171,7 +183,7 @@ function stockTable() {
   return within(screen.getAllByRole('table')[0]!);
 }
 function stockAction(name: string) {
-  return stockTable().getAllByRole('button', { name })[0]!;
+  return stockTable().getAllByRole('button', { name: name === 'Подробнее' ? 'Ergo Comfort' : name })[0]!;
 }
 function transferForm() {
   return within(screen.getByRole('region', { name: 'Перемещение товара' }));
@@ -236,8 +248,11 @@ describe('F04 warehouses and real overview', () => {
     const { calls } = fakeBackend({ stock: [chair(), rowZero()] }); renderAt();
     const user = userEvent.setup();
     await screen.findByRole('columnheader', { name: 'Модель' });
-    await user.click(screen.getByRole('button', { name: 'Включая нулевые' }));
+    // The ALL filter includes zero-stock variants without a separate toggle.
+    expect(screen.getByRole('button', { name: 'Все товары' })).toHaveAttribute('aria-pressed', 'true');
     expect(await stockTable().findByRole('cell', { name: 'Chair X5' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'С остатком или резервом' }));
+    await waitFor(() => expect(stockTable().queryByRole('cell', { name: 'Chair X5' })).not.toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: 'Только доступные' }));
     await waitFor(() => expect(stockTable().queryByRole('cell', { name: 'Chair X5' })).not.toBeInTheDocument());
     expect(calls.mock.calls.some((c) => String(c[0]).includes('onlyAvailable=true'))).toBe(true);
@@ -278,12 +293,12 @@ describe('F04 warehouses and real overview', () => {
     const { calls } = fakeBackend(state); renderAt();
     await screen.findByRole('columnheader', { name: 'Модель' });
     state.network = true;
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Включая нулевые' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'С остатком или резервом' }));
     expect(await screen.findByRole('alert', {}, { timeout: 5000 })).toHaveTextContent('Не удалось подключиться');
     state.network = false;
     await userEvent.setup().click(screen.getByRole('button', { name: 'Повторить' }));
     expect(await screen.findByRole('columnheader', { name: 'Модель' })).toBeInTheDocument();
-    expect(calls.mock.calls.some((c) => String(c[0]).includes('includeZero=true'))).toBe(true);
+    expect(calls.mock.calls.some((c) => String(c[0]).includes('includeZero=false'))).toBe(true);
   });
   it('handles 401 with existing F02 session clearing; handles 403 as denial', async () => {
     fakeBackend({ fail: { 'GET /api/warehouses': 401 } }); renderAt();
@@ -339,7 +354,8 @@ describe('F04 stock position and histories', () => {
     await screen.findByRole('columnheader', { name: 'Модель' });
     await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Выбор склада' }), EXTRA);
     expect(screen.getByRole('combobox', { name: 'Выбор склада' })).toHaveValue(EXTRA);
-    expect(await screen.findByText('Товары не найдены')).toBeInTheDocument();
+    expect(await stockTable().findByRole('cell', {name: 'Ergo Comfort'})).toBeInTheDocument();
+    expect(stockTable().getAllByRole('cell', {name: '0'}).length).toBeGreaterThan(0);
     await userEvent.setup().selectOptions(screen.getByRole('combobox', { name: 'Выбор склада' }), '');
     const form = await startTransfer();
     expect(within(form.getByRole('combobox', { name: 'Склад назначения' })).queryByRole('option', { name: 'Резервный' })).not.toBeInTheDocument();
@@ -404,7 +420,7 @@ describe('F04 idempotent and guarded transfer workflow', () => {
     expect(await screen.findByText(/Ответ сервера не получен/)).toBeInTheDocument();
     expect(records).toHaveLength(1);
     expect(transferForm().getByRole('button', { name: 'Закрыть форму' })).toBeDisabled();
-    await userEvent.setup().click(transferForm().getByRole('button', { name: 'Проверить по ID' }));
+    await userEvent.setup().click(transferForm().getByRole('button', { name: 'Проверить результат' }));
     expect(await screen.findByText(/Перемещение выполнено/)).toBeInTheDocument();
     expect(calls.mock.calls.filter((c) => c[1]?.method === 'POST')).toHaveLength(1);
     expect(calls.mock.calls.some((c) => String(c[0]) ===
@@ -482,5 +498,49 @@ describe('F04 contracts and regression', () => {
     // The HTTP fixture includes totalCost to prove UI output stays cost-free.
     // This test must NOT require totalCost to exist in the real backend API.
     // Backend exposure is tracked separately in Issue #20.
+  });
+});
+
+describe('UI-V2-04 warehouse dashboard and readable transfer history', () => {
+  it('shows sums from dedicated all-rows API and filters by warehouse card', async () => {
+    const { calls } = fakeBackend({ stock: [chair(), rowZero()] });
+    renderAt();
+    const section = await screen.findByRole('region', {name:'Сводка складов'});
+    expect(within(section).getByRole('button', {name:'Показать все склады'})).toHaveAttribute('aria-pressed','true');
+    expect(section).toHaveTextContent('10');
+    expect(section).toHaveTextContent('Домашний');
+    expect(section).toHaveTextContent('Офисный');
+    expect(section).toHaveTextContent('Неактивен');
+    expect(calls.mock.calls.some(([url]) => String(url)==='/api/inventory/warehouse-summary')).toBe(true);
+    // Includes zero-stock lines in the default All view.
+    await screen.findByRole('columnheader',{name:'Модель'});
+    expect(await stockTable().findByRole('cell',{name:'Chair X5'})).toBeInTheDocument();
+    await userEvent.setup().click(within(section).getByRole('button',{name:'Показать склад Домашний'}));
+    expect(within(section).getByRole('button',{name:'Показать склад Домашний'}))
+      .toHaveAttribute('aria-pressed','true');
+    expect(screen.getByRole('combobox',{name:'Выбор склада'})).toHaveValue(HOME);
+    expect(calls.mock.calls.some(([url]) => String(url).includes('warehouseId='+HOME))).toBe(true);
+  });
+
+  it('never displays internal UUID or transferred FIFO valuation in the stock card and transfer history', async () => {
+    fakeBackend(); renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    await userEvent.setup().click(stockAction('Подробнее'));
+    const detail=screen.getByRole('region',{name:'Карточка складской позиции'});
+    expect(detail).toHaveTextContent('Ergo Comfort / Чёрный');
+    expect(detail).not.toHaveTextContent(VARIANT);
+    const history=await screen.findByRole('region',{name:'История перемещений'});
+    expect(history).not.toHaveTextContent('UUID:');
+    expect(history).not.toHaveTextContent('987654321');
+    expect(history).toHaveTextContent('Домашний');
+  });
+
+  it('fetches warehouse summary only with inventory read rights, without any transfers for read-only roles', async () => {
+    access.permissions=['INVENTORY_READ'];
+    const {calls}=fakeBackend(); renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    expect(calls.mock.calls.some(([url])=>String(url)==='/api/inventory/warehouse-summary')).toBe(true);
+    expect(stockTable().queryByRole('button',{name:'Переместить'})).not.toBeInTheDocument();
+    expect(calls.mock.calls.filter(([,init])=>init?.method==='POST')).toHaveLength(0);
   });
 });

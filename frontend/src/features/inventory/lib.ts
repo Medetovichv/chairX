@@ -2,7 +2,7 @@ import type { StockLine, Warehouse, WarehouseStock } from './types';
 
 export function warehouseLabel(id: string, warehouses: readonly Warehouse[]): string {
   const known = warehouses.find((w) => w.id === id);
-  return known ? known.name : id;
+  return known ? known.name : 'Неизвестный склад';
 }
 export function warehouseStock(line: StockLine, id: string): WarehouseStock | null {
   return line.warehouses.find((s) => s.warehouseId === id) ?? null;

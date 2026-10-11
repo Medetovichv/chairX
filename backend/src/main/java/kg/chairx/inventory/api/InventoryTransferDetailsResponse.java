@@ -12,5 +12,7 @@ public record InventoryTransferDetailsResponse(
         String actor,
         OffsetDateTime createdAt,
         UUID outMovementId,
-        UUID inMovementId
+        UUID inMovementId,
+        String model,
+        String variation
 ) {}
