@@ -321,7 +321,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   fireEvent.change(within(form).getByRole('textbox',{name:'Причина денежного возврата'}),
    {target:{value:'Возврат кресла клиенту'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить возврат'}));
-  expect(screen.getByRole('alertdialog')).toHaveTextContent(RETURN);
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(/Денежная компенсация 8 500 сом/);
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Списать деньги клиенту'}));
   await waitFor(()=>expect(sent).toHaveLength(1));
