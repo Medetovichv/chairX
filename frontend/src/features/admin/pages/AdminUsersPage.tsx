@@ -72,10 +72,9 @@ export function AdminUsersPage(){
    {users.isPending?<LoadingState label="Загружаем сотрудников…"/>:
     users.isError?<ErrorState error={users.error} onRetry={()=>void users.refetch()}/>:
     visible.length===0?<p>Сотрудники не найдены.</p>:
-    visible.map(x=><article key={x.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 py-3">
-     <div><b>{x.displayName}</b><p className="text-sm">{x.username} · {x.active?'Активен':'Неактивен'}</p>
+    visible.map(x=><article key={x.id} className="entity-clickable-row group flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-3 py-3 transition-colors">
+     <div><b><Link className="entity-stretched-link text-blue-700 hover:underline" to={'/admin/users/'+encodeURIComponent(x.id)} aria-label={'Открыть сотрудника '+x.displayName}>{x.displayName}</Link></b><p className="text-sm">{x.username} · {x.active?'Активен':'Неактивен'}</p>
       <p className="text-sm text-slate-500">{x.roles.join(', ')||'Без ролей'}</p></div>
-     <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to={'/admin/users/'+x.id}>Карточка</Link>
     </article>)}
   </section>
  </div>;
