@@ -269,10 +269,11 @@ describe('F09 list, detail and returns lifecycle',()=>{
   mockBackend();
   renderAt('/returns/new?saleId='+SALE);
   const form=await screen.findByRole('form',{name:'Создание возврата'});
-  const links=await within(form).findAllByRole('link',{name:'Ergo Comfort'});
-  expect(links).toHaveLength(2);
-  expect(within(form).getByText('Продано со склада:',{exact:false}).parentElement)
-    .toHaveTextContent('Склад офис');
+  await waitFor(()=>expect(within(form).getAllByRole('link',{name:'Ergo Comfort'}))
+    .toHaveLength(2));
+  const sourceLabels=within(form).getAllByText('Продано со склада:',{exact:false});
+  expect(sourceLabels).toHaveLength(2);
+  sourceLabels.forEach(label=>expect(label.parentElement).toHaveTextContent('Склад офис'));
   expect(within(form).getByRole('textbox',{name:'Количество возврата — позиция 1'})).toBeInTheDocument();
   const shown=form.textContent??'';
   for(const internal of [ITEM,ITEM2,WH,VAR,VAR2])expect(shown).not.toContain(internal);
