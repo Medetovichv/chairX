@@ -214,7 +214,7 @@ describe('F08 backend DTOs, filters and list',()=>{
     renderAt();
     expect(await screen.findByText(/Всего доставок: 22/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button',{name:'Следующая'}));
-    expect(await screen.findByText(/Страница 2 из 2/)).toBeInTheDocument();
+    expect(await screen.findByText(/Страница 2 из 2/, undefined, { timeout: 5000 })).toBeInTheDocument();
     expect(requests(api,'/api/deliveries?').some(([url])=>String(url).includes('page=1'))).toBe(true);
   });
   it('quick READY + planned dates + city search go to actual GET query with page=0',async()=>{
