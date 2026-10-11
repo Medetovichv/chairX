@@ -62,7 +62,7 @@ export function CatalogPage() {
                   <tbody className="divide-y divide-slate-100">
                     {data.items.map((model) => (
                       <tr key={model.id} className="entity-clickable-row group transition-colors">
-                        <td className="px-5 py-4 font-semibold text-blue-700"><Link className="entity-stretched-link hover:underline" to={'/catalog/' + encodeURIComponent(model.id)} aria-label={'Открыть модель '+model.name}>{model.name}</Link></td>
+                        <td className="px-5 py-4 font-semibold text-blue-700"><Link className="entity-stretched-link hover:underline" to={'/catalog/' + encodeURIComponent(model.id)}>{model.name}</Link></td>
                         <td className="px-5 py-4 text-slate-600">{model.category || '—'}</td>
                         <td className="px-5 py-4"><StatusBadge tone={model.active ? 'success' : 'neutral'}>{model.active ? 'Активен' : 'Неактивен'}</StatusBadge></td>
                                               </tr>
@@ -74,7 +74,7 @@ export function CatalogPage() {
                 {data.items.map((model) => (
                   <article key={model.id} className="entity-clickable-row group space-y-3 p-4 transition-colors">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="font-semibold text-blue-700"><Link className="entity-stretched-link" to={'/catalog/' + encodeURIComponent(model.id)} aria-label={'Открыть модель '+model.name}>{model.name}</Link></h3>
+                      <h3 className="font-semibold text-blue-700"><Link className="entity-stretched-link" to={'/catalog/' + encodeURIComponent(model.id)}>{model.name}</Link></h3>
                       <StatusBadge tone={model.active ? 'success' : 'neutral'}>{model.active ? 'Активен' : 'Неактивен'}</StatusBadge>
                     </div>
                     <p className="text-sm text-slate-500">{model.category || 'Категория не указана'}</p>
