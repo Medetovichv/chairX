@@ -508,7 +508,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     await screen.findByRole('heading',{name:'Продажа #42'});
     expect(screen.queryByRole('button',{name:'Завершить продажу'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
-    expect(screen.getByText(/процесс доставки/)).toBeInTheDocument();
+    expect(screen.getByRole('region', {name:'Связанная доставка'})).toBeInTheDocument();
     expect(api.count()).toMatchObject({fulfills:0,cancels:0});
   });
   it('cancels DRAFT only with confirmation; cannot edit FULFILLED',async()=>{
