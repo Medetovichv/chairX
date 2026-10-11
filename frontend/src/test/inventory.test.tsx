@@ -257,6 +257,13 @@ describe('F04 warehouses and real overview', () => {
     await screen.findByRole('columnheader', { name: 'Дополнительный 98' });
     expect(calls.mock.calls.some((c) => String(c[0]) === '/api/warehouses?page=1&size=100')).toBe(true);
   });
+  it('opens a warehouse from a deep link with real server-side warehouse filter',async()=>{
+    const {calls}=fakeBackend();
+    renderAt('/inventory?warehouseId='+HOME);
+    expect(await screen.findByRole('combobox',{name:'Выбор склада'})).toHaveValue(HOME);
+    await waitFor(()=>expect(calls.mock.calls.some(([url])=>String(url).includes('/api/inventory/overview?')&&
+      String(url).includes('warehouseId='+HOME))).toBe(true));
+  });
   it('switches to selected home warehouse and receives ONLY warehouse-specific totals', async () => {
     const { calls } = fakeBackend(); renderAt();
     await screen.findByRole('columnheader', { name: 'Модель' });

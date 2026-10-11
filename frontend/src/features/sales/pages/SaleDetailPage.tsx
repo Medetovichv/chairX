@@ -102,7 +102,10 @@ function ItemLine({item,warehouses}: {
       {catalogRead&&variant.data?.sku&&
         <p className="text-xs text-slate-500">Артикул: {variant.data.sku}</p>}
       {inventoryRead&&<p className="text-xs text-slate-600">
-        Склад: <strong>{warehouse?.name??'Название склада недоступно'}</strong>
+        Склад: {warehouse?
+          <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline focus-visible:underline"
+            to={'/inventory?warehouseId='+encodeURIComponent(warehouse.id)}>
+            {warehouse.name}</Link>:<strong>Название склада недоступно</strong>}
       </p>}
       {!inventoryRead&&<p className="text-xs text-slate-500">
         Данные склада доступны сотрудникам с INVENTORY_READ.
