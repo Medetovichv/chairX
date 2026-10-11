@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Layers3, Plus } from 'lucide-react';
 import { useLocation, useParams, Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../features/auth/AuthProvider';
@@ -96,7 +97,7 @@ function Detail({ id, product }: { id: string; product: Product }) {
 
   return (
     <div className="space-y-6">
-      <div><Link to="/catalog" className="inline-flex min-h-10 items-center text-sm font-semibold text-indigo-700">← Вернуться к каталогу</Link></div>
+      <div><Link to="/catalog" className="inline-flex min-h-10 items-center gap-2 text-sm font-semibold text-blue-700 hover:underline"><ArrowLeft className="size-4" aria-hidden="true"/>Вернуться к каталогу</Link></div>
       <PageHeader title={product.name} description="Модель кресла и связанные с ней вариации."
         action={canManage ? <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => setEditingProduct(true)} disabled={editingProduct}>Изменить модель</Button>
@@ -121,8 +122,8 @@ function Detail({ id, product }: { id: string; product: Product }) {
       </section>
       <section aria-label="Вариации товара" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-xl font-bold text-slate-900">Вариации товара</h3>
-          {canManage && <Button disabled={creatingVariant} onClick={() => { setEditingVariant(null); setCreatingVariant(true); }}>+ Добавить вариацию</Button>}
+          <div><h3 className="flex items-center gap-2 text-xl font-bold text-slate-900"><Layers3 className="size-5 text-blue-600" aria-hidden="true"/>Вариации товара</h3><p className="mt-1 text-xs text-slate-500">У каждой вариации собственные цвет, артикул (SKU) и рекомендуемая цена.</p></div>
+          {canManage && <Button disabled={creatingVariant} onClick={() => { setEditingVariant(null); setCreatingVariant(true); }}><Plus className="size-4" aria-hidden="true"/>Добавить вариацию</Button>}
         </div>
         {creatingVariant && canManage && (
           <VariantForm onCancel={() => setCreatingVariant(false)}
@@ -148,13 +149,17 @@ function Detail({ id, product }: { id: string; product: Product }) {
                     ))}</tr></thead>
                     <tbody className="divide-y divide-slate-100">
                       {variants.data.items.map((variant) => (
-                        <tr key={variant.id}>
-                          <td className="px-4 py-4 font-semibold">{variant.name}</td>
+                        <tr key={variant.id} className="entity-clickable-row group transition-colors hover:bg-blue-50">
+                          <td className="px-4 py-4 font-semibold text-blue-700">{canManage
+                            ? <button type="button" className="entity-stretched-link text-left font-semibold hover:underline"
+                                aria-label={'Редактировать вариацию '+variant.name}
+                                onClick={() => { setCreatingVariant(false); setEditingVariant(variant); }}>{variant.name}</button>
+                            : variant.name}</td>
                           <td className="px-4 py-4">{variant.color || '—'}</td>
                           <td className="px-4 py-4">{variant.sku || '—'}</td>
                           <td className="whitespace-nowrap px-4 py-4">{formatCatalogPrice(variant.recommendedSalePrice)}</td>
                           <td className="px-4 py-4"><StatusBadge tone={variant.active ? 'success' : 'neutral'}>{variant.active ? 'Активна' : 'Неактивна'}</StatusBadge></td>
-                          <td className="px-4 py-4">{canManage && (
+                          <td className="entity-row-action px-4 py-4">{canManage && (
                             <div className="flex flex-wrap gap-2">
                               <Button variant="outline" size="sm" onClick={() => { setCreatingVariant(false); setEditingVariant(variant); }}>Изменить {variant.name}</Button>
                               <Button variant="outline" size="sm" disabled={status.isPending}
@@ -170,14 +175,18 @@ function Detail({ id, product }: { id: string; product: Product }) {
                 </div>
                 <div className="divide-y divide-slate-100 md:hidden">
                   {variants.data.items.map((variant) => (
-                    <article key={variant.id} className="space-y-3 p-4">
+                    <article key={variant.id} className="entity-clickable-row group space-y-3 p-4 transition-colors hover:bg-blue-50">
                       <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold">{variant.name}</h4>
+                        <h4 className="font-semibold text-blue-700">{canManage
+                          ? <button type="button" className="entity-stretched-link text-left hover:underline"
+                              aria-label={'Редактировать вариацию '+variant.name}
+                              onClick={() => { setCreatingVariant(false); setEditingVariant(variant); }}>{variant.name}</button>
+                          : variant.name}</h4>
                         <StatusBadge tone={variant.active ? 'success' : 'neutral'}>{variant.active ? 'Активна' : 'Неактивна'}</StatusBadge>
                       </div>
                       <p className="text-sm text-slate-600">Цвет: {variant.color || '—'} · SKU: {variant.sku || '—'}</p>
                       <p className="font-semibold">{formatCatalogPrice(variant.recommendedSalePrice)}</p>
-                      {canManage && <div className="flex flex-wrap gap-2">
+                      {canManage && <div className="entity-row-action flex flex-wrap gap-2">
                         <Button variant="outline" onClick={() => { setCreatingVariant(false); setEditingVariant(variant); }}>Изменить {variant.name}</Button>
                         <Button variant="outline" disabled={status.isPending}
                           onClick={() => requestChange({ kind: 'variant', id: variant.id, active: !variant.active })}>

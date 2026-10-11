@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
@@ -56,8 +56,16 @@ function mockCatalog(options: {
     if (path === '/api/products') {
       if (method === 'GET') {
         const page = Number(route.searchParams.get('page') ?? '0');
-        return json({ items: products.slice(page * 20, (page + 1) * 20),
-          page, size: 20, totalElements: products.length, totalPages: Math.ceil(products.length / 20) });
+        const search = (route.searchParams.get('search') || '').trim().toLocaleLowerCase('ru-RU');
+        const category = (route.searchParams.get('category') || '').trim().toLocaleLowerCase('ru-RU');
+        const active = route.searchParams.get('active');
+        const matched = products.filter(p =>
+          (!search || p.name.toLocaleLowerCase('ru-RU').includes(search) ||
+            (p.category || '').toLocaleLowerCase('ru-RU').includes(search)) &&
+          (!category || (p.category || '').toLocaleLowerCase('ru-RU') === category) &&
+          (active === null || p.active === (active === 'true')));
+        return json({ items: matched.slice(page * 20, (page + 1) * 20),
+          page, size: 20, totalElements: matched.length, totalPages: Math.ceil(matched.length / 20) });
       }
       await options.holdCreate;
       const item = model({ ...(JSON.parse(String(init?.body)) as Product), id: createdId });
@@ -116,7 +124,7 @@ function renderAt(path = '/catalog') {
 }
 function productForm() { return screen.getByRole('form', { name: 'Создание модели' }); }
 function table() { return within(screen.getByRole('table')); }
-function createButton() { return screen.getAllByRole('button', { name: '+ Создать товар' })[0]!; }
+function createButton() { return screen.getAllByRole('button', { name: 'Создать товар' })[0]!; }
 
 beforeEach(() => {
   access.permissions = ['CATALOG_READ', 'CATALOG_MANAGE'];
@@ -133,7 +141,7 @@ describe('F03 catalog product list', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Загружаем модели');
     expect(await screen.findByRole('cell', { name: 'Ergo Comfort' })).toBeInTheDocument();
     expect(table().getByRole('cell', { name: 'Chair X5' })).toBeInTheDocument();
-    expect(screen.getByText(/backend поддерживает только пагинацию/)).toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Поиск модели или категории' })).toBeInTheDocument();
     expect(calls).toHaveBeenCalledTimes(1);
     expect(String(calls.mock.calls[0]?.[0])).toBe('/api/products?page=0&size=20');
   });
@@ -235,7 +243,7 @@ describe('F03 catalog product list', () => {
     access.permissions = ['CATALOG_READ']; access.roles = ['EMPLOYEE'];
     mockCatalog(); renderAt();
     await screen.findByRole('cell', { name: 'Ergo Comfort' });
-    expect(screen.queryByRole('button', { name: '+ Создать товар' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Создать товар' })).not.toBeInTheDocument();
   });
 });
 
@@ -275,7 +283,7 @@ describe('F03 product detail and variants', () => {
     const { calls } = mockCatalog({ variants: [] }); renderAt('/catalog/' + productId);
     await screen.findByText('У этой модели пока нет вариаций');
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: '+ Добавить вариацию' }));
+    await user.click(screen.getByRole('button', { name: 'Добавить вариацию' }));
     const form = screen.getByRole('form', { name: 'Создание вариации' });
     await user.type(within(form).getByRole('textbox', { name: /Название вариации/ }), 'Светло-серый');
     await user.type(within(form).getByRole('combobox', { name: /^Цвет/ }), 'Светло-серый');
@@ -390,5 +398,78 @@ describe('F03 value and F02.1 regression contracts', () => {
     access.permissions = ['DAILY_CLOSING_READ'];
     mockCatalog(); renderAt('/daily-closing');
     expect(screen.getByRole('heading', { name: 'Закрытие дня', level: 2 })).toBeInTheDocument();
+  });
+});
+
+describe('UI-V2-06 catalog filters and zero-photo operational UX', () => {
+  it('finds an inactive model from the next server page without fake page-local filtering', async () => {
+    const items=Array.from({length:21},(_,i)=>model({
+      id:'00000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),
+      name:i===20?'Единственная Ergo модель':'Офис '+(i+1),
+      category:i===20?'Эргономичные':'Офисные кресла',
+      active:i!==20,
+    }));
+    const {calls}=mockCatalog({products:items}); renderAt();
+    await screen.findByRole('cell',{name:'Офис 1'});
+    const user=userEvent.setup();
+    await user.type(screen.getByRole('searchbox',{name:'Поиск модели или категории'}),'Ergo');
+    expect(await screen.findByRole('cell',{name:'Единственная Ergo модель'})).toBeInTheDocument();
+    expect(screen.queryByRole('cell',{name:'Офис 1'})).not.toBeInTheDocument();
+    expect(screen.getByText('Найдено: 1')).toBeInTheDocument();
+    expect(calls.mock.calls.some(([url])=>String(url).includes('search=Ergo'))).toBe(true);
+    await user.selectOptions(screen.getByRole('combobox',{name:'Статус товара'}),'active');
+    expect(await screen.findByText('По вашему запросу ничего не найдено')).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox',{name:'Статус товара'}),'inactive');
+    expect(await screen.findByRole('cell',{name:'Единственная Ergo модель'})).toBeInTheDocument();
+    expect(calls.mock.calls.some(([url])=>String(url).includes('active=false'))).toBe(true);
+  });
+  it('filters the full catalog by exact category and resets back to unfiltered server paging', async () => {
+    const {calls}=mockCatalog({products:[
+      model({category:'Офисные кресла'}),
+      model({id:createdId,name:'Игровое кресло',category:'Игровые'}),
+    ]});
+    renderAt();
+    await screen.findByRole('cell',{name:'Ergo Comfort'});
+    const user=userEvent.setup();
+    await user.type(screen.getByRole('searchbox',{name:'Категория товара'}),'Игровые');
+    expect(await screen.findByRole('cell',{name:'Игровое кресло'})).toBeInTheDocument();
+    await waitFor(()=>expect(screen.queryByRole('cell',{name:'Ergo Comfort'})).not.toBeInTheDocument());
+    expect(calls.mock.calls.some(([url])=>String(url).includes('category=%D0%98%D0%B3%D1%80%D0%BE%D0%B2%D1%8B%D0%B5'))).toBe(true);
+    await user.click(screen.getByRole('button',{name:'Сбросить фильтры'}));
+    expect(await screen.findByRole('cell',{name:'Ergo Comfort'})).toBeInTheDocument();
+    expect(screen.getByText('Найдено: 2')).toBeInTheDocument();
+  });
+  it('read-only employees see clickable models and filters without creation controls or image uploads', async () => {
+    access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
+    mockCatalog(); renderAt();
+    await screen.findByRole('cell',{name:'Ergo Comfort'});
+    expect(table().getByRole('link',{name:'Ergo Comfort'})).toHaveAttribute('href','/catalog/'+productId);
+    expect(screen.queryByRole('button',{name:'Создать товар'})).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/фото|изображен|загрузить/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('UI-V2-06 variant details without photos or raw IDs', () => {
+  it('opens variation editing from its title and retains SKU plus price in the form', async () => {
+    mockCatalog();
+    renderAt('/catalog/'+productId);
+    const user=userEvent.setup();
+    await screen.findByRole('table');
+    const title=table().getByRole('button',{name:'Редактировать вариацию Чёрный'});
+    await user.click(title);
+    const edit=screen.getByRole('form',{name:'Редактирование вариации'});
+    expect(within(edit).getByRole('textbox',{name:/SKU/})).toHaveValue('ERGO-BLK');
+    expect(within(edit).getByRole('textbox',{name:/Рекомендуемая цена/})).toHaveValue('8500');
+    expect(edit).not.toHaveTextContent(variantId);
+    expect(screen.queryByRole('button',{name:/загрузить фото/i})).not.toBeInTheDocument();
+  });
+  it('read-only user can view variation and SKU without edit controls', async () => {
+    access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
+    mockCatalog();
+    renderAt('/catalog/'+productId);
+    await screen.findByRole('table');
+    expect(await table().findByRole('cell',{name:'ERGO-BLK'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Редактировать вариацию Чёрный'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Изменить Чёрный'})).not.toBeInTheDocument();
   });
 });

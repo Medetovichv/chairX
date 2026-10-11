@@ -28,8 +28,11 @@ public class ProductController {
 
     @GetMapping
     public ProductPageResponse list(@RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return service.list(page, size);
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Boolean active) {
+        return service.list(page, size, search, category, active);
     }
 
     @PutMapping("/{id}")

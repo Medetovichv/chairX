@@ -2,6 +2,10 @@ package kg.chairx.product.application;
 
 import jakarta.validation.Valid;
 import java.util.UUID;
+import java.util.Locale;
+import java.util.ArrayList;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
 import kg.chairx.audit.AuditService;
 import kg.chairx.product.api.*;
 import kg.chairx.product.domain.Product;
@@ -40,11 +44,44 @@ public class ProductService {
     }
 
     public ProductPageResponse list(int page, int size) {
+        return list(page, size, null, null, null);
+    }
 
+    public ProductPageResponse list(int page, int size, String search, String category, Boolean active) {
         var paging = PageRequest.of(page, size, Sort.by("id"));
-        var result = repository.findAll(paging);
+        String query = normalize(search, 200);
+        String requestedCategory = normalize(category, 120);
+        Specification<Product> specification = (root, criteria, builder) -> {
+            var clauses = new ArrayList<Predicate>();
+            if (query != null) {
+                String mask = "%" + escapeLike(query.toLowerCase(Locale.ROOT)) + "%";
+                clauses.add(builder.or(
+                        builder.like(builder.lower(root.get("name")), mask, '\\'),
+                        builder.like(builder.lower(root.get("category")), mask, '\\')));
+            }
+            if (requestedCategory != null) {
+                clauses.add(builder.equal(builder.lower(root.get("category")),
+                        requestedCategory.toLowerCase(Locale.ROOT)));
+            }
+            if (active != null) clauses.add(builder.equal(root.get("active"), active));
+            return builder.and(clauses.toArray(Predicate[]::new));
+        };
+        var result = repository.findAll(specification, paging);
         return new ProductPageResponse(result.getContent().stream().map(ProductMapper::response).toList(),
                 page, size, result.getTotalElements(), result.getTotalPages());
+    }
+
+    private static String normalize(String value, int maxLength) {
+        if (value == null || value.isBlank()) return null;
+        String stripped = value.strip();
+        if (stripped.length() > maxLength) {
+            throw new IllegalArgumentException("Слишком длинный параметр поиска каталога");
+        }
+        return stripped;
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     @Transactional
