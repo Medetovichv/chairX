@@ -17,11 +17,17 @@ export function ExchangeSettlementForm({exchange:d}:{exchange:ExchangeResponse})
  const settlements=useQuery({queryKey:returnKeys.settlements(d.id),
   queryFn:()=>exchangesApi.settlements(d.id),enabled:allowed});
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,enabled:allowed&&readFinance});
- const direction=amountCents(d.additionalPaymentDue)!==null&&amountCents(d.additionalPaymentDue)!>0n?'IN':'OUT';
+ const additional=amountCents(d.additionalPaymentDue),refund=amountCents(d.refundDue);
+ const direction=additional!==null&&additional>0n?'IN':'OUT';
  const due=direction==='IN'?d.additionalPaymentDue:d.refundDue;
- const posted=settlements.data?.filter(s=>s.direction===direction)
-  .reduce((sum,s)=>sum+(amountCents(s.amount)??0n),0n)??0n;
- const remaining=amountCents(due)!==null?amountCents(due)!-posted:null;
+ const confirmed=settlements.data?.filter(s=>s.direction===direction).map(s=>amountCents(s.amount))??[];
+ const settledValid=confirmed.every(c=>c!==null);
+ // Unreadable financial amounts must fail closed rather than treating unknown
+ // posted values as zero or permitting an overstated remaining balance.
+ const posted=settledValid?confirmed.reduce<bigint>((sum,c)=>sum+(c??0n),0n):null;
+ const dueCents=direction==='IN'?additional:refund;
+ const remaining=settlements.isSuccess&&posted!==null&&additional!==null&&refund!==null?
+  dueCents!-posted:null;
  const [amount,setAmount]=useState(''),[method,setMethod]=useState<'CASH'|'TRANSFER'>('CASH');
  const [reference,setReference]=useState(''),[error,setError]=useState('');
  const account:FinanceAccount=method==='CASH'?'CASH':'BANK';
@@ -40,7 +46,8 @@ export function ExchangeSettlementForm({exchange:d}:{exchange:ExchangeResponse})
  if(!allowed||d.status!=='PENDING_SETTLEMENT')return null;
  return <section aria-label="Расчёт обмена" className="space-y-4 rounded-xl border border-indigo-200 bg-white p-4">
   <h3 className="font-bold">{direction==='IN'?'Принять доплату клиента':'Выплатить разницу клиенту'}</h3>
-  <p className="text-sm">Обязательство: {som(due)}. Уже проведено: {som((posted/100n).toString()+'.'+(posted%100n).toString().padStart(2,'0'))}. Остаток: {
+  <p className="text-sm">Обязательство: {som(due)}. Уже проведено: {posted!==null?
+   som((posted/100n).toString()+'.'+(posted%100n).toString().padStart(2,'0')):'Недоступно'}. Остаток: {
    remaining!==null&&remaining>=0n?som((remaining/100n).toString()+'.'+(remaining%100n).toString().padStart(2,'0')):'Недоступен'}</p>
   <GuardedPost<SettlementInput> kind="settlement" scope={d.id} canReplay allowed={allowed}
    title="Подтвердить финансовый расчёт обмена?" label={direction==='IN'?'Принять доплату':'Вернуть разницу'}
