@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
+import { AppRouter } from '../app/router/AppRouter';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createQueryClient } from '../shared/api/query';
 import { authSession } from '../features/auth/session';
@@ -50,6 +51,11 @@ const exchange:ExchangeResponse={
  creditApplied:'8500',additionalPaymentDue:'1000',refundDue:'0',
 };
 const j=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
+function renderPath(path:string){
+ return render(<QueryClientProvider client={createQueryClient()}>
+  <MemoryRouter initialEntries={[path]}><AppRouter/></MemoryRouter>
+ </QueryClientProvider>);
+}
 function wrapper(children:ReactNode){
  return render(<QueryClientProvider client={createQueryClient()}>
   <MemoryRouter initialEntries={['/sales/'+SALE]}>{children}</MemoryRouter>
@@ -257,6 +263,87 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   wrapper(<SaleFinancialSection sale={{...sale,status:'DRAFT'}}/>);
   expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
   expect(fetchMock).not.toHaveBeenCalled();
+ });
+ it('Refund creation from a physical Return works without SALES_READ and never fetches protected Sales API',async()=>{
+  access.permissions=['RETURNS_READ','REFUNDS_CREATE'];
+  const requested:string[]=[],sent:Record<string,unknown>[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);requested.push(path);
+   if(path==='/api/returns/'+RETURN)return j({
+    id:RETURN,saleId:SALE,warehouseId:validID,reason:'Дефект механизма',comment:null,
+    createdBy:'f10',createdAt:NOW,items:[{id:PAYMENT,saleItemId:validID,quantity:1,condition:'SELLABLE'}],
+   });
+   if(path==='/api/refunds'&&init?.method==='POST'){
+    const body=JSON.parse(String(init.body));sent.push(body);
+    return j({id:PAYMENT,...body,refundedBy:'f10',refundedAt:NOW},201);
+   }
+   throw Error('Unexpected protected API: '+path);
+  }));
+  renderPath('/returns/'+RETURN+'/refund');
+  const form=await screen.findByRole('form',{name:'Денежный Refund по физическому возврату'});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Сумма Refund по Return'}),
+   {target:{value:'8500'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Причина Refund по Return'}),
+   {target:{value:'Возврат кресла клиенту'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить Refund'}));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(RETURN);
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+   .getByRole('button',{name:'Списать деньги клиенту'}));
+  await waitFor(()=>expect(sent).toHaveLength(1));
+  expect(sent[0]).toMatchObject({
+   saleId:SALE,returnId:RETURN,amount:'8500',method:'CASH',
+   reason:'Возврат кресла клиенту',
+  });
+  expect(requested.some(x=>x.startsWith('/api/sales')||
+   x.startsWith('/api/payments')||x.startsWith('/api/refunds/sale'))).toBe(false);
+ });
+ it('EXPENSES_CREATE-only employee posts an expense without privileged GET to accounts or list',async()=>{
+  access.permissions=['EXPENSES_CREATE'];
+  const urls:string[]=[],posted:Record<string,unknown>[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL,init?:RequestInit)=>{
+   urls.push(String(url));
+   if(String(url)==='/api/expenses'&&init?.method==='POST'){
+    const body=JSON.parse(String(init.body));posted.push(body);
+    return j({id:PAYMENT,...body,createdBy:'f10',createdAt:NOW},201);
+   }
+   throw Error('Unexpected protected API '+String(url));
+  }));
+  wrapper(<ExpensesPage/>);
+  const form=screen.getByRole('form',{name:'Создание расхода'});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Сумма расхода'}),
+   {target:{value:'1500'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Дата расхода'}),
+   {target:{value:'2026-10-11'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Создать расход'}));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent(/1500|1.*500/);
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+   .getByRole('button',{name:'Провести расход'}));
+  await waitFor(()=>expect(posted).toHaveLength(1));
+  expect(posted[0]).toMatchObject({
+   category:'ADVERTISING',amount:'1500',paymentMethod:'CASH',expenseDate:'2026-10-11',
+  });
+  expect(urls.every(x=>x==='/api/expenses')).toBe(true);
+ });
+ it('server 409 creates a locked unknown outcome rather than redirecting expense to another day',async()=>{
+  access.permissions=['EXPENSES_CREATE'];
+  vi.stubGlobal('fetch',vi.fn(async (_url:RequestInfo|URL,init?:RequestInit)=>{
+   if(init?.method==='POST')return j({
+    code:'CLOSED_FINANCIAL_PERIOD',message:'closed',details:{},
+   },409);
+   throw Error('Unexpected protected read');
+  }));
+  wrapper(<ExpensesPage/>);
+  const form=screen.getByRole('form',{name:'Создание расхода'});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Сумма расхода'}),
+   {target:{value:'1500'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Дата расхода'}),
+   {target:{value:'2026-10-01'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Создать расход'}));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+   .getByRole('button',{name:'Провести расход'}));
+  expect(await screen.findByText(/Результат финансовой операции неизвестен/)).toBeInTheDocument();
+  expect(screen.getByRole('textbox',{name:'Дата расхода'})).toHaveValue('2026-10-01');
+  expect(screen.getByRole('button',{name:'Создать расход'})).toBeDisabled();
  });
  it('exchange OUT calculation is fully authorized and accounts absent without FINANCE_READ',async()=>{
   access.permissions=['EXCHANGES_READ','EXCHANGES_SETTLE'];
