@@ -45,6 +45,7 @@ export interface InventoryTransfer {
   id: string; sourceWarehouseId: string; destinationWarehouseId: string;
   variantId: string; quantity: number; actor: string | null;
   createdAt: string; outMovementId: string; inMovementId: string;
+  model?: string | null; variation?: string | null;
   // The backend intentionally excludes FIFO cost from warehouse-facing JSON.
 }
 export interface TransferPage {
