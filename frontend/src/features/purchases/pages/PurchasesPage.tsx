@@ -22,11 +22,11 @@ const initial: PurchaseFilters = { status:'', supplierId:'', from:'', to:'', num
 function PurchaseTable({ lines }: { lines: PurchaseLine[] }) {
   return <section aria-label="Список закупок" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
     <div className="hidden overflow-x-auto xl:block"><table className="w-full text-left text-sm">
-      <thead className="bg-slate-50"><tr>{['Закупка UUID','Поставщик','Дата','Статус','Позиций','Заказано','Принято','Осталось','Товары','Карго','Итого'].map(col =>
+      <thead className="bg-slate-50"><tr>{['Закупка','Поставщик','Дата','Статус','Позиций','Заказано','Принято','Осталось','Товары','Карго','Итого'].map(col =>
         <th scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600" key={col}>{col}</th>)}</tr></thead>
       <tbody className="divide-y divide-slate-100">{lines.map(line => <tr key={line.id}>
-        <td className="px-3 py-3"><Link className="font-semibold text-indigo-700 hover:underline"
-          to={'/purchases/'+encodeURIComponent(line.id)}>{line.id.slice(0, 8)}…</Link></td>
+        <td className="px-3 py-3"><Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700 hover:underline"
+          to={'/purchases/'+encodeURIComponent(line.id)}>{formatDate(line.createdAt)}</Link></td>
         <td className="px-3 py-3">{line.supplierName}</td><td className="px-3 py-3">{formatDate(line.createdAt)}</td>
         <td className="px-3 py-3"><PurchaseStatusBadge status={line.status} /></td>
         <td className="px-3 py-3">{line.itemCount}</td><td className="px-3 py-3">{line.orderedQuantity}</td>
@@ -38,8 +38,8 @@ function PurchaseTable({ lines }: { lines: PurchaseLine[] }) {
     <div className="divide-y divide-slate-100 xl:hidden">{lines.map(line => <article key={line.id}
       className="space-y-3 p-4 text-sm">
       <div className="flex flex-wrap justify-between gap-2">
-        <Link className="break-all font-semibold text-indigo-700" to={'/purchases/'+encodeURIComponent(line.id)}>
-          Закупка {line.id.slice(0, 8)}…</Link><PurchaseStatusBadge status={line.status} />
+        <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to={'/purchases/'+encodeURIComponent(line.id)}>
+          Закупка от {formatDate(line.createdAt)}</Link><PurchaseStatusBadge status={line.status} />
       </div>
       <p className="font-semibold">{line.supplierName} · {formatDate(line.createdAt)}</p>
       <p>Позиций: {line.itemCount} · Заказано: {line.orderedQuantity} · Принято: {line.receivedQuantity} · Осталось: {line.remainingQuantity}</p>
