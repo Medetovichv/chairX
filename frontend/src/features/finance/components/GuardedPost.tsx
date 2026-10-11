@@ -106,8 +106,17 @@ export function GuardedPost<T>({
   running.current=true;setBusy(true);setError('');
   try{
    const committed=await reconcile(journal.record);
-   if(committed){finish();await onDone();}
-   else setError('Исходная операция пока не подтверждена. Не повторяйте POST с новым ключом. При необходимости обратитесь к администратору.');
+   if(committed){
+    // This read already proved that the original financial POST committed.
+    // A later cache-refresh failure is not an ambiguous financial outcome.
+    finish();
+    try{await onDone();}
+    catch{
+     setError('Операция подтверждена backend, но обновить данные не удалось. Обновите страницу — повторная проводка не нужна.');
+    }
+   }else{
+    setError('Исходная операция пока не подтверждена. Не повторяйте POST с новым ключом. При необходимости обратитесь к администратору.');
+   }
   }catch(cause){setError(userFacingApiError(cause)+' Результат всё ещё неизвестен.');}
   finally{running.current=false;setBusy(false);}
  }
