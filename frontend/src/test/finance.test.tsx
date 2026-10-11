@@ -163,6 +163,28 @@ describe('F10 financial transaction journal and recovery',()=>{
   expect(screen.getByRole('button',{name:'Начать'})).toBeDisabled();
   expect(post).toHaveBeenCalledTimes(1);
  });
+ it('isolates a pending money journal when the cached document changes without unmounting the route',async()=>{
+  const post=vi.fn().mockRejectedValue(new ApiClientError('network','CONNECTION_LOST'));
+  const client=createQueryClient();
+  const content=(scope:string)=><QueryClientProvider client={client}>
+   <MemoryRouter><GuardedPost<TestPayload> kind="route-switch" scope={scope} allowed
+    title="Подтвердить денежную операцию?" label="Подтвердить"
+    operationKey={p=>p.idempotencyKey} meta={p=>({amount:p.amount})}
+    post={post} onDone={()=>{}}>
+    {({start,locked})=><button type="button" disabled={locked}
+     onClick={()=>start({idempotencyKey:validID,amount:'8500'},'Сумма 8500')}>Начать</button>}
+   </GuardedPost></MemoryRouter></QueryClientProvider>;
+  const view=render(content(SALE));
+  await confirm();
+  expect(await screen.findByText(/Результат финансовой операции неизвестен/)).toBeInTheDocument();
+  expect(readFinancePending('f10-operator','route-switch',SALE).kind).toBe('pending');
+  view.rerender(content(RETURN));
+  expect(screen.getByRole('button',{name:'Начать'})).toBeEnabled();
+  expect(readFinancePending('f10-operator','route-switch',SALE).kind).toBe('pending');
+  view.rerender(content(SALE));
+  expect(screen.getByRole('button',{name:'Начать'})).toBeDisabled();
+  expect(post).toHaveBeenCalledTimes(1);
+ });
  it('retries backend-idempotent POST with same exact payload/key, never a new UUID',async()=>{
   const post=vi.fn().mockRejectedValueOnce(new ApiClientError('network','LOST')).mockResolvedValueOnce({});
   renderGuard({post,canReplay:true,kind:'idempotent'});
