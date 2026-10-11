@@ -9,6 +9,7 @@ import {ErrorState} from '../../../shared/components/ErrorState';
 import {Button} from '../../../shared/ui/button';
 import {ConfirmDialog} from '../../../shared/ui/confirm-dialog';
 import {PasswordReset} from '../components/PasswordReset';
+import {UserRolesEditor} from '../components/UserRolesEditor';
 export function AdminUserDetailPage(){
  const {userId}=useParams(),id=userId??'',{user:me,hasPermission,logout}=useAuth(),qc=useQueryClient();
  const item=useQuery({queryKey:adminKeys.user(id),queryFn:()=>adminApi.user(id),enabled:Boolean(id)});
@@ -41,8 +42,7 @@ export function AdminUserDetailPage(){
      onClick={()=>setOperation(p.active?'deactivate':'activate')}>
      {p.active?'Деактивировать':'Активировать'}</Button>}
   </section>
-  {hasPermission('ROLES_ASSIGN')&&<p className="rounded-xl border border-slate-200 p-3 text-sm">
-    Управление ролями: используйте только назначения по UUID роли через защищённый backend.</p>}
+  {hasPermission('ROLES_ASSIGN')&&hasPermission('ROLES_READ')&&<UserRolesEditor person={p}/>}
   {hasPermission('USERS_RESET_PASSWORD')&&<PasswordReset id={p.id} onSaved={()=>{
     setNotice('Новый пароль установлен. Передайте его защищённым каналом.');
     void qc.invalidateQueries({queryKey:adminKeys.auditPrefix});
