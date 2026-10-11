@@ -121,7 +121,7 @@ asserts the existing populated F11 scenario still starts from zero.
 - [x] F12 merged into main.
 - [x] Backend, frontend, Docker smoke and Flyway/PG Testcontainers CI exist.
 - [x] Real Chromium + Spring + PG flow exists and uses synthetic data.
-- [ ] F13 new limited-role browser/admin lifecycle check passes in CI.
+- [x] F13 real limited-role browser/admin lifecycle check passed in CI (synthetic data).
 - [ ] #38 cost data leak is fixed and raw-response authorization tested.
 - [ ] Full critical operational scenarios and retry/concurrency gates signed.
 - [ ] Real authorized prior-business backup tested for restore and migration.
@@ -150,5 +150,6 @@ populated F11 business chain; never point the script at personal Compose data.
 - Baseline head: `b3afbfa` after F12 #35.
 - Source audit: SecurityConfig, F12 controllers/services, route/auth session,
   daily closing, F11 scripts, Docker Compose, Flyway upgrade script.
-- Results of the F13 new workflow: **pending GitHub Actions**.
+- New F13 Chromium test: **PASS** on [GitHub Actions run 38136800992](https://github.com/Medetovichv/chairX/actions/runs/38136800992). Browser admin creates an employee, backend assigns/revokes custom roles, reset invalidates old HTTP Basic, mobile warehouse renders with finance forbidden. The same runner subsequently completed the purchase→delivery→refund→closing chain.
+- All six F11 release gate jobs on this F13 commit: **PASS** (Java full verify, frontend lint/type/Vitest/build, two Chromium jobs, multiday historical finance, V40 restore). Docker Compose smoke workflow: PASS.
 - Full signoff and final audit: **pending**. No production deployment or merge.
