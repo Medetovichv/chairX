@@ -33,8 +33,17 @@ public class AdminUserController {
     public record UserResponse(UUID id, String username, String displayName, boolean active,
                                List<String> roles) {}
     public record RoleResponse(UUID id, String code, String name) {}
-    public record CreateUserRequest(String username, String password, String displayName) {}
+    public record CreateUserRequest(String username, String password, String displayName) {
+        @Override public String toString() {
+            return "CreateUserRequest[username=" + username + ", password=[REDACTED], displayName=" + displayName + "]";
+        }
+    }
     public record AssignRoleRequest(UUID roleId) {}
+    public record ResetPasswordRequest(String newPassword) {
+        @Override public String toString() {
+            return "ResetPasswordRequest[newPassword=[REDACTED]]";
+        }
+    }
 
     private UUID actorId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -87,6 +96,20 @@ public class AdminUserController {
     @PatchMapping("/users/{id}/deactivate")
     public ResponseEntity<Void> deactivate(@PathVariable UUID id) {
         userManagement.deactivateUser(actorId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/users/{id}/activate")
+    public ResponseEntity<Void> activate(@PathVariable UUID id) {
+        userManagement.activateUser(actorId(), id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/users/{id}/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @PathVariable UUID id, @RequestBody ResetPasswordRequest request) {
+        userManagement.resetPassword(actorId(), id,
+                request == null ? null : request.newPassword());
         return ResponseEntity.noContent().build();
     }
 

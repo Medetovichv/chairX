@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Armchair, ChevronDown, ChevronRight } from 'lucide-react';
 import { NavLink, useLocation } from 'react-router';
 import { useAuth } from '../features/auth/AuthProvider';
-import { childrenOf, hasRoutePermission, isNavigationAllowed, navigationGroups } from '../shared/lib/navigation';
+import { childrenOf, hasRoutePermission, navigationGroups } from '../shared/lib/navigation';
 import { cn } from '../shared/lib/cn';
 
 export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
-  const { hasAnyPermission, hasPermission } = useAuth();
+  const { user,hasAnyPermission,hasPermission } = useAuth();
+  const canDisplay=(item:{path:string;permissions:readonly string[]}) =>
+    (item.path!=='/admin'||user?.roles.includes('ADMIN')) &&
+    (item.permissions.length===0||hasAnyPermission(item.permissions));
   const { pathname } = useLocation();
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set<string>());
 
@@ -26,13 +29,13 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav aria-label="Разделы ChairX" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-6">
-      {navigationGroups.filter((group) => group.items.some((item) => isNavigationAllowed(item, hasAnyPermission))).map((group) => (
+      {navigationGroups.filter((group) => group.items.some((item) => canDisplay(item))).map((group) => (
         <div key={group.title} className="mt-6">
           <p className="px-3 pb-2 text-[11px] font-semibold tracking-wider text-slate-400 uppercase">
             {group.title}
           </p>
           <div className="space-y-0.5">
-            {group.items.filter((item) => isNavigationAllowed(item, hasAnyPermission)).map((item) => {
+            {group.items.filter((item) => canDisplay(item)).map((item) => {
               const Icon = item.icon;
               const children = childrenOf(item.path).filter((child) => hasRoutePermission(child.permissions, hasPermission));
               const isCurrent = pathname === item.path || (item.path !== '/' && pathname.startsWith(item.path + '/'));

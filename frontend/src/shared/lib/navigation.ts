@@ -45,6 +45,7 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },
   { path: '/admin/users', parent: '/admin', label: 'Сотрудники', permissions: ['USERS_READ'] },
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
+  { path: '/admin/audit', parent: '/admin', label: 'Журнал безопасности', permissions: ['ROLES_READ'] },
 ];
 
 const returnCreate:RouteMeta={path:'/returns/new',label:'Оформить возврат',parent:'/returns',permissions:['RETURNS_CREATE']};
@@ -78,6 +79,8 @@ export function routeFor(path: string): RouteMeta | undefined {
   if(/^\/returns\/exchanges\/[^/]+$/.test(path))return {...exchangeDetail,path};
   if(/^\/returns\/defects\/[^/]+$/.test(path))return {...defectDetail,path};
   if(/^\/returns\/[^/]+$/.test(path)&&!childRoutes.some(x=>x.path===path))return {...returnDetail,path};
+  if(/^\/admin\/users\/[^/]+$/.test(path)) return {path,label:'Карточка сотрудника',parent:'/admin/users',permissions:['USERS_READ']};
+  if(/^\/admin\/roles\/[^/]+$/.test(path)) return {path,label:'Карточка роли',parent:'/admin/roles',permissions:['ROLES_READ']};
   if (path==='/deliveries/new') return deliveryCreate;
   if (/^\/deliveries\/[^/]+$/.test(path)) return {...deliveryDetail,path};
   if (path==='/sales/new') return saleCreate;

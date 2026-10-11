@@ -94,6 +94,46 @@ public class UserManagementService {
     }
 
     @Transactional
+    public boolean activateUser(UUID actorUserId, UUID targetUserId) {
+        if (actorUserId == null || targetUserId == null) {
+            throw new IllegalArgumentException("Укажите администратора и сотрудника");
+        }
+        roles.lockRoleAssignments();
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "USERS_ACTIVATE")) {
+            throw new AccessDeniedException("Недостаточно прав для активации сотрудника");
+        }
+        var target = users.findById(targetUserId)
+                .orElseThrow(() -> new IllegalArgumentException("Сотрудник не найден"));
+        // Already active: no write and no duplicate audit event.
+        if (target.active()) return false;
+        boolean changed = users.activate(targetUserId);
+        if (changed) audit.record(actorUserId, "USER_ACTIVATED", "USER",
+                targetUserId, "Activated employee: " + target.username());
+        return changed;
+    }
+
+    @Transactional
+    public void resetPassword(UUID actorUserId, UUID targetUserId, String newPassword) {
+        if (actorUserId == null || targetUserId == null) {
+            throw new IllegalArgumentException("Укажите администратора и сотрудника");
+        }
+        roles.lockRoleAssignments();
+        if (!roles.isActiveSystemAdministrator(actorUserId)
+                || !roles.userHasPermission(actorUserId, "USERS_RESET_PASSWORD")) {
+            throw new AccessDeniedException("Недостаточно прав для сброса пароля");
+        }
+        if (users.findById(targetUserId).isEmpty()) {
+            throw new IllegalArgumentException("Сотрудник не найден");
+        }
+        String validated = validatePassword(newPassword);
+        // Never log, return, or audit either the raw password or its hash.
+        users.updatePasswordHash(targetUserId, passwordEncoder.encode(validated));
+        audit.record(actorUserId, "USER_PASSWORD_RESET", "USER", targetUserId,
+                "Employee password reset");
+    }
+
+    @Transactional
     public UUID createUser(UUID actorUserId, CreateUserCommand command) {
         if (actorUserId == null) {
             throw new IllegalArgumentException(

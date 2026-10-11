@@ -183,11 +183,11 @@ describe('F02.1 RBAC and legacy paths', () => {
     expect(within(tabs).getByRole('link', { name: 'Брак' })).toBeInTheDocument();
   });
 
-  it('shows only permitted admin child and never checks the ADMIN role name', () => {
+  it('requires system ADMIN in addition to ROLES_READ for administration', () => {
     mockProfile.roles = ['CUSTOM'];
     mockProfile.permissions = ['ROLES_READ'];
     renderAt('/admin');
-    expect(screen.getByRole('heading', { name: 'Роли и разрешения', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Доступ запрещён', level: 2 })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Сотрудники' })).not.toBeInTheDocument();
   });
 
