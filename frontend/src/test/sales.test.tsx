@@ -26,6 +26,7 @@ vi.mock('../features/auth/AuthProvider',()=>({
   }),
 }));
 const SALE_ID='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+const DELIVERY_ID='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const NEW_ID='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const CUSTOMER_ID='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const MODEL_ID='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
@@ -70,6 +71,9 @@ function mockBackend(options:{
     const path=url.pathname,method=init?.method||'GET';
     const rejected=options.deny?.[method+' '+path];
     if(rejected)return json({code:'REJECTED',message:'stacktrace-private',details:{}},rejected);
+    if(path==='/api/deliveries/by-sale/'+SALE_ID&&method==='GET'){
+      return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY'});
+    }
     if(path==='/api/sales/statistics'&&method==='GET'){
       const byStatus=(status:SaleStatus)=>rows.filter(r=>r.status===status).length;
       const confirmedOrFulfilled=rows.filter(r=>r.status==='CONFIRMED'||r.status==='FULFILLED');
@@ -504,7 +508,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     await screen.findByRole('heading',{name:'Продажа #42'});
     expect(screen.queryByRole('button',{name:'Завершить продажу'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
-    expect(screen.getByText(/процесс доставки/)).toBeInTheDocument();
+    expect(screen.getByRole('region', {name:'Связанная доставка'})).toBeInTheDocument();
     expect(api.count()).toMatchObject({fulfills:0,cancels:0});
   });
   it('cancels DRAFT only with confirmation; cannot edit FULFILLED',async()=>{
@@ -528,6 +532,14 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
     expect(called(api,'/api/inventory/')).toHaveLength(0);
     expect(called(api,'/api/customers')).toHaveLength(0);
+  });
+  it('opens the exact related delivery rather than the general deliveries list',async()=>{
+    granted.permissions.push('DELIVERIES_READ');
+    const api=mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'CITY_DELIVERY'})]});
+    renderAt('/sales/'+SALE_ID);
+    const link=await screen.findByRole('link',{name:'Открыть доставку'});
+    expect(link).toHaveAttribute('href','/deliveries/'+DELIVERY_ID);
+    expect(called(api,'/api/deliveries/by-sale/'+SALE_ID)).toHaveLength(1);
   });
   it('handles backend 403 and 404 on direct sale detail routes',async()=>{
     const api=mockBackend({deny:{['GET /api/sales/'+SALE_ID]:403}});

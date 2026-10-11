@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { catalogApi } from '../../catalog/api';
 import { customersApi } from '../../customers/api';
+import { deliveryApi, deliveryKeys } from '../../deliveries/api';
+import { deliveryStatusNames } from '../../deliveries/validation';
 import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -134,6 +136,17 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   });
   const customerLabel=customer.data?.fullName||customer.data?.phone||
     customer.data?.whatsappPhone||'Клиент недоступен';
+  const requiresDelivery=sale.fulfillmentType!==null&&sale.fulfillmentType!=='SELF_PICKUP'&&
+    (sale.status==='CONFIRMED'||sale.status==='FULFILLED');
+  const canReadDelivery=hasPermission('DELIVERIES_READ');
+  const relatedDelivery=useQuery({
+    queryKey:deliveryKeys.bySale(sale.id),
+    queryFn:()=>deliveryApi.bySale(sale.id),
+    enabled:requiresDelivery&&canReadDelivery,
+    retry:false,
+  });
+  const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
+    relatedDelivery.error.status===404;
   async function changed(result:SaleResponse) {
     client.setQueryData(salesKeys.detail(sale.id),result);
     await Promise.all([
@@ -252,22 +265,25 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       Для подтверждения добавьте хотя бы одну позицию.</p>}
     {isDraft&&!sale.fulfillmentType&&<p className="text-sm text-amber-800">
       Для подтверждения выберите способ получения.</p>}
-    {isConfirmed&&sale.fulfillmentType!=='SELF_PICKUP'&&
-      <div className="space-y-2 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-900">
-        <p>Для этого заказа требуется процесс доставки. Выдача и отмена через /api/sales недоступны.</p>
-        {hasPermission('DELIVERIES_READ')&&
-          (matched?.deliveryStatus?
-            <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
-              Доставка уже указана — найти её в списке</Link> :
-            !matched?
-              <Link className="font-semibold text-indigo-700 underline" to="/deliveries">
-                Сведения о существующей доставке не получены — проверить список</Link>:
-            hasPermission('DELIVERIES_MANAGE')?
-              <Link className="font-semibold text-indigo-700 underline"
-                to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
-                Оформить доставку</Link>:
-              <Link className="font-semibold text-indigo-700 underline" to="/deliveries">Все доставки</Link>)}
-      </div>}
+    {requiresDelivery&&
+      <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
+        <h3 className="font-bold text-slate-900">Доставка заказа</h3>
+        {!canReadDelivery?<p>Для просмотра доставки требуется разрешение DELIVERIES_READ.</p>:
+          relatedDelivery.isPending?<p role="status">Проверяем связанную доставку…</p>:
+          relatedDelivery.data?<div className="flex flex-wrap items-center justify-between gap-3">
+            <p>Статус доставки: <strong>{deliveryStatusNames[relatedDelivery.data.status]}</strong></p>
+            <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+              to={'/deliveries/'+encodeURIComponent(relatedDelivery.data.id)}>Открыть доставку</Link>
+          </div>:
+          deliveryMissing?<div className="space-y-2">
+            <p>Доставка ещё не оформлена.</p>
+            {isConfirmed&&hasPermission('DELIVERIES_MANAGE')&&
+              <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline"
+                to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>Оформить доставку</Link>}
+          </div>:
+          <ErrorState title="Не удалось проверить связанную доставку"
+            error={relatedDelivery.error} onRetry={()=>void relatedDelivery.refetch()}/>}
+      </section>}
     <section aria-label="Карточка заказа" className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm sm:grid-cols-2">
       <div><p className="text-slate-500">Статус</p><SaleStatusBadge status={sale.status}/></div>
       <div><p className="text-slate-500">Клиент</p>

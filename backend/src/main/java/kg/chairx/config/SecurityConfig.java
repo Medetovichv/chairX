@@ -151,7 +151,7 @@ public class SecurityConfig {
                         .hasAuthority("SALES_UPDATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel")
                         .hasAuthority("SALES_CANCEL")
-                        .requestMatchers(HttpMethod.GET, "/api/deliveries", "/api/deliveries/*")
+                        .requestMatchers(HttpMethod.GET, "/api/deliveries", "/api/deliveries/*", "/api/deliveries/by-sale/*")
                         .hasAuthority("DELIVERIES_READ")
                         .requestMatchers(HttpMethod.POST, "/api/deliveries", "/api/deliveries/*/dispatch", "/api/deliveries/*/deliver", "/api/deliveries/*/fail", "/api/deliveries/*/return-to-warehouse")
                         .hasAuthority("DELIVERIES_MANAGE")

@@ -176,6 +176,13 @@ class DeliveryApiTests {
     }
 
     @Test
+    @WithMockUser(authorities = {"SALES_READ"})
+    void deliveryBySaleCannotBeReadWithSalesOnlyPermission() throws Exception {
+        mvc.perform(get("/api/deliveries/by-sale/" + UUID.randomUUID()))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void createsAndGetsDeliveryThroughApi() throws Exception {
         var sale = createSale(
                 FulfillmentType.CITY_DELIVERY,
@@ -215,6 +222,12 @@ class DeliveryApiTests {
                 .andExpect(jsonPath("$.id").value(deliveryId))
                 .andExpect(jsonPath("$.saleId").value(sale.id().toString()))
                 .andExpect(jsonPath("$.status").value("READY"));
+
+        // Exact lookup is read-only and must resolve the same delivery.
+        mvc.perform(get("/api/deliveries/by-sale/" + sale.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(deliveryId))
+                .andExpect(jsonPath("$.saleId").value(sale.id().toString()));
 
         assertThat(
                 jdbc.queryForObject(
