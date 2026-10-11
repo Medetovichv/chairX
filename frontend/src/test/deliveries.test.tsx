@@ -259,6 +259,22 @@ describe('F08 backend DTOs, filters and list',()=>{
     expect(requests(api,'/api/sales')).toHaveLength(0);
   });
 });
+describe('FLOW-24 direct delivery links and least-privilege reads',()=>{
+ it('resolves a human sale number on direct detail URL without list state',async()=>{
+  const api=mockBackend();renderAt('/deliveries/'+ID);
+  expect(await screen.findByRole('heading',{name:'Доставка · #101'})).toBeInTheDocument();
+  expect(requests(api,'/api/sales/'+SALE)).toHaveLength(1);
+  expect(screen.getByRole('link',{name:'Открыть связанную продажу'}))
+   .toHaveAttribute('href','/sales/'+SALE);
+ });
+ it('does not fetch sale details without SALES_READ',async()=>{
+  access.permissions=['DELIVERIES_READ'];
+  const api=mockBackend();renderAt('/deliveries/'+ID);
+  expect(await screen.findByRole('heading',{name:'Карточка доставки'})).toBeInTheDocument();
+  expect(requests(api,'/api/sales/'+SALE)).toHaveLength(0);
+  expect(screen.queryByRole('link',{name:'Открыть связанную продажу'})).not.toBeInTheDocument();
+ });
+});
 describe('F08 create delivery and non-idempotent network outcomes',()=>{
   it('validates phone, address, integer som and nullable name',()=>{
     const p:CreateDeliveryInput={saleId:SALE,recipientName:null,recipientPhone:'+996700123456',
