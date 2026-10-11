@@ -10,6 +10,10 @@ import kg.chairx.supplier.api.CreateSupplierRequest;
 import kg.chairx.purchase.api.*;
 import kg.chairx.purchase.application.PurchaseService;
 import kg.chairx.operations.ReceivePurchase;
+import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CreateSaleItemRequest;
+import kg.chairx.sale.application.SaleService;
+import kg.chairx.sale.domain.FulfillmentType;
 import java.util.UUID;
 import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
@@ -33,10 +37,11 @@ public class DemoCatalogSeedService {
     private final CustomerService customers;
     private final PurchaseService purchases;
     private final ReceivePurchase receiving;
+    private final SaleService sales;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
             ProductVariantService variants, SupplierService suppliers, CustomerService customers,
-            PurchaseService purchases, ReceivePurchase receiving) {
+            PurchaseService purchases, ReceivePurchase receiving, SaleService sales) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
@@ -44,6 +49,7 @@ public class DemoCatalogSeedService {
         this.customers = customers;
         this.purchases = purchases;
         this.receiving = receiving;
+        this.sales = sales;
     }
 
     @Transactional
@@ -65,6 +71,9 @@ public class DemoCatalogSeedService {
         Integer purchasesInstalled = jdbc.queryForObject(
                 "select count(*) from chairx_demo_seed_versions where version=2", Integer.class);
         if (purchasesInstalled == null || purchasesInstalled == 0) seedPurchases();
+        Integer salesInstalled = jdbc.queryForObject(
+                "select count(*) from chairx_demo_seed_versions where version=3", Integer.class);
+        if (salesInstalled == null || salesInstalled == 0) seedSales();
     }
 
     private void seedCatalog() {
@@ -139,4 +148,29 @@ public class DemoCatalogSeedService {
 
         jdbc.update("insert into chairx_demo_seed_versions(version) values (2)");
     }
+    private void seedSales() {
+        UUID black = jdbc.queryForObject(
+                "select id from product_variants where sku='DEMO-ERGO-BLK' limit 1",UUID.class);
+        UUID gray = jdbc.queryForObject(
+                "select id from product_variants where sku='DEMO-ERGO-GRY' limit 1",UUID.class);
+        UUID home = jdbc.queryForObject(
+                "select id from warehouses where code='HOME' limit 1",UUID.class);
+        UUID office = jdbc.queryForObject(
+                "select id from warehouses where code='OFFICE' limit 1",UUID.class);
+        UUID aybek = jdbc.queryForObject(
+                "select id from customers where phone='+996700000001' limit 1",UUID.class);
+        UUID alina = jdbc.queryForObject(
+                "select id from customers where phone='+996700000002' limit 1",UUID.class);
+
+        // Each order has a genuine stock reservation; never fabricate order states.
+        sales.create(new CreateSaleRequest(UUID.randomUUID(),aybek,
+                FulfillmentType.SELF_PICKUP,
+                List.of(new CreateSaleItemRequest(black,home,1,new BigDecimal("8500")))));
+        sales.create(new CreateSaleRequest(UUID.randomUUID(),alina,
+                FulfillmentType.CITY_DELIVERY,
+                List.of(new CreateSaleItemRequest(gray,office,1,new BigDecimal("8500")))));
+
+        jdbc.update("insert into chairx_demo_seed_versions(version) values (3)");
+    }
+
 }
