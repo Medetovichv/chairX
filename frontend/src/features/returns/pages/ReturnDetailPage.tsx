@@ -52,8 +52,8 @@ export function ReturnDetailPage(){
   </section>
   {hasPermission('EXCHANGES_CREATE')&&<Button asChild><Link to={'/returns/exchanges?returnId='+encodeURIComponent(r.id)}>
     Оформить обмен из этого возврата</Link></Button>}
-  {hasPermission('REFUNDS_CREATE')&&hasPermission('SALES_READ')&&<Button asChild variant="outline">
-    <Link to={'/sales/'+encodeURIComponent(r.saleId)+'?returnId='+encodeURIComponent(r.id)}>
+  {hasPermission('REFUNDS_CREATE')&&<Button asChild variant="outline">
+    <Link to={'/returns/'+encodeURIComponent(r.id)+'/refund'}>
       Оформить денежный возврат для этого Return</Link>
    </Button>}
   <p className="text-xs text-slate-500">Возврат уже обработан backend; исходная продажа не меняется вручную.</p>

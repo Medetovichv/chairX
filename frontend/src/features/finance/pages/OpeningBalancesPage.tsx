@@ -23,7 +23,7 @@ export function OpeningBalancesPage(){
   <PageHeader title="Начальные остатки" description="Однократная административная настройка финансового счёта."/>
   <FinanceTabs/>
   {accounts.isError&&<ErrorState error={accounts.error} onRetry={()=>void accounts.refetch()}/>}
-  <GuardedPost<OpeningInput> kind="initialize" scope={account} allowed={allowed}
+  <GuardedPost<OpeningInput> key={account} kind="initialize" scope={account} allowed={allowed}
    title="Установить начальный остаток без возможности повтора?" label="Инициализировать счёт"
    operationKey={()=>crypto.randomUUID()} meta={x=>({account:x.account,amount:x.amount})}
    post={financeApi.initialize} onDone={async()=>{await client.invalidateQueries({queryKey:financeKeys.accounts});}}

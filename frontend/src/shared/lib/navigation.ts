@@ -49,6 +49,7 @@ export const childRoutes: readonly RouteMeta[] = [
 
 const returnCreate:RouteMeta={path:'/returns/new',label:'Оформить возврат',parent:'/returns',permissions:['RETURNS_CREATE']};
 const returnDetail:RouteMeta={path:'/returns/:returnId',label:'Карточка возврата',parent:'/returns',permissions:['RETURNS_READ']};
+const returnRefund:RouteMeta={path:'/returns/:returnId/refund',label:'Денежный возврат',parent:'/returns',permissions:['RETURNS_READ','REFUNDS_CREATE']};
 const exchangeDetail:RouteMeta={path:'/returns/exchanges/:exchangeId',label:'Карточка обмена',parent:'/returns/exchanges',permissions:['EXCHANGES_READ']};
 const defectDetail:RouteMeta={path:'/returns/defects/:defectId',label:'Карточка брака',parent:'/returns/defects',permissions:['DEFECTS_READ']};
 const deliveryCreate: RouteMeta={path:'/deliveries/new',label:'Оформить доставку',parent:'/deliveries',permissions:['DELIVERIES_READ','DELIVERIES_MANAGE']};
@@ -73,6 +74,7 @@ export const legacyRedirects: Readonly<Record<string, string>> = {
 
 export function routeFor(path: string): RouteMeta | undefined {
   if(path==='/returns/new')return returnCreate;
+  if(/^\/returns\/[^/]+\/refund$/.test(path))return {...returnRefund,path};
   if(/^\/returns\/exchanges\/[^/]+$/.test(path))return {...exchangeDetail,path};
   if(/^\/returns\/defects\/[^/]+$/.test(path))return {...defectDetail,path};
   if(/^\/returns\/[^/]+$/.test(path)&&!childRoutes.some(x=>x.path===path))return {...returnDetail,path};

@@ -35,6 +35,7 @@ import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
 import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
 import { FinanceTransferPage } from '../../features/finance/pages/FinanceTransferPage';
 import { OpeningBalancesPage } from '../../features/finance/pages/OpeningBalancesPage';
+import { ReturnRefundPage } from '../../features/finance/pages/ReturnRefundPage';
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
@@ -79,6 +80,7 @@ function DeliveryDetailGate() {
 }
 
 function ReturnCreateGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_CREATE')?<CreateReturnPage/>:<ForbiddenPage/>;}
+function ReturnRefundGate(){const {hasPermission}=useAuth();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<ReturnRefundPage/>:<ForbiddenPage/>;}
 function ReturnDetailGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_READ')?<ReturnDetailPage/>:<ForbiddenPage/>;}
 function ExchangeDetailGate(){const {hasPermission}=useAuth();return hasPermission('EXCHANGES_READ')?<ExchangeDetailPage/>:<ForbiddenPage/>;}
 function DefectDetailGate(){const {hasPermission}=useAuth();return hasPermission('DEFECTS_READ')?<DefectDetailPage/>:<ForbiddenPage/>;}
@@ -142,6 +144,7 @@ export function AppRouter() {
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
           <Route path="returns/new" element={<ReturnCreateGate/>}/>
+          <Route path="returns/:returnId/refund" element={<ReturnRefundGate/>}/>
           <Route path="returns/exchanges/:exchangeId" element={<ExchangeDetailGate/>}/>
           <Route path="returns/defects/:defectId" element={<DefectDetailGate/>}/>
           <Route path="returns/:returnId" element={<ReturnDetailGate/>}/>
