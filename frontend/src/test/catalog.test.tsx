@@ -448,3 +448,26 @@ describe('UI-V2-06 catalog filters and zero-photo operational UX', () => {
     expect(screen.queryByLabelText(/фото|изображен|загрузить/i)).not.toBeInTheDocument();
   });
 });
+
+describe('UI-V2-06 variant details without photos or raw IDs', () => {
+  it('opens variation editing from its title and retains SKU plus price in the form', async () => {
+    mockCatalog();
+    renderAt('/catalog/'+productId);
+    const user=userEvent.setup();
+    const title=await screen.findByRole('button',{name:'Редактировать вариацию Чёрный'});
+    await user.click(title);
+    const edit=screen.getByRole('form',{name:'Редактирование вариации'});
+    expect(within(edit).getByRole('textbox',{name:/SKU/})).toHaveValue('ERGO-BLK');
+    expect(within(edit).getByRole('textbox',{name:/Рекомендуемая цена/})).toHaveValue('8500');
+    expect(edit).not.toHaveTextContent(variantId);
+    expect(screen.queryByRole('button',{name:/загрузить фото/i})).not.toBeInTheDocument();
+  });
+  it('read-only user can view variation and SKU without edit controls', async () => {
+    access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
+    mockCatalog();
+    renderAt('/catalog/'+productId);
+    expect(await table().findByRole('cell',{name:'ERGO-BLK'})).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Редактировать вариацию Чёрный'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Изменить Чёрный'})).not.toBeInTheDocument();
+  });
+});
