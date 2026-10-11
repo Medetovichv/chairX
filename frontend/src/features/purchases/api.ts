@@ -1,6 +1,7 @@
 import { apiClient } from '../../shared/api/client';
 import type { Page, Purchase, PurchaseFilters, PurchaseInput, PurchaseLine, ReceivingLine,
-  ReceivingSummary, ReceiptInput, Supplier, SupplierInput, SupplierPage, PaymentSummary, Payment, CreatePurchasePayment } from './types';
+  ReceivingSummary, ReceiptInput, Supplier, SupplierInput, SupplierPage, PaymentSummary, Payment, CreatePurchasePayment,
+  PurchaseReceipt, PurchaseReceiptPage } from './types';
 
 export const PAGE_SIZE = 20;
 const id = (value: string) => encodeURIComponent(value);
@@ -18,6 +19,10 @@ export const purchaseKeys = {
   receiving: ['purchases', 'receiving'] as const,
   receivingPage: (page: number) => ['purchases', 'receiving', page, PAGE_SIZE] as const,
   receivingSummary: (purchaseId: string) => ['purchases', 'receiving-summary', purchaseId] as const,
+  receiptsPrefix: (purchaseId: string) => ['purchases','receipts',purchaseId] as const,
+  receiptList: (purchaseId: string,page: number) => ['purchases','receipts',purchaseId,'page',page] as const,
+  receiptDetail: (purchaseId: string, receiptId: string) =>
+    ['purchases','receipts',purchaseId,'detail',receiptId] as const,
   payments: (purchaseId: string) => ['purchases', 'payments', purchaseId] as const,
   suppliers: ['suppliers'] as const,
   supplierPage: (page: number) => ['suppliers', 'page', page, PAGE_SIZE] as const,
@@ -42,6 +47,11 @@ export const purchaseApi = {
     '/api/purchases/receiving?' + params({ page, size: PAGE_SIZE })),
   receivingSummary: (purchaseId: string) =>
     apiClient.get<ReceivingSummary>('/api/purchases/' + id(purchaseId) + '/receiving-summary'),
+  receiptList: (purchaseId: string,page: number) =>
+    apiClient.get<PurchaseReceiptPage>('/api/purchases/'+id(purchaseId)+'/receipts?'+
+      params({page,size:PAGE_SIZE})),
+  receiptDetail: (purchaseId: string,receiptId: string) =>
+    apiClient.get<PurchaseReceipt>('/api/purchases/'+id(purchaseId)+'/receipts/'+id(receiptId)),
   // Ignore the cost-free warehouse response: inventory state is refreshed from queries.
   // Backend exposes only WarehouseReceiptResponse to INVENTORY_RECEIVE (Issue #24 fix).
   postReceipt: async (purchaseId: string, request: ReceiptInput): Promise<void> => {

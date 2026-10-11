@@ -43,6 +43,7 @@ export function ReceivingForm({ purchaseId, onClose, onPosted }: {
       await Promise.all([
         client.invalidateQueries({ queryKey: purchaseKeys.receiving }),
         client.invalidateQueries({ queryKey: purchaseKeys.receivingSummary(purchaseId) }),
+        client.invalidateQueries({ queryKey: purchaseKeys.receiptsPrefix(purchaseId) }),
         client.invalidateQueries({ queryKey: purchaseKeys.overviews }),
         client.invalidateQueries({ queryKey: purchaseKeys.detail(purchaseId) }),
         client.invalidateQueries({ queryKey: inventoryKeys.overviewPrefix }),
