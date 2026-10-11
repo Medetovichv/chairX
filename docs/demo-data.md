@@ -34,11 +34,11 @@ The separate Compose project name ensures this does not target the ordinary `cha
 
 ## Existing functionality
 
-Local profile currently creates initial admin/manager/employee using the existing opt-in `CHAIRX_DEV_SEED_USERS=true` functionality. **Business fixture creation has not yet been implemented.** The overlay alone provides isolation, not sample purchases or sales. The remaining work must be completed and tested before calling this feature ready.
+Local profile currently creates initial admin/manager/employee using the existing opt-in `CHAIRX_DEV_SEED_USERS=true` functionality. **Phase 1 implemented (pending CI):** with the demo overlay, the backend atomically creates three sample chair models with four variants, two suppliers and three customers. A demo-only marker ensures they are not duplicated on restart. These are catalog/master-data fixtures only: sample purchases, deliveries, returns, finance, and mixed statuses have **not** been implemented yet. Do not call the complete demo fixture feature ready.
 
 ## Business fixture implementation contract
 
-1. Run only with explicit `CHAIRX_DEMO_DATA_ENABLED=true`, `local` profile **and** a dedicated database name `chairx_demo`. Fail closed for wrong profiles/databases. This flag is not enabled in the ordinary Compose stack.
+1. Phase 1 runs only with explicit `CHAIRX_DEMO_DATA_ENABLED=true`, `local` profile **and** a dedicated database name `chairx_demo`. Wrong database name fails closed before any writes. This flag is not enabled in the ordinary Compose stack.
 2. Use a versioned dataset marker and deterministic external reference keys for each scenario. Seed transactionally using public application services; do not bypass validation, stock reservation, FIFO, financial posting, user rights, or daily closing. The operation should be idempotent on rebuild: re-running must neither duplicate nor silently overwrite user edits.
 3. Fixture coverage should include several products/variants, suppliers, customers, warehouses, purchase drafts/confirmed/partially received/received, distinct receiving warehouses, sales drafts/confirmed/fulfilled/cancelled, deliveries in supported statuses, returns/refunds, defects, expenses, payments, bank/cash movements, staff/roles, and closing statuses **only when the actual domain permits each scenario**. Do not fabricate invalid state combinations.
 4. Use obvious fictional labels such as `DEMO · ...`. Avoid real customer names, numbers, communications or credentials. Values are in KGS. Include meaningful dates and multi-line orders/receipts.
