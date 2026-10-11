@@ -26,6 +26,8 @@ import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.refund.api.CreateRefundRequest;
 import kg.chairx.refund.application.RefundService;
 import kg.chairx.refund.domain.RefundMethod;
+import kg.chairx.finance.application.FinanceOpeningBalanceService;
+import kg.chairx.finance.domain.FinanceAccount;
 import java.util.UUID;
 import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
@@ -54,11 +56,13 @@ public class DemoCatalogSeedService {
     private final PaymentService payments;
     private final ReturnService returns;
     private final RefundService refunds;
+    private final FinanceOpeningBalanceService openingBalances;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
             ProductVariantService variants, SupplierService suppliers, CustomerService customers,
             PurchaseService purchases, ReceivePurchase receiving, SaleService sales, DeliveryService deliveries,
-            PaymentService payments, ReturnService returns, RefundService refunds) {
+            PaymentService payments, ReturnService returns, RefundService refunds,
+            FinanceOpeningBalanceService openingBalances) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
@@ -71,6 +75,7 @@ public class DemoCatalogSeedService {
         this.payments = payments;
         this.returns = returns;
         this.refunds = refunds;
+        this.openingBalances = openingBalances;
     }
 
     @Transactional
@@ -92,6 +97,13 @@ public class DemoCatalogSeedService {
         Integer purchasesInstalled = jdbc.queryForObject(
                 "select count(*) from chairx_demo_seed_versions where version=2", Integer.class);
         if (purchasesInstalled == null || purchasesInstalled == 0) seedPurchases();
+        Integer financeInstalled = jdbc.queryForObject(
+                "select count(*) from chairx_demo_seed_versions where version=4", Integer.class);
+        if (financeInstalled == null || financeInstalled == 0) {
+            openingBalances.initialize(FinanceAccount.CASH,new BigDecimal("100000"),"chairx-demo-bootstrap");
+            openingBalances.initialize(FinanceAccount.BANK,new BigDecimal("200000"),"chairx-demo-bootstrap");
+            jdbc.update("insert into chairx_demo_seed_versions(version) values (4)");
+        }
         Integer salesInstalled = jdbc.queryForObject(
                 "select count(*) from chairx_demo_seed_versions where version=3", Integer.class);
         if (salesInstalled == null || salesInstalled == 0) seedSales();
