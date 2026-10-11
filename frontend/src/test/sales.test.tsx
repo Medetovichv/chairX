@@ -73,9 +73,10 @@ function mockBackend(options:{
     const path=url.pathname,method=init?.method||'GET';
     const rejected=options.deny?.[method+' '+path];
     if(rejected)return json({code:'REJECTED',message:'stacktrace-private',details:{}},rejected);
-    const saleHistory=path.match(new RegExp('^/api/sales/([^/]+)/history
-    if(saleHistory&&method==='GET'){
-      const current=rows.find(s=>s.id===saleHistory[1]);
+    const segments=path.split('/');
+    if(segments.length===5 && segments[1]==='api' && segments[2]==='sales' &&
+       segments[4]==='history' && method==='GET'){
+      const current=rows.find(s=>s.id===segments[3]);
       const entries=current?[
         {action:'DRAFT_CREATED',actor:'sales-operator',occurredAt:TIME},
         ...(current.status==='FULFILLED'?[{action:'FULFILLED',actor:'warehouse-operator',occurredAt:TIME}]:[]),
