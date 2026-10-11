@@ -34,6 +34,7 @@ const MODEL_ID='dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const BLACK_ID='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const GREY_ID='ffffffff-ffff-4fff-8fff-ffffffffffff';
 const WH='11111111-1111-4111-8111-111111111111';
+const OFFICE='22222222-2222-4222-8222-333333333333';
 const TIME='2026-10-10T08:00:00Z';
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{
   status,headers:{'Content-Type':'application/json'},
@@ -58,7 +59,7 @@ function summary(s:SaleResponse):SaleSummary {
 function mockBackend(options:{
   sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
   draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
-  deny?:Record<string,number>;
+  deny?:Record<string,number>; alternateWarehouse?:boolean;
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
@@ -196,12 +197,20 @@ function mockBackend(options:{
     }
     if(path.startsWith('/api/warehouses')&&method==='GET')return json({
       items:[{id:WH,name:'Дом',code:'HOME',address:null,active:true,
-        createdAt:TIME,updatedAt:TIME}],page:0,size:100,totalPages:1,totalElements:1,
+        createdAt:TIME,updatedAt:TIME},
+        ...(options.alternateWarehouse?[{id:OFFICE,name:'Офис',code:'OFFICE',address:null,
+          active:true,createdAt:TIME,updatedAt:TIME}]:[])],
+      page:0,size:100,totalPages:1,totalElements:options.alternateWarehouse?2:1,
     });
+    if(path==='/api/inventory/balances/'+OFFICE+'/'+BLACK_ID&&options.alternateWarehouse)
+      return json({warehouseId:OFFICE,productVariantId:BLACK_ID,onHand:9,reserved:0,blocked:0,available:9});
+    if(path==='/api/inventory/balances/'+OFFICE+'/'+GREY_ID&&options.alternateWarehouse)
+      return json({warehouseId:OFFICE,productVariantId:GREY_ID,onHand:9,reserved:0,blocked:0,available:9});
     if(path==='/api/inventory/balances/'+WH+'/'+BLACK_ID||
        path==='/api/inventory/balances/'+WH+'/'+GREY_ID)
       return json({warehouseId:WH,productVariantId:path.endsWith(BLACK_ID)?BLACK_ID:GREY_ID,
-        onHand:10,reserved:2,blocked:0,available:8});
+        onHand:options.alternateWarehouse?0:10,reserved:options.alternateWarehouse?0:2,
+        blocked:0,available:options.alternateWarehouse?0:8});
     throw new Error('Unexpected '+method+' '+path);
   });
   vi.stubGlobal('fetch',fetchMock);
@@ -376,6 +385,23 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(api.count().creates).toBe(1);
     expect(readPendingDraft('s-user').kind).toBe('none');
   });
+  it('offers an alternate warehouse when the selected source is out of stock',async()=>{
+    mockBackend({sales:[],alternateWarehouse:true});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+    fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
+      {target:{value:MODEL_ID}});
+    await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+    fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),
+      {target:{value:WH}});
+    const alternative=await within(form).findByRole('button',{name:'Использовать Офис · 9 шт.'});
+    await userEvent.setup().click(alternative);
+    expect(within(form).getByRole('combobox',{name:'Склад позиции 1'})).toHaveValue(OFFICE);
+    expect(within(form).queryByText(/На выбранном складе недостаточно товара/)).not.toBeInTheDocument();
+  });
+
   it('creates a customer without leaving the sale form or losing entered data',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');
