@@ -400,3 +400,51 @@ describe('F03 value and F02.1 regression contracts', () => {
     expect(screen.getByRole('heading', { name: 'Закрытие дня', level: 2 })).toBeInTheDocument();
   });
 });
+
+describe('UI-V2-06 catalog filters and zero-photo operational UX', () => {
+  it('finds an inactive model from the next server page without fake page-local filtering', async () => {
+    const items=Array.from({length:21},(_,i)=>model({
+      id:'00000000-0000-4000-8000-'+String(i+1).padStart(12,'0'),
+      name:i===20?'Единственная Ergo модель':'Офис '+(i+1),
+      category:i===20?'Эргономичные':'Офисные кресла',
+      active:i!==20,
+    }));
+    const {calls}=mockCatalog({products:items}); renderAt();
+    await screen.findByRole('cell',{name:'Офис 1'});
+    const user=userEvent.setup();
+    await user.type(screen.getByRole('searchbox',{name:'Поиск модели или категории'}),'Ergo');
+    expect(await screen.findByRole('cell',{name:'Единственная Ergo модель'})).toBeInTheDocument();
+    expect(screen.queryByRole('cell',{name:'Офис 1'})).not.toBeInTheDocument();
+    expect(screen.getByText('Найдено: 1')).toBeInTheDocument();
+    expect(calls.mock.calls.some(([url])=>String(url).includes('search=Ergo'))).toBe(true);
+    await user.selectOptions(screen.getByRole('combobox',{name:'Статус товара'}),'active');
+    expect(await screen.findByText('По вашему запросу ничего не найдено')).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole('combobox',{name:'Статус товара'}),'inactive');
+    expect(await screen.findByRole('cell',{name:'Единственная Ergo модель'})).toBeInTheDocument();
+    expect(calls.mock.calls.some(([url])=>String(url).includes('active=false'))).toBe(true);
+  });
+  it('filters the full catalog by exact category and resets back to unfiltered server paging', async () => {
+    const {calls}=mockCatalog({products:[
+      model({category:'Офисные кресла'}),
+      model({id:createdId,name:'Игровое кресло',category:'Игровые'}),
+    ]});
+    renderAt();
+    await screen.findByRole('cell',{name:'Ergo Comfort'});
+    const user=userEvent.setup();
+    await user.type(screen.getByRole('searchbox',{name:'Категория товара'}),'Игровые');
+    expect(await screen.findByRole('cell',{name:'Игровое кресло'})).toBeInTheDocument();
+    expect(screen.queryByRole('cell',{name:'Ergo Comfort'})).not.toBeInTheDocument();
+    expect(calls.mock.calls.some(([url])=>String(url).includes('category=%D0%98%D0%B3%D1%80%D0%BE%D0%B2%D1%8B%D0%B5'))).toBe(true);
+    await user.click(screen.getByRole('button',{name:'Сбросить фильтры'}));
+    expect(await screen.findByRole('cell',{name:'Ergo Comfort'})).toBeInTheDocument();
+    expect(screen.getByText('Найдено: 2')).toBeInTheDocument();
+  });
+  it('read-only employees see clickable models and filters without creation controls or image uploads', async () => {
+    access.permissions=['CATALOG_READ']; access.roles=['EMPLOYEE'];
+    mockCatalog(); renderAt();
+    await screen.findByRole('cell',{name:'Ergo Comfort'});
+    expect(screen.getByRole('link',{name:'Ergo Comfort'})).toHaveAttribute('href','/catalog/'+productId);
+    expect(screen.queryByRole('button',{name:'Создать товар'})).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/фото|изображен|загрузить/i)).not.toBeInTheDocument();
+  });
+});
