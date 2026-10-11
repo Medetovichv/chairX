@@ -34,7 +34,7 @@ The separate Compose project name ensures this does not target the ordinary `cha
 
 ## Existing functionality
 
-Local profile currently creates initial admin/manager/employee using the existing opt-in `CHAIRX_DEV_SEED_USERS=true` functionality. **Phase 1 implemented (pending CI):** with the demo overlay, the backend atomically creates three sample chair models with four variants, two suppliers and three customers. A demo-only marker ensures they are not duplicated on restart. These are catalog/master-data fixtures only: sample purchases, deliveries, returns, finance, and mixed statuses have **not** been implemented yet. Do not call the complete demo fixture feature ready.
+Local profile currently creates initial admin/manager/employee using the existing opt-in `CHAIRX_DEV_SEED_USERS=true` functionality. **Phase 1 implemented (pending CI):** with the demo overlay, the backend atomically creates three sample chair models with four variants, two suppliers and three customers. A demo-only marker ensures they are not duplicated on restart. Phase 2 adds three purchases through the real business services: one draft, one partially received, and one fully received across HOME and OFFICE warehouses. This code is pending CI verification. Sample sales, deliveries, returns and finance are **not** yet seeded. Do not call the complete demo fixture feature ready.
 
 ## Business fixture implementation contract
 
