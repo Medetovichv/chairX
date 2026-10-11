@@ -40,6 +40,7 @@ export function CatalogPage() {
   const listing = useQuery({
     queryKey: catalogKeys.products(page, filters),
     queryFn: () => catalogApi.listProducts(page, filters),
+    enabled: !creating,
   });
   const create = useMutation({
     mutationFn: catalogApi.createProduct,
@@ -58,13 +59,16 @@ export function CatalogPage() {
     setPage(0);
   };
   return <div className="space-y-5 sm:space-y-6">
-    <PageHeader title="Каталог товаров" description="Модели кресел, цвета, артикулы и цены — без фотографий."
-      action={canManage ? <Button type="button" disabled={creating}
+    <PageHeader title={creating ? 'Новая модель кресла' : 'Каталог товаров'}
+      description={creating ? 'Сначала создайте модель, затем добавьте цвета и артикулы в её карточке.' :
+        'Модели кресел, цвета, артикулы и цены — без фотографий.'}
+      action={canManage && !creating ? <Button type="button" disabled={creating}
         className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreating(true)}>
         <Plus className="size-4" aria-hidden="true" />Создать товар
       </Button> : undefined}/>
     {creating && canManage && <ProductForm onCancel={() => setCreating(false)}
       onSave={async input => { await create.mutateAsync(input); }}/>}
+    {!creating && <>
     <section aria-label="Фильтры каталога"
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -154,5 +158,6 @@ export function CatalogPage() {
         <CatalogPager page={data.page} totalPages={data.totalPages}
           totalElements={data.totalElements} onPage={setPage}/>
       </section> : null}
+    </>}
   </div>;
 }
