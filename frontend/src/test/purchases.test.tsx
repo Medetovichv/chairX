@@ -74,7 +74,7 @@ const payments:PaymentSummary={
 };
 function mockApi(opts:{
   purchases?:Purchase[]; suppliers?:Supplier[]; initialReceived?:number;
-  fail?:Record<string,number>; networkReceiptOnce?:boolean; network?:boolean;
+  fail?:Record<string,number>; networkReceiptOnce?:boolean; network?:boolean; receiptHistory?:boolean;
 }={}) {
   const list=[...(opts.purchases??[purchase()])];
   const allSuppliers=[...(opts.suppliers??[supplier()])];
@@ -162,6 +162,18 @@ function mockApi(opts:{
       return json({purchaseId:p.id,status:p.status,items:receiving(p)});
     }
     const receipt=/^\/api\/purchases\/([^/]+)\/receipts$/.exec(path);
+    if(receipt&&method==='GET'){
+      return json({items:opts.receiptHistory?[{
+        id:RID,warehouseId:WID,postedAt:TIME,createdBy:'manager',
+      }]:[],page,size,totalElements:opts.receiptHistory?1:0});
+    }
+    const receiptDetail=/^\/api\/purchases\/([^/]+)\/receipts\/([^/]+)$/.exec(path);
+    if(receiptDetail&&method==='GET'&&opts.receiptHistory){
+      return json({id:RID,purchaseId:PID,warehouseId:WID,idempotencyKey:RID,
+        postedAt:TIME,createdBy:'manager',comment:'Первая партия',
+        items:[{id:RID,purchaseItemId:ITEM,productVariantId:VARIANT,quantity:6,
+          allocatedCargoCost:'0.00',totalCost:'27000.00'}]});
+    }
     if(receipt && method==='POST'){
       const body=JSON.parse(String(init?.body)) as {
         warehouseId:string;idempotencyKey:string;items:Array<{purchaseItemId:string;quantity:number}>;comment:string|null;
@@ -367,6 +379,35 @@ describe('F06 list, filters and drafts',()=>{
 });
 
 describe('F06 purchase details and mutations',()=>{
+  it('renders read-only factual receipt history and fetches detail only on demand',async()=>{
+    const {calls}=mockApi({receiptHistory:true});
+    renderAt('/purchases/'+PID);
+    const history=await screen.findByRole('region',{name:'История поступлений'});
+    expect(await within(history).findByText(/Поступление ·/)).toBeInTheDocument();
+    expect(within(history).getByText(/Принял: manager/)).toBeInTheDocument();
+    expect(within(history).getByText(/Дом · Принял: manager/)).toBeInTheDocument();
+    expect(requests(calls,'/api/purchases/'+PID+'/receipts/'+RID)).toHaveLength(0);
+    await userEvent.setup().click(within(history).getByRole('button',{name:'Подробнее о поступлении'}));
+    expect(await within(history).findByText(/Стоимость поступивших товаров:/)).toBeInTheDocument();
+    expect(within(history).getByText(/27\s?000,00 сом/)).toBeInTheDocument();
+    expect(requests(calls,'/api/purchases/'+PID+'/receipts/'+RID)).toHaveLength(1);
+    expect(screen.queryByText('UUID: '+RID)).not.toBeInTheDocument();
+  });
+  it('shows purchase receiving history without inventory API calls when not inventory authorized',async()=>{
+    access.permissions=['PURCHASE_READ'];
+    const {calls}=mockApi({receiptHistory:true});
+    renderAt('/purchases/'+PID);
+    const history=await screen.findByRole('region',{name:'История поступлений'});
+    expect(await within(history).findByText(/Склад \(подробности недоступны\)/)).toBeInTheDocument();
+    expect(requests(calls,'/api/warehouses')).toHaveLength(0);
+    expect(requests(calls,'/api/purchases/'+PID+'/receipts')).not.toHaveLength(0);
+  });
+  it('shows an honest empty state when no receipt has been posted yet',async()=>{
+    mockApi();
+    renderAt('/purchases/'+PID);
+    const history=await screen.findByRole('region',{name:'История поступлений'});
+    expect(await within(history).findByText('По этой закупке поступлений пока не было.')).toBeInTheDocument();
+  });
   it('shows real product model, variation and SKU from purchase response with no extra catalog lookup',async()=>{
     const {calls}=mockApi();
     renderAt('/purchases/'+PID);

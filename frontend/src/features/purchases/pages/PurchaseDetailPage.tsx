@@ -16,6 +16,7 @@ import { purchaseApi, purchaseKeys, supplierApi } from '../api';
 import { PurchaseTabs } from '../components/PurchaseTabs';
 import { PurchaseForm, moneyFromCents, purchasePreview } from '../components/PurchaseForm';
 import { PurchaseStatusBadge } from '../components/PurchaseStatusBadge';
+import { PurchaseReceiptsHistory } from '../components/PurchaseReceiptsHistory';
 import { checkMoney, formatDate, formatMoney } from '../validation';
 import type { Purchase } from '../types';
 
@@ -159,6 +160,7 @@ function Detail({ purchase }: { purchase: Purchase }) {
         })}
       </div>
     </section>
+    <PurchaseReceiptsHistory purchase={purchase}/>
     <div className="flex flex-wrap gap-2">
       {hasPermission('INVENTORY_RECEIVE') &&
         ['CONFIRMED','PARTIALLY_RECEIVED'].includes(purchase.status) && <Button asChild>

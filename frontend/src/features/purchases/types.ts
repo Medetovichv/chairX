@@ -29,6 +29,20 @@ export interface Supplier { id: string; name: string; contactInformation: string
   comment: string | null; active: boolean; createdAt: string; updatedAt: string }
 export interface SupplierInput { name: string; contactInformation: string | null; comment: string | null }
 export interface SupplierPage { items: Supplier[]; page: number; size: number; totalElements: number; totalPages: number }
+export interface PurchaseReceiptSummary {
+  id: string; warehouseId: string; postedAt: string; createdBy: string;
+}
+export interface PurchaseReceiptPage {
+  items: PurchaseReceiptSummary[]; page: number; size: number; totalElements: number;
+}
+export interface PurchaseReceiptItem {
+  id: string; purchaseItemId: string; productVariantId: string; quantity: number;
+  allocatedCargoCost: Money; totalCost: Money;
+}
+export interface PurchaseReceipt {
+  id: string; purchaseId: string; warehouseId: string; idempotencyKey: string;
+  postedAt: string; createdBy: string; comment: string | null; items: PurchaseReceiptItem[];
+}
 export interface ReceivingLine {
   purchaseId: string; status: PurchaseStatus; createdAt: string; purchaseItemId: string;
   productVariantId: string; model: string; variant: string;
