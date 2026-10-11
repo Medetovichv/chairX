@@ -73,6 +73,16 @@ function mockBackend(options:{
     const path=url.pathname,method=init?.method||'GET';
     const rejected=options.deny?.[method+' '+path];
     if(rejected)return json({code:'REJECTED',message:'stacktrace-private',details:{}},rejected);
+    const segments=path.split('/');
+    if(segments.length===5 && segments[1]==='api' && segments[2]==='sales' &&
+       segments[4]==='history' && method==='GET'){
+      const current=rows.find(s=>s.id===segments[3]);
+      const entries=current?[
+        {action:'DRAFT_CREATED',actor:'sales-operator',occurredAt:TIME},
+        ...(current.status==='FULFILLED'?[{action:'FULFILLED',actor:'warehouse-operator',occurredAt:TIME}]:[]),
+      ]:[];
+      return json({items:entries,page:0,size:20,total:entries.length});
+    }
     if(path==='/api/deliveries/by-sale/'+SALE_ID&&method==='GET'){
       return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY'});
     }
@@ -479,11 +489,13 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       .toHaveAttribute('href','/catalog/'+MODEL_ID);
     expect(screen.getByText('Склад:',{exact:false}).parentElement).toHaveTextContent('Дом');
     const history=screen.getByRole('region',{name:'События заказа'});
-    expect(within(history).getByText('Заказ создан')).toBeInTheDocument();
+    expect(within(history).getByText('Черновик создан')).toBeInTheDocument();
     expect(within(history).getByText('Продажа выполнена')).toBeInTheDocument();
+    expect(within(history).getByText('Сотрудник: warehouse-operator')).toBeInTheDocument();
     expect(screen.getByRole('complementary',{name:'Итог и действия по заказу'}))
       .toHaveTextContent('17');
     expect(called(api,'/api/warehouses')).toHaveLength(1);
+    expect(called(api,'/api/sales/'+SALE_ID+'/history')).toHaveLength(1);
   });
   it('does not fetch inventory or catalog for sales-only role while showing timeline',async()=>{
     granted.permissions=['SALES_READ'];

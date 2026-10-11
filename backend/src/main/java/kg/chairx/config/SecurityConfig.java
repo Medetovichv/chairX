@@ -134,7 +134,7 @@ public class SecurityConfig {
                         // Dashboard metrics are independently redacted per operational grant.
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/overview")
                         .hasAnyAuthority("SALES_READ", "DELIVERIES_READ", "INVENTORY_READ")
-                        .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*")
+                        .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*", "/api/sales/*/history")
                         .hasAuthority("SALES_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(

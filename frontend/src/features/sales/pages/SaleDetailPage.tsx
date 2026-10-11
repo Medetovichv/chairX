@@ -23,9 +23,16 @@ import { SaleForm } from '../components/SaleForm';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
-import type { DraftInput, SaleResponse, SaleSummary } from '../types';
+import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 
 type Action='confirm'|'fulfill'|'cancel';
+const auditLabels:Record<SaleAuditAction,string>={
+  DRAFT_CREATED:'Черновик создан',
+  DRAFT_UPDATED:'Черновик изменён',
+  CONFIRMED:'Заказ подтверждён',
+  FULFILLED:'Продажа выполнена',
+  CANCELLED:'Заказ отменён',
+};
 
 /** Reject a stale irreversible-action confirmation before posting.
  * Backend still enforces final business rules under a database row lock.
@@ -134,6 +141,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [notice,setNotice]=useState(typeof initialNotice==='string'?initialNotice:'');
   const [error,setError]=useState('');
   const [editing,setEditing]=useState(false);
+  const [historyPage,setHistoryPage]=useState(0);
   const [draftUncertain,setDraftUncertain]=useState(false);
   const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
@@ -188,15 +196,17 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   });
   const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
     relatedDelivery.error.status===404;
+  const auditHistory=useQuery({
+    queryKey:salesKeys.history(sale.id,historyPage),
+    queryFn:()=>salesApi.history(sale.id,historyPage),
+    enabled:hasPermission('SALES_READ'),
+  });
   const paymentStatus=matched?.paymentStatus==='PAID'?'Оплачено':
     matched?.paymentStatus==='UNPAID'?'Не оплачено':
     matched?.paymentStatus==='PARTIAL'?'Требуется проверить данные оплаты':
     'Статус оплаты недоступен';
   const delivery=canReadDelivery?relatedDelivery.data:undefined;
-  const events=[
-    {key:'created',label:'Заказ создан',at:sale.createdAt},
-    ...(sale.fulfilledAt?[{key:'fulfilled',label:'Продажа выполнена',at:sale.fulfilledAt}]:[]),
-    ...(sale.cancelledAt?[{key:'cancelled',label:'Заказ отменён',at:sale.cancelledAt}]:[]),
+  const deliveryEvents=[
     ...(delivery?[
       {key:'delivery-created',label:'Доставка оформлена',at:delivery.createdAt},
       ...(delivery.dispatchedAt?[{key:'dispatched',label:'Доставка отправлена',at:delivery.dispatchedAt}]:[]),
@@ -211,6 +221,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     await Promise.all([
       client.invalidateQueries({queryKey:salesKeys.lists}),
       client.invalidateQueries({queryKey:salesKeys.kanban}),
+      client.invalidateQueries({queryKey:salesKeys.historyPrefix(sale.id)}),
       client.invalidateQueries({queryKey:saleStatisticsKeys.last30Days}),
       client.invalidateQueries({queryKey:['dashboard']}),
       client.invalidateQueries({queryKey:inventoryKeys.overviewPrefix}),
@@ -370,17 +381,49 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           Открыть учёт остатков</Link></div>}
       <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
     </section>
-    <section aria-label="События заказа" className="rounded-2xl border border-slate-200 bg-white p-5">
-      <h3 className="text-lg font-bold">События заказа</h3>
-      <p className="mt-1 text-xs text-slate-500">Только события с датами, подтверждёнными системой.
-        Полная история изменений и обсуждение сотрудников пока не доступны.</p>
-      <ol className="mt-4 space-y-4">
-        {events.map(e=><li key={e.key} className="flex gap-3 text-sm">
-          <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full bg-blue-600"/>
-          <div><p className="font-semibold text-slate-900">{e.label}</p>
-            <time dateTime={e.at} className="text-xs text-slate-500">{eventStamp(e.at)}</time></div>
-        </li>)}
-      </ol>
+    <section aria-label="События заказа" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+      <h3 className="text-lg font-bold">История заказа</h3>
+      <p className="text-xs text-slate-500">Операции из защищённого системного аудита.
+        Изменения отображаются с фактическим временем и автором.</p>
+      {auditHistory.isPending?<LoadingState label="Загружаем историю продажи…"/>:
+        auditHistory.isError?<ErrorState title="История заказа недоступна"
+          error={auditHistory.error} onRetry={()=>void auditHistory.refetch()}/>:
+        <>
+          {auditHistory.data?.items.length===0&&<p className="text-sm text-slate-500">
+            Записи истории для этой продажи не найдены.</p>}
+          <ol className="space-y-4">
+            {auditHistory.data?.items.map((e,index)=><li key={e.occurredAt+e.action+index}
+              className="flex gap-3 text-sm">
+              <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full bg-blue-600"/>
+              <div>
+                <p className="font-semibold text-slate-900">{auditLabels[e.action]??'Изменение продажи'}</p>
+                <p className="text-xs text-slate-600">Сотрудник: {e.actor}</p>
+                <time dateTime={e.occurredAt} className="text-xs text-slate-500">
+                  {eventStamp(e.occurredAt)}</time>
+              </div>
+            </li>)}
+          </ol>
+          {!!auditHistory.data&&auditHistory.data.total>auditHistory.data.size&&
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+              <Button type="button" variant="outline" disabled={historyPage===0}
+                onClick={()=>setHistoryPage(p=>Math.max(0,p-1))}>Предыдущие</Button>
+              <span className="text-xs text-slate-500">Страница {historyPage+1}</span>
+              <Button type="button" variant="outline"
+                disabled={(historyPage+1)*auditHistory.data.size>=auditHistory.data.total}
+                onClick={()=>setHistoryPage(p=>p+1)}>Следующие</Button>
+            </div>}
+        </>}
+      {deliveryEvents.length>0&&<div className="space-y-3 border-t border-slate-100 pt-4">
+        <h4 className="font-semibold text-slate-900">События связанной доставки</h4>
+        <ol className="space-y-3">
+          {deliveryEvents.map(e=><li key={e.key} className="flex gap-3 text-sm">
+            <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full bg-indigo-400"/>
+            <div><p className="font-semibold text-slate-900">{e.label}</p>
+              <time dateTime={e.at} className="text-xs text-slate-500">
+                {eventStamp(e.at)}</time></div>
+          </li>)}
+        </ol>
+      </div>}
     </section>
       </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">

@@ -20,9 +20,11 @@ import java.util.UUID;
 public class SaleController {
 
     private final SaleService service;
+    private final kg.chairx.sale.application.SaleHistoryService history;
 
-    public SaleController(SaleService service) {
+    public SaleController(SaleService service, kg.chairx.sale.application.SaleHistoryService history) {
         this.service = service;
+        this.history = history;
     }
 
     @GetMapping
@@ -74,6 +76,13 @@ public class SaleController {
     @PostMapping("/{id}/confirm")
     public SaleResponse confirmDraft(@PathVariable UUID id) {
         return service.confirmDraft(id);
+    }
+
+    @GetMapping("/{id}/history")
+    public kg.chairx.sale.api.SaleHistoryPage history(@PathVariable UUID id,
+            @RequestParam(defaultValue="0") @Min(0) int page,
+            @RequestParam(defaultValue="20") @Min(1) @Max(100) int size) {
+        return history.list(id, page, size);
     }
 
     @GetMapping("/{id}")

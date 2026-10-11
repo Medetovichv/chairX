@@ -22,6 +22,14 @@ export interface SaleResponse {
   fulfilledAt: string | null; cancelledBy: string | null; cancelledAt: string | null;
   comment: string | null;
 }
+export type SaleAuditAction =
+  'DRAFT_CREATED' | 'DRAFT_UPDATED' | 'CONFIRMED' | 'FULFILLED' | 'CANCELLED';
+export interface SaleHistoryEvent {
+  action: SaleAuditAction; actor: string; occurredAt: string;
+}
+export interface SaleHistoryPage {
+  items: SaleHistoryEvent[]; page: number; size: number; total: number;
+}
 export interface SaleItemInput {
   productVariantId: string; warehouseId: string; quantity: number; unitSalePrice: string;
 }
