@@ -1,0 +1,44 @@
+name: F10 finance PostgreSQL integration
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/src/features/finance/**'
+      - 'frontend/src/features/sales/pages/SaleDetailPage.tsx'
+      - 'frontend/src/features/returns/pages/ExchangeDetailPage.tsx'
+      - 'frontend/src/features/returns/pages/ReturnDetailPage.tsx'
+      - 'frontend/src/test/finance.test.tsx'
+      - 'docs/f10-finance.md'
+      - '.github/workflows/f10-finance-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  f10-finance-integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Verify Docker available for isolated PostgreSQL Testcontainers
+        run: docker info --format '{{.ServerVersion}}'
+      - name: Real PostgreSQL financial integrity and daily closing boundary tests
+        working-directory: backend
+        run: >-
+          mvn --batch-mode --no-transfer-progress clean verify
+          -Dtest=PaymentApiTests,PaymentRefundIntegrityTests,RefundApiTests,RefundConcurrencyTests,ExchangeSettlementTests,ExchangeWorkflowTests,FinanceApiIntegrationTests,FinanceEndToEndIntegrationTests,FinanceTransferIntegrationTest,FinanceOpeningBalanceIntegrationTest,FinanceQueryIntegrationTest,FinancialDocumentClosingTests,DailyClosingBoundaryIntegrationTest
+      - name: Archive failed test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: f10-testcontainers-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14
