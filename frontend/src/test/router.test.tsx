@@ -136,6 +136,20 @@ describe('F02.1 navigation structure', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('mobile menu respects warehouse-only permissions without exposing finance or admin', async () => {
+    mockProfile.roles = ['CUSTOM_WAREHOUSE'];
+    mockProfile.permissions = ['INVENTORY_RECEIVE'];
+    renderAt('/purchases');
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Открыть меню' }));
+    const mobile = screen.getByRole('dialog', { name: 'Мобильная навигация' });
+    expect(within(mobile).getByRole('link', { name: 'Закупки' })).toBeInTheDocument();
+    expect(within(mobile).queryByRole('link', { name: 'Финансы' })).not.toBeInTheDocument();
+    expect(within(mobile).queryByRole('link', { name: 'Администрирование' })).not.toBeInTheDocument();
+    expect(within(mobile).queryByRole('link', { name: 'Продажи' })).not.toBeInTheDocument();
+    await userEvent.setup().click(within(mobile).getByRole('button', { name: /Закрыть меню/ }));
+    expect(screen.queryByRole('dialog', { name: 'Мобильная навигация' })).not.toBeInTheDocument();
+  });
+
   it('renders a 404 for unknown URLs and never infers permission from roles', () => {
     expect(routeFor('/not-real')).toBeUndefined();
     renderAt('/not-real');
