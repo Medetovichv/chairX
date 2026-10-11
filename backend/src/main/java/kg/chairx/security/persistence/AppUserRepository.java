@@ -52,6 +52,24 @@ public class AppUserRepository {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public boolean activate(UUID userId) {
+        return jdbc.sql("""
+            UPDATE app_users SET active = TRUE
+            WHERE id = :id AND active = FALSE
+            """).param("id", userId).update() == 1;
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void updatePasswordHash(UUID userId, String encoded) {
+        int updated = jdbc.sql("""
+            UPDATE app_users SET password_hash = :hash WHERE id = :id
+            """).param("hash", encoded).param("id", userId).update();
+        if (updated != 1) {
+            throw new IllegalArgumentException("Сотрудник не найден");
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void create(
             UUID id,
             String username,
