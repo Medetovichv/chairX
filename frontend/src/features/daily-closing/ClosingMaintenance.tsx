@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../auth/AuthProvider';
 import { closingApi, closingKeys } from './api';
-import type { ClosingAccess, ClosingInput, ClosingReport, ClosingUpdate } from './types';
+import type { ClosingAccess, ClosingReport, ClosingUpdate } from './types';
 import { GuardedPost } from '../finance/components/GuardedPost';
 import { categories, amountCents, bishkekToday, dateLabel, nonnegativeSom, optional, som } from '../finance/validation';
 import { validateExpense } from '../finance/validation';

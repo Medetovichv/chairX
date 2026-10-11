@@ -26,3 +26,13 @@ Use existing F10 GuardedPost to confirm and persist an operation journal before 
 Versioned correction PUT with expectedVersion and reason; Manager/Admin unlock and admin-only revoke; read-only history with DAILY_CLOSING_AUDIT_READ; dated expense correction via DAILY_CLOSING_EXPENSE_CORRECT and stable idempotency key. UI must respect 13:00 Bishkek cutoff and server return values, without recreating P21 backend policy.
 
 Phase A test matrix: readonly without FINANCE_READ; no unauthorized GET; no synthetic missing historical snapshots; notes for discrepancies; one guarded POST and backend confirmation; locked-day denial; requiresReview after recalculation. CI frontend lint, TypeScript, Vitest and Vite production build must be green before further work and PR acceptance. Browser+PostgreSQL real E2E is an outstanding release gate, not claimed.
+
+
+## Phase B implemented on the same F11 branch
+
+- Closed-report PUT uses expectedVersion (backend optimistic concurrency), requires a reason and confirms cash/bank observations separately. The screen is keyed to report ID/version, not stale React Router state.
+- Manager/Admin date unlock with reason (grant expiry decided solely by backend) and admin-only revoke. Expired windows and database locks remain authoritative on the server.
+- History GET is queried ONLY when DAILY_CLOSING_AUDIT_READ is present.
+- Late dated expense correction is a separate idempotent POST with a UUID and exact original replay only; not a way to conceal unexplained variance. Existing backend owns the actual posting and all later report re-calculations. The frontend never performs a direct ledger edit.
+
+**Remaining release gates:** frontend CI, realistic PostgreSQL-backed browser E2E of a full day including late expense and later-closed reports, production migration dry-run with a copy of real data, manual finance acceptance, and final review. Nothing is merged automatically.
