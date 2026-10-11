@@ -59,22 +59,23 @@ export function GuardedPost<T>({
  async function send(payload:T,isReplay=false){
   if(running.current||!allowed||!user?.id)return;
   const key=operationKey(payload);
-  const record={key,scope,kind,meta:meta(payload)};
+  const record:PendingFinance={key,scope,kind,meta:meta(payload)};
+  // An exact retry requires the same original payload, same operation key
+  // and a previously committed local pending marker.
+  if(isReplay&&(!canReplay||!replay||JSON.stringify(replay)!==JSON.stringify(payload)||
+     journal.kind!=='pending'||JSON.stringify(journal.record)!==JSON.stringify(record)))return;
+  if(!isReplay&&journal.kind!=='missing')return;
   if(!saveFinancePending(user.id,record)){
    setJournal({kind:'invalid'});
    setError('Не удалось сохранить исходную операцию перед POST. Проведение денег заблокировано.');
    return;
   }
-  if(isReplay){
-   if(!canReplay||!replay||JSON.stringify(replay)!==JSON.stringify(payload)||journal.kind!=='pending'||
-    JSON.stringify(journal.record)!==JSON.stringify(record))return;
-  }else if(journal.kind!=='missing')return;
   running.current=true;setBusy(true);setCandidate(null);setError('');
   setJournal({kind:'pending',record});
+  let succeeded=false;
   try{
    await post(payload);
-   finish();
-   await onDone();
+   succeeded=true;
   }catch(cause){
    const ambiguous=!(cause instanceof ApiClientError)||cause.kind!=='http'||
     cause.status===undefined||cause.status>=500||cause.status===409;
@@ -82,13 +83,23 @@ export function GuardedPost<T>({
     if(canReplay)setReplay(payload);
     setError(userFacingApiError(cause)+' Результат неизвестен; новый финансовый POST заблокирован.');
    }else{
-    // Definitive validation rejection: there was no new confirmed debit/credit.
-    // Still fail closed when storage cleanup fails.
+    // A definite client-side rejection on the first POST may be discarded.
+    // An existing uncertain request is never unlocked by a later 4xx.
     if(clearFinancePending(user.id,kind,scope))setJournal({kind:'missing'});
     else setJournal({kind:'invalid'});
     setError(userFacingApiError(cause));
    }
-  }finally{running.current=false;setBusy(false);}
+  }finally{
+   if(!succeeded){running.current=false;setBusy(false);}
+  }
+  if(!succeeded)return;
+  finish();
+  try{await onDone();}
+  catch{
+   setError('Операция подтверждена backend, но обновить данные не удалось. Обновите страницу — повторная проводка не нужна.');
+  }finally{
+   running.current=false;setBusy(false);
+  }
  }
  async function check(){
   if(!reconcile||journal.kind!=='pending'||running.current)return;
