@@ -282,7 +282,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     mockBackend();renderAt();
     await screen.findByRole('heading',{name:'Продажи',level:2});
     expect(screen.queryByRole('link',{name:'+ Новая продажа'})).not.toBeInTheDocument();
-    expect((await screen.findAllByText('CHX-2026-0042')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('#42')).length).toBeGreaterThan(0);
   });
 });
 describe('F07 creation and idempotent drafts',()=>{
@@ -291,7 +291,7 @@ describe('F07 creation and idempotent drafts',()=>{
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Сохранить черновик'}));
-    expect(await screen.findByRole('heading',{name:'Продажа CHX-2026-0043'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Продажа #43'})).toBeInTheDocument();
     expect(api.count().creates).toBe(1);
     const post=api.fetchMock.mock.calls.find(([url,opts])=>String(url)==='/api/sales/drafts'&&(opts as RequestInit).method==='POST');
     const data=JSON.parse(String((post?.[1] as RequestInit).body)) as CreateDraftInput;
@@ -328,7 +328,7 @@ describe('F07 creation and idempotent drafts',()=>{
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 2'}),{target:{value:WH}});
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 2'}),{target:{value:'8100'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Сохранить черновик'}));
-    expect(await screen.findByRole('heading',{name:'Продажа CHX-2026-0043'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Продажа #43'})).toBeInTheDocument();
     const post=api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/sales/drafts'&&(init as RequestInit).method==='POST');
     expect(post).toHaveLength(1);
     const data=JSON.parse(String((post[0]?.[1] as RequestInit).body)) as CreateDraftInput;
@@ -351,7 +351,7 @@ describe('F07 creation and idempotent drafts',()=>{
     renderAt('/sales/new');
     expect(await screen.findByRole('button',{name:'Повторить исходный запрос'})).toBeInTheDocument();
     await userEvent.setup().click(replay.isConnected?replay:screen.getByRole('button',{name:'Повторить исходный запрос'}));
-    expect(await screen.findByRole('heading',{name:'Продажа CHX-2026-0043'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Продажа #43'})).toBeInTheDocument();
     const posts=api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/sales/drafts'&&(init as RequestInit).method==='POST');
     expect(posts).toHaveLength(2);
     expect((posts[0]?.[1] as RequestInit).body).toBe((posts[1]?.[1] as RequestInit).body);
@@ -379,7 +379,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('loads real detail with comment/amount and only available statuses',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
-    expect(await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Продажа #42'})).toBeInTheDocument();
     expect(screen.getAllByText('Самовывоз').length).toBeGreaterThan(0);
     expect(screen.getByText('Статус оплаты')).toBeInTheDocument();
     expect(called(api,'/api/payments')).toHaveLength(0);
@@ -387,7 +387,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('edits DRAFT via full PUT, keeping warehouse, variant and unchanged fields',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать черновик'}));
     const form=within(screen.getByRole('form',{name:'Редактирование черновика'}));
     fireEvent.change(form.getByRole('textbox',{name:'Комментарий продажи'}),{target:{value:'Повторная проверка'}});
@@ -401,7 +401,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('preserves edited form data but locks re-submit after an uncertain PUT',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')],draftUpdateNetworkOnce:true});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать черновик'}));
     const form=within(screen.getByRole('form',{name:'Редактирование черновика'}));
     fireEvent.change(form.getByRole('textbox',{name:'Комментарий продажи'}),
@@ -422,7 +422,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('never confirms a stale DRAFT whose contents changed before irreversible POST',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')],changeBeforeAction:true});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
     expect(await screen.findByRole('alert')).toHaveTextContent(/Заказ изменён другим сотрудником/);
@@ -435,7 +435,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('does not discard local form data when uncertain PUT never reached the backend',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')],draftUpdateFailBeforeCommit:true});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Редактировать черновик'}));
     const form=within(screen.getByRole('form',{name:'Редактирование черновика'}));
     fireEvent.change(form.getByRole('textbox',{name:'Комментарий продажи'}),
@@ -457,7 +457,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('confirms draft only after explicit confirmation and backend updates status',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('17');
     expect(api.count().confirms).toBe(0);
@@ -469,7 +469,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('keeps DRAFT on stock failure with no invented success or frontend stock move',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')],stockFailure:true});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
     expect(await screen.findByRole('alert')).toHaveTextContent(/409|противоречит/);
@@ -480,7 +480,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('fulfills confirmed SELF_PICKUP with confirmation; backend exclusively posts inventory',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Завершить продажу'}));
     expect(api.count().fulfills).toBe(0);
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Завершить продажу'}));
@@ -492,7 +492,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('never allows direct fulfillment/cancellation of delivery sales (F08)',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'REGION_DELIVERY'})]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     expect(screen.queryByRole('button',{name:'Завершить продажу'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
     expect(screen.getByText(/процесс доставки/)).toBeInTheDocument();
@@ -501,7 +501,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
   it('cancels DRAFT only with confirmation; cannot edit FULFILLED',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Отменить заказ'}));
     expect(api.count().cancels).toBe(0);
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Отменить заказ'}));
@@ -514,7 +514,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     granted.permissions=['SALES_READ'];
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
-    await screen.findByRole('heading',{name:'Продажа CHX-2026-0042'});
+    await screen.findByRole('heading',{name:'Продажа #42'});
     expect(screen.queryByRole('button',{name:'Завершить продажу'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
     expect(called(api,'/api/inventory/')).toHaveLength(0);
