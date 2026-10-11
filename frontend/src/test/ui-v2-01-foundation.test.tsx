@@ -17,7 +17,8 @@ describe('UI-V2-01 semantically navigable entities', () => {
   it('shows a short human sale number without changing the server identifier', () => {
     expect(displaySaleNumber('SALE-2026-000123')).toBe('#123');
     expect(displaySaleNumber('SALE-2025-000123')).toBe('#123');
-    expect(displaySaleNumber('CHX-2026-0042')).toBe('CHX-2026-0042');
+    expect(displaySaleNumber('CHX-2026-0042')).toBe('#42');
+    expect(displaySaleNumber('CUSTOM-2026-0042')).toBe('CUSTOM-2026-0042');
     expect(displaySaleNumber(SALE_ID)).toBe(SALE_ID); // legacy invalid input never gets cut into a fake number
   });
 
