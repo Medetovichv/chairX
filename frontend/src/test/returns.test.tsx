@@ -442,7 +442,7 @@ describe('F09 exchange and settlements boundaries',()=>{
   const a=mockBackend({returns:[returned()]});
   renderAt('/returns/exchanges');
   expect(await screen.findByRole('heading',{name:'Обмены',level:2})).toBeInTheDocument();
-  expect(screen.getByText(/Глобального GET \/api\/exchanges нет/)).toBeInTheDocument();
+  expect(screen.getByText(/Поиск по всем обменам пока недоступен/)).toBeInTheDocument();
   expect(calls(a,'/api/exchanges').filter(([url])=>String(url)==='/api/exchanges')).toHaveLength(0);
  });
  it('shows backend amounts and read-only settlements with no settlement POST',async()=>{
