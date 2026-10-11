@@ -193,7 +193,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
  it('never requests FINANCE_READ endpoints for non-finance role',()=>{
   const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
   wrapper(<FinanceOverviewPage/>);
-  expect(screen.getByText(/У вас недостаточно прав/)).toBeInTheDocument();
+  expect(screen.getByRole('heading',{name:'Доступ запрещён'})).toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
  });
  it('allows EXPENSES_CREATE without EXPENSES_READ or FINANCE_READ and does not fetch private lists',async()=>{
