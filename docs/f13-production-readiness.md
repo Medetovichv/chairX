@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | Catalog, supplier, customer | Integration tests and populated REST/Chromium purchase chain | Full desktop/mobile click workflow pending |
 | Purchasing and partial receiving | Authenticated API, real PG, two warehouses, replay and over-receipt guard | Cargo allocation variants, purchase-payment browser workflow |
-| Stock / FIFO / transfers | Backend inventory/cost integration tests | Cross-warehouse transfer browser walkthrough, **#38 cost disclosure** |
+| Stock / FIFO / transfers | Backend inventory/cost integration tests | Cross-warehouse transfer browser walkthrough; existing server-side cost suppression is covered by backend integration tests |
 | Sale/reservations | Backend, multi-warehouse sale API and Chromium detail | Parallel reservation last-chair UI, draft edit/cancel |
 | Deliveries and returns | Dispatch/delivery, partial sellable return, refund and read-only SQL invariants | Failed city/region delivery UX, BLOCKED return end-to-end |
 | Exchange and defects | Backend module integration tests | Full backend+UI purchase-to-exchange, defect parts/write-off scenario |
@@ -46,7 +46,7 @@ until actual browser interactions are captured.
 
 | Priority | Finding | Evidence / action |
 | --- | --- | --- |
-| **HIGH — blocks GO** | Inventory transfers reveal `totalCost` in GET history/detail and POST result to users with operational permissions; frontend column hiding does not protect raw HTTP. | [Issue #38](https://github.com/Medetovichv/chairX/issues/38). Fix in **its own branch/PR**, add tests checking raw JSON and no financial side effects. F13 does not silently close the issue. |
+| **RESOLVED — previously reported HIGH** | The transfer-cost disclosure described in #38 was fixed in main on 2026-10-10 by commit `6f38d113` (“fix(security): hide FIFO cost in inventory transfer APIs (#20)”). | Verified actual server DTOs, cost-free query SQL, POST controller and backend raw-JSON/CSRF/FIFO tests. [Issue #38](https://github.com/Medetovichv/chairX/issues/38) is **stale tracking**, not evidence of an active leak. Frontend comments in this F13 PR are updated to match. |
 | **HIGH — blocks GO** | HTTPS, production credentials, disaster restore and real-data upgrade/operator approval are not proven. Existing local Compose is bound to localhost and uses development seed users. | No deployment authorized. See sections 7–8. |
 | **MEDIUM — coverage** | Complete actual browser purchase/edit/reservation, exchanges, blocked return, defects and failed delivery not yet executed as a single real-browser suite. | Extend the existing F11/F13 Playwright infrastructure selectively where actual business risk warrants it. |
 | **MEDIUM — acceptance** | Restricted roles, mobile widths and audit semantics must be validated with staff devices; CI screenshots are not operator acceptance. | Conduct role-by-role UAT. |
@@ -85,7 +85,7 @@ Issues found in later test runs must be added here with actual proof and PR.
 - Frontend auth is in memory, without persistent Basic credentials.
   Login/logout clear private Query cache and abort outstanding requests.
 - F12 migrated V52 permissions for activation and password reset.
-- **Known unresolved API leak #38 prevents NO-GO from being lifted.**
+- **#38 was already resolved in main** by security fix #20. No new cost endpoint is needed; the backend continues to record FIFO valuations without exposing them to inventory readers.
 - Production must terminate HTTPS, restrict DB access, rotate secrets and
   remove test/dev accounts. Current dev Compose is NOT production config.
 - A browser test cannot replace code review of non-RBAC finance-sensitive
@@ -122,7 +122,7 @@ asserts the existing populated F11 scenario still starts from zero.
 - [x] Backend, frontend, Docker smoke and Flyway/PG Testcontainers CI exist.
 - [x] Real Chromium + Spring + PG flow exists and uses synthetic data.
 - [x] F13 real limited-role browser/admin lifecycle check passed in CI (synthetic data).
-- [ ] #38 cost data leak is fixed and raw-response authorization tested.
+- [x] #38 transfer-cost bug already fixed in main by #20; raw-response and FIFO regression tests exist and pass.
 - [ ] Full critical operational scenarios and retry/concurrency gates signed.
 - [ ] Real authorized prior-business backup tested for restore and migration.
 - [ ] Operator validates finance against CASH/BANK statements and stock counts.
