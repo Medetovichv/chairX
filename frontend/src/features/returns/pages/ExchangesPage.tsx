@@ -15,6 +15,13 @@ import { salesKeys } from '../../sales/api';
 import { inventoryKeys } from '../../inventory/api';
 import { uuid } from '../validation';
 import type { ExchangeInput } from '../types';
+function exchangeIdFromLink(value:string):string {
+ try {
+  const url=new URL(value,window.location.origin);
+  const match=/^\\/returns\\/exchanges\\/([0-9a-f-]+)\\/?$/i.exec(url.pathname);
+  return match&&uuid(match[1])?match[1]:'';
+ }catch{return '';}
+}
 export function ExchangesPage(){
  const {hasPermission,user}=useAuth(),read=hasPermission('EXCHANGES_READ'),create=hasPermission('EXCHANGES_CREATE');
  const [params]=useSearchParams(),navigate=useNavigate(),client=useQueryClient();
@@ -56,10 +63,10 @@ export function ExchangesPage(){
   <PageHeader title="Обмены" description="Оформляйте обмен из карточки возврата. Существующий обмен можно открыть по сохранённой ссылке."/>
   <ReturnsTabs/>
   {read&&<form className="flex flex-wrap items-end gap-2 rounded-xl bg-white p-4"
-    onSubmit={e=>{e.preventDefault();if(uuid(lookup))navigate('/returns/exchanges/'+lookup);}}>
+    onSubmit={e=>{e.preventDefault();if(exchangeIdFromLink(lookup))navigate('/returns/exchanges/'+exchangeIdFromLink(lookup));}}>
     <label className="space-y-1 text-sm font-semibold">Ссылка на существующий обмен
       <Input aria-label="Ссылка на обмен" value={lookup} onChange={e=>setLookup(e.target.value.trim())}/>
-    </label><Button type="submit" disabled={!uuid(lookup)}>Открыть обмен</Button>
+    </label><Button type="submit" disabled={!exchangeIdFromLink(lookup)}>Открыть обмен</Button>
     <p className="w-full text-xs text-slate-500">Вставьте ссылку из истории браузера или карточки обмена. Поиск по всем обменам пока недоступен.</p>
    </form>}
   {error&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm">{error}</p>}
