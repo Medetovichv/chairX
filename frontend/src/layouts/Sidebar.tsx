@@ -44,7 +44,7 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
                 <div key={item.path}>
                   <div className={cn(
                     'group flex items-center rounded-xl',
-                    isCurrent ? 'bg-indigo-50' : 'hover:bg-slate-50',
+                    isCurrent ? 'bg-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.15)]' : 'hover:bg-slate-100',
                   )}>
                     <NavLink
                       to={item.path}
@@ -53,8 +53,8 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
                       aria-current={isCurrent ? 'page' : undefined}
                       className={cn(
                         'flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-3 text-sm font-medium',
-                        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600',
-                        isCurrent ? 'text-indigo-700' : 'text-slate-600 hover:text-slate-900',
+                        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+                        isCurrent ? 'text-white' : 'text-slate-600 hover:text-slate-900',
                       )}
                     >
                       <Icon aria-hidden="true" className="size-[19px] shrink-0" />
@@ -75,7 +75,7 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
                         <NavLink key={child.path} to={child.path} end onClick={onNavigate}
                           className={({ isActive }) => cn(
                             'flex min-h-11 items-center rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-indigo-600',
-                            isActive ? 'bg-indigo-50 font-semibold text-indigo-700' :
+                            isActive ? 'bg-blue-50 font-semibold text-blue-700' :
                               'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
                           )}>
                           {child.label}
@@ -96,7 +96,7 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
 export function SidebarBrand() {
   return (
     <div className="flex h-19 shrink-0 items-center gap-3 border-b border-slate-100 px-5">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm">
+      <div className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
         <Armchair className="size-6" aria-hidden="true" />
       </div>
       <div>
