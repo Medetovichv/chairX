@@ -139,7 +139,7 @@ def main():
         try:
             page.goto(BASE + "/admin/users", wait_until="domcontentloaded")
             browser_login(page, "admin", admin_pass)
-            page.get_by_role("heading", name="Сотрудники", exact=True).wait_for(timeout=30000)
+            page.get_by_role("heading", name="Сотрудники", exact=True, level=2).wait_for(timeout=30000)
             page.get_by_role("button", name="+ Создать сотрудника").click()
             form = page.get_by_role("form", name="Создание сотрудника")
             form.get_by_label("Логин").fill(employee_login)
@@ -229,7 +229,7 @@ def main():
         try:
             page.goto(BASE + "/inventory", wait_until="domcontentloaded")
             browser_login(page, employee_login, original_password)
-            page.get_by_role("heading", name="Склады", exact=True).wait_for(timeout=30000)
+            page.get_by_role("heading", name="Склады", exact=True, level=2).wait_for(timeout=30000)
             assert not page.get_by_role("heading", name="Доступ запрещён").count()
             page.screenshot(path=str(ART / "02-restricted-mobile-warehouse.png"),
                             full_page=True)
