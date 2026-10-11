@@ -19,7 +19,8 @@ function exchangeIdFromLink(value:string):string {
  try {
   const url=new URL(value,window.location.origin);
   const match = new RegExp('^/returns/exchanges/([0-9a-f-]+)/?$','i').exec(url.pathname);
-  return match&&uuid(match[1])?match[1]:'';
+  const id=match?.[1];
+  return id&&uuid(id)?id:'';
  }catch{return '';}
 }
 export function ExchangesPage(){
