@@ -28,6 +28,16 @@ This is a **source-code and CI review, not a manual acceptance-test certificate*
 
 At commit `35efd9163410a785bf3314494f62c88713cd27d9`, all six GitHub Actions completed successfully: Frontend verification, F08 delivery PostgreSQL integration, F09 returns/exchanges/defects PostgreSQL integration, F10 finance PostgreSQL integration, Local development stack smoke, and F11 release gate. This is an automated-regression pass, **not** proof of manual end-to-end testing of all entities or permission combinations.
 
+## Four-point acceptance review (12 October 2026)
+
+**1. End-to-end business path.** Source inspection found a real PostgreSQL integration test in `BackendMvpWorkflowIntegrationTests.purchasePartialReceiptsAndMultiWarehouseSaleKeepMoneyAndFifoSeparate`: confirms a purchase, pays supplier, receives stock separately into HOME and OFFICE, rejects excess receiving, completes supplier/cargo payments, makes a five-chair sale across two warehouses, records a BANK transfer, fulfills self-pickup, and asserts stock, FIFO allocations, balances and cash flow. **It does not exercise CITY_DELIVERY, physical return/refund or daily closing in one continuous transaction**. Those boundaries have separate automated tests, but claiming one complete scenario would be misleading. A single integrated browser/API scenario is still outstanding.
+
+**2. Custom-role RBAC.** Inspected `BusinessAuthorizationIntegrationTests`: it denies writes/read crossing several permission boundaries, checks denied transactions do not alter stock or money, verifies CSRF, and checks catalog-only access. Frontend `router.test.tsx` covers receiving-only, expense-only, closing-only, defects-only, non-admin roles, legacy redirect authorization and union of permissions. FLOW-24 additionally adds a receiving-only mobile navigation case. **Exhaustive permutations and real employee login impersonation have not been performed.**
+
+**3. Mobile.** Static/DOM evidence: responsive customer/delivery/sales cards, keyboard-accessible links, menu focus/close/Escape logic and mobile nav permission regression. **No physical device, real viewport browser or touch test was run**; CSS alone is not a device acceptance test.
+
+**4. PR #75 readiness.** The code baseline `35efd9163410a785bf3314494f62c88713cd27d9` passed all six CI workflows. Subsequent test/documentation commits require their own latest-head CI confirmation. PR #75 is stacked on FLOW-23 (#74) and remains Draft. **Integration-ready for FLOW-25 only after latest-head CI passes and acceptance gaps are either executed or explicitly deferred.** No direct merge to `main`.
+
 ## Blocking closure criteria
 - [x] All latest-head CI checks green (frontend, F08/F09/F10, F11 and Docker) as of the verified baseline above.
 - Add a human-readable backend exchange search/list API in a follow-on task if operationally needed; ensure recovery remains safe.
