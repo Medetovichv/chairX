@@ -127,4 +127,3 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     </div>
   </form>;
 }
-}
