@@ -146,7 +146,7 @@ describe('F02.1 navigation structure', () => {
     expect(within(mobile).queryByRole('link', { name: 'Финансы' })).not.toBeInTheDocument();
     expect(within(mobile).queryByRole('link', { name: 'Администрирование' })).not.toBeInTheDocument();
     expect(within(mobile).queryByRole('link', { name: 'Продажи' })).not.toBeInTheDocument();
-    await userEvent.setup().click(within(mobile).getByRole('button', { name: /Закрыть меню/ }));
+    await userEvent.setup().click(within(mobile).getByRole('button', { name: 'Закрыть боковое меню' }));
     expect(screen.queryByRole('dialog', { name: 'Мобильная навигация' })).not.toBeInTheDocument();
   });
 
