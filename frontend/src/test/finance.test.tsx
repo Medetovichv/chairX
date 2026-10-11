@@ -164,7 +164,7 @@ describe('F10 financial transaction journal and recovery',()=>{
   expect(await screen.findByText(/Результат финансовой операции неизвестен/)).toBeInTheDocument();
   await userEvent.setup().click(screen.getByRole('button',{name:'Повторить исходный запрос с прежним ключом'}));
   await waitFor(()=>expect(post).toHaveBeenCalledTimes(2));
-  expect(post.mock.calls[1][0]).toEqual(post.mock.calls[0][0]);
+  expect(post.mock.calls[1]?.[0]).toEqual(post.mock.calls[0]?.[0]);
   expect(readFinancePending('f10-operator','idempotent','test-scope').kind).toBe('missing');
  });
  it('keeps confirmed posting final even when cache refresh fails',async()=>{
