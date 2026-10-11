@@ -487,6 +487,19 @@ describe('F09 exchange and settlements boundaries',()=>{
   expect(calls(a,'/api/exchanges')).toHaveLength(0);
  });
 });
+describe('FLOW-24 exchange human labels and permission gating',()=>{
+ it('does not print exchange or related UUIDs when sale and return read permissions are absent',async()=>{
+  access.permissions=['EXCHANGES_READ'];
+  const a=mockBackend();renderAt('/returns/exchanges/'+EX);
+  expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'Связанные записи обмена'}).textContent).not.toContain(SALE);
+  expect(document.body).not.toHaveTextContent(EX);
+  expect(document.body).not.toHaveTextContent(ITEM2);
+  expect(document.body).not.toHaveTextContent(RET);
+  expect(calls(a,'/api/sales/'+SALE)).toHaveLength(0);
+  expect(screen.queryByRole('link',{name:'Открыть возврат'})).not.toBeInTheDocument();
+ });
+});
 describe('F09 defect states, permissions and stock boundaries',()=>{
  it('shows real chair/warehouse labels and exact stock links in defect list',async()=>{
   access.permissions.push('CATALOG_READ');
