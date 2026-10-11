@@ -131,6 +131,9 @@ public class SecurityConfig {
                         .hasAuthority("INVENTORY_READ")
                         .requestMatchers(HttpMethod.POST, "/api/inventory/transfers")
                         .hasAuthority("INVENTORY_TRANSFER")
+                        // Dashboard metrics are independently redacted per operational grant.
+                        .requestMatchers(HttpMethod.GET, "/api/dashboard/overview")
+                        .hasAnyAuthority("SALES_READ", "DELIVERIES_READ", "INVENTORY_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*")
                         .hasAuthority("SALES_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")

@@ -59,10 +59,10 @@ describe('F02.1 navigation structure', () => {
     expect(within(nav).getByText('Система')).toBeInTheDocument();
   });
 
-  it('keeps the F01 welcome page and omits fabricated KPI values', () => {
+  it('opens actual dashboard without fabricated KPI values', () => {
     renderAt();
-    expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument();
-    expect(screen.getByText('Сейчас доступна навигация. Бизнес-разделы будут подключаться поэтапно.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Новая продажа' })).toHaveAttribute('href', '/sales/new');
     expect(screen.queryByText('Выручка сегодня')).not.toBeInTheDocument();
   });
 
@@ -88,7 +88,7 @@ describe('F02.1 navigation structure', () => {
     expect(screen.getByRole('button', { name: 'Канбан' })).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByRole('region', { name: 'Канбан: Черновик' })).toBeInTheDocument();
     await user.click(within(screen.getByRole('navigation', { name: 'Разделы ChairX' })).getByRole('link', { name: 'Главная' }));
-    expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument();
     authSession.clear();
     vi.unstubAllGlobals();
   });

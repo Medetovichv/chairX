@@ -35,6 +35,23 @@ function mockBackend(
       if (option.meStatus) return json({ code: 'AUTHENTICATION_REQUIRED', details: {} }, option.meStatus);
       return json(user);
     }
+    if (path === '/api/dashboard/overview') {
+      const canSales = user.permissions.includes('SALES_READ');
+      const canDelivery = user.permissions.includes('DELIVERIES_READ');
+      const canInventory = user.permissions.includes('INVENTORY_READ');
+      return json({
+        businessDate: '2026-10-11',
+        orders30Days: canSales ? 0 : null, activeOrders: canSales ? 0 : null,
+        pendingDeliveries: canDelivery ? 0 : null,
+        delayedDeliveries: canDelivery ? 0 : null,
+        availableUnits: canInventory ? 0 : null, lowStockVariants: canInventory ? 0 : null,
+        ordersByDay: canSales ? [
+          '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08',
+          '2026-10-09', '2026-10-10', '2026-10-11',
+        ].map(day => ({ day, orders: 0 })) : [],
+        recentSales: [],
+      });
+    }
     if (path === '/api/csrf') {
       return option.csrfStatus
         ? json({ code: 'ACCESS_DENIED', details: {} }, option.csrfStatus)
@@ -102,7 +119,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     const fetchMock = mockBackend();
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
 
     expect(screen.getByText('Тестовый сотрудник')).toBeInTheDocument();
     expect(screen.getByText('Сотрудник')).toBeInTheDocument();
@@ -191,7 +208,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend({ ...profile, roles: [role], permissions });
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     for (const name of shown) expect(within(nav).getByRole('link', { name })).toBeInTheDocument();
     for (const name of hidden) expect(within(nav).queryByRole('link', { name })).not.toBeInTheDocument();
@@ -201,7 +218,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend();
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     vi.stubGlobal('fetch', vi.fn(async () => json({ code: 'AUTHENTICATION_REQUIRED', details: {} }, 401)));
     await expect(apiClient.get('/api/sales')).rejects.toMatchObject({ status: 401 });
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Вход для сотрудников' })).toBeInTheDocument());
@@ -219,7 +236,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend();
     const { queryClient } = renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     queryClient.setQueryData(['customers'], { confidential: true });
     expect(queryClient.getQueryData(['customers'])).toBeDefined();
 
