@@ -169,7 +169,7 @@ def main():
     assert "ADMIN" not in current["roles"] and "FINANCE_READ" not in current["permissions"]
 
     # Real API authorization, not merely hidden sidebar buttons.
-    employee.must("GET", "/api/inventory/balances", None, 200)
+    employee.must("GET", "/api/inventory/overview", None, 200)
     employee.must("GET", "/api/warehouses", None, 200)
     for denied in ("/api/finance/accounts", "/api/admin/users",
                    "/api/admin/roles", "/api/customers", "/api/purchases"):
@@ -258,7 +258,7 @@ def main():
     admin.must("PATCH", f"/api/admin/users/{uid}/activate", None, 204)
     assert status_as(employee_login, new_password) == 200
     admin.must("DELETE", f"/api/admin/users/{uid}/roles/{warehouse['id']}", None, 204)
-    assert status_as(employee_login, new_password, "/api/inventory/balances") == 403
+    assert status_as(employee_login, new_password, "/api/inventory/overview") == 403
     final = admin.must("GET", f"/api/admin/users/{uid}", None, 200)
     assert final["roles"] == [] and final["active"] is True
     audit = admin.must("GET", f"/api/admin/audit?targetId={uid}&page=0&size=50", None, 200)
