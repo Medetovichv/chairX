@@ -18,7 +18,7 @@ import type { ExchangeInput } from '../types';
 function exchangeIdFromLink(value:string):string {
  try {
   const url=new URL(value,window.location.origin);
-  const match = new RegExp('^/returns/exchanges/([0-9a-f-]+)/?
+  const match = new RegExp('^/returns/exchanges/([0-9a-f-]+)/?$','i').exec(url.pathname);
   return match&&uuid(match[1])?match[1]:'';
  }catch{return '';}
 }
