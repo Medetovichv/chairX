@@ -1,0 +1,110 @@
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {render,screen,within,waitFor,fireEvent} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import {MemoryRouter} from 'react-router';
+import {QueryClientProvider} from '@tanstack/react-query';
+import {createQueryClient} from '../shared/api/query';
+import {DailyClosingPage} from '../pages/DailyClosingPage';
+import {authSession} from '../features/auth/session';
+import {bishkekToday} from '../features/finance/validation';
+const perms=vi.hoisted(()=>({values:['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'] as string[]}));
+vi.mock('../features/auth/AuthProvider',()=>({
+ useAuth:()=>({user:{id:'mine',username:'alice',displayName:'Alice',
+     roles:['EMPLOYEE'],permissions:perms.values},
+     hasPermission:(name:string)=>perms.values.includes(name)}),
+}));
+const day=bishkekToday();
+const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),
+  {status,headers:{'Content-Type':'application/json'}});
+const personal=(closed=false)=>({
+ businessDate:day,closed,canClose:!closed,
+ expectedCash:'300',expectedBank:'0',
+ actualCash:closed?'300':null,actualBank:closed?'0':null,
+ cashNote:null,bankNote:null,orders:1,chairs:2,salesValue:'12000',
+ sales:[{saleId:'one',saleNumber:'CX-1',quantity:2,total:'12000',
+  completedAt:'2026-10-11T03:00:00Z'}],collectionsChangedAfterClose:false,
+});
+const renderPage=()=>render(<QueryClientProvider client={createQueryClient()}>
+ <MemoryRouter><DailyClosingPage/></MemoryRouter>
+</QueryClientProvider>);
+beforeEach(()=>{
+ perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+ authSession.activate('Basic test-private',{headerName:'X-CSRF-TOKEN',token:'csrf'});
+ sessionStorage.clear();
+});
+afterEach(()=>{authSession.clear();vi.unstubAllGlobals();vi.restoreAllMocks();sessionStorage.clear();});
+describe('Employee daily closing isolation',()=>{
+ it('never requests global company balances, reports or other employees on read',async()=>{
+  const urls:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url); urls.push(path);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Private screen must not request '+path);
+  }));
+  renderPage();
+  expect(await screen.findByText('Моё закрытие дня')).toBeInTheDocument();
+  expect(await screen.findByText(/Зарегистрировано мной/)).toBeInTheDocument();
+  expect(screen.getByText(/CX-1/)).toBeInTheDocument();
+  expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
+ });
+ it('checks for races before one personal POST with no company mutations',async()=>{
+  const requests:{path:string;method:string;body?:string}[]=[];
+  let closed=false;
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);const method=init?.method??'GET';
+   requests.push({path,method,body:String(init?.body??'')});
+   if(path==='/api/finance/my-closings')return reply(closed?[day]:[]);
+   if(path==='/api/finance/my-closings/'+day&&method==='GET')return reply(personal(closed));
+   if(path==='/api/finance/my-closings/'+day&&method==='POST'){
+    closed=true;return reply(personal(true),201);
+   }
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт CASH'}),{target:{value:'300'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт BANK'}),{target:{value:'0'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Закрыть мою смену'}));
+  expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+   .getByRole('button',{name:'Сохранить моё закрытие'}));
+  await waitFor(()=>expect(requests.filter(r=>r.method==='POST')).toHaveLength(1));
+  const post=requests.find(r=>r.method==='POST')!;
+  expect(post.path).toBe('/api/finance/my-closings/'+day);
+  expect(JSON.parse(post.body)).toEqual({
+   expectedCash:'300',expectedBank:'0',actualCash:'300',actualBank:'0',
+   cashNote:null,bankNote:null,
+  });
+  expect(requests.some(r=>r.path.startsWith('/api/finance/closings'))).toBe(false);
+  expect(await screen.findByText('Мой день закрыт')).toBeInTheDocument();
+ });
+ it('stops before POST when amount changed during preflight',async()=>{
+  let n=0;const posts:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);
+   if(init?.method==='POST'){posts.push(path);return reply(personal(true),201);}
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day){
+    n++;return reply(n>=2?{...personal(),expectedCash:'400'}:personal());
+   }
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт CASH'}),{target:{value:'300'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт BANK'}),{target:{value:'0'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Закрыть мою смену'}));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
+    .getByRole('button',{name:'Сохранить моё закрытие'}));
+  await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Данные изменились'));
+  expect(posts).toHaveLength(0);
+ });
+ it('does not fetch the personal report without the required grant',()=>{
+  perms.values=[];
+  const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
+  renderPage();
+  expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
+  expect(fetchMock).not.toHaveBeenCalled();
+ });
+});

@@ -64,7 +64,7 @@ export function EmployeeDailyClosingPage(){
   }catch(e){
    setConfirm(null);
    if(!(e instanceof ApiClientError)||e.kind==='network'||e.kind==='parse'||
-      (e.kind==='http'&&e.status>=500)){
+      (e.kind==='http'&&e.status!==undefined&&e.status>=500)){
     setUnknown(true);setError('Результат записи неизвестен. Проверьте сохранённый отчёт, не отправляйте повторно.');
    }else setError('Закрытие отклонено сервером. Проверьте права, дату и ожидаемые суммы.');
   }finally{setPending(false);}
