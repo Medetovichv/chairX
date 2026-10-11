@@ -105,7 +105,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Добро пожаловать в ChairX' })).toBeInTheDocument());
 
     expect(screen.getByText('Тестовый сотрудник')).toBeInTheDocument();
-    expect(screen.getByText(/employee · EMPLOYEE/)).toBeInTheDocument();
+    expect(screen.getByText('Сотрудник')).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     expect(within(nav).getByRole('link', { name: 'Продажи' })).toBeInTheDocument();
     expect(within(nav).queryByRole('link', { name: 'Финансы' })).not.toBeInTheDocument();
