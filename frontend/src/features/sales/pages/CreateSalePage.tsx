@@ -8,6 +8,8 @@ import { Button } from '../../../shared/ui/button';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { SaleForm } from '../components/SaleForm';
 import { salesApi, salesKeys } from '../api';
+import { saleStatisticsKeys } from '../statistics';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { readPendingDraft, savePendingDraft, clearPendingDraft } from '../pending-draft';
 import { uuidValid } from '../validation';
 import type { CreateDraftInput, DraftInput, SaleResponse } from '../types';
@@ -58,6 +60,8 @@ export function CreateSalePage() {
       setPending(null);
       await queryClient.invalidateQueries({queryKey:salesKeys.lists});
       await queryClient.invalidateQueries({queryKey:salesKeys.kanban});
+      await queryClient.invalidateQueries({queryKey:saleStatisticsKeys.last30Days});
+      await queryClient.invalidateQueries({queryKey:['dashboard']});
       if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,state:{notice:'Черновик создан.'}});
       else setSuccess(result);
     }catch(error){
@@ -79,7 +83,7 @@ export function CreateSalePage() {
       to="/sales">← Все продажи</Link>}
     {success&&<div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-5">
       <h3 className="font-bold">Черновик создан</h3>
-      <p>Заказ {success.saleNumber} · UUID: {success.id}</p>
+      <p>Заказ {displaySaleNumber(success.saleNumber)}</p>
       <p>Чтобы открыть карточку заказа, требуется SALES_READ.</p>
     </div>}
     {problem&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{problem}</p>}
@@ -90,7 +94,7 @@ export function CreateSalePage() {
       className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
       <h3 className="font-bold">Результат создания черновика неизвестен</h3>
       <p>Заказ мог сохраниться. Не создавайте новый запрос с новым UUID.</p>
-      <p className="break-all">Исходный ключ: {pending.idempotencyKey}</p>
+      <p>Сохранён исходный ключ запроса для безопасного повтора.</p>
       <p>После обновления этой вкладки исходный payload и ключ сохраняются. Повтор безопасен благодаря серверной идемпотентности.</p>
       <Button disabled={posting} onClick={()=>void save(pending,pending)}>
         {posting?'Проверяем…':'Повторить исходный запрос'}
