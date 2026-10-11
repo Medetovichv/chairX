@@ -1,5 +1,7 @@
 import { Link,useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { salesApi,salesKeys } from '../../sales/api';
+import { displaySaleNumber } from '../../../shared/lib/format';
 import { useAuth } from '../../auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -14,6 +16,10 @@ export function ExchangeDetailPage(){
  const {exchangeId=''}=useParams(),{hasPermission}=useAuth();
  const allowed=hasPermission('EXCHANGES_READ');
  const data=useQuery({queryKey:returnKeys.exchange(exchangeId),queryFn:()=>exchangesApi.get(exchangeId),enabled:allowed&&uuid(exchangeId)});
+ const originSale=useQuery({queryKey:salesKeys.detail(data.data?.originalSaleId??''),
+  queryFn:()=>salesApi.get(data.data!.originalSaleId),enabled:allowed&&hasPermission('SALES_READ')&&!!data.data});
+ const newSale=useQuery({queryKey:salesKeys.detail(data.data?.newSaleId??''),
+  queryFn:()=>salesApi.get(data.data!.newSaleId),enabled:allowed&&hasPermission('SALES_READ')&&!!data.data});
  const settlements=useQuery({queryKey:returnKeys.settlements(exchangeId),queryFn:()=>exchangesApi.settlements(exchangeId),
   enabled:allowed&&data.isSuccess});
  if(!allowed)return <ForbiddenPage/>;
@@ -31,17 +37,22 @@ export function ExchangeDetailPage(){
  ];
  return <div className="space-y-5">
   <Link to="/returns/exchanges" className="font-semibold text-indigo-700 underline">← Обмены</Link>
-  <PageHeader title="Карточка обмена" description={'ID: '+d.id}/>
+  <PageHeader title="Карточка обмена" description="Возврат и новая продажа"/>
   <p className={'rounded-xl p-4 text-sm font-semibold '+(d.status==='COMPLETED'?'bg-emerald-50 text-emerald-800':'bg-amber-50 text-amber-900')}>
    {d.status==='COMPLETED'?'Завершён':'Ожидает финансового расчёта'} ({d.status})
   </p>
   <section aria-label="Связанные записи обмена" className="grid gap-3 rounded-xl border bg-white p-4 text-sm sm:grid-cols-3">
    <div><h3 className="font-semibold">Исходная продажа</h3>{hasPermission('SALES_READ')?
-    <Link className="break-all text-indigo-700 underline" to={'/sales/'+d.originalSaleId}>{d.originalSaleId}</Link>:<p className="break-all">{d.originalSaleId}</p>}</div>
+    <Link className="text-indigo-700 underline" to={'/sales/'+encodeURIComponent(d.originalSaleId)}>
+      {originSale.data?displaySaleNumber(originSale.data.saleNumber):'Открыть исходный заказ'}</Link>:
+    <p>Недоступно для вашей роли</p>}</div>
    <div><h3 className="font-semibold">Новая продажа</h3>{hasPermission('SALES_READ')?
-    <Link className="break-all text-indigo-700 underline" to={'/sales/'+d.newSaleId}>{d.newSaleId}</Link>:<p className="break-all">{d.newSaleId}</p>}</div>
+    <Link className="text-indigo-700 underline" to={'/sales/'+encodeURIComponent(d.newSaleId)}>
+      {newSale.data?displaySaleNumber(newSale.data.saleNumber):'Открыть новый заказ'}</Link>:
+    <p>Недоступно для вашей роли</p>}</div>
    <div><h3 className="font-semibold">Исходный возврат</h3>{hasPermission('RETURNS_READ')?
-    <Link className="break-all text-indigo-700 underline" to={'/returns/'+d.returnId}>{d.returnId}</Link>:<p className="break-all">{d.returnId}</p>}</div>
+    <Link className="text-indigo-700 underline" to={'/returns/'+encodeURIComponent(d.returnId)}>Открыть возврат</Link>:
+    <p>Недоступно для вашей роли</p>}</div>
   </section>
   <section aria-label="Финансовая разница обмена" className="grid gap-3 sm:grid-cols-2">
    {values.map(([title,value])=><article key={title} className="rounded-xl border bg-white p-4 text-sm">
