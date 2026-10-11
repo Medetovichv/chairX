@@ -70,3 +70,82 @@ database. Browser presentation is exercised in the existing Chromium gates;
 this new scenario uses MockMvc as the real HTTP layer rather than claiming a
 multi-day Playwright GUI run. A rehearsal of migrations against a suitably
 consented, sanitized old database and human UAT are still required.
+
+## Issue #32 — safe PostgreSQL backup→Flyway rehearsal
+
+**Local-only, authorized data.** A database archive can contain client phone
+numbers, payment information, employees, passwords, roles and commercially
+sensitive transactions. Never commit it, upload it to GitHub/ChatGPT or paste
+its contents in an issue. Get data-owner authorization and keep it on an
+approved encrypted local device **outside this Git repository**.
+
+### 1. Make an original, read-only custom-format backup
+
+From the ChairX project root, with your existing local Compose database
+already running:
+
+    umask 077
+    mkdir -p "$HOME/chairx-private-backups"
+    docker compose exec -T postgres pg_dump -U chairx -d chairx \
+      -Fc --no-owner --no-acl \
+      > "$HOME/chairx-private-backups/chairx-before-upgrade.dump"
+
+The pg_dump command reads a transactionally consistent database snapshot.
+It does not alter the source. You may instead use an authorized existing
+-Fc archive. Do not collect a backup from an unapproved production system.
+
+### 2. Rehearse against a fresh, isolated PostgreSQL 17 instance
+
+    bash scripts/rehearse-db-upgrade.sh --acknowledge-sensitive-backup \
+      "$HOME/chairx-private-backups/chairx-before-upgrade.dump"
+
+Requires Java 25, Maven, Docker, and a PostgreSQL custom-format PGDMP
+archive containing an existing ChairX public.flyway_schema_history at V40
+or newer. The script refuses files inside Git and non-PGDMP input.
+It never contacts the source database, runs the Compose stack, changes
+the source volume or invokes Flyway.clean(). Testcontainers copies the
+archive into a BRAND NEW disposable PostgreSQL instance, restores it
+using pg_restore, and applies the checked-in Flyway migrations only there.
+
+On success the output contains CHAIRX_UPGRADE_REHEARSAL=PASS and reports
+the starting version, **new migrations executed**, original table count
+and pre-existing movement count without listing business records.
+If migrationsExecuted=0, the backup was already on the checked-out schema;
+this is **not evidence** that an actual V40→latest upgrade succeeded.
+A failure or drift requires investigation before deployment.
+
+### Acceptance invariants
+
+- All pre-existing application tables, from stock and purchasing to audit,
+  customers, users, sales, CASH/BANK and closings, are compared using their
+  **original columns**, row count, and a sorted canonical SHA-256 fingerprint.
+  New columns and tables are permitted. A change to old values fails.
+- Previously applied Flyway history, migration descriptions and checksums
+  remain identical. New migrations must all validate.
+- Only system permission and role grant seed tables may grow, and **every
+  original permission/grant row** must remain unchanged.
+- For a source predating V43: legacy journal movement dates must be inferred
+  from the original created_at in Asia/Bishkek. The source label is
+  LEGACY_INFERRED, **not proof** of the actual historical transaction date.
+  Backdated imports need manual reconciliation.
+- For a source predating V50: no old closing snapshot rows may be invented.
+  For newer backups, genuine pre-existing snapshot rows are preserved.
+- CASH/BANK balances must reconcile to the journal totals after upgrade.
+  Discrepancies block a PASS, rather than silently manufacturing movements.
+- The original restored data is never modified for synthetic migration tests.
+  A rehearsal does not prove physical stock, bank statement agreement,
+  real-world role suitability, or successful manual UI acceptance.
+
+### What CI can and cannot prove
+
+The release-gate CI runs the **same** PGDMP→pg_restore→Flyway→SHA-256
+pipeline using a populated synthetic V40 dump, on independent disposable
+PostgreSQL 17 containers. Its fixtures include balances and movements,
+a historical closing, catalog variants, supplier, purchase and customer.
+
+**CI cannot access a real ChairX backup.** A successful synthetic test
+does not close the final *actual business-data* migration milestone.
+After executing the operator command locally, record privately the
+approved backup date, before/after migration versions, number of migrations
+executed, any legacy-inferred-date concerns and financial reconciliation
+approval. Never disclose the data or secrets in issue comments.
