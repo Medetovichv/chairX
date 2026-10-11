@@ -16,6 +16,13 @@ import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.delivery.api.CreateDeliveryRequest;
 import kg.chairx.delivery.application.DeliveryService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.domain.PaymentMethod;
+import kg.chairx.returning.api.CreateReturnRequest;
+import kg.chairx.returning.api.CreateReturnItemRequest;
+import kg.chairx.returning.application.ReturnService;
+import kg.chairx.returning.domain.ReturnCondition;
 import java.util.UUID;
 import java.util.List;
 import kg.chairx.supplier.application.SupplierService;
@@ -41,10 +48,13 @@ public class DemoCatalogSeedService {
     private final ReceivePurchase receiving;
     private final SaleService sales;
     private final DeliveryService deliveries;
+    private final PaymentService payments;
+    private final ReturnService returns;
 
     public DemoCatalogSeedService(JdbcTemplate jdbc, ProductService products,
             ProductVariantService variants, SupplierService suppliers, CustomerService customers,
-            PurchaseService purchases, ReceivePurchase receiving, SaleService sales, DeliveryService deliveries) {
+            PurchaseService purchases, ReceivePurchase receiving, SaleService sales, DeliveryService deliveries,
+            PaymentService payments, ReturnService returns) {
         this.jdbc = jdbc;
         this.products = products;
         this.variants = variants;
@@ -54,6 +64,8 @@ public class DemoCatalogSeedService {
         this.receiving = receiving;
         this.sales = sales;
         this.deliveries = deliveries;
+        this.payments = payments;
+        this.returns = returns;
     }
 
     @Transactional
@@ -177,6 +189,17 @@ public class DemoCatalogSeedService {
                 "DEMO · Алина","+996700000002","Бишкек, учебная улица, 1",
                 "Бишкек",BigDecimal.ZERO,"DEMO · Курьер",null,
                 "DEMO · Доставка ожидает отправки"));
+
+        // Exercise the real sales/payment/stock/return lifecycle in the demo database.
+        var completed = sales.create(new CreateSaleRequest(UUID.randomUUID(),aybek,
+                FulfillmentType.SELF_PICKUP,
+                List.of(new CreateSaleItemRequest(black,home,1,new BigDecimal("8500")))));
+        payments.create(new CreatePaymentRequest(completed.id(),PaymentMethod.TRANSFER,
+                "DEMO-MBANK-001", "DEMO · Оплата заказа"));
+        sales.fulfill(completed.id());
+        returns.create(new CreateReturnRequest(completed.id(),home,UUID.randomUUID(),
+                List.of(new CreateReturnItemRequest(completed.items().getFirst().id(),1,
+                        ReturnCondition.SELLABLE)),"DEMO · Клиент вернул кресло",null));
 
         jdbc.update("insert into chairx_demo_seed_versions(version) values (3)");
     }
