@@ -100,10 +100,7 @@ export function SidebarBrand() {
         <Armchair className="size-6" aria-hidden="true" />
       </div>
       <div>
-        <div className="text-lg font-extrabold tracking-tight text-slate-900">ChairX</div>
-        <div className="-mt-0.5 text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">
-          Управление бизнесом
-        </div>
+        <div className="text-2xl font-extrabold tracking-tight text-slate-950">Chair<span className="text-blue-600">X</span></div>
       </div>
     </div>
   );
