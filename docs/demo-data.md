@@ -1,5 +1,29 @@
 # ChairX — isolated local demo database (work in progress)
 
+## Manual testing after building ChairX
+
+Demo fixtures are **not** injected by an ordinary `docker compose up --build`, which retains your existing `chairx` data. After this PR is merged, use the explicit **demo build** in the project root:
+
+```bash
+# First stop the ordinary stack to free ports; this does NOT delete its records
+docker compose down
+bash scripts/start-demo.sh
+```
+
+Open **http://localhost:5173** and sign in with the development credentials generated in `.env`. Use the normal local bootstrap employee/admin accounts. The demo database is `chairx_demo`, isolated from `chairx`.
+
+The first demo launch creates sample chair models, variations, suppliers, customers, three purchase states, stock on HOME/OFFICE, sample sales, a pending city delivery, an example bank payment, return and refund. Following launches keep this data **and your manual changes**; seeding is versioned and is not repeated.
+
+To stop (preserving data):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.demo.yml down
+```
+
+To start again, run `bash scripts/start-demo.sh`. To **erase the demo database only** (including your manual changes), run `bash scripts/reset-demo.sh` and type `RESET-DEMO` when prompted. Never use `docker volume prune` for this.
+
+> Status: linked demo fixtures are in PR #47 and only become available in a local checkout after merging or checking out that branch. CI must validate successful demo boot and restart before calling this ready.
+
 ## Safety boundary
 
 The usual `docker compose up -d --build` continues using **chairx** and its original PostgreSQL volume. The demo overlay uses a separate Compose project named **chairx-demo**, separate database **chairx_demo**, and separate named volume **chairx_demo_postgres_data**.
