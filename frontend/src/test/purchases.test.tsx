@@ -372,7 +372,7 @@ describe('F06 purchase details and mutations',()=>{
     renderAt('/purchases/'+PID);
     expect(await screen.findByRole('heading',{name:'Карточка закупки'})).toBeInTheDocument();
     const lines=screen.getByRole('region',{name:'Позиции закупки'});
-    expect(within(lines).getByRole('heading',{name:/Ergo Comfort\\s*·\\s*Чёрный/})).toBeInTheDocument();
+    expect(within(lines).getByRole('heading',{name:/Ergo Comfort\s*·\s*Чёрный/})).toBeInTheDocument();
     expect(within(lines).getByText('Артикул: ERGO-BLK')).toBeInTheDocument();
     expect(within(lines).getByRole('link',{name:'Открыть в каталоге'}))
       .toHaveAttribute('href','/catalog/'+MODEL);
@@ -386,7 +386,7 @@ describe('F06 purchase details and mutations',()=>{
     access.permissions=access.permissions.filter(p=>p!=='CATALOG_READ');
     const {calls}=mockApi();
     renderAt('/purchases/'+PID);
-    expect(await screen.findByRole('heading',{name:/Ergo Comfort\\s*·\\s*Чёрный/})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:/Ergo Comfort\s*·\s*Чёрный/})).toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'Открыть в каталоге'})).not.toBeInTheDocument();
     expect(requests(calls,'/api/products/')).toHaveLength(0);
   });
