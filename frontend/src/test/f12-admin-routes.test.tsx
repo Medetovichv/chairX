@@ -17,12 +17,33 @@ vi.mock('../features/auth/AuthProvider',()=>({useAuth:()=>({
 const ID='11111111-1111-4111-8111-111111111111';
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});}
 function fakeApi(){
+ let active=false;
+ let roleCodes=['EMPLOYEE'];
  const calls=vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
   const path=new URL(String(input),'http://chairx.test').pathname,method=init?.method??'GET';
   if(path==='/api/admin/users'&&method==='GET')return json([
-    {id:ID,username:'cashier1',displayName:'Сотрудник',active:false,roles:['EMPLOYEE']}]);
+    {id:ID,username:'cashier1',displayName:'Сотрудник',active,roles:[...roleCodes]}]);
   if(path==='/api/admin/users'&&method==='POST')return json({id:ID,username:'cashier1',displayName:'Сотрудник',active:true,roles:[]},201);
-  if(path==='/api/admin/users/'+ID)return json({id:ID,username:'cashier1',displayName:'Сотрудник',active:false,roles:['EMPLOYEE']});
+  if(path==='/api/admin/users/'+ID+'/activate'&&method==='PATCH'){
+    active=true;return new Response(null,{status:204});
+  }
+  if(path==='/api/admin/users/'+ID+'/deactivate'&&method==='PATCH'){
+    active=false;return new Response(null,{status:204});
+  }
+  if(path==='/api/admin/users/'+ID+'/reset-password'&&method==='POST')
+    return new Response(null,{status:204});
+  if(path==='/api/admin/users/'+ID+'/roles'&&method==='POST'){
+    const id=JSON.parse(String(init?.body)).roleId;
+    const code=id==='role-2'?'CUSTOM_CASH':'EMPLOYEE';
+    if(!roleCodes.includes(code))roleCodes.push(code);
+    return new Response(null,{status:204});
+  }
+  if(path.startsWith('/api/admin/users/'+ID+'/roles/')&&method==='DELETE'){
+    roleCodes=roleCodes.filter(x=>x!==(path.endsWith('role-2')?'CUSTOM_CASH':'EMPLOYEE'));
+    return new Response(null,{status:204});
+  }
+  if(path==='/api/admin/users/'+ID)
+    return json({id:ID,username:'cashier1',displayName:'Сотрудник',active,roles:[...roleCodes]});
   if(path==='/api/admin/roles')return json([
     {id:'role-1',code:'EMPLOYEE',name:'Сотрудник',systemRole:true,permissions:['INVENTORY_READ'],assignedUsersCount:1,version:0},
     {id:'role-2',code:'CUSTOM_CASH',name:'Кассир',systemRole:false,permissions:['PAYMENTS_CREATE'],assignedUsersCount:0,version:2}]);
@@ -71,6 +92,54 @@ describe('F12 route access and real data',()=>{
   const posts=calls.mock.calls.filter(call=>call[1]?.method==='POST');
   expect(posts).toHaveLength(1);
   expect(JSON.parse(String(posts[0]?.[1]?.body))).toEqual({username:'cashier1',displayName:'Сотрудник',password:'InitialStrong123'});
+ });
+
+ it('activates an employee and refreshes the displayed status from the API',async()=>{
+  profile.permissions=['USERS_READ','USERS_ACTIVATE','USERS_DEACTIVATE'];
+  const calls=fakeApi();renderAt('/admin/users/'+ID);
+  expect(await screen.findByText('Статус: Неактивен')).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Активировать'}));
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+  expect(await screen.findByText('Статус: Активен')).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Деактивировать'})).toBeInTheDocument();
+  expect(calls.mock.calls.some(c=>String(c[0]).endsWith('/activate')&&c[1]?.method==='PATCH')).toBe(true);
+ });
+ it('assigns another role and removes only that role without losing the first',async()=>{
+  profile.permissions=['USERS_READ','USERS_ACTIVATE','ROLES_READ','ROLES_ASSIGN'];
+  const calls=fakeApi();renderAt('/admin/users/'+ID);
+  await screen.findByText('Роли: EMPLOYEE');
+  const user=userEvent.setup();
+  await user.click(screen.getByRole('button',{name:'Активировать'}));
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+  await screen.findByText('Статус: Активен');
+  await screen.findByRole('option',{name:'Кассир (CUSTOM_CASH)'});
+  await user.selectOptions(screen.getByRole('combobox',{name:'Назначаемая роль'}),'role-2');
+  await user.click(screen.getByRole('button',{name:'Назначить'}));
+  expect(await screen.findByText('Роли: EMPLOYEE, CUSTOM_CASH')).toBeInTheDocument();
+  const remove=within(screen.getByRole('region',{name:'Управление ролями'}))
+    .getAllByRole('button',{name:'Снять роль'});
+  await user.click(remove[1]!);
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+  expect(await screen.findByText('Роли: EMPLOYEE')).toBeInTheDocument();
+  const post=calls.mock.calls.find(c=>c[1]?.method==='POST'&&String(c[0]).endsWith('/roles'));
+  expect(JSON.parse(String(post?.[1]?.body))).toEqual({roleId:'role-2'});
+  expect(calls.mock.calls.some(c=>c[1]?.method==='DELETE'&&String(c[0]).endsWith('/roles/role-2'))).toBe(true);
+ });
+ it('allows confirmed password reset without showing or retaining entered password',async()=>{
+  profile.permissions=['USERS_READ','USERS_RESET_PASSWORD'];
+  const calls=fakeApi();renderAt('/admin/users/'+ID);
+  await screen.findByRole('heading',{name:'Сброс пароля'});
+  const user=userEvent.setup();
+  const pass=screen.getByLabelText('Новый пароль');
+  expect(pass).toHaveAttribute('type','password');
+  await user.type(pass,'StrongResetPass123');
+  await user.type(screen.getByLabelText('Подтверждение нового пароля'),'StrongResetPass123');
+  await user.click(screen.getByRole('button',{name:'Сбросить пароль'}));
+  await user.click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Сбросить'}));
+  expect(await screen.findByText(/Новый пароль установлен/)).toBeInTheDocument();
+  expect(pass).toHaveValue('');
+  const req=calls.mock.calls.find(c=>c[1]?.method==='POST'&&String(c[0]).endsWith('/reset-password'));
+  expect(JSON.parse(String(req?.[1]?.body))).toEqual({newPassword:'StrongResetPass123'});
  });
  it('loads dynamic custom roles and catalog permission options',async()=>{
   fakeApi();renderAt('/admin/roles');
