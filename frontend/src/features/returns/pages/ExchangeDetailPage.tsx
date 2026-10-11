@@ -39,7 +39,7 @@ export function ExchangeDetailPage(){
   <Link to="/returns/exchanges" className="font-semibold text-indigo-700 underline">← Обмены</Link>
   <PageHeader title="Карточка обмена" description="Возврат и новая продажа"/>
   <p className={'rounded-xl p-4 text-sm font-semibold '+(d.status==='COMPLETED'?'bg-emerald-50 text-emerald-800':'bg-amber-50 text-amber-900')}>
-   {d.status==='COMPLETED'?'Завершён':'Ожидает финансового расчёта'} ({d.status})
+   {d.status==='COMPLETED'?'Завершён':'Ожидает финансового расчёта'}
   </p>
   <section aria-label="Связанные записи обмена" className="grid gap-3 rounded-xl border bg-white p-4 text-sm sm:grid-cols-3">
    <div><h3 className="font-semibold">Исходная продажа</h3>{hasPermission('SALES_READ')?
