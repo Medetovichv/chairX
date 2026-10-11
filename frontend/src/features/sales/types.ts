@@ -30,6 +30,15 @@ export interface SaleHistoryEvent {
 export interface SaleHistoryPage {
   items: SaleHistoryEvent[]; page: number; size: number; total: number;
 }
+export interface SaleComment {
+  id: string; saleId: string; author: string; text: string; createdAt: string;
+}
+export interface SaleCommentsPage {
+  items: SaleComment[]; page: number; size: number; total: number;
+}
+export interface CreateSaleCommentInput {
+  idempotencyKey: string; text: string;
+}
 export interface SaleItemInput {
   productVariantId: string; warehouseId: string; quantity: number; unitSalePrice: string;
 }

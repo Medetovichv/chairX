@@ -73,6 +73,17 @@ function mockBackend(options:{
     const path=url.pathname,method=init?.method||'GET';
     const rejected=options.deny?.[method+' '+path];
     if(rejected)return json({code:'REJECTED',message:'stacktrace-private',details:{}},rejected);
+    const commentSegments=path.split('/');
+    if(commentSegments.length===5&&commentSegments[1]==='api'&&
+       commentSegments[2]==='sales'&&commentSegments[4]==='comments'&&method==='GET'){
+      return json({items:[],page:0,size:20,total:0});
+    }
+    if(commentSegments.length===5&&commentSegments[1]==='api'&&
+       commentSegments[2]==='sales'&&commentSegments[4]==='comments'&&method==='POST'){
+      const body=JSON.parse(String(init?.body)) as {text:string;idempotencyKey:string};
+      return json({id:NEW_ID,saleId:commentSegments[3],author:'test-employee',
+        text:body.text,createdAt:TIME},201);
+    }
     const segments=path.split('/');
     if(segments.length===5 && segments[1]==='api' && segments[2]==='sales' &&
        segments[4]==='history' && method==='GET'){
@@ -506,6 +517,19 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       .toBeInTheDocument();
     expect(called(api,'/api/warehouses')).toHaveLength(0);
     expect(called(api,'/api/product-variants/')).toHaveLength(0);
+  });
+  it('shows staff messages read-only to sales viewers and allows authorized append',async()=>{
+    granted.permissions.push('SALES_COMMENT_CREATE');
+    const api=mockBackend({sales:[sale('CONFIRMED')]});
+    renderAt('/sales/'+SALE_ID);
+    const area=await screen.findByRole('region',{name:'Комментарии сотрудников'});
+    const box=within(area).getByRole('textbox',{name:'Новый комментарий'});
+    fireEvent.change(box,{target:{value:'Клиент просил подготовить кресло'}});
+    await userEvent.setup().click(within(area).getByRole('button',{name:'Добавить комментарий'}));
+    await waitFor(()=>expect(api.fetchMock.mock.calls.filter(([raw,opts])=>
+      String(raw)==='/api/sales/'+SALE_ID+'/comments'&&(opts as RequestInit)?.method==='POST')).toHaveLength(1));
+    expect(api.fetchMock.mock.calls.some(([raw])=>String(raw).includes('/api/sales/'+SALE_ID+'/comments')))
+      .toBe(true);
   });
   it('loads real detail with comment/amount and only available statuses',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
