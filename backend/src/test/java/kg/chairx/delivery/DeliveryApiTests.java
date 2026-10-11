@@ -359,6 +359,137 @@ class DeliveryApiTests {
         ).isEqualTo(1);
     }
 
+    /**
+     * F13 regional failure acceptance: the order was picked from TWO source
+     * warehouses but physically comes back to ONE destination warehouse.
+     * A transport failure must NOT be confused with a customer return:
+     * real stock/FIFO is restored only after the separate warehouse receipt.
+     */
+    @Test
+    void failedMultiWarehouseRegionDeliveryReturnsOnceWithoutMoneyOrCustomerReturn() throws Exception {
+        var sale = createSale(
+                FulfillmentType.REGION_DELIVERY,
+                item(firstVariant, home, 2, "8500"),
+                item(secondVariant, office, 1, "12000")
+        );
+        String deliveryId = createDelivery(sale.id());
+        BigDecimal cashBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        BigDecimal bankBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        Long financeBefore = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements", Long.class);
+
+        String returnUrl = "/api/deliveries/" + deliveryId + "/return-to-warehouse";
+        String payload = "{\"warehouseId\":\"" + home + "\"}";
+
+        // A delivery in READY cannot be treated as physically returned.
+        mvc.perform(post(returnUrl).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
+        assertThat(inventory.getBalance(office, secondVariant).onHand()).isEqualTo(20);
+
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/dispatch").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("IN_TRANSIT"));
+        // Dispatch physically consumes units from BOTH original warehouses.
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(18);
+        assertThat(inventory.getBalance(office, secondVariant).onHand()).isEqualTo(19);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(inventory.getBalance(office, secondVariant).reserved()).isZero();
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM stock_movements
+                WHERE movement_type='SALE_OUT'
+                """, Long.class)).isEqualTo(2);
+
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/fail").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Клиент в регионе отказался получать груз\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.failedAt").isString())
+                .andExpect(jsonPath("$.returnWarehouseId").isEmpty());
+        // Changing the delivery status never puts undelivered packages back
+        // into sellable stock and never registers a customer return.
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(18);
+        assertThat(inventory.getBalance(office, secondVariant).onHand()).isEqualTo(19);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM returns WHERE sale_id=?", Long.class, sale.id()))
+                .isZero();
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/deliver").with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/cancel").with(csrf()))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
+
+        mvc.perform(post(returnUrl).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.returnedToWarehouseAt").isString())
+                .andExpect(jsonPath("$.returnWarehouseId").value(home.toString()));
+        // Sale source warehouses stay on the sale record: the physical
+        // return destination is explicitly HOME for both product variants.
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
+        assertThat(inventory.getBalance(home, secondVariant).onHand()).isEqualTo(1);
+        assertThat(inventory.getBalance(office, secondVariant).onHand()).isEqualTo(19);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM stock_movements
+                WHERE movement_type='RETURN_IN' AND source_type='DELIVERY_RETURN'
+                  AND source_id=? AND warehouse_id=?
+                """, Long.class, UUID.fromString(deliveryId), home)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("""
+                SELECT COALESCE(sum(quantity),0) FROM stock_movements
+                WHERE movement_type='RETURN_IN' AND source_type='DELIVERY_RETURN'
+                  AND source_id=? AND warehouse_id=?
+                """, Long.class, UUID.fromString(deliveryId), home)).isEqualTo(3);
+
+        // Each item has a FIFO valuation source and retained stock-layer
+        // cost: incoming units are not manufactured without cost origins.
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM inventory_cost_layers
+                WHERE source_movement_id IN (
+                    SELECT id FROM stock_movements
+                    WHERE movement_type='RETURN_IN'
+                      AND source_type='DELIVERY_RETURN' AND source_id=?
+                )
+                """, Long.class, UUID.fromString(deliveryId))).isEqualTo(2);
+
+        // Replay of the physical warehouse receipt cannot double inventory,
+        // FIFO layers, money, or audit history.
+        mvc.perform(post(returnUrl).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.returnWarehouseId").value(home.toString()));
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM stock_movements
+                WHERE source_type='DELIVERY_RETURN' AND source_id=?
+                """, Long.class, UUID.fromString(deliveryId))).isEqualTo(2);
+        assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);
+        assertThat(inventory.getBalance(home, secondVariant).onHand()).isEqualTo(1);
+        assertThat(inventory.getBalance(office, secondVariant).onHand()).isEqualTo(19);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM returns WHERE sale_id=?", Long.class, sale.id()))
+                .isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
+                .isEqualByComparingTo(cashBefore);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo(bankBefore);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements", Long.class)).isEqualTo(financeBefore);
+
+        // Read-only clients see a FAILED delivery and one explicit receipt.
+        mvc.perform(get("/api/deliveries/" + deliveryId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.returnWarehouseId").value(home.toString()));
+    }
+
     @Test
     void cancellingReadyDeliveryWorksThroughApi() throws Exception {
         var sale = createSale(
