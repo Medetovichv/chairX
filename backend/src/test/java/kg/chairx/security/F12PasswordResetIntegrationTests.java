@@ -56,4 +56,53 @@ class F12PasswordResetIntegrationTests {
   String audit=jdbc.queryForObject("SELECT details FROM security_audit_log WHERE target_id=? AND action='USER_PASSWORD_RESET'",String.class,target);
   assertThat(audit).doesNotContain(OLD,NEW,hash);
  }
+
+ @Test void managerCannotResetAnotherEmployeePassword() throws Exception {
+  UUID managerRole=UUID.fromString("00000000-0000-0000-0000-000000000002");
+  jdbc.update("UPDATE security_user_roles SET role_id=? WHERE user_id=?",managerRole,target);
+  String original=jdbc.queryForObject("SELECT password_hash FROM app_users WHERE id=?",String.class,admin);
+  mvc.perform(post("/api/admin/users/{id}/reset-password",admin)
+   .with(httpBasic(targetLogin,OLD)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+   .content("{\"newPassword\":\"StrongManagerAttempt123\"}"))
+   .andExpect(status().isForbidden());
+  assertThat(jdbc.queryForObject("SELECT password_hash FROM app_users WHERE id=?",String.class,admin))
+   .isEqualTo(original);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM security_audit_log WHERE action='USER_PASSWORD_RESET' AND target_id=?",
+   Long.class,admin)).isZero();
+ }
+ @Test void rejectsInvalidResetPasswordsAndMissingUser() throws Exception {
+  String original=jdbc.queryForObject("SELECT password_hash FROM app_users WHERE id=?",String.class,target);
+  for(String password:new String[]{"12345678901","a".repeat(129)}) {
+   mvc.perform(post("/api/admin/users/{id}/reset-password",target)
+    .with(httpBasic(adminLogin,OLD)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+    .content("{\"newPassword\":\""+password+"\"}"))
+    .andExpect(status().isBadRequest());
+  }
+  mvc.perform(post("/api/admin/users/{id}/reset-password",UUID.randomUUID())
+   .with(httpBasic(adminLogin,OLD)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+   .content("{\"newPassword\":\"StrongValidPassword123\"}"))
+   .andExpect(status().isNotFound());
+  assertThat(jdbc.queryForObject("SELECT password_hash FROM app_users WHERE id=?",String.class,target))
+   .isEqualTo(original);
+  assertThat(jdbc.queryForObject("SELECT count(*) FROM security_audit_log WHERE action='USER_PASSWORD_RESET' AND target_id=?",
+   Long.class,target)).isZero();
+ }
+ @Test void newPermissionsAreSystemAdminOnlyAndDtosRedactPasswords() {
+  for(String code:new String[]{"USERS_ACTIVATE","USERS_RESET_PASSWORD"}) {
+   assertThat(jdbc.queryForObject("""
+      SELECT count(*) FROM security_role_permissions rp JOIN security_roles r ON rp.role_id=r.id
+      WHERE rp.permission_code=? AND r.code='ADMIN' AND r.system_role=true
+      """,Long.class,code)).isEqualTo(1);
+   assertThat(jdbc.queryForObject("""
+      SELECT count(*) FROM security_role_permissions rp JOIN security_roles r ON rp.role_id=r.id
+      WHERE rp.permission_code=? AND r.code IN ('MANAGER','EMPLOYEE')
+      """,Long.class,code)).isZero();
+  }
+  String secret="SecretPrivate123";
+  assertThat(new kg.chairx.security.api.AdminUserController.ResetPasswordRequest(secret).toString())
+   .doesNotContain(secret);
+  assertThat(new kg.chairx.security.api.AdminUserController.CreateUserRequest("staff",secret,"Test").toString())
+   .doesNotContain(secret);
+ }
+
 }
