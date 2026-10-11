@@ -3,6 +3,7 @@ package kg.chairx.defect;
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.defect.application.DefectRuleViolationException;
 import kg.chairx.defect.application.DefectService;
+import kg.chairx.defect.web.DefectReceiptOriginsController;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
 import org.junit.jupiter.api.AfterEach;
@@ -29,6 +30,9 @@ class DefectOriginTests {
 
     @Autowired
     DefectService defects;
+
+    @Autowired
+    DefectReceiptOriginsController receiptOrigins;
 
     @Autowired
     InventoryService inventory;
@@ -248,6 +252,27 @@ class DefectOriginTests {
                 "delete from products where id=?",
                 product
         );
+    }
+
+    @Test
+    void receiptOriginLookupIsScopedAndContainsNoFinancialAmounts() {
+        var page = receiptOrigins.list(warehouse, variant, supplier, 0, 20);
+        assertThat(page.total()).isEqualTo(1);
+        assertThat(page.items()).hasSize(1);
+        var origin = page.items().getFirst();
+        assertThat(origin.id()).isEqualTo(receiptItem);
+        assertThat(origin.model()).isEqualTo("Defect origin fixture");
+        assertThat(origin.variant()).isEqualTo("Black");
+        assertThat(origin.warehouse()).isNotBlank();
+        assertThat(origin.supplier()).isEqualTo("Test supplier");
+        assertThat(origin.quantity()).isEqualTo(10);
+        assertThat(receiptOrigins.list(otherWarehouse, variant, null, 0, 20).total()).isZero();
+        assertThat(receiptOrigins.list(warehouse, UUID.randomUUID(), null, 0, 20).items()).isEmpty();
+        assertThat(receiptOrigins.list(warehouse, variant, UUID.randomUUID(), 0, 20).items()).isEmpty();
+        assertThat(receiptOrigins.list(warehouse, variant, null, 1, 1).items()).isEmpty();
+        assertThat(DefectReceiptOriginsController.Origin.class.getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .doesNotContain("totalCost", "allocatedCargoCost", "purchaseUnitCost", "finalUnitCost");
     }
 
     @Test
