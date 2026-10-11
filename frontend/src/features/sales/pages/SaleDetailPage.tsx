@@ -13,6 +13,7 @@ import { NotFoundPage } from '../../../pages/NotFoundPage';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
 import { Button } from '../../../shared/ui/button';
 import { salesApi, salesKeys } from '../api';
+import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { inventoryKeys } from '../../inventory/api';
@@ -69,9 +70,8 @@ function ItemLine({item}: {item:SaleResponse['items'][number]}) {
   });
   return <article className="grid gap-2 border-b border-slate-100 p-4 text-sm sm:grid-cols-[1fr_auto]">
     <div>
-      <p className="font-semibold">{variant.data?.name??'Вариация '+item.productVariantId}</p>
-      <p className="break-all text-xs text-slate-500">Вариация: {item.productVariantId}</p>
-      <p className="break-all text-xs text-slate-500">Склад: {item.warehouseId}</p>
+      <p className="font-semibold">{variant.data?.name??'Товарная позиция'}</p>
+      <p className="text-xs text-slate-500">Складские реквизиты доступны в учёте остатков.</p>
     </div>
     <div className="sm:text-right">
       <p>{item.quantity} шт. × {money(item.unitSalePrice)}</p>
@@ -139,6 +139,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     await Promise.all([
       client.invalidateQueries({queryKey:salesKeys.lists}),
       client.invalidateQueries({queryKey:salesKeys.kanban}),
+      client.invalidateQueries({queryKey:saleStatisticsKeys.last30Days}),
+      client.invalidateQueries({queryKey:['dashboard']}),
       client.invalidateQueries({queryKey:inventoryKeys.overviewPrefix}),
       client.invalidateQueries({queryKey:inventoryKeys.balancePrefix}),
       client.invalidateQueries({queryKey:inventoryKeys.movementsPrefix}),
