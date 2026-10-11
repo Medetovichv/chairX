@@ -186,6 +186,8 @@ public class SecurityConfig {
                         .hasAuthority("EXPENSES_READ")
                         .requestMatchers(HttpMethod.POST, "/api/expenses")
                         .hasAuthority("EXPENSES_CREATE")
+                        .requestMatchers(HttpMethod.GET, "/api/defects/receipt-origins")
+                        .hasAuthority("DEFECTS_MANAGE")
                         .requestMatchers(HttpMethod.GET, "/api/defects", "/api/defects/*")
                         .hasAuthority("DEFECTS_READ")
                         .requestMatchers(HttpMethod.POST, "/api/defects", "/api/defects/*/wait-for-parts", "/api/defects/*/resolve")
