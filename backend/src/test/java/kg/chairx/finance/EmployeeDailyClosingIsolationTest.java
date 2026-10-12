@@ -103,6 +103,33 @@ class EmployeeDailyClosingIsolationTest {
             "\",\"cashNote\":null,\"bankNote\":null}";
     }
 
+    @Test void combinedPersonalClosingStoresOneActualTotalWithoutInventedAccountSplit() throws Exception {
+        String employee=user(EMPLOYEE_ROLE);
+        collection(employee,"CASH",600);
+        collection(employee,"BANK",400);
+        expense(employee,"CASH",100);
+        String endpoint="/api/finance/my-closings/"+day;
+        String invalid="{\"expectedCash\":\"500\",\"expectedBank\":\"400\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"850\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        mvc.perform(post(endpoint).with(httpBasic(employee,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(invalid))
+            .andExpect(status().isBadRequest());
+        String valid=invalid.replace("\"totalNote\":null",
+            "\"totalNote\":\"Не хватает 50 сом после сверки\"");
+        mvc.perform(post(endpoint).with(httpBasic(employee,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(valid))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.expectedTotal").value(900))
+            .andExpect(jsonPath("$.actualTotal").value(850))
+            .andExpect(jsonPath("$.expenses.length()").value(1));
+        UUID employeeId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",UUID.class,employee);
+        assertThat(jdbc.queryForObject("""
+            SELECT count(*) FROM employee_daily_closings WHERE employee_id=?
+            AND actual_cash IS NULL AND actual_bank IS NULL AND actual_total=850
+            """,Integer.class,employeeId)).isEqualTo(1);
+    }
+
     @Test void employeeSeesAllSalesButOnlyOwnCollectionsAndNoGlobalFinance() throws Exception {
         String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE),manager=user(MANAGER_ROLE);
         fulfilled(alice);fulfilled(bob);
