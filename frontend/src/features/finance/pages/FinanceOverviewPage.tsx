@@ -10,7 +10,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { Button } from '../../../shared/ui/button';
 export function FinanceOverviewPage(){
- const {hasPermission}=useAuth();
+ const {hasPermission,user}=useAuth();
  const allowed=hasPermission('FINANCE_READ'),period=periodMonth();
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,enabled:allowed});
  const flow=useQuery({queryKey:financeKeys.flowPeriod(period.from,period.to),
@@ -50,7 +50,7 @@ export function FinanceOverviewPage(){
    {hasPermission('EXPENSES_READ')&&<Button variant="outline" asChild><Link to="/finance/expenses">Расходы</Link></Button>}
    <Button variant="outline" asChild><Link to="/finance/cash-flow">Движение денег</Link></Button>
    {hasPermission('FINANCE_TRANSFER')&&<Button asChild><Link to="/finance/transfers">Перевести CASH / BANK</Link></Button>}
-   {hasPermission('FINANCE_INITIALIZE')&&<Button variant="outline" asChild><Link to="/finance/opening-balances">Начальные остатки</Link></Button>}
+   {user?.roles.includes('ADMIN')&&hasPermission('FINANCE_INITIALIZE')&&<Button variant="outline" asChild><Link to="/finance/opening-balances">Начальные остатки</Link></Button>}
   </div>
  </div>;
 }
