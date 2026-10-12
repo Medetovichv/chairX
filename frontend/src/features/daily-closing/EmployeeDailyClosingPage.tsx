@@ -71,7 +71,7 @@ export function EmployeeDailyClosingPage(){
  }
  return <div className="space-y-5">
   <PageHeader title="Моё закрытие дня"
-   description="Только мои завершённые продажи и деньги, которые зарегистрировал я. Общие CASH/BANK компании здесь не показываются."/>
+   description="Все завершённые продажи дня, мои поступления и только мои расходы. Чужие расходы недоступны."/>
   <section className="space-y-3 rounded-xl border bg-white p-4">
    <label className="block text-sm font-semibold">Дата (Asia/Bishkek)
     <Input aria-label="Личная отчётная дата" type="date" value={day}
@@ -93,9 +93,15 @@ export function EmployeeDailyClosingPage(){
    <div className="space-y-4">
     <section className="space-y-3 rounded-xl border bg-white p-4">
      <h2 className="text-lg font-bold">{report.data.closed?'Мой день закрыт':'Мой день открыт'}</h2>
-     <p>Зарегистрировано мной: CASH <strong>{money(report.data.expectedCash)}</strong>,
-      BANK <strong>{money(report.data.expectedBank)}</strong></p>
-     <p className="text-sm text-slate-600">Это суммы поступлений, оформленных мной за день, а не общий остаток кассы или банка. Возвраты и отмены отражаются в общем финансовом учёте отдельно.</p>
+     <div className="grid gap-3 sm:grid-cols-2">
+      <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-600">К сдаче наличными (поступления − мои расходы)</p>
+       <p className="text-xl font-bold">{money(report.data.expectedCash)}</p></div>
+      <div className="rounded-xl bg-slate-50 p-3"><p className="text-xs text-slate-600">К подтверждению переводами (поступления − мои расходы)</p>
+       <p className="text-xl font-bold">{money(report.data.expectedBank)}</p></div>
+     </div>
+     <p className="text-sm text-slate-600">Это расчёт после вычета расходов, зарегистрированных вами за этот день. Остатки компании и расходы других сотрудников здесь не показываются.</p>
+     {(BigInt(report.data.expectedCash)<0n||BigInt(report.data.expectedBank)<0n)&&
+      <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Ваши расходы превышают личные поступления. Перед закрытием требуется сверка с менеджером.</p>}
      {report.data.closed&&<div className="space-y-2">
       <p>Фактически CASH: <strong>{money(report.data.actualCash??'0')}</strong>.
        Фактически BANK: <strong>{money(report.data.actualBank??'0')}</strong>.</p>
@@ -127,7 +133,7 @@ export function EmployeeDailyClosingPage(){
        Эта дата недоступна для обычного личного закрытия.</p>}
     </section>
     <section className="rounded-xl border bg-white p-4">
-     <h2 className="text-lg font-bold">Мои завершённые продажи</h2>
+     <h2 className="text-lg font-bold">Все завершённые продажи за день</h2>
      <p>Заказы: {report.data.orders} · Кресла: {report.data.chairs} ·
       Сумма продаж: {money(report.data.salesValue)}</p>
      {report.data.sales.length>0&&<ul className="divide-y">
@@ -136,6 +142,23 @@ export function EmployeeDailyClosingPage(){
       </li>)}
      </ul>}
      {report.data.sales.length===0&&<p>Завершённых продаж за выбранную дату нет.</p>}
+    </section>
+    <section aria-label="Мои расходы за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+     <h2 className="text-lg font-bold">Мои расходы за день</h2>
+     <p className="text-sm text-slate-600">Только расходы, созданные под вашей учётной записью (createdBy). Чужие расходы не загружаются.</p>
+     <div className="grid gap-3 sm:grid-cols-2">
+      <p className="rounded-xl bg-slate-50 p-3">Наличные: <strong>{money(report.data.expenseCash)}</strong></p>
+      <p className="rounded-xl bg-slate-50 p-3">Переводы: <strong>{money(report.data.expenseBank)}</strong></p>
+     </div>
+     {report.data.expenses.length===0?<p className="text-sm text-slate-500">Вы не регистрировали расходы за этот день.</p>:
+      <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+       <thead><tr className="border-b"><th className="p-2">Категория</th><th className="p-2">Комментарий</th><th className="p-2">Оплата</th><th className="p-2 text-right">Сумма</th></tr></thead>
+       <tbody>{report.data.expenses.map(e=><tr key={e.expenseId} className="border-b">
+        <td className="p-2">{e.category}</td><td className="p-2">{e.comment||'—'}</td>
+        <td className="p-2">{e.paymentMethod==='CASH'?'Наличные':'Перевод'}</td>
+        <td className="p-2 text-right font-semibold">{money(e.amount)}</td>
+       </tr>)}</tbody>
+      </table></div>}
     </section>
    </div>}
   <ConfirmDialog open={confirm!==null} onOpenChange={v=>{if(!v)setConfirm(null);}}
