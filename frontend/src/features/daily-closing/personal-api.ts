@@ -3,13 +3,18 @@ import {apiClient} from '../../shared/api/client';
 export interface EmployeeSaleLine {
  saleId:string; saleNumber:string; quantity:number; total:string; completedAt:string;
 }
+export interface PersonalExpenseLine {
+ expenseId:string;category:string;amount:string;paymentMethod:'CASH'|'BANK';
+ comment:string|null;createdAt:string;
+}
 export interface PersonalClosing {
  businessDate:string; closed:boolean; canClose:boolean;
  expectedCash:string; expectedBank:string;
  actualCash:string|null; actualBank:string|null;
  cashNote:string|null; bankNote:string|null;
  orders:number; chairs:number; salesValue:string;
- sales:EmployeeSaleLine[]; collectionsChangedAfterClose:boolean;
+ sales:EmployeeSaleLine[]; expenses:PersonalExpenseLine[];
+ expenseCash:string;expenseBank:string; collectionsChangedAfterClose:boolean;
 }
 export interface PersonalCloseRequest {
  expectedCash:string;expectedBank:string; actualCash:string;actualBank:string;
@@ -24,4 +29,21 @@ export const personalCloseApi = {
  report:(date:string)=>apiClient.get<PersonalClosing>('/api/finance/my-closings/'+encodeURIComponent(date)),
  close:(date:string,input:PersonalCloseRequest)=>
   apiClient.post<PersonalClosing>('/api/finance/my-closings/'+encodeURIComponent(date),input),
+};
+
+export interface ManagerEmployeeClosing {
+ employeeId:string;username:string;displayName:string;closed:boolean;
+ expectedCash:string|null;expectedBank:string|null;actualCash:string|null;actualBank:string|null;
+}
+export interface ManagerExpense {
+ id:string;createdBy:string;category:string;paymentMethod:string;amount:string;comment:string|null;
+}
+export interface ManagerClosingReport {
+ businessDate:string;employees:ManagerEmployeeClosing[];expenses:ManagerExpense[];
+ expenseTotal:string;cashExpenses:string;bankExpenses:string;
+ closedEmployees:number;totalEmployees:number;
+}
+export const managerClosingApi={
+ report:(date:string)=>apiClient.get<ManagerClosingReport>(
+  '/api/finance/employee-closings/'+encodeURIComponent(date)),
 };
