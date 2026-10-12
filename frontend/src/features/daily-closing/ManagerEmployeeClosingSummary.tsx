@@ -22,6 +22,14 @@ export function ManagerEmployeeClosingSummary({date}:{date:string}){
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Все расходы переводами</p>
       <p className="mt-1 text-2xl font-bold">{som(report.data.bankExpenses)}</p></div>
     </div>
+    <div className="grid gap-3 sm:grid-cols-2">
+     <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Сдано наличными по закрытым сменам</p>
+      <p className="mt-1 text-2xl font-bold">{som(report.data.totalActualCash)}</p>
+      <p className="mt-1 text-xs text-slate-500">Расчёт: {som(report.data.totalExpectedCash)}</p></div>
+     <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Подтверждено переводами по закрытым сменам</p>
+      <p className="mt-1 text-2xl font-bold">{som(report.data.totalActualBank)}</p>
+      <p className="mt-1 text-xs text-slate-500">Расчёт: {som(report.data.totalExpectedBank)}</p></div>
+    </div>
     <div className="overflow-x-auto"><h3 className="mb-2 font-semibold">Закрытия за день</h3>
      <table className="w-full text-left text-sm"><thead><tr className="border-b">
       <th className="p-2">Сотрудник</th><th className="p-2">Состояние</th>
