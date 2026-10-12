@@ -32,6 +32,7 @@ import org.springframework.validation.annotation.Validated;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -93,13 +94,20 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     public SalePageResponse list(int page,int size,SaleStatus status,
                                  LocalDate from,LocalDate to,String saleNumber) {
+        return list(page,size,status,from,to,saleNumber,false);
+    }
+
+    public SalePageResponse list(int page,int size,SaleStatus status,
+                                 LocalDate from,LocalDate to,String saleNumber,
+                                 boolean operational) {
         if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
             throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка продаж");
         var begin=from==null?null:from.atStartOfDay(BUSINESS_ZONE).toInstant();
         var until=to==null?null:to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
         String query=saleNumber==null||saleNumber.isBlank()?null:saleNumber.strip();
-        return new SalePageResponse(repository.listSummaries(status,begin,until,query,page,size),
-                page,size,repository.countSummaries(status,begin,until,query));
+        Instant today=LocalDate.now(BUSINESS_ZONE).atStartOfDay(BUSINESS_ZONE).toInstant();
+        return new SalePageResponse(repository.listSummaries(status,begin,until,query,null,page,size,operational,today),
+                page,size,repository.countSummaries(status,begin,until,query,null,operational,today));
     }
 
     /** Customer-specific paginated history; customer data cannot leak from unrelated sales. */

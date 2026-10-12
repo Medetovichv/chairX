@@ -40,19 +40,33 @@ public class EmployeeDailyClosingService {
     }
 
     public record SaleLine(UUID saleId, String saleNumber, long quantity,
-                           BigDecimal total, Instant completedAt) {}
+                           BigDecimal total, Instant completedAt,
+                           String products,String phone,String address,
+                           String fulfillment,String deliveryStatus,String paymentStatus) {
+        public SaleLine(UUID id,String number,long quantity,BigDecimal total,Instant completedAt){
+            this(id,number,quantity,total,completedAt,null,null,null,null,null,null);
+        }
+    }
     public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
                               String paymentMethod,String comment,Instant createdAt) {}
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
                           BigDecimal actualCash, BigDecimal actualBank,
-                          String cashNote, String bankNote) {}
+                          String cashNote, String bankNote,
+                          BigDecimal actualTotal, String totalNote) {
+        public Request(BigDecimal expectedCash,BigDecimal expectedBank,
+                       BigDecimal actualCash,BigDecimal actualBank,
+                       String cashNote,String bankNote) {
+            this(expectedCash,expectedBank,actualCash,actualBank,cashNote,bankNote,null,null);
+        }
+    }
     public record Report(LocalDate businessDate, boolean closed, boolean canClose,
                          BigDecimal expectedCash, BigDecimal expectedBank,
                          BigDecimal actualCash, BigDecimal actualBank,
                          String cashNote, String bankNote, long orders, long chairs,
                          BigDecimal salesValue, List<SaleLine> sales,
                          List<ExpenseLine> expenses, BigDecimal expenseCash,BigDecimal expenseBank,
-                         boolean collectionsChangedAfterClose) {}
+                         boolean collectionsChangedAfterClose,
+                         BigDecimal expectedTotal, BigDecimal actualTotal, String totalNote) {}
 
     private record Employee(UUID id, String username) {}
     private record Collections(BigDecimal cash, BigDecimal bank) {}
@@ -153,50 +167,77 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) AS total,
-                   CASE WHEN s.fulfillment_type='SELF_PICKUP'
-                        THEN s.fulfilled_at ELSE d.delivered_at END AS completed_at
+                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at,
+                   detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
+                   COALESCE(d.address,c.address) AS address,
+                   s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
             FROM sales s
+            LEFT JOIN customers c ON c.id=s.customer_id
             LEFT JOIN deliveries d ON d.sale_id=s.id
             LEFT JOIN LATERAL (
                 SELECT SUM(si.quantity) AS quantity,
-                       SUM(si.quantity * si.unit_sale_price) AS total
-                FROM sale_items si WHERE si.sale_id=s.id
+                       SUM(si.quantity * si.unit_sale_price) AS total,
+                       string_agg(pr.name || ' / ' || v.name || ' ×' || si.quantity::text,
+                            ', ' ORDER BY pr.name,v.name) AS products
+                FROM sale_items si
+                JOIN product_variants v ON v.id=si.product_variant_id
+                JOIN products pr ON pr.id=v.product_id
+                WHERE si.sale_id=s.id
             ) detail ON TRUE
-            WHERE ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
-                    AND s.fulfilled_at>=:fromDate AND s.fulfilled_at<:untilDate)
-               OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
-                    AND d.status='DELIVERED'
-                    AND d.delivered_at>=:fromDate AND d.delivered_at<:untilDate))
+            JOIN LATERAL (
+                SELECT SUM(payment.amount) AS amount, MAX(payment.paid_at) AS paid_at
+                FROM payments payment
+                WHERE payment.sale_id=s.id AND payment.status='PAID'
+                HAVING SUM(payment.amount) >= COALESCE(detail.total,0)
+            ) p ON TRUE
+            WHERE s.status='FULFILLED'
+              AND (s.fulfillment_type='SELF_PICKUP'
+                   OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                       AND d.status IN ('IN_TRANSIT','DELIVERED')))
+              -- One sale belongs to one business day: the day both physical
+              -- handover and full payment have been registered.
+              AND GREATEST(s.fulfilled_at,p.paid_at)>=:fromDate
+              AND GREATEST(s.fulfilled_at,p.paid_at)<:untilDate
             ORDER BY completed_at,s.id
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
-                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
+                    rs.getString("products"),rs.getString("phone"),rs.getString("address"),
+                    rs.getString("fulfillment_type"),rs.getString("delivery_status"),
+                    rs.getString("payment_status")))
             .list();
     }
 
     private List<SaleLine> snapshot(UUID closingId) {
         return jdbc.sql("""
-            SELECT sale_id,sale_number,quantity,total,completed_at
+            SELECT sale_id,sale_number,quantity,total,completed_at,
+                   products,contact_phone AS phone,delivery_address AS address,
+                   fulfillment AS fulfillment_type,delivery_status,payment_status
             FROM employee_daily_closing_sales WHERE closing_id=:id
             ORDER BY completed_at,sale_id
             """).param("id",closingId)
             .query((rs,i)->new SaleLine(rs.getObject("sale_id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
-                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
+                    rs.getString("products"),rs.getString("phone"),rs.getString("address"),
+                    rs.getString("fulfillment_type"),rs.getString("delivery_status"),
+                    rs.getString("payment_status")))
             .list();
     }
 
     private Report result(Employee actor, LocalDate date) {
         var saved=jdbc.sql("""
-            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note
+            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
+                   actual_total,total_note
             FROM employee_daily_closings
             WHERE employee_id=:actor AND business_date=:day
             """).param("actor",actor.id()).param("day",date)
             .query((rs,i)->new Stored(rs.getObject("id",UUID.class),
                     rs.getBigDecimal("expected_cash"),rs.getBigDecimal("expected_bank"),
                     rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"),
-                    rs.getString("cash_note"),rs.getString("bank_note")))
+                    rs.getString("cash_note"),rs.getString("bank_note"),
+                rs.getBigDecimal("actual_total"),rs.getString("total_note")))
             .optional().orElse(null);
         Collections now=netCollections(actor.username(),date);
         List<ExpenseLine> personalExpenses=saved==null?ownExpenses(actor.username(),date):savedExpenses(saved.id());
@@ -214,12 +255,17 @@ public class EmployeeDailyClosingService {
                 sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
                 sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
                 sales,personalExpenses,expenseTotal(personalExpenses,"CASH"),
-                expenseTotal(personalExpenses,"BANK"),changed);
+                expenseTotal(personalExpenses,"BANK"),changed,
+                (saved==null?now.cash().add(now.bank()):saved.cash().add(saved.bank())),
+                saved==null?null:saved.actualTotal()!=null?saved.actualTotal():
+                    saved.actualCash().add(saved.actualBank()),
+                saved==null?null:saved.totalNote());
     }
 
     private record Stored(UUID id, BigDecimal cash, BigDecimal bank,
                           BigDecimal actualCash, BigDecimal actualBank,
-                          String cashNote, String bankNote) {}
+                          String cashNote, String bankNote,
+                          BigDecimal actualTotal,String totalNote) {}
 
     private static void amount(BigDecimal money) {
         if(money==null || money.signum()<0 || money.stripTrailingZeros().scale()>0) {
@@ -241,11 +287,23 @@ public class EmployeeDailyClosingService {
         validateDate(date);
         if(input==null)throw new FinanceValidationException("Данные личного закрытия обязательны");
         amount(input.expectedCash());amount(input.expectedBank());
-        amount(input.actualCash());amount(input.actualBank());
+        boolean combined=input.actualTotal()!=null;
         String cashNote=note(input.cashNote()),bankNote=note(input.bankNote());
-        if(input.actualCash().compareTo(input.expectedCash())!=0 && cashNote==null
-                || input.actualBank().compareTo(input.expectedBank())!=0 && bankNote==null)
-            throw new FinanceValidationException("Укажите причину расхождения CASH/BANK");
+        String totalNote=note(input.totalNote());
+        if(combined) {
+            amount(input.actualTotal());
+            if(input.actualCash()!=null || input.actualBank()!=null)
+                throw new FinanceValidationException("При общей сверке не указывайте разбивку CASH/BANK");
+            if(input.actualTotal().compareTo(input.expectedCash().add(input.expectedBank()))!=0
+                    && totalNote==null)
+                throw new FinanceValidationException("Укажите одну причину расхождения общей суммы");
+            cashNote=null;bankNote=null;
+        } else {
+            amount(input.actualCash());amount(input.actualBank());
+            if(input.actualCash().compareTo(input.expectedCash())!=0 && cashNote==null
+                    || input.actualBank().compareTo(input.expectedBank())!=0 && bankNote==null)
+                throw new FinanceValidationException("Укажите причину расхождения CASH/BANK");
+        }
 
         // Resolve identity server-side. Never accept actor or employee id from request.
         Employee actor=employee(username);
@@ -271,22 +329,33 @@ public class EmployeeDailyClosingService {
         jdbc.sql("""
             INSERT INTO employee_daily_closings
             (id,employee_id,business_date,expected_cash,expected_bank,actual_cash,
-             actual_bank,cash_note,bank_note)
-            VALUES (:id,:actor,:day,:cash,:bank,:actualCash,:actualBank,:cashNote,:bankNote)
+             actual_bank,cash_note,bank_note,actual_total,total_note)
+            VALUES (:id,:actor,:day,:cash,:bank,:actualCash,:actualBank,:cashNote,:bankNote,:actualTotal,:totalNote)
             """).param("id",id).param("actor",actor.id()).param("day",date)
             .param("cash",amount.cash()).param("bank",amount.bank())
-            .param("actualCash",input.actualCash()).param("actualBank",input.actualBank())
+            .param("actualCash",input.actualCash(),java.sql.Types.NUMERIC)
+            .param("actualBank",input.actualBank(),java.sql.Types.NUMERIC)
             .param("cashNote",cashNote,java.sql.Types.VARCHAR)
-            .param("bankNote",bankNote,java.sql.Types.VARCHAR).update();
+            .param("bankNote",bankNote,java.sql.Types.VARCHAR)
+            .param("actualTotal",input.actualTotal(),java.sql.Types.NUMERIC)
+            .param("totalNote",totalNote,java.sql.Types.VARCHAR).update();
         for(var sale:sales) {
             jdbc.sql("""
                 INSERT INTO employee_daily_closing_sales
-                (closing_id,sale_id,sale_number,quantity,total,completed_at)
-                VALUES (:closing,:sale,:number,:quantity,:total,:completedAt)
+                (closing_id,sale_id,sale_number,quantity,total,completed_at,
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                VALUES (:closing,:sale,:number,:quantity,:total,:completedAt,
+                        :products,:phone,:address,:fulfillment,:deliveryStatus,:paymentStatus)
                 """).param("closing",id).param("sale",sale.saleId())
                 .param("number",sale.saleNumber()).param("quantity",sale.quantity())
                 .param("total",sale.total())
-                .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC)).update();
+                .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC))
+                .param("products",sale.products(),java.sql.Types.VARCHAR)
+                .param("phone",sale.phone(),java.sql.Types.VARCHAR)
+                .param("address",sale.address(),java.sql.Types.VARCHAR)
+                .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
+                .param("deliveryStatus",sale.deliveryStatus(),java.sql.Types.VARCHAR)
+                .param("paymentStatus",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
         }
         for(var expense:ownExpenses(actor.username(),date)){
             jdbc.sql("""
@@ -300,11 +369,21 @@ public class EmployeeDailyClosingService {
                 .param("created",expense.createdAt().atOffset(ZoneOffset.UTC))
                 .update();
         }
+        java.util.Map<String,Object> auditDetails=new java.util.LinkedHashMap<>();
+        auditDetails.put("businessDate",date.toString());
+        auditDetails.put("expectedCash",amount.cash());
+        auditDetails.put("expectedBank",amount.bank());
+        auditDetails.put("expectedTotal",amount.cash().add(amount.bank()));
+        auditDetails.put("saleCount",sales.size());
+        if(combined) {
+            auditDetails.put("actualTotal",input.actualTotal());
+            if(totalNote!=null)auditDetails.put("totalNote",totalNote);
+        } else {
+            auditDetails.put("actualCash",input.actualCash());
+            auditDetails.put("actualBank",input.actualBank());
+        }
         audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
-                "PERSONAL_DAY_CLOSED",null,java.util.Map.of(
-                  "businessDate",date.toString(),"expectedCash",amount.cash(),
-                  "expectedBank",amount.bank(),"actualCash",input.actualCash(),
-                  "actualBank",input.actualBank(),"saleCount",sales.size()));
+                "PERSONAL_DAY_CLOSED",null,auditDetails);
         return result(actor,date);
     }
 }

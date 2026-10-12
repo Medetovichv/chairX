@@ -202,6 +202,12 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     enabled:requiresDelivery&&canReadDelivery,
     retry:false,
   });
+  const [deliveryLookupSlow,setDeliveryLookupSlow]=useState(false);
+  useEffect(()=>{
+    if(!requiresDelivery||!relatedDelivery.isPending){setDeliveryLookupSlow(false);return;}
+    const timeout=window.setTimeout(()=>setDeliveryLookupSlow(true),7000);
+    return ()=>window.clearTimeout(timeout);
+  },[requiresDelivery,relatedDelivery.isPending,sale.id]);
   const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
     relatedDelivery.error.status===404;
   async function createInlineDelivery(payload:CreateDeliveryInput){
@@ -239,6 +245,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     queryFn:()=>salesApi.history(sale.id,historyPage),
     enabled:hasPermission('SALES_READ'),
   });
+  const paymentRequired=sale.status==='FULFILLED'&&matched?.paymentStatus!=='PAID';
   const paymentStatus=matched?.paymentStatus==='PAID'?'Оплачено':
     matched?.paymentStatus==='UNPAID'?'Не оплачено':
     matched?.paymentStatus==='PARTIAL'?'Требуется проверить данные оплаты':
@@ -369,9 +376,20 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
         {!canReadDelivery?<p>Для просмотра доставки требуется разрешение DELIVERIES_READ.</p>:
-          relatedDelivery.isPending?<p role="status">Проверяем связанную доставку…</p>:
+          relatedDelivery.isPending?<div className="space-y-3" role="status">
+            <p>Проверяем связанную доставку…</p>
+            {deliveryLookupSlow&&<p className="text-amber-900">Проверка занимает слишком много времени. Откройте оформление отдельно или обновите проверку. Перед созданием убедитесь, что доставка ещё не существует.</p>}
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="outline" onClick={()=>void relatedDelivery.refetch()}>Повторить проверку</Button>
+              {isConfirmed&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&
+                <Link className="font-semibold text-blue-700 underline" to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>Открыть форму доставки</Link>}
+            </div>
+          </div>:
           relatedDelivery.data?<div className="flex flex-wrap items-center justify-between gap-3">
-            <p>Статус доставки: <strong>{deliveryStatusNames[relatedDelivery.data.status]}</strong></p>
+            <div><p>Статус доставки: <strong>{deliveryStatusNames[relatedDelivery.data.status]}</strong></p>
+              <p className="mt-1 font-semibold">{relatedDelivery.data.address}</p>
+              <p className="text-slate-600">{relatedDelivery.data.recipientPhone} · {relatedDelivery.data.recipientName||'Без имени'}</p>
+            </div>
             <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline"
               to={'/deliveries/'+encodeURIComponent(relatedDelivery.data.id)}>Открыть доставку</Link>
           </div>:
@@ -494,6 +512,14 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           {!canManageDraft&&!canFulfill&&!canCancel&&
             <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
         </section>
+        {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
+          <div role="status" className={paymentRequired?'rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950':'rounded-xl border border-slate-200 bg-white p-4 text-sm'}>
+            <strong>{matched?.paymentStatus==='PAID'?'Оплата получена':
+              'Оплата не подтверждена'}</strong>
+            <p className="mt-1">Выдача и доставка товара не означают получение денег.
+            {paymentRequired?' Товар выдан, но финансовое закрытие заказа не завершено.':''}</p>
+            {!hasPermission('PAYMENTS_CREATE')&&<p className="mt-2">Для регистрации поступления необходим доступ PAYMENTS_CREATE.</p>}
+          </div>}
         <SaleFinancialSection sale={sale}/>
       </aside>
     </div>

@@ -40,7 +40,7 @@ describe('UI-V2-01 semantically navigable entities', () => {
     });
     const table = screen.getByRole('table');
     expect(within(table).queryByRole('columnheader', {name: 'Действие'})).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Без клиента/)).toHaveLength(2);
+    expect(screen.getAllByText(/Без имени|Имя не указано/)).toHaveLength(2);
     expect(screen.queryByText(CUSTOMER_ID)).not.toBeInTheDocument();
   });
 

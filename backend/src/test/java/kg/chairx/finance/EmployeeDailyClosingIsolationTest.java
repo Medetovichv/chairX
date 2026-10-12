@@ -103,6 +103,33 @@ class EmployeeDailyClosingIsolationTest {
             "\",\"cashNote\":null,\"bankNote\":null}";
     }
 
+    @Test void combinedPersonalClosingStoresOneActualTotalWithoutInventedAccountSplit() throws Exception {
+        String employee=user(EMPLOYEE_ROLE);
+        collection(employee,"CASH",600);
+        collection(employee,"BANK",400);
+        expense(employee,"CASH",100);
+        String endpoint="/api/finance/my-closings/"+day;
+        String invalid="{\"expectedCash\":\"500\",\"expectedBank\":\"400\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"850\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        mvc.perform(post(endpoint).with(httpBasic(employee,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(invalid))
+            .andExpect(status().isBadRequest());
+        String valid=invalid.replace("\"totalNote\":null",
+            "\"totalNote\":\"Не хватает 50 сом после сверки\"");
+        mvc.perform(post(endpoint).with(httpBasic(employee,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(valid))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.expectedTotal").value(900))
+            .andExpect(jsonPath("$.actualTotal").value(850))
+            .andExpect(jsonPath("$.expenses.length()").value(1));
+        UUID employeeId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",UUID.class,employee);
+        assertThat(jdbc.queryForObject("""
+            SELECT count(*) FROM employee_daily_closings WHERE employee_id=?
+            AND actual_cash IS NULL AND actual_bank IS NULL AND actual_total=850
+            """,Integer.class,employeeId)).isEqualTo(1);
+    }
+
     @Test void employeeSeesAllSalesButOnlyOwnCollectionsAndNoGlobalFinance() throws Exception {
         String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE),manager=user(MANAGER_ROLE);
         fulfilled(alice);fulfilled(bob);
@@ -112,12 +139,12 @@ class EmployeeDailyClosingIsolationTest {
             .andExpect(jsonPath("$.closed").value(false))
             .andExpect(jsonPath("$.expectedCash").value(300))
             .andExpect(jsonPath("$.expectedBank").value(0))
-            .andExpect(jsonPath("$.orders").value(2))
-            .andExpect(jsonPath("$.sales.length()").value(2));
+            .andExpect(jsonPath("$.orders").value(0))
+            .andExpect(jsonPath("$.sales.length()").value(0));
         mvc.perform(get(url).with(httpBasic(bob,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedCash").value(0))
             .andExpect(jsonPath("$.expectedBank").value(700))
-            .andExpect(jsonPath("$.orders").value(2));
+            .andExpect(jsonPath("$.orders").value(0));
         for(String path:List.of("/api/finance/closings","/api/finance/closings/"+day,
              "/api/finance/closings/"+day+"/preview","/api/finance/closings/"+day+"/sales",
              "/api/finance/closings/"+day+"/access")){
@@ -152,7 +179,7 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(post(url).with(httpBasic(a,PASSWORD)).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body("500","0","500","0")))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.closed").value(true))
-            .andExpect(jsonPath("$.expectedCash").value(500)).andExpect(jsonPath("$.orders").value(2));
+            .andExpect(jsonPath("$.expectedCash").value(500)).andExpect(jsonPath("$.orders").value(0));
         mvc.perform(post(url).with(httpBasic(a,PASSWORD)).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body("500","0","500","0")))
             .andExpect(status().isConflict());
@@ -171,7 +198,7 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(get(url).with(httpBasic(a,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedBank").value(0))
             .andExpect(jsonPath("$.collectionsChangedAfterClose").value(true))
-            .andExpect(jsonPath("$.orders").value(2));
+            .andExpect(jsonPath("$.orders").value(0));
     }
 
     @Test void invalidWriteFailsWithoutPersistingAndCatalogIsDenied() throws Exception {

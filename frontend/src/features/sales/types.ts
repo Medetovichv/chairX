@@ -9,6 +9,7 @@ export interface SaleSummary {
   status: SaleStatus; fulfillmentType: FulfillmentType | null;
   quantity: number; products: string | null; paymentStatus: string | null;
   deliveryStatus: string | null; plannedDeliveryDate: string | null;
+  customerPhone?: string | null; deliveryAddress?: string | null;
 }
 export interface SalePageResponse { items: SaleSummary[]; page: number; size: number; total: number }
 export interface SaleItemResponse {
@@ -62,5 +63,5 @@ export interface DraftInput {
 }
 export interface CreateDraftInput extends DraftInput { idempotencyKey: string }
 export interface SaleFilters {
-  status: SaleStatus | ''; from: string; to: string; number: string; page: number;
+  status: SaleStatus | ''; from: string; to: string; number: string; page: number; operational?: boolean;
 }

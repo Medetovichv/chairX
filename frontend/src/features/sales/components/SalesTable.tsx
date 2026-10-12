@@ -9,7 +9,7 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
     <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50">
-          <tr>{['Заказ','Дата','Клиент','Товары','Шт.','Сумма','Статус','Оплата','Доставка'].map(h=>
+          <tr>{['Заказ','Дата','Клиент / WhatsApp','Адрес доставки','Товары','Шт.','Сумма','Статус','Оплата','Доставка'].map(h=>
             <th key={h} scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-100">{rows.map(s=>
@@ -20,11 +20,15 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
                 aria-label={'Открыть продажу '+s.saleNumber}>{displaySaleNumber(s.saleNumber)}</Link>
             </td>
             <td className="px-3 py-3">{saleDate(s.createdAt)}</td>
-            <td className="px-3 py-3">{s.customerName||'Без клиента'}</td>
+            <td className="px-3 py-3"><div>{s.customerName||'Имя не указано'}</div>
+              {s.customerPhone&&<div className="whitespace-nowrap text-xs text-slate-600">{s.customerPhone}</div>}</td>
+            <td className="max-w-52 break-words px-3 py-3 text-slate-700">{s.deliveryAddress||'—'}</td>
             <td className="max-w-64 break-words px-3 py-3">{s.products||'—'}</td>
             <td className="px-3 py-3">{s.quantity}</td>
             <td className="whitespace-nowrap px-3 py-3 font-semibold">{money(s.total)}</td>
-            <td className="px-3 py-3"><SaleStatusBadge status={s.status}/></td>
+            <td className="px-3 py-3"><SaleStatusBadge status={s.status}/>
+              {s.status==='FULFILLED'&&s.paymentStatus!=='PAID'&&
+                <p className="mt-1 text-xs font-semibold text-amber-800">Деньги не получены</p>}</td>
             <td className="px-3 py-3">{s.paymentStatus||'—'}</td>
             <td className="px-3 py-3">{s.deliveryStatus||'—'}
               {s.plannedDeliveryDate&&<p className="text-xs text-slate-500">{s.plannedDeliveryDate}</p>}</td>
@@ -40,7 +44,8 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             {displaySaleNumber(s.saleNumber)}</Link>
           <SaleStatusBadge status={s.status}/>
         </div>
-        <p>{s.customerName||'Без клиента'} · {saleDate(s.createdAt)}</p>
+        <p>{s.customerName||'Без имени'} · {s.customerPhone||'Номер не указан'} · {saleDate(s.createdAt)}</p>
+        {s.deliveryAddress&&<p className="break-words font-medium text-slate-800">Адрес: {s.deliveryAddress}</p>}
         <p className="break-words text-slate-600">{s.products||'Товары не указаны'}</p>
         <p>Шт.: {s.quantity} · <strong>{money(s.total)}</strong></p>
         <p>Оплата: {s.paymentStatus||'—'} · Доставка: {s.deliveryStatus||'—'}</p>

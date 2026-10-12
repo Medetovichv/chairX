@@ -303,6 +303,12 @@ class SaleTests {
                 .isEmpty();
 
         sales.fulfill(done.id());
+        // This report fixture explicitly models a PAID sale; an unpaid fulfilled
+        // sale must never enter the cash closing snapshot.
+        jdbc.update("""
+            INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
+            VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
+            """,UUID.randomUUID(),done.id());
         var before = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
         assertThat(before.closed()).isFalse();
         assertThat(before.preliminary()).isTrue();
@@ -328,6 +334,10 @@ class SaleTests {
             assertThat(frozen.lateCompletionCount()).isZero();
 
             sales.fulfill(pending.id());
+            jdbc.update("""
+                INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
+                VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
+                """,UUID.randomUUID(),pending.id());
             var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
             assertThat(later.items()).hasSize(1);
             assertThat(later.totals().value()).isEqualByComparingTo("8500");

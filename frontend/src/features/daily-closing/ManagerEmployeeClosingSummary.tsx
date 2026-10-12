@@ -22,23 +22,30 @@ export function ManagerEmployeeClosingSummary({date}:{date:string}){
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Все расходы переводами</p>
       <p className="mt-1 text-2xl font-bold">{som(report.data.bankExpenses)}</p></div>
     </div>
-    <div className="grid gap-3 sm:grid-cols-2">
-     <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Сдано наличными по закрытым сменам</p>
+    <div className="rounded-xl bg-slate-50 p-5">
+      <p className="text-sm text-slate-500">Сумма подтверждённых сотрудниками закрытий</p>
+      <p className="mt-2 text-3xl font-bold">{som(report.data.actualTotal??0)}</p>
+      <p className="mt-1 text-sm text-slate-600">Расчётная сумма: {som(report.data.expectedTotal??0)}. Завершено {report.data.closedEmployees} из {report.data.totalEmployees} закрытий.</p>
+    </div>
+    <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-semibold">Разбивка старых закрытий по счётам (где сохранена)</summary>
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+     <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Сдано наличными по старым закрытиям</p>
       <p className="mt-1 text-2xl font-bold">{som(report.data.totalActualCash)}</p>
       <p className="mt-1 text-xs text-slate-500">Расчёт: {som(report.data.totalExpectedCash)}</p></div>
      <div className="rounded-xl border border-slate-200 p-4"><p className="text-xs text-slate-600">Подтверждено переводами по закрытым сменам</p>
       <p className="mt-1 text-2xl font-bold">{som(report.data.totalActualBank)}</p>
       <p className="mt-1 text-xs text-slate-500">Расчёт: {som(report.data.totalExpectedBank)}</p></div>
     </div>
+    </details>
     <div className="overflow-x-auto"><h3 className="mb-2 font-semibold">Закрытия за день</h3>
      <table className="w-full text-left text-sm"><thead><tr className="border-b">
       <th className="p-2">Сотрудник</th><th className="p-2">Состояние</th>
-      <th className="p-2">Факт наличные</th><th className="p-2">Факт переводы</th>
+      <th className="p-2">Подтверждённая сумма</th><th className="p-2">Причина расхождения</th>
      </tr></thead><tbody>{report.data.employees.map(e=><tr className="border-b" key={e.employeeId}>
       <td className="p-2">{e.displayName||e.username}</td>
       <td className="p-2">{e.closed?'Закрыто':'Ожидает закрытия'}</td>
-      <td className="p-2">{e.actualCash===null?'—':som(e.actualCash)}</td>
-      <td className="p-2">{e.actualBank===null?'—':som(e.actualBank)}</td>
+      <td className="p-2">{!e.closed?'—':som(e.actualTotal??(Number(e.actualCash??0)+Number(e.actualBank??0)))}</td>
+      <td className="p-2">{e.totalNote||'—'}</td>
      </tr>)}</tbody></table>
     </div>
     <div className="overflow-x-auto"><h3 className="mb-2 font-semibold">Расходы всех сотрудников · {som(report.data.expenseTotal)}</h3>

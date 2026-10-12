@@ -195,13 +195,29 @@ def main():
         "plannedDeliveryDate":None},201)
     did=delivery["id"]
     assert delivery["status"]=="READY"
-    pay=admin.must("POST","/api/payments",{
+    # Real EMPLOYEE with ONLY built-in operational permissions.
+    employee_username="f30_sales_"+uuid.uuid4().hex[:10]
+    employee_password="F30-Employee-Protected-Password-"+uuid.uuid4().hex[:5]
+    staff_user=admin.must("POST","/api/admin/users",{
+        "username":employee_username,"password":employee_password,
+        "displayName":"F30 Sale Employee"},201)
+    admin.must("POST",f"/api/admin/users/{staff_user['id']}/roles",{
+        "roleId":"00000000-0000-0000-0000-000000000003"},204)
+    employee=API(employee_username,employee_password)
+    current_user=employee.must("GET","/api/auth/me",None,200)
+    for permission in ("PAYMENTS_READ","PAYMENTS_CREATE","EXPENSES_CREATE","DELIVERIES_CREATE"):
+        assert permission in current_user["permissions"],permission
+    for forbidden in ("FINANCE_READ","PAYMENTS_CANCEL","EXPENSES_READ"):
+        assert forbidden not in current_user["permissions"],forbidden
+    employee.must("GET","/api/finance/accounts",None,403)
+    employee.must("GET",f"/api/payments/sale/{sid}",None,200)
+    pay=employee.must("POST","/api/payments",{
         "saleId":sid,"method":"TRANSFER","channel":"MBANK",
         "reference":"ISSUE32-"+uuid4()[:8],"comment":"Test paid"},201)
     payment_id=pay["id"]
     assert int(pay["amount"])==25500 and pay["status"]=="PAID"
     money(admin,20000,125500,3)
-    payment_repeat,_=admin.request("POST","/api/payments",{
+    payment_repeat,_=employee.request("POST","/api/payments",{
         "saleId":sid,"method":"TRANSFER","channel":"MBANK",
         "reference":"unexpected second payment","comment":None})
     assert 400<=payment_repeat<500
@@ -247,6 +263,31 @@ def main():
     blocked,_=outsider.request("POST",f"/api/deliveries/{did}/dispatch",{})
     assert blocked==403,f"CATALOG could mutate delivery: {blocked}"
     money(admin,20000,117000,4)
+
+    # Real Chrome user-flow acceptance under the built-in EMPLOYEE role.
+    with sync_playwright() as pw:
+        browser=pw.chromium.launch(headless=True)
+        page=browser.new_page(viewport={"width":1440,"height":950},locale="ru-RU")
+        try:
+            page.goto(BASE+"/sales/"+sid,wait_until="domcontentloaded")
+            page.get_by_label("Логин").fill(employee_username)
+            page.get_by_label("Пароль",exact=True).fill(employee_password)
+            page.get_by_role("button",name="Войти",exact=True).click()
+            page.get_by_role("heading",name="Оплата заказа").wait_for(timeout=30000)
+            page.get_by_role("form",name="Регистрация оплаты").wait_for()
+            page.get_by_text("Bishkek Test Address").first.wait_for(timeout=30000)
+            page.screenshot(path=str(ART/"00-employee-payment-and-delivery.png"),full_page=True)
+            page.evaluate("""path => {
+                history.pushState({}, '', path);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+            }""", "/sales/new")
+            page.get_by_role("combobox",name="Способ получения").select_option("CITY_DELIVERY")
+            page.get_by_role("textbox",name="Адрес доставки при создании продажи").wait_for()
+            page.get_by_role("textbox",name="Телефон доставки при создании продажи").wait_for()
+            page.get_by_role("textbox",name="Комментарий к доставке при создании продажи").wait_for()
+            page.screenshot(path=str(ART/"00-employee-inline-shipping-form.png"),full_page=True)
+        finally:
+            browser.close()
 
     # Real Chromium must render the same completed sale and delivery.
     with sync_playwright() as pw:

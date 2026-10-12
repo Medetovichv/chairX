@@ -319,7 +319,7 @@ class DeliveryTests {
     }
 
     @Test
-    void inTransitIsNotACompletedSaleForDailyReport() {
+    void onlyPaidDispatchedOrDeliveredSalesEnterDailyReportOnce() {
         var sale = createSale(FulfillmentType.REGION_DELIVERY,
                 item(firstVariant, home, 1, "8500"));
         var delivery = deliveries.create(deliveryRequest(sale.id()));
@@ -331,9 +331,14 @@ class DeliveryTests {
         assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
                 .isEmpty();
         deliveries.markDelivered(delivery.id());
+        // Physically delivered is NOT financially closed without real payment.
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
+                .isEmpty();
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,null));
         var results = kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst().saleId()).isEqualTo(sale.id());
+        assertThat(results.getFirst().paymentStatus()).isEqualTo("PAID");
     }
 
     @Test
