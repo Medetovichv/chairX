@@ -255,7 +255,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   }));
   wrapper(<ExpensesPage/>);
   expect(await screen.findByText('Аренда')).toBeInTheDocument();
-  expect(await screen.findByText(/2\\s?500/)).toBeInTheDocument();
+  expect(await screen.findByText(/2\s?500/)).toBeInTheDocument();
   expect(urls.some(x=>x.includes('/api/expenses?from='))).toBe(true);
   expect(urls.some(x=>x.includes('/api/expenses/total?from='))).toBe(true);
  });
