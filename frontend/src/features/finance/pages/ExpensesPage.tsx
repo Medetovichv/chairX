@@ -1,4 +1,5 @@
 import { useState,type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { financeApi,financeKeys } from '../api';
@@ -51,8 +52,7 @@ export function ExpensesPage(){
     <Button type="submit">Показать</Button>
    </form>
    {periodError&&<p role="alert" className="text-red-700">{periodError}</p>}
-   <p className="font-semibold">Итого расходов за период: {total.isPending?'Загружаем…':
-     total.isError?'Не удалось получить сумму':som(total.data)}</p>
+   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Расходы за выбранный период</p><p className="mt-2 text-3xl font-bold text-slate-950">{total.isPending?"Загружаем…":total.isError?"Не удалось получить сумму":som(total.data)}</p></div>
    {list.isPending?<LoadingState label="Загружаем расходы…"/>:
      list.isError?<ErrorState error={list.error} onRetry={()=>void list.refetch()}/>:
      list.data.length===0?<EmptyState title="Расходов не найдено" description="Для этого периода записей нет."/>:
@@ -65,18 +65,20 @@ export function ExpensesPage(){
        </article>)}</div>}
   </section>}
   {create&&<section className="space-y-3">
-   <h3 className="text-lg font-bold">Новый расход</h3>
+   <h3 className="text-lg font-bold">Добавить расход</h3>
+   {hasPermission("FINANCE_READ")&&accounts.isSuccess&&accounts.data.some(x=>!x.initialized)&&<div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-semibold">Не все финансовые счета настроены</p><p className="mt-1">Для учёта расхода необходимо один раз задать начальный остаток соответствующего счёта.</p>{hasPermission("FINANCE_INITIALIZE")&&<Link className="mt-2 inline-block font-semibold text-blue-700 underline" to="/finance/opening-balances">Перейти к настройке счетов</Link>}</div>}
    <GuardedPost<ExpenseInput> kind="expense" scope="create" canReplay allowed={create}
     title="Подтвердить списание расхода?" label="Провести расход" destructive
     operationKey={p=>p.idempotencyKey} meta={p=>({date:p.expenseDate,category:p.category,amount:p.amount,account:p.paymentMethod})}
     post={financeApi.createExpense} onDone={refreshed}>
-    {({start,locked})=><form aria-label="Создание расхода" className="space-y-3 rounded-xl border bg-white p-4"
+    {({start,locked})=><form aria-label="Создание расхода" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
       onSubmit={e=>{e.preventDefault();const p:ExpenseInput={idempotencyKey:crypto.randomUUID(),category,amount:amount.trim(),
         paymentMethod:account,expenseDate:date,comment:optional(comment)};
        const issue=validateExpense(p);
        const snapshot=accounts.data?.find(x=>x.code===account);
-       if(issue||hasPermission('FINANCE_READ')&&(!snapshot?.initialized||accounts.isError||accounts.isPending)){
-        setError(issue||'Счёт не инициализирован или данные о нём недоступны.');return;}
+       if(issue){setError(issue);return;}
+       if(hasPermission('FINANCE_READ')&&(!snapshot?.initialized||accounts.isError||accounts.isPending)){
+        setError(snapshot?.initialized===false?'Счёт ещё не настроен. Администратор должен задать начальный остаток в разделе финансов.':'Не удалось подтвердить доступность счёта. Обновите страницу или обратитесь к администратору.');return;}
        setError('');
        start(p,'Категория: '+(categories.find(x=>x.value===p.category)?.label??p.category)+
         '. Сумма: '+som(p.amount)+' со счёта '+account+'. Бизнес-дата: '+p.expenseDate+
@@ -91,8 +93,9 @@ export function ExpensesPage(){
       <select aria-label="Счёт расхода" value={account} disabled={locked}
        onChange={e=>setAccount(e.target.value as FinanceAccount)}
        className="min-h-11 w-full rounded-xl border p-2">
-       <option value="CASH">CASH — наличные</option><option value="BANK">BANK — банк</option>
+       <option value="CASH">Наличные</option><option value="BANK">Банковский перевод</option>
       </select></label>
+     {hasPermission("FINANCE_READ")&&accounts.isSuccess&&<p className="text-sm text-slate-600">Доступно на счёте: {accounts.data.find(x=>x.code===account)?.initialized?som(accounts.data.find(x=>x.code===account)!.balance):"Не настроен"}</p>}
      <label className="block space-y-1 text-sm font-semibold">Сумма, сом
       <Input aria-label="Сумма расхода" value={amount} maxLength={17} disabled={locked}
        inputMode="numeric" onChange={e=>setAmount(e.target.value)}/></label>
