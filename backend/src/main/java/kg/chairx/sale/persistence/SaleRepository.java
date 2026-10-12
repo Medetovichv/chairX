@@ -46,7 +46,9 @@ public class SaleRepository {
                        CASE WHEN paid.amount IS NULL THEN 'UNPAID'
                             WHEN paid.amount < details.total THEN 'PARTIAL'
                             ELSE 'PAID' END AS payment_status,
-                       d.status AS delivery_status, d.planned_delivery_date
+                       d.status AS delivery_status, d.planned_delivery_date,
+                       COALESCE(NULLIF(d.recipient_phone,''),NULLIF(c.whatsapp_phone,''),NULLIF(c.phone,'')) AS customer_phone,
+                       COALESCE(NULLIF(d.address,''),NULLIF(c.address,'')) AS delivery_address
                 FROM sales s
                 LEFT JOIN customers c ON c.id = s.customer_id
                 LEFT JOIN LATERAL (
@@ -86,7 +88,8 @@ public class SaleRepository {
                         rs.getString("payment_status"),
                         rs.getString("delivery_status") == null ? null :
                                 kg.chairx.delivery.domain.DeliveryStatus.valueOf(rs.getString("delivery_status")),
-                        rs.getObject("planned_delivery_date", java.time.LocalDate.class)))
+                        rs.getObject("planned_delivery_date", java.time.LocalDate.class),
+                        rs.getString("customer_phone"),rs.getString("delivery_address")))
                 .list();
     }
 
