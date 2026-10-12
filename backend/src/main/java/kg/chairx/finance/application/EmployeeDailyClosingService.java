@@ -86,19 +86,28 @@ public class EmployeeDailyClosingService {
         }
     }
 
+    private void validateEmployeeHistoryWindow(LocalDate date) {
+        if(date.isBefore(policy.today().minusDays(29))) {
+            throw new AccessDeniedException("Employee reports are available for the last 30 calendar days only");
+        }
+    }
+
     /** Only personal reports are returned; no global balances or other employees' rows. */
     @Transactional(readOnly = true)
     public List<LocalDate> dates(String username) {
         Employee actor=employee(username);
         return jdbc.sql("""
             SELECT business_date FROM employee_daily_closings
-            WHERE employee_id=:id ORDER BY business_date DESC LIMIT 100
-            """).param("id",actor.id()).query(LocalDate.class).list();
+            WHERE employee_id=:id AND business_date>=:oldest
+            ORDER BY business_date DESC LIMIT 30
+            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            .query(LocalDate.class).list();
     }
 
     @Transactional(readOnly = true)
     public Report get(String username, LocalDate date) {
         validateDate(date);
+        validateEmployeeHistoryWindow(date);
         Employee actor=employee(username);
         return result(actor,date);
     }
