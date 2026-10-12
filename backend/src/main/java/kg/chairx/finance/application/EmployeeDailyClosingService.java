@@ -40,7 +40,13 @@ public class EmployeeDailyClosingService {
     }
 
     public record SaleLine(UUID saleId, String saleNumber, long quantity,
-                           BigDecimal total, Instant completedAt) {}
+                           BigDecimal total, Instant completedAt,
+                           String products,String phone,String address,
+                           String fulfillment,String deliveryStatus,String paymentStatus) {
+        public SaleLine(UUID id,String number,long quantity,BigDecimal total,Instant completedAt){
+            this(id,number,quantity,total,completedAt,null,null,null,null,null,null);
+        }
+    }
     public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
                               String paymentMethod,String comment,Instant createdAt) {}
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
@@ -161,14 +167,23 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) AS total,
-                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at
+                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at,
+                   detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
+                   COALESCE(d.address,c.address) AS address,
+                   s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
             FROM sales s
+            LEFT JOIN customers c ON c.id=s.customer_id
             JOIN payments p ON p.sale_id=s.id AND p.status='PAID'
             LEFT JOIN deliveries d ON d.sale_id=s.id
             LEFT JOIN LATERAL (
                 SELECT SUM(si.quantity) AS quantity,
-                       SUM(si.quantity * si.unit_sale_price) AS total
-                FROM sale_items si WHERE si.sale_id=s.id
+                       SUM(si.quantity * si.unit_sale_price) AS total,
+                       string_agg(pr.name || ' / ' || v.name || ' ×' || si.quantity::text,
+                            ', ' ORDER BY pr.name,v.name) AS products
+                FROM sale_items si
+                JOIN product_variants v ON v.id=si.product_variant_id
+                JOIN products pr ON pr.id=v.product_id
+                WHERE si.sale_id=s.id
             ) detail ON TRUE
             WHERE s.status='FULFILLED'
               AND (s.fulfillment_type='SELF_PICKUP'
@@ -182,13 +197,18 @@ public class EmployeeDailyClosingService {
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
-                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
+                    rs.getString("products"),rs.getString("phone"),rs.getString("address"),
+                    rs.getString("fulfillment_type"),rs.getString("delivery_status"),
+                    rs.getString("payment_status")))
             .list();
     }
 
     private List<SaleLine> snapshot(UUID closingId) {
         return jdbc.sql("""
-            SELECT sale_id,sale_number,quantity,total,completed_at
+            SELECT sale_id,sale_number,quantity,total,completed_at,
+                   products,contact_phone AS phone,delivery_address AS address,
+                   fulfillment AS fulfillment_type,delivery_status,payment_status
             FROM employee_daily_closing_sales WHERE closing_id=:id
             ORDER BY completed_at,sale_id
             """).param("id",closingId)
@@ -314,12 +334,20 @@ public class EmployeeDailyClosingService {
         for(var sale:sales) {
             jdbc.sql("""
                 INSERT INTO employee_daily_closing_sales
-                (closing_id,sale_id,sale_number,quantity,total,completed_at)
-                VALUES (:closing,:sale,:number,:quantity,:total,:completedAt)
+                (closing_id,sale_id,sale_number,quantity,total,completed_at,
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                VALUES (:closing,:sale,:number,:quantity,:total,:completedAt,
+                        :products,:phone,:address,:fulfillment,:deliveryStatus,:paymentStatus)
                 """).param("closing",id).param("sale",sale.saleId())
                 .param("number",sale.saleNumber()).param("quantity",sale.quantity())
                 .param("total",sale.total())
-                .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC)).update();
+                .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC))
+                .param("products",sale.products(),java.sql.Types.VARCHAR)
+                .param("phone",sale.phone(),java.sql.Types.VARCHAR)
+                .param("address",sale.address(),java.sql.Types.VARCHAR)
+                .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
+                .param("deliveryStatus",sale.deliveryStatus(),java.sql.Types.VARCHAR)
+                .param("paymentStatus",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
         }
         for(var expense:ownExpenses(actor.username(),date)){
             jdbc.sql("""
