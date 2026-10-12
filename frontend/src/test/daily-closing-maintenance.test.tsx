@@ -104,6 +104,8 @@ describe('F11 maintenance: RBAC, optimistic edit and corrections',()=>{
       throw Error('Unexpected '+String(url));
     }));
     mount(locked,undefined);
+    expect(screen.queryByRole('textbox',{name:'Причина разблокировки'})).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('button',{name:'Разблокировать дату'}));
     fireEvent.change(screen.getByRole('textbox',{name:'Причина разблокировки'}),
       {target:{value:'Поздний документ'}});
     await userEvent.setup().click(screen.getByRole('button',{name:'Запросить разблокировку'}));

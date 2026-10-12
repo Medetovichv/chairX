@@ -274,7 +274,7 @@ def main():
                 history.pushState({}, '', path);
                 window.dispatchEvent(new PopStateEvent('popstate'));
             }""", "/daily-closing")
-            page.get_by_role("heading",name="Предварительный расчёт backend").wait_for(timeout=30000)
+            page.get_by_role("heading",name="Сверка фактических сумм и закрытие дня").wait_for(timeout=30000)
             sales_day=admin.must("GET","/api/finance/closings/"+DAY+"/sales",None,200)
             assert sales_day["preliminary"] and not sales_day["closed"]
             assert sales_day["totals"]["orders"]==1
