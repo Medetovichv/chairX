@@ -35,6 +35,7 @@ export const personalCloseApi = {
 export interface ManagerEmployeeClosing {
  employeeId:string;username:string;displayName:string;closed:boolean;
  expectedCash:string|null;expectedBank:string|null;actualCash:string|null;actualBank:string|null;
+ actualTotal?:string|null;totalNote?:string|null;
 }
 export interface ManagerExpense {
  id:string;createdBy:string;category:string;paymentMethod:string;amount:string;comment:string|null;
@@ -43,7 +44,7 @@ export interface ManagerClosingReport {
  businessDate:string;employees:ManagerEmployeeClosing[];expenses:ManagerExpense[];
  expenseTotal:string;cashExpenses:string;bankExpenses:string;
  totalExpectedCash:string;totalExpectedBank:string;totalActualCash:string;totalActualBank:string;
- closedEmployees:number;totalEmployees:number;
+ closedEmployees:number;totalEmployees:number;expectedTotal?:string;actualTotal?:string;
 }
 export const managerClosingApi={
  report:(date:string)=>apiClient.get<ManagerClosingReport>(
