@@ -206,8 +206,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/finance/my-closings",
                                 "/api/finance/my-closings/*")
                         .hasAuthority("DAILY_CLOSING_READ")
-                        .requestMatchers(HttpMethod.POST, "/api/finance/my-closings/*")
-                        .hasAuthority("DAILY_CLOSING_WRITE")
+                         .requestMatchers(HttpMethod.POST, "/api/finance/my-closings/*")
+                        .access(systemEmployeeCloser(users, roles))
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/history")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_AUDIT_READ')"))
                         .requestMatchers(HttpMethod.GET, "/api/finance/closings/*/sales")
@@ -225,8 +225,8 @@ public class SecurityConfig {
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_EXPENSE_CORRECT')"))
                         .requestMatchers(HttpMethod.PUT, "/api/finance/closings/*")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_WRITE')"))
-                        .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
-                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and (hasAuthority('DAILY_CLOSING_WRITE') or hasAuthority('FINANCE_CLOSE'))"))
+                         .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
+                        .access(systemAdmin(users, roles, "DAILY_CLOSING_WRITE"))
                         .requestMatchers(HttpMethod.GET, "/api/finance/accounts", "/api/finance/cash-flow")
                         .hasAuthority("FINANCE_READ")
                         .requestMatchers(HttpMethod.POST, "/api/finance/transfers")
@@ -310,6 +310,21 @@ public class SecurityConfig {
                             .map(user -> roles.isActiveSystemManagerOrAdministrator(user.id()))
                             .orElse(false);
             return new org.springframework.security.authorization.AuthorizationDecision(granted);
+        };
+    }
+
+    private static org.springframework.security.authorization.AuthorizationManager<
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext> systemEmployeeCloser(
+            AppUserRepository users, SecurityRoleRepository roles) {
+        return (authentication,context)->{
+            var actor=authentication.get();
+            boolean allowed=actor!=null && actor.isAuthenticated()
+                    && actor.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("DAILY_CLOSING_WRITE"))
+                    && users.findByUsername(actor.getName())
+                        .filter(AppUserRepository.AppUserRecord::active)
+                        .map(user->roles.isActiveSystemEmployee(user.id()))
+                        .orElse(false);
+            return new org.springframework.security.authorization.AuthorizationDecision(allowed);
         };
     }
 
