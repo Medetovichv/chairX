@@ -38,6 +38,17 @@ export function saleDate(value: string | null | undefined) {
     new Intl.DateTimeFormat('ru-RU', {timeZone:'Asia/Bishkek',day:'2-digit',month:'2-digit',year:'numeric'}).format(date);
 }
 export function checkDraft(data: DraftInput): string | null {
+  if(data.deliveryDetails){
+    const d=data.deliveryDetails;
+    if(data.fulfillmentType!=='CITY_DELIVERY'&&data.fulfillmentType!=='REGION_DELIVERY')
+      return 'Доставка возможна только для соответствующего типа продажи.';
+    if(!data.items.length)return 'Для немедленной доставки добавьте хотя бы одно кресло.';
+    if(typeof d.recipientPhone!=='string'||!d.recipientPhone.trim()||d.recipientPhone.length>50||
+       typeof d.address!=='string'||!d.address.trim()||d.address.length>500||
+       typeof d.deliveryCost!=='string'||!/^\\d{1,17}$/.test(d.deliveryCost.trim())||
+       (d.recipientName?.length??0)>200||(d.cityRegion?.length??0)>200)
+      return 'Проверьте телефон, адрес и стоимость доставки.';
+  }
   if (data.customerId !== null && !uuidValid(data.customerId)) return 'Некорректный UUID клиента.';
   if (data.items.length > 1000) return 'Слишком много товарных позиций.';
   const used = new Set<string>();
