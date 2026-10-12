@@ -6,7 +6,6 @@ import {financeApi} from '../finance/api';
 import {categories,validateExpense} from '../finance/validation';
 import type {ExpenseInput} from '../finance/types';
 import {GuardedPost} from '../finance/components/GuardedPost';
-import {Link} from 'react-router';
 import {ApiClientError} from '../../shared/api/api-error';
 import {bishkekToday,nonnegativeSom,som} from '../finance/validation';
 import {PageHeader} from '../../shared/components/PageHeader';
@@ -154,6 +153,52 @@ export function EmployeeDailyClosingPage(){
       <p className="rounded-xl bg-slate-50 p-3">Наличные: <strong>{money(report.data.expenseCash)}</strong></p>
       <p className="rounded-xl bg-slate-50 p-3">Переводы: <strong>{money(report.data.expenseBank)}</strong></p>
      </div>
+     {!report.data.closed&&write&&hasPermission('EXPENSES_CREATE')&&
+       <GuardedPost<ExpenseInput> kind="employee-expense" scope={day} allowed canReplay
+         destructive title="Зарегистрировать мой расход?" label="Провести расход"
+         operationKey={x=>x.idempotencyKey}
+         meta={x=>({amount:x.amount,category:x.category,day:x.expenseDate})}
+         post={financeApi.createExpense}
+         onDone={async()=>{
+           setExpenseAmount('');setExpenseComment('');
+           await Promise.all([
+             client.invalidateQueries({queryKey:personalCloseKeys.report(day)}),
+             client.invalidateQueries({queryKey:['employee-closings','manager',day]}),
+           ]);
+         }}>
+        {({start,locked})=><form aria-label="Добавить расход при закрытии" className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4"
+          onSubmit={e=>{e.preventDefault();
+            const payload:ExpenseInput={idempotencyKey:crypto.randomUUID(),
+              category:expenseCategory,amount:expenseAmount.trim(),
+              paymentMethod:expenseMethod,expenseDate:day,comment:expenseComment.trim()||null};
+            const issue=validateExpense(payload);
+            if(issue){setError(issue);return;}
+            setError('');
+            start(payload,'Расход '+expenseAmount+' сом, '+day+'. Ответственный определяется вашей авторизованной учётной записью.');
+          }}>
+         <h3 className="font-semibold">Добавить мой расход</h3>
+         <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-semibold">Категория
+           <select aria-label="Категория моего расхода" className="mt-1 w-full rounded-xl border p-2" value={expenseCategory}
+             disabled={locked} onChange={e=>setExpenseCategory(e.target.value as ExpenseInput['category'])}>
+             {categories.map(c=><option key={c.value} value={c.value}>{c.label}</option>)}
+           </select></label>
+          <label className="text-sm font-semibold">Сумма, сом
+           <Input aria-label="Сумма моего расхода" inputMode="numeric" value={expenseAmount}
+            disabled={locked} onChange={e=>setExpenseAmount(e.target.value)}/></label>
+          <label className="text-sm font-semibold">Способ оплаты расхода
+           <select aria-label="Способ оплаты моего расхода" className="mt-1 w-full rounded-xl border p-2"
+             value={expenseMethod} disabled={locked}
+             onChange={e=>setExpenseMethod(e.target.value as ExpenseInput['paymentMethod'])}>
+             <option value="CASH">Наличные</option><option value="BANK">Перевод</option>
+           </select></label>
+          <label className="text-sm font-semibold sm:col-span-2">Назначение (например, бензин, скотч, упаковка)
+           <textarea aria-label="Назначение моего расхода" rows={2} maxLength={1000} className="mt-1 w-full rounded-xl border p-3"
+            disabled={locked} value={expenseComment} onChange={e=>setExpenseComment(e.target.value)}/></label>
+         </div>
+         <Button type="submit" disabled={locked||!nonnegativeSom(expenseAmount)||centsFree(expenseAmount)===0n}>Добавить расход</Button>
+        </form>}
+       </GuardedPost>}
      {report.data.expenses.length===0?<p className="text-sm text-slate-500">Вы не регистрировали расходы за этот день.</p>:
       <div className="overflow-x-auto"><table className="w-full text-left text-sm">
        <thead><tr className="border-b"><th className="p-2">Категория</th><th className="p-2">Комментарий</th><th className="p-2">Оплата</th><th className="p-2 text-right">Сумма</th></tr></thead>
