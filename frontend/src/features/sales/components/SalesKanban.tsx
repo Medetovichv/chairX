@@ -44,7 +44,7 @@ function KanbanColumn({ status, filters, dragged, onStart, onEnd, onDropMove, on
 }) {
   const { hasPermission } = useAuth();
   const q = useInfiniteQuery({
-    queryKey: [...salesKeys.kanbanColumn(status), filters.from, filters.to, filters.number],
+    queryKey: [...salesKeys.kanbanColumn(status), filters.from, filters.to, filters.number, filters.operational??false],
     initialPageParam: 0,
     queryFn: ({ pageParam }) => salesApi.list({ ...filters, status, page: pageParam }),
     getNextPageParam: last => last.size > 0 && (last.page + 1) * last.size < last.total
