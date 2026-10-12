@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock3, LayoutGrid, List, Plus, Search, ShoppingCart, Wallet } from 'lucide-react';
+import { CheckCircle2, Clock3, LayoutGrid, List, Plus, Search, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -14,8 +14,7 @@ import { PurchasePager } from '../../purchases/components/PurchasePager';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { SalesTable } from '../components/SalesTable';
 import { SalesKanban } from '../components/SalesKanban';
-import { money, saleStatuses, saleStatusNames } from '../validation';
-import { saleStatisticsApi, saleStatisticsKeys } from '../statistics';
+import { saleStatuses, saleStatusNames } from '../validation';
 import { salesApi, salesKeys } from '../api';
 import type { SaleFilters, SaleStatus } from '../types';
 
@@ -43,6 +42,7 @@ export function SalesPage() {
   // Table is retained as the default for existing operational workflows.
   // Staff can switch to the visual Kanban without losing their filters.
   const [view, setView] = useState<View>('table');
+  const [history,setHistory]=useState(false);
   const [search, setSearch] = useState('');
   const [term, setTerm] = useState('');
   const [filters, setFilters] = useState<SaleFilters>(empty);
@@ -50,15 +50,18 @@ export function SalesPage() {
     const timeout = setTimeout(() => setTerm(search.trim()), 350);
     return () => clearTimeout(timeout);
   }, [search]);
-  const filtered = { ...filters, number: term };
+  const filtered = { ...filters, number: term, operational:!history };
   const valid = !(filters.from && filters.to && filters.from > filters.to);
 
-  const statistics = useQuery({
-    queryKey: saleStatisticsKeys.last30Days,
-    queryFn: saleStatisticsApi.last30Days,
-    enabled: read,
-    staleTime: 30_000,
-  });
+  const drafts=useQuery({queryKey:['sales','metric','drafts'],
+    queryFn:()=>salesApi.list({status:'DRAFT',from:'',to:'',number:'',page:0,operational:true}),
+    enabled:read,staleTime:30_000});
+  const confirmed=useQuery({queryKey:['sales','metric','confirmed'],
+    queryFn:()=>salesApi.list({status:'CONFIRMED',from:'',to:'',number:'',page:0,operational:true}),
+    enabled:read,staleTime:30_000});
+  const completed=useQuery({queryKey:['sales','metric','completed'],
+    queryFn:()=>salesApi.list({status:'FULFILLED',from:'',to:'',number:'',page:0,operational:true}),
+    enabled:read,staleTime:30_000});
   const listing = useQuery({
     queryKey: salesKeys.list(filtered),
     queryFn: () => salesApi.list(filtered),
@@ -72,8 +75,7 @@ export function SalesPage() {
     setFilters(old => ({ ...old, ...range, page: 0 }));
   };
 
-  if (!read || listing.error instanceof ApiClientError && listing.error.status === 403 ||
-      statistics.error instanceof ApiClientError && statistics.error.status === 403) {
+  if (!read || listing.error instanceof ApiClientError && listing.error.status === 403) {
     return <ForbiddenPage />;
   }
 
@@ -83,41 +85,26 @@ export function SalesPage() {
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
       </Button> : undefined}/>
 
-    {statistics.data && <section aria-label="Показатели продаж за 30 дней"
-      className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      {[
-        { title: 'Заказов за 30 дней', value: statistics.data.orders30Days.toLocaleString('ru-RU'),
-          note: 'Все статусы за период', icon: ShoppingCart, color: 'blue' },
-        { title: 'Средний чек', value: money(statistics.data.averageCheck30Days),
-          note: 'Подтверждённые и выполненные', icon: Wallet, color: 'blue' },
-        { title: 'Выполнено', value: statistics.data.fulfilled30Days.toLocaleString('ru-RU'),
-          note: 'За последние 30 дней', icon: CheckCircle2, color: 'emerald' },
-        { title: 'В работе', value: statistics.data.inWork30Days.toLocaleString('ru-RU'),
-          note: 'Черновики и подтверждённые', icon: Clock3, color: 'blue' },
-      ].map(s => <article key={s.title} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex items-center gap-3">
-          <div className={'flex size-11 shrink-0 items-center justify-center rounded-xl ' +
-            (s.color === 'emerald' ? 'bg-emerald-50 text-emerald-600' : 'bg-blue-50 text-blue-600')}>
-            <s.icon className="size-5" aria-hidden="true" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-slate-600 sm:text-sm">{s.title}</p>
-            <p className="mt-1 break-words text-2xl font-extrabold text-slate-950">{s.value}</p>
-          </div>
-        </div>
-        <p className="mt-3 text-xs text-slate-500">{s.note}</p>
+    {!history&&<section aria-label="Текущие показатели продаж" className="grid gap-3 sm:grid-cols-3">
+      {([
+        {title:'Черновики в работе',value:drafts.data?.total,icon:ShoppingCart},
+        {title:'Ожидают выполнения',value:confirmed.data?.total,icon:Clock3},
+        {title:'Выданы сегодня или ещё не закрыты',value:completed.data?.total,icon:CheckCircle2},
+      ]).map(m=><article key={m.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <m.icon className="mb-2 size-5 text-blue-600" aria-hidden="true"/>
+        <p className="text-xs font-semibold text-slate-600">{m.title}</p>
+        <p className="mt-1 text-3xl font-bold">{m.value===undefined?'—':m.value}</p>
       </article>)}
     </section>}
-    {statistics.isError && !(statistics.error instanceof ApiClientError && statistics.error.status === 403) &&
-      <div className="text-sm text-slate-600" role="status">
-        Показатели пока недоступны. Списки заказов продолжают работать.
-        <Button type="button" variant="ghost" size="sm" onClick={() => void statistics.refetch()}>
-          Повторить загрузку</Button>
-      </div>}
-
+    <div className="flex flex-wrap gap-3">
+      <Button aria-pressed={!history} variant={!history?'default':'outline'}
+        onClick={()=>{setHistory(false);setFilters(empty);}}>Актуальные заказы</Button>
+      <Button aria-pressed={history} variant={history?'default':'outline'}
+        onClick={()=>{setHistory(true);setFilters({...empty,...dayRange(7)});}}>История продаж</Button>
+    </div>
     <section aria-label="Фильтры продаж" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-bold text-slate-900">Все заказы</h3>
+        <h3 className="text-base font-bold text-slate-900">{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
         <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Режим отображения продаж">
           <Button size="sm" aria-pressed={view === 'kanban'}
             variant={view === 'kanban' ? 'default' : 'ghost'}
@@ -153,7 +140,7 @@ export function SalesPage() {
             onChange={e => change('to', e.target.value)}/>
         </label>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      {history&&<div className="flex flex-wrap items-center gap-2">
         {[
           { name: 'Сегодня', days: 1 },
           { name: '7 дней', days: 7 },
@@ -163,7 +150,7 @@ export function SalesPage() {
         <Button type="button" variant="ghost" size="sm" onClick={() => {
           setSearch(''); setTerm(''); setFilters(empty);
         }}>Сбросить фильтры</Button>
-      </div>
+      </div>}
       {view === 'kanban' && filters.status &&
         <p className="text-xs text-slate-500">Kanban всегда показывает все четыре статуса.
           Фильтр статуса применяется только к таблице.</p>}
