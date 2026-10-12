@@ -62,9 +62,10 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
     <option value="REGION_DELIVERY">Региональная доставка</option>
    </select>
   </label>
+  {original.data&&<div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-slate-800"><p className="font-semibold">Перед обменом проверьте</p><ul className="mt-2 list-inside list-disc space-y-1"><li>Исходная продажа была оплачена.</li><li>По этому возврату ещё не возвращали деньги и не оформляли обмен.</li><li>Новые кресла есть на выбранном складе в нужном количестве.</li></ul><p className="mt-2 text-slate-600">Если одно из условий не выполнено, сервер отклонит обмен без изменения складских и денежных остатков.</p></div>}
   <SaleItemsEditor rows={rows} onChange={setRows} disabled={disabled}/>
   <p className="text-xs text-slate-500">
-   Новую продажу создаёт ExchangeService. Доплата или возврат денег не проводятся в F09.
+   После подтверждения создаётся новая связанная продажа. При денежной разнице расчёт оформляется отдельным безопасным действием.
   </p>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
   <Button type="submit" disabled={disabled||candidate!==null||!uuid(returnId)||!hasPermission("RETURNS_READ")||!original.isSuccess}>Проверить и создать обмен</Button>
