@@ -61,7 +61,7 @@ class FinanceApiIntegrationTests {
                 .andExpect(jsonPath("$.initialized").value(true))
                 .andExpect(jsonPath("$.balance").value(100000.0));
         mvc.perform(post("/api/finance/opening-balances")
-                        .with(user("accountant").authorities(
+                        .with(user("finance_admin_test").authorities(
                                 new org.springframework.security.core.authority.SimpleGrantedAuthority(
                                         "FINANCE_INITIALIZE")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
@@ -73,7 +73,7 @@ class FinanceApiIntegrationTests {
     @Test
     void openingBalanceAcceptsZeroWithoutFakeJournalEntry() throws Exception {
         mvc.perform(post("/api/finance/opening-balances")
-                        .with(user("accountant").authorities(
+                        .with(user("finance_admin_test").authorities(
                                 new org.springframework.security.core.authority.SimpleGrantedAuthority(
                                         "FINANCE_INITIALIZE")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON)
