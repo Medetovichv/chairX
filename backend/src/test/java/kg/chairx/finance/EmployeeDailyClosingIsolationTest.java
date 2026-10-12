@@ -137,7 +137,7 @@ class EmployeeDailyClosingIsolationTest {
              .andExpect(status().isForbidden());
         mvc.perform(post("/api/finance/closings/"+day).with(httpBasic(manager,PASSWORD))
              .with(csrf()).contentType(MediaType.APPLICATION_JSON)
-             .content("{\\"actualCash\\":0,\\"actualBank\\":0}"))
+             .content("{\"actualCash\":0,\"actualBank\":0}"))
              .andExpect(status().isForbidden());
     }
 
