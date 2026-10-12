@@ -93,13 +93,13 @@ class BusinessRolePermissionsIntegrationTests {
             assertRolePermission(EMPLOYEE,permission,false);
         }
 
-        for(String permission:new String[]{"SALES_CREATE","SALES_READ",
+        for(String permission:new String[]{"PAYMENTS_CREATE","PAYMENTS_READ","EXPENSES_CREATE","SALES_CREATE","SALES_READ",
                 "INVENTORY_READ","CATALOG_READ","CUSTOMERS_CREATE"}) {
             assertRolePermission(EMPLOYEE,permission,true);
             assertRolePermission(MANAGER,permission,true);
         }
         for(String permission:new String[]{"PURCHASE_CONFIRM",
-                "DELIVERIES_MANAGE","PAYMENTS_CREATE","INVENTORY_TRANSFER"}) {
+                "DELIVERIES_MANAGE","INVENTORY_TRANSFER"}) {
             assertRolePermission(MANAGER,permission,true);
             assertRolePermission(EMPLOYEE,permission,false);
         }
@@ -252,7 +252,7 @@ class BusinessRolePermissionsIntegrationTests {
         mvc.perform(post("/api/expenses")
                         .with(httpBasic(employee.username(),"p17-test-password"))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isBadRequest());
         mvc.perform(post("/api/purchases")
                         .with(httpBasic(manager.username(),"p17-test-password"))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
