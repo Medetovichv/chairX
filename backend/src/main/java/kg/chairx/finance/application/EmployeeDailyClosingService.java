@@ -153,20 +153,23 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) AS total,
-                   CASE WHEN s.fulfillment_type='SELF_PICKUP'
-                        THEN s.fulfilled_at ELSE d.delivered_at END AS completed_at
+                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at
             FROM sales s
+            JOIN payments p ON p.sale_id=s.id AND p.status='PAID'
             LEFT JOIN deliveries d ON d.sale_id=s.id
             LEFT JOIN LATERAL (
                 SELECT SUM(si.quantity) AS quantity,
                        SUM(si.quantity * si.unit_sale_price) AS total
                 FROM sale_items si WHERE si.sale_id=s.id
             ) detail ON TRUE
-            WHERE ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
-                    AND s.fulfilled_at>=:fromDate AND s.fulfilled_at<:untilDate)
-               OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
-                    AND d.status='DELIVERED'
-                    AND d.delivered_at>=:fromDate AND d.delivered_at<:untilDate))
+            WHERE s.status='FULFILLED'
+              AND (s.fulfillment_type='SELF_PICKUP'
+                   OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                       AND d.status IN ('IN_TRANSIT','DELIVERED')))
+              -- One sale belongs to one business day: the day both physical
+              -- handover and full payment have been registered.
+              AND GREATEST(s.fulfilled_at,p.paid_at)>=:fromDate
+              AND GREATEST(s.fulfilled_at,p.paid_at)<:untilDate
             ORDER BY completed_at,s.id
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
