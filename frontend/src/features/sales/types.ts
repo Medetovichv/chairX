@@ -63,5 +63,5 @@ export interface DraftInput {
 }
 export interface CreateDraftInput extends DraftInput { idempotencyKey: string }
 export interface SaleFilters {
-  status: SaleStatus | ''; from: string; to: string; number: string; page: number;
+  status: SaleStatus | ''; from: string; to: string; number: string; page: number; operational?: boolean;
 }
