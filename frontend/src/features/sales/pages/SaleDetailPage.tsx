@@ -7,6 +7,9 @@ import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import type { Warehouse } from '../../inventory/types';
 import { customersApi } from '../../customers/api';
 import { deliveryApi, deliveryKeys } from '../../deliveries/api';
+import { DeliveryForm } from '../../deliveries/components/DeliveryForm';
+import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../../deliveries/pending-create';
+import type { CreateDeliveryInput } from '../../deliveries/types';
 import { deliveryStatusNames } from '../../deliveries/validation';
 import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -127,7 +130,11 @@ function ItemLine({item,warehouses}: {
 }
 
 function SaleDetail({sale}:{sale:SaleResponse}) {
-  const {hasPermission}=useAuth();
+  const {hasPermission,user}=useAuth();
+  const [editingDelivery,setEditingDelivery]=useState(false);
+  const [postingDelivery,setPostingDelivery]=useState(false);
+  const [deliveryCreateError,setDeliveryCreateError]=useState('');
+  const deliverySubmitting=useRef(false);
   const client=useQueryClient();
   const loc=useLocation();
   const summary=((loc.state as {summary?:SaleSummary}|null)?.summary);
@@ -197,6 +204,36 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   });
   const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
     relatedDelivery.error.status===404;
+  async function createInlineDelivery(payload:CreateDeliveryInput){
+    if(deliverySubmitting.current||!user?.id||!hasPermission('DELIVERIES_MANAGE')||
+       !hasPermission('DELIVERIES_READ'))return;
+    // Delivery POST has no idempotency key. Persist before sending and never
+    // blindly replay a request whose result is unknown.
+    if(readPendingCreate(user.id).kind!=='missing'){
+      setDeliveryCreateError('Существует незавершённая операция доставки. Проверьте её результат в разделе доставок.');return;
+    }
+    if(!savePendingCreate(user.id,payload)){
+      setDeliveryCreateError('Не удалось сохранить запрос перед отправкой.');return;
+    }
+    deliverySubmitting.current=true;setPostingDelivery(true);setDeliveryCreateError('');
+    try {
+      await deliveryApi.create(payload);
+      clearPendingCreate(user.id);
+      setEditingDelivery(false);
+      setNotice('Доставка оформлена. Адрес и контакты сохранены.');
+      await client.invalidateQueries({queryKey:deliveryKeys.bySale(sale.id)});
+      await client.invalidateQueries({queryKey:deliveryKeys.lists});
+    }catch(cause){
+      const unknown=!(cause instanceof ApiClientError)||cause.kind!=='http'||
+        cause.status===undefined||cause.status===409||cause.status>=500;
+      if(!unknown)clearPendingCreate(user.id);
+      setDeliveryCreateError(userFacingApiError(cause)+(unknown?
+        ' Исход операции неизвестен. Перед повтором проверьте заказ и доставку.':''));
+    }finally{
+      deliverySubmitting.current=false;setPostingDelivery(false);
+    }
+  }
+
   const auditHistory=useQuery({
     queryKey:salesKeys.history(sale.id,historyPage),
     queryFn:()=>salesApi.history(sale.id,historyPage),
@@ -340,9 +377,15 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           </div>:
           deliveryMissing?<div className="space-y-2">
             <p>Доставка ещё не оформлена.</p>
-            {isConfirmed&&hasPermission('DELIVERIES_MANAGE')&&
-              <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline"
-                to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>Оформить доставку</Link>}
+            {isConfirmed&&hasPermission('DELIVERIES_MANAGE')&&canReadDelivery&&
+              <div className="space-y-3">
+                <Button type="button" variant="outline" onClick={()=>setEditingDelivery(v=>!v)}>
+                  {editingDelivery?'Скрыть оформление':'Указать адрес и оформить доставку здесь'}
+                </Button>
+                {deliveryCreateError&&<p role="alert" className="text-sm text-red-700">{deliveryCreateError}</p>}
+                {editingDelivery&&<DeliveryForm initialSaleId={sale.id}
+                  disabled={postingDelivery} onSubmit={createInlineDelivery}/>}
+              </div>}
           </div>:
           <ErrorState title="Не удалось проверить связанную доставку"
             error={relatedDelivery.error} onRetry={()=>void relatedDelivery.refetch()}/>}

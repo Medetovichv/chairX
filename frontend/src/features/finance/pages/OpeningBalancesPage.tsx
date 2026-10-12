@@ -12,18 +12,19 @@ import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { ErrorState } from '../../../shared/components/ErrorState';
 export function OpeningBalancesPage(){
- const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_INITIALIZE'),read=hasPermission('FINANCE_READ');
+ const {hasPermission,user}=useAuth(),allowed=user?.roles.includes('ADMIN')===true&&hasPermission('FINANCE_INITIALIZE'),read=hasPermission('FINANCE_READ');
  const client=useQueryClient();
  const [account,setAccount]=useState<FinanceAccount>('CASH'),[amount,setAmount]=useState('0');
  const [agreed,setAgreed]=useState(false),[error,setError]=useState('');
+ const [target,setTarget]=useState(''),[reason,setReason]=useState(''),[adjustmentError,setAdjustmentError]=useState('');
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,enabled:read&&allowed});
  const snapshot=accounts.data?.find(x=>x.code===account);
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-5">
-  <PageHeader title="Начальные остатки" description="Однократная административная настройка финансового счёта."/>
+  <PageHeader title="Начальные остатки" description="Только администратор: начальный остаток или документированная корректировка текущего баланса."/>
   <FinanceTabs/>
   {accounts.isError&&<ErrorState error={accounts.error} onRetry={()=>void accounts.refetch()}/>}
-  <GuardedPost<OpeningInput> key={account} kind="initialize" scope={account} allowed={allowed}
+  {!snapshot?.initialized&&<GuardedPost<OpeningInput> key={account} kind="initialize" scope={account} allowed={allowed}
    title="Установить начальный остаток без возможности повтора?" label="Инициализировать счёт"
    operationKey={()=>crypto.randomUUID()} meta={x=>({account:x.account,amount:x.amount})}
    post={financeApi.initialize} onDone={async()=>{await client.invalidateQueries({queryKey:financeKeys.accounts});}}
@@ -60,7 +61,43 @@ export function OpeningBalancesPage(){
      <Button type="submit" disabled={locked||!agreed||!nonnegativeSom(amount)||read&&(!snapshot||snapshot.initialized)}>
       Установить начальный остаток</Button>
     </form>}
-  </GuardedPost>
+  </GuardedPost>}
+  {snapshot?.initialized&&<section aria-label="Административная корректировка баланса" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+   <h3 className="text-lg font-bold">Корректировка текущего остатка</h3>
+   <p className="text-sm text-slate-600">Не переписывает историю платежей: разница будет отражена отдельным движением и записью аудита. Закрытый финансовый день менять нельзя.</p>
+   <label className="block space-y-1 text-sm font-semibold">Счёт
+    <select aria-label="Счёт корректировки" className="min-h-11 w-full rounded-xl border p-2" value={account}
+      onChange={e=>{setAccount(e.target.value as FinanceAccount);setTarget('');setReason('');}}>
+     <option value="CASH">Наличные</option><option value="BANK">Банк</option>
+    </select></label>
+   <p className="text-sm">Текущий остаток: <strong>{som(snapshot.balance)}</strong></p>
+   <GuardedPost<{account:FinanceAccount;targetBalance:string;reason:string;idempotencyKey:string}>
+     kind="admin-balance-adjustment" scope={account} allowed={allowed} canReplay destructive
+     title="Провести финансовую корректировку?" label="Подтвердить корректировку"
+     operationKey={x=>x.idempotencyKey}
+     meta={x=>({account:x.account,target:x.targetBalance})}
+     post={financeApi.adjustBalance}
+     onDone={async()=>{
+      setTarget('');setReason('');
+      await Promise.all([client.invalidateQueries({queryKey:financeKeys.accounts}),client.invalidateQueries({queryKey:financeKeys.flow})]);
+     }}>
+    {({start,locked})=><form className="space-y-3" aria-label="Изменить текущий остаток"
+      onSubmit={e=>{e.preventDefault();if(!nonnegativeSom(target)||reason.trim().length<5||reason.trim().length>500){
+       setAdjustmentError('Укажите сумму в целых сомах и причину не короче 5 символов.');return;
+      }setAdjustmentError('');start({account,targetBalance:target.trim(),reason:reason.trim(),idempotencyKey:crypto.randomUUID()},
+       'Счёт '+account+': изменить текущий остаток с '+som(snapshot.balance)+' на '+som(target)+'. Причина: '+reason.trim());}}>
+      <label className="block space-y-1 text-sm font-semibold">Новый остаток, сом
+       <Input aria-label="Новый остаток счёта" inputMode="numeric" maxLength={17} value={target}
+        disabled={locked} onChange={e=>setTarget(e.target.value)}/></label>
+      <label className="block space-y-1 text-sm font-semibold">Причина корректировки
+       <textarea aria-label="Причина корректировки" className="w-full rounded-xl border p-3" rows={2}
+         maxLength={500} disabled={locked} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+      {adjustmentError&&<p role="alert" className="text-sm text-red-700">{adjustmentError}</p>}
+      <Button type="submit" disabled={locked||!nonnegativeSom(target)||reason.trim().length<5}>
+       Проверить и изменить остаток</Button>
+    </form>}
+   </GuardedPost>
+  </section>}
  </div>;
 }
 function amountMatch(balance:string|number,amount:string){

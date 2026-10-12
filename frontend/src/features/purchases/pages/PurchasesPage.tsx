@@ -80,13 +80,15 @@ export function PurchasesPage() {
     {notice && <p role="status">{notice}</p>}
     {creating && canCreate && <PurchaseForm onCancel={() => setCreating(false)}
       onSave={async value => { await create.mutateAsync(value); }} />}
-    {!creating && <><section aria-label="Фильтры закупок" className="rounded-2xl border border-slate-200 bg-white p-4">
+    {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>setFilters(initial)}>Сбросить фильтры</Button></div>
+      <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-sm font-semibold">Статус
           <select aria-label="Фильтр статуса закупки" value={filters.status}
             onChange={e => change('status', e.target.value as PurchaseStatus | '')}
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
-            <option value="">Все</option>{statuses.map(s => <option key={s} value={s}>{statusNames[s]}</option>)}
+            <option value="">Все статусы</option>{statuses.map(s => <option key={s} value={s}>{statusNames[s]}</option>)}
           </select>
         </label>
         {hasPermission('SUPPLIERS_READ') && <label className="space-y-1 text-sm font-semibold">Поставщик
@@ -98,10 +100,6 @@ export function PurchasesPage() {
               <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>}
-        <label className="space-y-1 text-sm font-semibold">UUID закупки
-          <Input type="search" aria-label="Поиск по UUID закупки" maxLength={100} value={filters.number}
-            onChange={e => change('number',e.target.value)} placeholder="UUID или его часть" />
-        </label>
         <label className="space-y-1 text-sm font-semibold">С даты
           <Input type="date" aria-label="Период с" value={filters.from}
             onChange={e => change('from',e.target.value)} />

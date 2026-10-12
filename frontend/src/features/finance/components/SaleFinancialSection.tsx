@@ -137,7 +137,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     refunds.data.map(r=><p key={r.id} className="border-b p-2 text-sm">
      {som(r.amount)} · {r.method} · {r.reason} · {dateLabel(r.refundedAt)} · {r.returnId||'Без физического возврата'}
     </p>))}
-   {refundCreate&&<GuardedPost<RefundInput> kind="refund-create" scope={sale.id} canReplay
+   {refundCreate&&<details className="rounded-xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-700">Дополнительные действия · оформить денежный возврат</summary><div className="mt-4"><GuardedPost<RefundInput> kind="refund-create" scope={sale.id} canReplay
     allowed={refundCreate} title="Подтвердить возврат денег клиенту?" label="Вернуть деньги" destructive
     operationKey={p=>p.idempotencyKey}
     meta={p=>({sale:p.saleId,returnId:p.returnId||'',amount:p.amount,method:p.method})}
@@ -162,9 +162,8 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        setError('');start(p,'Продажа '+sale.saleNumber+'. Вернуть '+som(p.amount)+' клиенту со счёта '+
         (p.method==='CASH'?'CASH':'BANK')+'. Физический Return: '+(p.returnId||'не указан')+'. Причина: '+p.reason+
         '. Backend проверит активную оплату, допустимую сумму и отсутствие Exchange.');}}>
-     <label className="block space-y-1 text-sm font-semibold">UUID физического возврата (необязательно)
-      <Input aria-label="UUID связанного возврата" value={refundReturn} disabled={locked}
-       onChange={e=>setRefundReturn(e.target.value.trim())}/></label>
+     <label className="block space-y-1 text-sm font-semibold">Связанный возврат (заполняется при переходе из карточки возврата)
+      <Input aria-label="Связанный возврат" value={refundReturn?"Возврат выбран":"Без связанного возврата"} disabled readOnly/></label>
      <label className="block space-y-1 text-sm font-semibold">Сумма возврата, сом
       <Input aria-label="Сумма денежного возврата" value={refundAmount} maxLength={17}
        disabled={locked} inputMode="numeric" onChange={e=>setRefundAmount(e.target.value)}/></label>
@@ -188,7 +187,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      <Button type="submit" disabled={locked||!positiveSom(refundAmount)||!!refundReturn&&!validUUID(refundReturn)}>
       Подтвердить денежный возврат</Button>
     </form>}
-   </GuardedPost>}
+   </GuardedPost></div></details>}
   </section>}
  </div>;
 }
@@ -203,7 +202,7 @@ function PaymentLine({payment:p,onChanged,canCancel,financeRead,accounts}:{
  return <article className="space-y-2 rounded-xl border p-3 text-sm">
   <p><strong>{p.status}</strong> · {som(p.amount)} · {p.channel} · {dateLabel(p.paidAt)} · {p.paidBy}</p>
   {p.cancellationReason&&<p>Отменён: {p.cancellationReason}</p>}
-  {can&&<GuardedPost<CancelDraft> kind="payment-cancel" scope={p.id} allowed={can}
+  {can&&<details className="rounded-lg border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-600">Дополнительное действие · отмена платежа</summary><div className="mt-3"><GuardedPost<CancelDraft> kind="payment-cancel" scope={p.id} allowed={can}
    title="Отменить платёж обратной проводкой?" label="Отменить оплату" destructive
    operationKey={x=>x.localOperationId} meta={x=>({payment:x.paymentId})}
    post={x=>financeApi.cancelPayment(x.paymentId,x.reason)} onDone={onChanged}
@@ -225,6 +224,6 @@ function PaymentLine({payment:p,onChanged,canCancel,financeRead,accounts}:{
       '. Отмена оплаты не отменяет продажу. Если уже есть Refund/Exchange, backend отклонит действие.');
     }}>Отменить платёж</Button>
    </div>}
-  </GuardedPost>}
+  </GuardedPost></div></details>}
  </article>;
 }

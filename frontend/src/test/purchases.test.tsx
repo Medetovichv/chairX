@@ -258,19 +258,18 @@ describe('F06 list, filters and drafts',()=>{
     expect(await screen.findByText(/Страница 2 из 2/)).toBeInTheDocument();
     expect(requests(calls,'page=1').length).toBeGreaterThanOrEqual(1);
   });
-  it('filters by status, supplier, UUID and backend Bishkek date params',async()=>{
+  it('filters by human-readable status, supplier and backend Bishkek date params',async()=>{
     const {calls}=mockApi();
     renderAt();
     await screen.findByRole('combobox',{name:'Фильтр статуса закупки'});
     fireEvent.change(screen.getByRole('combobox',{name:'Фильтр статуса закупки'}),{target:{value:'CONFIRMED'}});
     fireEvent.change(screen.getByRole('combobox',{name:'Фильтр поставщика'}),{target:{value:SID}});
-    fireEvent.change(screen.getByRole('searchbox',{name:'Поиск по UUID закупки'}),{target:{value:'5555'}});
     fireEvent.change(screen.getByLabelText('Период с'),{target:{value:'2026-10-09'}});
     fireEvent.change(screen.getByLabelText('Период по'),{target:{value:'2026-10-11'}});
     await waitFor(()=>expect(calls.mock.calls.some(([url])=>{
       const u=new URL(String(url),'http://chairx.local');
       return u.pathname==='/api/purchases/overview'&&u.searchParams.get('status')==='CONFIRMED'&&
-        u.searchParams.get('supplierId')===SID&&u.searchParams.get('number')==='5555'&&
+        u.searchParams.get('supplierId')===SID&&!u.searchParams.has('number')&&
         u.searchParams.get('from')==='2026-10-09'&&u.searchParams.get('to')==='2026-10-11';
     })).toBe(true));
   });

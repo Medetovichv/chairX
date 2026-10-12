@@ -20,6 +20,9 @@ import kg.chairx.returning.domain.ReturnCondition;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
+import kg.chairx.sale.api.CreateDraftSaleRequest;
+import kg.chairx.sale.api.CreateSaleWithDeliveryRequest;
+import kg.chairx.sale.application.SaleWithDeliveryService;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
@@ -56,6 +59,9 @@ class DeliveryTests {
 
     @Autowired
     DeliveryService deliveries;
+
+    @Autowired
+    SaleWithDeliveryService combinedCreation;
 
     @Autowired
     PaymentService payments;
@@ -191,6 +197,42 @@ class DeliveryTests {
         );
 
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void atomicallyCreatesConfirmedSaleAndDeliveryWithoutDuplicateOnReplay() {
+        UUID key=UUID.randomUUID();
+        var req=new CreateSaleWithDeliveryRequest(
+                new CreateDraftSaleRequest(key,customer,FulfillmentType.CITY_DELIVERY,
+                        List.of(item(firstVariant,home,2,"8500")),null),
+                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Получатель","+996555111222","Бишкек, ул. Тестовая 10",
+                        "Бишкек",new BigDecimal("300"),null,null,null,null));
+        var first=combinedCreation.create(req);
+        assertThat(first.status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(deliveries.getBySaleId(first.id()).status()).isEqualTo(DeliveryStatus.READY);
+        var retry=combinedCreation.create(req);
+        assertThat(retry.id()).isEqualTo(first.id());
+        assertThat(count("sales")).isEqualTo(1);
+        assertThat(count("deliveries")).isEqualTo(1);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(2);
+    }
+
+    @Test
+    void outOfStockAtomicDeliveryOrderLeavesNoDraftAndNoDelivery() {
+        UUID key=UUID.randomUUID();
+        var req=new CreateSaleWithDeliveryRequest(
+                new CreateDraftSaleRequest(key,customer,FulfillmentType.CITY_DELIVERY,
+                        List.of(item(firstVariant,home,1000,"8500")),null),
+                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Получатель","+996555111222","Бишкек, ул. Тестовая 10",
+                        "Бишкек",BigDecimal.ZERO,null,null,null,null));
+        assertThatThrownBy(()->combinedCreation.create(req)).isInstanceOf(RuntimeException.class);
+        assertThat(count("sales")).isZero();
+        assertThat(count("deliveries")).isZero();
+        assertThat(jdbc.queryForObject(
+                "select count(*) from sale_delivery_requests where idempotency_key=?",Integer.class,key))
+                .isZero();
     }
 
     @Test
@@ -1286,7 +1328,7 @@ class DeliveryTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table sale_comments,
+                truncate table sale_delivery_requests, sale_comments,
                     inventory_transfer_cost_origins, inventory_transfers, inventory_cost_allocations,
                     inventory_cost_movements,
                     inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_layers, exchange_settlements, exchanges, refunds,

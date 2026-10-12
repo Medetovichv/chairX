@@ -143,6 +143,9 @@ public class SecurityConfig {
                         .hasAuthority("SALES_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/drafts")
                         .hasAuthority("SALES_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/with-delivery")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('SALES_CREATE') and hasAuthority('SALES_DRAFT_MANAGE') and hasAuthority('DELIVERIES_MANAGE')"))
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/comments")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
                                 "hasAuthority('SALES_READ') and hasAuthority('SALES_COMMENT_CREATE')"))
@@ -224,7 +227,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/transfers")
                         .hasAuthority("FINANCE_TRANSFER")
                         .requestMatchers(HttpMethod.POST, "/api/finance/opening-balances")
-                        .hasAuthority("FINANCE_INITIALIZE")
+                        .access(systemAdmin(users, roles, "FINANCE_INITIALIZE"))
+                        .requestMatchers(HttpMethod.POST, "/api/finance/accounts/adjustments")
+                        .access(systemAdmin(users, roles, "FINANCE_INITIALIZE"))
                         .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/*")
                         .access(systemAdmin(users, roles, "USERS_READ"))
                         .requestMatchers(HttpMethod.POST, "/api/admin/users")

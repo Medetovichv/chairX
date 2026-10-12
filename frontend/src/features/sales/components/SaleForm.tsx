@@ -23,6 +23,13 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       recommended:null,
     }))??[];
   });
+  const canInlineDelivery=!initial&&hasPermission('SALES_DRAFT_MANAGE')&&hasPermission('DELIVERIES_MANAGE');
+  const [withDelivery,setWithDelivery]=useState(false);
+  const [recipientName,setRecipientName]=useState('');
+  const [recipientPhone,setRecipientPhone]=useState('');
+  const [deliveryAddress,setDeliveryAddress]=useState('');
+  const [deliveryCity,setDeliveryCity]=useState('');
+  const [deliveryCost,setDeliveryCost]=useState('0');
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
   const inFlight=useRef(false);
@@ -38,7 +45,19 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       items.push({productVariantId:row.productVariantId,warehouseId:row.warehouseId,
         quantity:Number(row.quantity),unitSalePrice:row.unitSalePrice.trim()});
     }
-    const data:DraftInput={customerId,fulfillmentType:type,items,comment:comment.trim()||null};
+    if(withDelivery&&type&&type!=='SELF_PICKUP'){
+      if(!recipientPhone.trim()||!deliveryAddress.trim()||!/^\\d+$/.test(deliveryCost.trim())||
+         !items.length){
+        setError('Для немедленного оформления доставки укажите телефон, адрес, стоимость в целых сомах и хотя бы одно кресло.');return;
+      }
+    }
+    const data:DraftInput={customerId,fulfillmentType:type,items,comment:comment.trim()||null,
+      ...(withDelivery&&type&&type!=='SELF_PICKUP'?{deliveryDetails:{
+        recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
+        address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
+        deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
+        comment:null,plannedDeliveryDate:null,
+      }}:{})};
     const problem=checkDraft(data);
     if(problem){setError(problem);return;}
     inFlight.current=true;setSaving(true);setError('');
@@ -84,9 +103,37 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <option value={k} key={k}>{fulfillmentNames[k]}</option>)}
             </select>
           </label>
-          {type&&type!=='SELF_PICKUP'&&<p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
-            Адрес и сведения доставки заполняются отдельно после подтверждения заказа.
-          </p>}
+          {!initial&&type&&type!=='SELF_PICKUP'&&<div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
+            {canInlineDelivery?<label className="flex items-center gap-2 text-sm font-semibold">
+              <input type="checkbox" aria-label="Подтвердить заказ и сразу создать доставку"
+                checked={withDelivery} disabled={saving||blocked}
+                onChange={e=>setWithDelivery(e.target.checked)}/>
+              Подтвердить заказ и сразу оформить доставку
+            </label>:<p className="text-sm text-slate-600">Для совместного оформления нужны права подтверждения продажи и управления доставками.</p>}
+            {canInlineDelivery&&withDelivery&&<div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm font-semibold">Получатель
+                <input aria-label="Получатель при создании продажи" maxLength={200} value={recipientName}
+                  disabled={saving||blocked} onChange={e=>setRecipientName(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold">Телефон *
+                <input aria-label="Телефон доставки при создании продажи" maxLength={50} value={recipientPhone}
+                  disabled={saving||blocked} onChange={e=>setRecipientPhone(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
+                <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
+                  disabled={saving||blocked} onChange={e=>setDeliveryAddress(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold">Город / регион
+                <input aria-label="Город доставки при создании продажи" maxLength={200} value={deliveryCity}
+                  disabled={saving||blocked} onChange={e=>setDeliveryCity(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold">Стоимость доставки, сом
+                <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
+                  disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <p className="text-xs text-slate-600 sm:col-span-2">Одна операция создаст подтверждённую продажу и готовую доставку. Если товара нет на складе, обе операции отменятся.</p>
+            </div>}
+          </div>}
           <label className="block space-y-2 text-sm font-semibold">Комментарий
             <textarea aria-label="Комментарий продажи" maxLength={2000} rows={3}
               value={comment} disabled={saving||blocked} onChange={e=>setComment(e.target.value)}
@@ -119,7 +166,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         </p>}
         {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
         <Button className="w-full" type="submit" disabled={saving||blocked}>
-          {saving?'Сохраняем…':'Сохранить черновик'}
+          {saving?'Сохраняем…':withDelivery&&type!=='SELF_PICKUP'?'Подтвердить продажу и доставку':'Сохранить черновик'}
         </Button>
         {onCancel&&<Button className="w-full" type="button" variant="outline" disabled={saving||blocked}
           onClick={onCancel}>Отмена</Button>}
