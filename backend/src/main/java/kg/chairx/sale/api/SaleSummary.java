@@ -14,12 +14,22 @@ public record SaleSummary(
         UUID customerId, String customerName, BigDecimal total,
         SaleStatus status, FulfillmentType fulfillmentType,
         long quantity, String products, String paymentStatus,
-        DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate
+        DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate,
+        String customerPhone, String deliveryAddress
 ) {
+    public SaleSummary(UUID id, String saleNumber, Instant createdAt,
+                       UUID customerId, String customerName, BigDecimal total,
+                       SaleStatus status, FulfillmentType fulfillmentType,
+                       long quantity, String products, String paymentStatus,
+                       DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate) {
+        this(id,saleNumber,createdAt,customerId,customerName,total,status,fulfillmentType,
+                quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate,null,null);
+    }
+
     public SaleSummary(UUID id, String saleNumber, Instant createdAt,
                        UUID customerId, String customerName, BigDecimal total,
                        SaleStatus status, FulfillmentType fulfillmentType) {
         this(id, saleNumber, createdAt, customerId, customerName, total,
-                status, fulfillmentType, 0, null, null, null, null);
+                status, fulfillmentType, 0, null, null, null, null, null, null);
     }
 }
