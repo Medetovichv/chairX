@@ -2,6 +2,8 @@ import {apiClient} from '../../shared/api/client';
 
 export interface EmployeeSaleLine {
  saleId:string; saleNumber:string; quantity:number; total:string; completedAt:string;
+ products?:string|null;phone?:string|null;address?:string|null;
+ fulfillment?:string|null;deliveryStatus?:string|null;paymentStatus?:string|null;
 }
 export interface PersonalExpenseLine {
  expenseId:string;category:string;amount:string;paymentMethod:'CASH'|'BANK';
