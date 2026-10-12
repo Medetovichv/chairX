@@ -122,8 +122,7 @@ public final class DailyClosingSalesSnapshot {
                        COALESCE(c.phone,c.whatsapp_phone,c.secondary_phone) AS phone,
                        detail.products,detail.quantity,dl.address,
                        s.fulfillment_type,
-                       CASE WHEN s.fulfillment_type='SELF_PICKUP'
-                            THEN s.fulfilled_at ELSE dl.delivered_at END AS completed_at,
+                       GREATEST(s.fulfilled_at,pay.paid_at) AS completed_at,
                        detail.total,
                        CASE WHEN pay.amount IS NULL THEN 'UNPAID'
                             WHEN pay.amount < detail.total THEN 'PARTIAL'
@@ -131,7 +130,7 @@ public final class DailyClosingSalesSnapshot {
                 FROM sales s
                 LEFT JOIN customers c ON c.id=s.customer_id
                 LEFT JOIN deliveries dl ON dl.sale_id=s.id
-                LEFT JOIN payments pay ON pay.sale_id=s.id AND pay.status='PAID'
+                JOIN payments pay ON pay.sale_id=s.id AND pay.status='PAID'
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(si.quantity),0) AS quantity,
                            COALESCE(SUM(si.quantity*si.unit_sale_price),0) AS total,
@@ -142,14 +141,12 @@ public final class DailyClosingSalesSnapshot {
                     JOIN products p ON p.id=v.product_id
                     WHERE si.sale_id=s.id
                 ) detail ON TRUE
-                WHERE
-                    (s.fulfillment_type='SELF_PICKUP'
-                       AND s.status='FULFILLED'
-                       AND s.fulfilled_at >= :begin AND s.fulfilled_at < :until)
-                    OR
-                    (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
-                       AND dl.status='DELIVERED'
-                       AND dl.delivered_at >= :begin AND dl.delivered_at < :until)
+                WHERE s.status='FULFILLED'
+                  AND (s.fulfillment_type='SELF_PICKUP'
+                    OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                        AND dl.status IN ('IN_TRANSIT','DELIVERED')))
+                  AND GREATEST(s.fulfilled_at,pay.paid_at)>=:begin
+                  AND GREATEST(s.fulfilled_at,pay.paid_at)<:until
                 ORDER BY completed_at,s.id
                 """)
                 .param("begin",from.atOffset(ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
