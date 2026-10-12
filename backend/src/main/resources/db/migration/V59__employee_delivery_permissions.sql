@@ -1,7 +1,9 @@
--- Staff can register city/region delivery as part of an order, without administrative powers.
--- Grant only to the built-in EMPLOYEE role, preserving customizable RBAC.
+-- Separate delivery creation from dispatch, status changes and cancellation.
+INSERT INTO security_permissions(code,description)
+VALUES ('DELIVERIES_CREATE','Создание доставки при оформлении продажи')
+ON CONFLICT (code) DO NOTHING;
+
 INSERT INTO security_role_permissions(role_id,permission_code)
-SELECT r.id,p.code FROM security_roles r
-JOIN security_permissions p ON p.code='DELIVERIES_MANAGE'
-WHERE r.code='EMPLOYEE' AND r.system_role=TRUE
+SELECT r.id,'DELIVERIES_CREATE' FROM security_roles r
+WHERE r.system_role=TRUE AND r.code IN ('ADMIN','MANAGER','EMPLOYEE')
 ON CONFLICT DO NOTHING;
