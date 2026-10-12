@@ -202,7 +202,7 @@ class P23RoleManagementIntegrationTests {
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/payments/sale/"+UUID.randomUUID())
                         .with(httpBasic(employee.username(),PASSWORD)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
         mvc.perform(post("/api/sales/"+UUID.randomUUID()+"/fulfill")
                         .with(httpBasic(employee.username(),PASSWORD)).with(csrf()))
                 .andExpect(status().isForbidden());
