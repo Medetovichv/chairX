@@ -32,12 +32,17 @@ public class SaleRepository {
             SaleStatus status, Instant from, Instant to, String number,
             int page, int size
     ) {
-        return listSummaries(status, from, to, number, null, page, size);
+        return listSummaries(status,from,to,number,null,page,size,false,null);
     }
 
     public List<SaleSummary> listSummaries(
             SaleStatus status, Instant from, Instant to, String number,
             UUID customerId, int page, int size
+    ) { return listSummaries(status,from,to,number,customerId,page,size,false,null); }
+
+    public List<SaleSummary> listSummaries(
+            SaleStatus status, Instant from, Instant to, String number,
+            UUID customerId, int page, int size, boolean operational, Instant today
     ) {
         return jdbc.sql("""
                 SELECT s.id, s.sale_number, s.created_at, s.customer_id,
@@ -68,6 +73,15 @@ public class SaleRepository {
                   AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at < :toDate)
                   AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%' || :number || '%')
                   AND (CAST(:customer AS uuid) IS NULL OR s.customer_id = :customer)
+                  AND (:operational=FALSE
+                    OR (s.status IN ('DRAFT','CONFIRMED')
+                      OR (s.status='FULFILLED' AND (
+                        paid.id IS NULL
+                        OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                            AND d.status IN ('READY','IN_TRANSIT','FAILED'))
+                        OR (s.fulfillment_type='SELF_PICKUP' AND s.fulfilled_at>=:today)
+                        OR (d.status='DELIVERED' AND d.delivered_at>=:today)
+                      ))))
                 ORDER BY s.created_at DESC, s.id DESC
                 LIMIT :size OFFSET :offset
                 """)
@@ -76,6 +90,8 @@ public class SaleRepository {
                 .param("toDate", to == null ? null : java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("number", number, Types.VARCHAR)
                 .param("customer", customerId, Types.OTHER)
+                .param("operational",operational)
+                .param("today",today==null?null:java.time.OffsetDateTime.ofInstant(today,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("size", size).param("offset", (long)page*size)
                 .query((rs,row) -> new SaleSummary(
                         rs.getObject("id", UUID.class), rs.getString("sale_number"),
@@ -94,23 +110,41 @@ public class SaleRepository {
     }
 
     public long countSummaries(SaleStatus status,Instant from,Instant to,String number) {
-        return countSummaries(status, from, to, number, null);
+        return countSummaries(status,from,to,number,null,false,null);
     }
 
     public long countSummaries(SaleStatus status,Instant from,Instant to,String number,UUID customerId) {
+        return countSummaries(status,from,to,number,customerId,false,null);
+    }
+    public long countSummaries(SaleStatus status,Instant from,Instant to,String number,
+                               UUID customerId,boolean operational,Instant today) {
         return jdbc.sql("""
                 SELECT COUNT(*) FROM sales s
+                LEFT JOIN payments paid ON paid.sale_id=s.id AND paid.status='PAID'
+                LEFT JOIN deliveries d ON d.sale_id=s.id
                 WHERE (CAST(:status AS varchar) IS NULL OR s.status=:status)
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR s.created_at>=:fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at<:toDate)
                   AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%'||:number||'%')
                   AND (CAST(:customer AS uuid) IS NULL OR s.customer_id=:customer)
+                  AND (:operational=FALSE
+                    OR (s.status IN ('DRAFT','CONFIRMED')
+                      OR (s.status='FULFILLED' AND (
+                        paid.id IS NULL
+                        OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
+                            AND d.status IN ('READY','IN_TRANSIT','FAILED'))
+                        OR (s.fulfillment_type='SELF_PICKUP' AND s.fulfilled_at>=:today)
+                        OR (d.status='DELIVERED' AND d.delivered_at>=:today)
+                      ))))
                 """)
                 .param("status",status==null?null:status.name(),Types.VARCHAR)
                 .param("fromDate",from==null?null:java.time.OffsetDateTime.ofInstant(from,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("toDate",to==null?null:java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("number",number,Types.VARCHAR)
-                .param("customer",customerId,Types.OTHER).query(Long.class).single();
+                .param("customer",customerId,Types.OTHER)
+                .param("operational",operational)
+                .param("today",today==null?null:java.time.OffsetDateTime.ofInstant(today,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
+                .query(Long.class).single();
     }
 
     public void acquireCompletionGate() {
