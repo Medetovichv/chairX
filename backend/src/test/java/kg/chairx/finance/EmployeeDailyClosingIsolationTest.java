@@ -129,6 +129,16 @@ class EmployeeDailyClosingIsolationTest {
              .andExpect(status().isForbidden());
         mvc.perform(get("/api/finance/closings").with(httpBasic(manager,PASSWORD)))
              .andExpect(status().isOk());
+        mvc.perform(get(url).with(httpBasic(manager,PASSWORD)))
+             .andExpect(status().isOk());
+        mvc.perform(post(url).with(httpBasic(manager,PASSWORD)).with(csrf())
+             .contentType(MediaType.APPLICATION_JSON)
+             .content(body("0","0","0","0")))
+             .andExpect(status().isForbidden());
+        mvc.perform(post("/api/finance/closings/"+day).with(httpBasic(manager,PASSWORD))
+             .with(csrf()).contentType(MediaType.APPLICATION_JSON)
+             .content("{\\"actualCash\\":0,\\"actualBank\\":0}"))
+             .andExpect(status().isForbidden());
     }
 
     @Test void personalCloseIsImmutableIsolatedIdempotentAndNeverPostsCompanyMoney() throws Exception {
