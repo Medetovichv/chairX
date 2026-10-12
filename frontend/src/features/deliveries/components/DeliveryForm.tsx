@@ -107,9 +107,15 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
             <div className="space-y-2">{list.data?.items.filter(s=>
               s.fulfillmentType==='CITY_DELIVERY'||s.fulfillmentType==='REGION_DELIVERY').map(s=>
               <Button key={s.id} type="button" variant="outline" className="w-full justify-start"
-                disabled={disabled} onClick={()=>setSaleId(s.id)}>
-                {displaySaleNumber(s.saleNumber)} · {s.customerName||'Клиент не указан'} ·
-                {s.fulfillmentType==='REGION_DELIVERY'?' Регион':' Город'}
+                disabled={disabled} onClick={()=>{setSaleId(s.id);
+                  if(s.customerPhone)setRecipientPhone(s.customerPhone);
+                  if(s.deliveryAddress)setAddress(s.deliveryAddress);}}>
+                <span className="min-w-0 text-left">
+                  <strong>{displaySaleNumber(s.saleNumber)}</strong> · {s.customerPhone||s.customerName||'Без контакта'}
+                  <span className="block truncate text-xs text-slate-600">
+                    {s.products||'Товары не указаны'} · {s.quantity} шт. · {s.deliveryAddress||'Адрес уточняется'}
+                  </span>
+                </span>
               </Button>)}</div>
             <PurchasePager page={list.data?.page??page} size={list.data?.size??20}
               total={list.data?.total??0} label="подтверждённых заказов" onPage={setPage}/>
