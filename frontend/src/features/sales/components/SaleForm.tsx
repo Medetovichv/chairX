@@ -24,12 +24,13 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     }))??[];
   });
   const canInlineDelivery=!initial&&hasPermission('SALES_DRAFT_MANAGE')&&hasPermission('DELIVERIES_MANAGE');
-  const [withDelivery,setWithDelivery]=useState(false);
+  const withDelivery=!initial&&type!==null&&type!=='SELF_PICKUP'&&canInlineDelivery;
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
   const [deliveryAddress,setDeliveryAddress]=useState('');
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
+  const [deliveryComment,setDeliveryComment]=useState('');
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
   const inFlight=useRef(false);
@@ -56,7 +57,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
         address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
         deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
-        comment:null,plannedDeliveryDate:null,
+        comment:deliveryComment.trim()||null,plannedDeliveryDate:null,
       }}:{})};
     const problem=checkDraft(data);
     if(problem){setError(problem);return;}
@@ -104,12 +105,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
             </select>
           </label>
           {!initial&&type&&type!=='SELF_PICKUP'&&<div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
-            {canInlineDelivery?<label className="flex items-center gap-2 text-sm font-semibold">
-              <input type="checkbox" aria-label="Подтвердить заказ и сразу создать доставку"
-                checked={withDelivery} disabled={saving||blocked}
-                onChange={e=>setWithDelivery(e.target.checked)}/>
-              Подтвердить заказ и сразу оформить доставку
-            </label>:<p className="text-sm text-slate-600">Для совместного оформления нужны права подтверждения продажи и управления доставками.</p>}
+            {canInlineDelivery?<p className="text-sm font-semibold text-blue-950">Доставка по заказу — заполните адрес и контакты. При сохранении продажа и доставка создаются вместе.</p>:<p className="text-sm text-amber-900">Для создания доставки необходимы разрешения подтверждения продажи и оформления доставки. Обратитесь к администратору.</p>}
             {canInlineDelivery&&withDelivery&&<div className="grid gap-3 sm:grid-cols-2">
               <label className="space-y-1 text-sm font-semibold">Получатель
                 <input aria-label="Получатель при создании продажи" maxLength={200} value={recipientName}
@@ -131,6 +127,10 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
                   disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold sm:col-span-2">Комментарий курьеру
+                <textarea aria-label="Комментарий к доставке при создании продажи" rows={2} maxLength={2000} value={deliveryComment}
+                  disabled={saving||blocked} onChange={e=>setDeliveryComment(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3"/></label>
               <p className="text-xs text-slate-600 sm:col-span-2">Одна операция создаст подтверждённую продажу и готовую доставку. Если товара нет на складе, обе операции отменятся.</p>
             </div>}
           </div>}
