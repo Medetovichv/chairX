@@ -45,7 +45,7 @@ function ExistingReport({ report }: { report: ClosingReport }) {
   </section>;
 }
 function CompanyDailyClosingPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
   const write = hasPermission('DAILY_CLOSING_WRITE') || hasPermission('FINANCE_CLOSE');
   const client = useQueryClient();
@@ -105,7 +105,7 @@ function CompanyDailyClosingPage() {
             variant={day === date ? 'default' : 'outline'} onClick={() => chooseDate(day)}>{day}</Button>)}
         </div>}
     </div>
-    {valid && <ManagerEmployeeClosingSummary date={date}/>}
+    {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && (access.isPending ? <LoadingState label="Проверяем доступность отчёта…"/> :
       access.isError ? <ErrorState error={access.error} onRetry={() => void access.refetch()}/> :
       <section aria-label="Статус закрытия" className="rounded-xl border bg-white p-4 text-sm">
