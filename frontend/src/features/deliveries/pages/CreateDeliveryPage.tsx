@@ -11,7 +11,7 @@ import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../pen
 import type { CreateDeliveryInput } from '../types';
 export function CreateDeliveryPage(){
   const {hasPermission,user}=useAuth();
-  const allowed=hasPermission('DELIVERIES_READ')&&hasPermission('DELIVERIES_MANAGE');
+  const allowed=hasPermission('DELIVERIES_READ')&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'));
   const [qs]=useSearchParams();
   const navigate=useNavigate();
   const client=useQueryClient();
