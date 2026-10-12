@@ -45,14 +45,22 @@ public class EmployeeDailyClosingService {
                               String paymentMethod,String comment,Instant createdAt) {}
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
                           BigDecimal actualCash, BigDecimal actualBank,
-                          String cashNote, String bankNote) {}
+                          String cashNote, String bankNote,
+                          BigDecimal actualTotal, String totalNote) {
+        public Request(BigDecimal expectedCash,BigDecimal expectedBank,
+                       BigDecimal actualCash,BigDecimal actualBank,
+                       String cashNote,String bankNote) {
+            this(expectedCash,expectedBank,actualCash,actualBank,cashNote,bankNote,null,null);
+        }
+    }
     public record Report(LocalDate businessDate, boolean closed, boolean canClose,
                          BigDecimal expectedCash, BigDecimal expectedBank,
                          BigDecimal actualCash, BigDecimal actualBank,
                          String cashNote, String bankNote, long orders, long chairs,
                          BigDecimal salesValue, List<SaleLine> sales,
                          List<ExpenseLine> expenses, BigDecimal expenseCash,BigDecimal expenseBank,
-                         boolean collectionsChangedAfterClose) {}
+                         boolean collectionsChangedAfterClose,
+                         BigDecimal expectedTotal, BigDecimal actualTotal, String totalNote) {}
 
     private record Employee(UUID id, String username) {}
     private record Collections(BigDecimal cash, BigDecimal bank) {}
@@ -192,14 +200,16 @@ public class EmployeeDailyClosingService {
 
     private Report result(Employee actor, LocalDate date) {
         var saved=jdbc.sql("""
-            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note
+            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
+                   actual_total,total_note
             FROM employee_daily_closings
             WHERE employee_id=:actor AND business_date=:day
             """).param("actor",actor.id()).param("day",date)
             .query((rs,i)->new Stored(rs.getObject("id",UUID.class),
                     rs.getBigDecimal("expected_cash"),rs.getBigDecimal("expected_bank"),
                     rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"),
-                    rs.getString("cash_note"),rs.getString("bank_note")))
+                    rs.getString("cash_note"),rs.getString("bank_note"),
+                rs.getBigDecimal("actual_total"),rs.getString("total_note")))
             .optional().orElse(null);
         Collections now=netCollections(actor.username(),date);
         List<ExpenseLine> personalExpenses=saved==null?ownExpenses(actor.username(),date):savedExpenses(saved.id());
@@ -217,12 +227,17 @@ public class EmployeeDailyClosingService {
                 sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
                 sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
                 sales,personalExpenses,expenseTotal(personalExpenses,"CASH"),
-                expenseTotal(personalExpenses,"BANK"),changed);
+                expenseTotal(personalExpenses,"BANK"),changed,
+                (saved==null?now.cash().add(now.bank()):saved.cash().add(saved.bank())),
+                saved==null?null:saved.actualTotal()!=null?saved.actualTotal():
+                    saved.actualCash().add(saved.actualBank()),
+                saved==null?null:saved.totalNote());
     }
 
     private record Stored(UUID id, BigDecimal cash, BigDecimal bank,
                           BigDecimal actualCash, BigDecimal actualBank,
-                          String cashNote, String bankNote) {}
+                          String cashNote, String bankNote,
+                          BigDecimal actualTotal,String totalNote) {}
 
     private static void amount(BigDecimal money) {
         if(money==null || money.signum()<0 || money.stripTrailingZeros().scale()>0) {
@@ -244,11 +259,23 @@ public class EmployeeDailyClosingService {
         validateDate(date);
         if(input==null)throw new FinanceValidationException("Данные личного закрытия обязательны");
         amount(input.expectedCash());amount(input.expectedBank());
-        amount(input.actualCash());amount(input.actualBank());
+        boolean combined=input.actualTotal()!=null;
         String cashNote=note(input.cashNote()),bankNote=note(input.bankNote());
-        if(input.actualCash().compareTo(input.expectedCash())!=0 && cashNote==null
-                || input.actualBank().compareTo(input.expectedBank())!=0 && bankNote==null)
-            throw new FinanceValidationException("Укажите причину расхождения CASH/BANK");
+        String totalNote=note(input.totalNote());
+        if(combined) {
+            amount(input.actualTotal());
+            if(input.actualCash()!=null || input.actualBank()!=null)
+                throw new FinanceValidationException("При общей сверке не указывайте разбивку CASH/BANK");
+            if(input.actualTotal().compareTo(input.expectedCash().add(input.expectedBank()))!=0
+                    && totalNote==null)
+                throw new FinanceValidationException("Укажите одну причину расхождения общей суммы");
+            cashNote=null;bankNote=null;
+        } else {
+            amount(input.actualCash());amount(input.actualBank());
+            if(input.actualCash().compareTo(input.expectedCash())!=0 && cashNote==null
+                    || input.actualBank().compareTo(input.expectedBank())!=0 && bankNote==null)
+                throw new FinanceValidationException("Укажите причину расхождения CASH/BANK");
+        }
 
         // Resolve identity server-side. Never accept actor or employee id from request.
         Employee actor=employee(username);
@@ -274,13 +301,16 @@ public class EmployeeDailyClosingService {
         jdbc.sql("""
             INSERT INTO employee_daily_closings
             (id,employee_id,business_date,expected_cash,expected_bank,actual_cash,
-             actual_bank,cash_note,bank_note)
-            VALUES (:id,:actor,:day,:cash,:bank,:actualCash,:actualBank,:cashNote,:bankNote)
+             actual_bank,cash_note,bank_note,actual_total,total_note)
+            VALUES (:id,:actor,:day,:cash,:bank,:actualCash,:actualBank,:cashNote,:bankNote,:actualTotal,:totalNote)
             """).param("id",id).param("actor",actor.id()).param("day",date)
             .param("cash",amount.cash()).param("bank",amount.bank())
-            .param("actualCash",input.actualCash()).param("actualBank",input.actualBank())
+            .param("actualCash",input.actualCash(),java.sql.Types.NUMERIC)
+            .param("actualBank",input.actualBank(),java.sql.Types.NUMERIC)
             .param("cashNote",cashNote,java.sql.Types.VARCHAR)
-            .param("bankNote",bankNote,java.sql.Types.VARCHAR).update();
+            .param("bankNote",bankNote,java.sql.Types.VARCHAR)
+            .param("actualTotal",input.actualTotal(),java.sql.Types.NUMERIC)
+            .param("totalNote",totalNote,java.sql.Types.VARCHAR).update();
         for(var sale:sales) {
             jdbc.sql("""
                 INSERT INTO employee_daily_closing_sales
