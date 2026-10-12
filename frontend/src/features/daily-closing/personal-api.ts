@@ -41,6 +41,7 @@ export interface ManagerExpense {
 export interface ManagerClosingReport {
  businessDate:string;employees:ManagerEmployeeClosing[];expenses:ManagerExpense[];
  expenseTotal:string;cashExpenses:string;bankExpenses:string;
+ totalExpectedCash:string;totalExpectedBank:string;totalActualCash:string;totalActualBank:string;
  closedEmployees:number;totalEmployees:number;
 }
 export const managerClosingApi={
