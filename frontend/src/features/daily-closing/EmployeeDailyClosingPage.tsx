@@ -93,7 +93,12 @@ export function EmployeeDailyClosingPage(){
    description="Все завершённые продажи дня, мои поступления и только мои расходы. Чужие расходы недоступны."/>
   <nav aria-label="Режим отчётов" className="flex flex-wrap gap-2">
    <Button variant={view==='current'?'default':'outline'} onClick={()=>{setView('current');chooseDate(bishkekToday());}}>Актуальный отчёт</Button>
-   <Button variant={view==='history'?'default':'outline'} onClick={()=>setView('history')}>Предыдущие отчёты</Button>
+   <Button variant={view==='history'?'default':'outline'} onClick={()=>{
+    setView('history');
+    const previous=new Date(bishkekToday()+'T12:00:00Z');
+    previous.setUTCDate(previous.getUTCDate()-1);
+    chooseDate(previous.toISOString().slice(0,10));
+   }}>Предыдущие отчёты</Button>
   </nav>
   {view==='history'&&<section aria-label="Предыдущие отчёты" className="space-y-3 rounded-xl border bg-white p-4">
    <div className="flex gap-2">
