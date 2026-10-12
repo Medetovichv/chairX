@@ -41,13 +41,18 @@ class FinanceApiIntegrationTests {
         jdbc.update("delete from finance_daily_closing_accounts");
         jdbc.update("delete from finance_daily_closings");
         jdbc.update("update finance_accounts set balance=0, opening_balance_initialized=false");
+        jdbc.update("delete from security_user_roles where user_id in (select id from app_users where username='finance_admin_test')");
+        jdbc.update("delete from app_users where username='finance_admin_test'");
+        UUID id=UUID.randomUUID();
+        jdbc.update("insert into app_users(id,username,password_hash,display_name,active) values (?,'finance_admin_test','{noop}unused','Finance Admin Test',true)",id);
+        jdbc.update("insert into security_user_roles(user_id,role_id) values (?,'00000000-0000-0000-0000-000000000001'::uuid)",id);
     }
 
     @Test
     void openingBalanceEndpointInitializesOnceWithoutDuplicatePosting() throws Exception {
         String json = "{\"account\":\"CASH\",\"amount\":100000}";
         mvc.perform(post("/api/finance/opening-balances")
-                        .with(user("accountant").authorities(
+                        .with(user("finance_admin_test").authorities(
                                 new org.springframework.security.core.authority.SimpleGrantedAuthority(
                                         "FINANCE_INITIALIZE")))
                         .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
