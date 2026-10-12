@@ -50,12 +50,13 @@ function CompanyDailyClosingPage() {
   const write = hasPermission('DAILY_CLOSING_WRITE') || hasPermission('FINANCE_CLOSE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
-  const [personalMode,setPersonalMode]=useState(false);
   const [actualCash, setActualCash] = useState('');
   const [actualBank, setActualBank] = useState('');
   const [cashNote, setCashNote] = useState('');
   const [bankNote, setBankNote] = useState('');
   const [error, setError] = useState('');
+  const [showHistory,setShowHistory]=useState(false);
+  const [personalMode,setPersonalMode]=useState(false);
   const valid = validClosingDate(date);
 
   const dates = useQuery({ queryKey: closingKeys.dates, queryFn: closingApi.dates, enabled: read });
@@ -103,14 +104,20 @@ function CompanyDailyClosingPage() {
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
       {!valid && <p role="alert" className="text-red-700">Выберите действительную дату не позднее сегодня в Бишкеке.</p>}
-      <h2 className="text-sm font-semibold">Последние закрытые дни</h2>
-      {dates.isPending ? <LoadingState label="Загружаем даты закрытий…"/> :
-        dates.isError ? <ErrorState error={dates.error} onRetry={() => void dates.refetch()}/> :
-        dates.data.length === 0 ? <p className="text-sm text-slate-500">Пока нет закрытых дней.</p> :
-        <div className="flex flex-wrap gap-2">
-          {dates.data.map(day => <Button type="button" key={day}
-            variant={day === date ? 'default' : 'outline'} onClick={() => chooseDate(day)}>{day}</Button>)}
+      <Button type="button" variant="outline" aria-expanded={showHistory}
+        onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Скрыть историю':'История закрытых отчётов'}</Button>
+      {showHistory&&<section aria-label="История закрытий за последние 10 дней" className="space-y-3 rounded-xl bg-slate-50 p-4">
+       <h2 className="font-semibold">Закрытые отчёты за последние 10 дней</h2>
+       {dates.isPending?<LoadingState label="Загружаем историю…"/>:
+        dates.isError?<ErrorState error={dates.error} onRetry={()=>void dates.refetch()}/>:
+        <div className="flex flex-wrap gap-2">{dates.data.filter(day=>{
+          const end=Date.parse(bishkekToday()+'T00:00:00Z'),current=Date.parse(day+'T00:00:00Z');
+          return Number.isFinite(current)&&current<=end&&current>=end-9*86400000;
+        }).sort((x,y)=>y.localeCompare(x)).map(day=><Button type="button" key={day}
+          variant={day===date?'default':'outline'}
+          onClick={()=>{chooseDate(day);setShowHistory(false);}}>{day}</Button>)}
         </div>}
+      </section>}
     </div>
     {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && (access.isPending ? <LoadingState label="Проверяем доступность отчёта…"/> :
@@ -129,8 +136,44 @@ function CompanyDailyClosingPage() {
     {valid && access.isSuccess && (!exists || report.isSuccess) &&
       <ClosingMaintenance key={date + ':' + (report.data?.version ?? 'new')} date={date}
         access={access.data} report={report.data} onChanged={refreshed}/>}
+    {valid && <section aria-label="Завершённые продажи" className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-bold">Отчёт о продажах за {date}</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{exists?"Закрытый день":"Сегодняшние данные до закрытия"}</span></div>
+      <p className="text-sm text-slate-600">Список завершённых заказов с креслами, количеством, клиентами и оплатой.</p>
+      {sales.isPending ? <LoadingState label="Загружаем продажи дня…"/> :
+        sales.isError ? <ErrorState error={sales.error} onRetry={() => void sales.refetch()}/> :
+        <>
+          {!sales.data.closed && <p className="text-amber-800">Предварительные данные: день ещё не закрыт.</p>}
+          {sales.data.closed && !sales.data.snapshotAvailable &&
+            <p role="alert" className="text-amber-800">Для этого исторического отчёта нет сохранённого снимка продаж.
+              Не подменяем его текущими данными.</p>}
+          {sales.data.closed && sales.data.snapshotAvailable && (sales.data.lateCompletionCount ?? 0) > 0 &&
+            <p className="text-amber-800">После закрытия завершено дополнительных продаж: {sales.data.lateCompletionCount}.
+              Они не изменяют сохранённый снимок.</p>}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">Завершено заказов</p><p className="mt-1 text-2xl font-bold">{sales.data.totals.orders??'—'}</p></div>
+            <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">Продано кресел</p><p className="mt-1 text-2xl font-bold">{sales.data.totals.chairs??'—'}</p></div>
+            <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">Итого продажи</p><p className="mt-1 text-2xl font-bold">{sales.data.totals.value===null?'—':som(sales.data.totals.value)}</p></div>
+          </div>
+          {sales.data.items.length === 0 ? <p className="text-sm text-slate-500">Нет подтверждённых завершённых продаж.</p> :
+            <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+              <thead><tr className="border-b">
+                <th className="p-2">Продажа</th><th className="p-2">Клиент</th><th className="p-2">Телефон</th>
+                <th className="p-2">Товар</th><th className="p-2">Шт.</th>
+                <th className="p-2">Сумма</th><th className="p-2">Оплата</th><th className="p-2">Завершено</th>
+              </tr></thead><tbody>{sales.data.items.map(item => <tr key={item.saleId} className="border-b">
+                <td className="p-2">{item.saleNumber}</td>
+                <td className="p-2">{item.customerName ?? '—'}</td><td className="p-2">{item.phone??'—'}</td>
+                <td className="p-2">{item.products ?? '—'}</td>
+                <td className="p-2">{item.quantity}</td>
+                <td className="p-2">{som(item.total)}</td>
+                <td className="p-2">{item.paymentStatus}</td><td className="p-2">{dateLabel(item.completedAt)}</td>
+              </tr>)}</tbody>
+            </table></div>}
+        </>}
+      <p className="text-xs text-slate-500">Итог продаж — оборот, а не остаток средств. Наличные и банк сверяются отдельно, с учётом других операций.</p>
+    </section>}
     {valid && access.isSuccess && !exists && <section className="space-y-4 rounded-xl border bg-white p-4">
-      <h2 className="text-lg font-bold">Предварительный расчёт backend</h2>
+      <h2 className="text-lg font-bold">Сверка фактических сумм и закрытие дня</h2>
       {preview.isPending ? <LoadingState label="Получаем ожидаемые остатки…"/> :
         preview.isError ? <ErrorState error={preview.error} onRetry={() => void preview.refetch()}/> :
         <div className="grid gap-3 sm:grid-cols-2">
@@ -199,38 +242,7 @@ function CompanyDailyClosingPage() {
         </form>}
       </GuardedPost>}
     </section>}
-    {valid && <section aria-label="Завершённые продажи" className="space-y-3 rounded-xl border bg-white p-4">
-      <h2 className="text-lg font-bold">Завершённые продажи за {date}</h2>
-      {sales.isPending ? <LoadingState label="Загружаем продажи дня…"/> :
-        sales.isError ? <ErrorState error={sales.error} onRetry={() => void sales.refetch()}/> :
-        <>
-          {!sales.data.closed && <p className="text-amber-800">Предварительные данные: день ещё не закрыт.</p>}
-          {sales.data.closed && !sales.data.snapshotAvailable &&
-            <p role="alert" className="text-amber-800">Для этого исторического отчёта нет сохранённого снимка продаж.
-              Не подменяем его текущими данными.</p>}
-          {sales.data.closed && sales.data.snapshotAvailable && (sales.data.lateCompletionCount ?? 0) > 0 &&
-            <p className="text-amber-800">После закрытия завершено дополнительных продаж: {sales.data.lateCompletionCount}.
-              Они не изменяют сохранённый снимок.</p>}
-          <p className="font-semibold">Заказы: {sales.data.totals.orders ?? 'недоступно'} ·
-            Кресла: {sales.data.totals.chairs ?? 'недоступно'} ·
-            Сумма продаж: {sales.data.totals.value === null ? 'недоступно' : som(sales.data.totals.value)}</p>
-          {sales.data.items.length === 0 ? <p className="text-sm text-slate-500">Нет подтверждённых завершённых продаж.</p> :
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-              <thead><tr className="border-b">
-                <th className="p-2">Продажа</th><th className="p-2">Клиент</th>
-                <th className="p-2">Товар</th><th className="p-2">Шт.</th>
-                <th className="p-2">Сумма</th><th className="p-2">Оплата</th>
-              </tr></thead><tbody>{sales.data.items.map(item => <tr key={item.saleId} className="border-b">
-                <td className="p-2">{item.saleNumber}</td>
-                <td className="p-2">{item.customerName ?? '—'}</td>
-                <td className="p-2">{item.products ?? '—'}</td>
-                <td className="p-2">{item.quantity}</td>
-                <td className="p-2">{som(item.total)}</td>
-                <td className="p-2">{item.paymentStatus}</td>
-              </tr>)}</tbody>
-            </table></div>}
-        </>}
-    </section>}
+
   </div>;
 }
 

@@ -54,6 +54,7 @@ export function ClosingMaintenance({date,access,report,onChanged}:{
   const admin=hasPermission('DAILY_CLOSING_UNLOCK_ADMIN');
   const canCorrect=hasPermission('DAILY_CLOSING_EXPENSE_CORRECT');
   const auditRead=hasPermission('DAILY_CLOSING_AUDIT_READ');
+  const [showUnlock,setShowUnlock]=useState(false);
   const [unlockReason,setUnlockReason]=useState('');
   const [unlockError,setUnlockError]=useState('');
   const [reason,setReason]=useState('');
@@ -82,6 +83,8 @@ export function ClosingMaintenance({date,access,report,onChanged}:{
   return <div className="space-y-5">
     {canUnlock && access.canUnlock && access.accessStatus!=='TEMPORARILY_UNLOCKED' &&
       <section className="space-y-3 rounded-xl border bg-white p-4">
+        <Button type="button" variant="outline" aria-expanded={showUnlock} aria-controls="daily-unlock-controls" onClick={()=>setShowUnlock(v=>!v)}>{showUnlock?'Скрыть разблокировку':'Разблокировать дату'}</Button>
+        {showUnlock&&<div id="daily-unlock-controls" className="space-y-3">
         <h2 className="font-bold">Временная разблокировка даты</h2>
         <p className="text-sm">Правила срока определяет backend: для менеджера — до пяти дней,
           для администратора — по разрешению. Разблокировка не отменяет текущий финансовый lock.</p>
@@ -105,6 +108,7 @@ export function ClosingMaintenance({date,access,report,onChanged}:{
             }}>Запросить разблокировку</Button>
           </div>}
         </GuardedPost>
+        </div>}
       </section>}
     {admin && access.accessStatus==='TEMPORARILY_UNLOCKED' &&
       <GuardedPost<{id:string}> kind="daily-relock" scope={date}
