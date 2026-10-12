@@ -21,7 +21,7 @@ export function OpeningBalancesPage(){
  const snapshot=accounts.data?.find(x=>x.code===account);
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-5">
-  <PageHeader title="Настройка финансовых счетов" description="Только администратор: начальный остаток или документированная корректировка текущего баланса."/>
+  <PageHeader title="Начальные остатки" description="Только администратор: начальный остаток или документированная корректировка текущего баланса."/>
   <FinanceTabs/>
   {accounts.isError&&<ErrorState error={accounts.error} onRetry={()=>void accounts.refetch()}/>}
   {!snapshot?.initialized&&<GuardedPost<OpeningInput> key={account} kind="initialize" scope={account} allowed={allowed}
