@@ -173,7 +173,6 @@ public class EmployeeDailyClosingService {
                    s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
             FROM sales s
             LEFT JOIN customers c ON c.id=s.customer_id
-            JOIN payments p ON p.sale_id=s.id AND p.status='PAID'
             LEFT JOIN deliveries d ON d.sale_id=s.id
             LEFT JOIN LATERAL (
                 SELECT SUM(si.quantity) AS quantity,
@@ -185,6 +184,12 @@ public class EmployeeDailyClosingService {
                 JOIN products pr ON pr.id=v.product_id
                 WHERE si.sale_id=s.id
             ) detail ON TRUE
+            JOIN LATERAL (
+                SELECT SUM(payment.amount) AS amount, MAX(payment.paid_at) AS paid_at
+                FROM payments payment
+                WHERE payment.sale_id=s.id AND payment.status='PAID'
+                HAVING SUM(payment.amount) >= COALESCE(detail.total,0)
+            ) p ON TRUE
             WHERE s.status='FULFILLED'
               AND (s.fulfillment_type='SELF_PICKUP'
                    OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
