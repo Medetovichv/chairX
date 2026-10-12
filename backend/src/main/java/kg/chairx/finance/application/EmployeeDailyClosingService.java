@@ -361,11 +361,21 @@ public class EmployeeDailyClosingService {
                 .param("created",expense.createdAt().atOffset(ZoneOffset.UTC))
                 .update();
         }
+        java.util.Map<String,Object> auditDetails=new java.util.LinkedHashMap<>();
+        auditDetails.put("businessDate",date.toString());
+        auditDetails.put("expectedCash",amount.cash());
+        auditDetails.put("expectedBank",amount.bank());
+        auditDetails.put("expectedTotal",amount.cash().add(amount.bank()));
+        auditDetails.put("saleCount",sales.size());
+        if(combined) {
+            auditDetails.put("actualTotal",input.actualTotal());
+            if(totalNote!=null)auditDetails.put("totalNote",totalNote);
+        } else {
+            auditDetails.put("actualCash",input.actualCash());
+            auditDetails.put("actualBank",input.actualBank());
+        }
         audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
-                "PERSONAL_DAY_CLOSED",null,java.util.Map.of(
-                  "businessDate",date.toString(),"expectedCash",amount.cash(),
-                  "expectedBank",amount.bank(),"actualCash",input.actualCash(),
-                  "actualBank",input.actualBank(),"saleCount",sales.size()));
+                "PERSONAL_DAY_CLOSED",null,auditDetails);
         return result(actor,date);
     }
 }
