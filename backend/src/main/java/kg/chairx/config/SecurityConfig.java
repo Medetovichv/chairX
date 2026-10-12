@@ -342,7 +342,7 @@ public class SecurityConfig {
             boolean manager=actor!=null && users.findByUsername(actor.getName())
                 .filter(AppUserRepository.AppUserRecord::active)
                 .map(user->roles.isActiveSystemManagerOrAdministrator(user.id())
-                    && !roles.isActiveSystemEmployee(user.id()))
+                    && !roles.isActiveSystemAdministrator(user.id()))
                 .orElse(false);
             return new org.springframework.security.authorization.AuthorizationDecision(
                 hasFinance && hasClose && !manager);
