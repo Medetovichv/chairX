@@ -145,7 +145,7 @@ public class SecurityConfig {
                         .hasAuthority("SALES_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/with-delivery")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
-                                "hasAuthority('SALES_CREATE') and hasAuthority('SALES_DRAFT_MANAGE') and hasAuthority('DELIVERIES_MANAGE')"))
+                                "hasAuthority('SALES_CREATE') and hasAuthority('SALES_DRAFT_MANAGE') and (hasAuthority('DELIVERIES_CREATE') or hasAuthority('DELIVERIES_MANAGE'))"))
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/comments")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
                                 "hasAuthority('SALES_READ') and hasAuthority('SALES_COMMENT_CREATE')"))
@@ -159,7 +159,10 @@ public class SecurityConfig {
                         .hasAuthority("SALES_CANCEL")
                         .requestMatchers(HttpMethod.GET, "/api/deliveries", "/api/deliveries/*", "/api/deliveries/by-sale/*")
                         .hasAuthority("DELIVERIES_READ")
-                        .requestMatchers(HttpMethod.POST, "/api/deliveries", "/api/deliveries/*/dispatch", "/api/deliveries/*/deliver", "/api/deliveries/*/fail", "/api/deliveries/*/return-to-warehouse")
+                        .requestMatchers(HttpMethod.POST, "/api/deliveries")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('DELIVERIES_CREATE') or hasAuthority('DELIVERIES_MANAGE')"))
+                        .requestMatchers(HttpMethod.POST, "/api/deliveries/*/dispatch", "/api/deliveries/*/deliver", "/api/deliveries/*/fail", "/api/deliveries/*/return-to-warehouse")
                         .hasAuthority("DELIVERIES_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel")
                         .hasAuthority("SALES_CANCEL")
