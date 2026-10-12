@@ -205,7 +205,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const deliveryMissing=relatedDelivery.isError&&relatedDelivery.error instanceof ApiClientError&&
     relatedDelivery.error.status===404;
   async function createInlineDelivery(payload:CreateDeliveryInput){
-    if(deliverySubmitting.current||!user?.id||!hasPermission('DELIVERIES_MANAGE')||
+    if(deliverySubmitting.current||!user?.id||!(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))||
        !hasPermission('DELIVERIES_READ'))return;
     // Delivery POST has no idempotency key. Persist before sending and never
     // blindly replay a request whose result is unknown.
@@ -377,7 +377,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           </div>:
           deliveryMissing?<div className="space-y-2">
             <p>Доставка ещё не оформлена.</p>
-            {isConfirmed&&hasPermission('DELIVERIES_MANAGE')&&canReadDelivery&&
+            {isConfirmed&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&canReadDelivery&&
               <div className="space-y-3">
                 <Button type="button" variant="outline" onClick={()=>setEditingDelivery(v=>!v)}>
                   {editingDelivery?'Скрыть оформление':'Указать адрес и оформить доставку здесь'}
