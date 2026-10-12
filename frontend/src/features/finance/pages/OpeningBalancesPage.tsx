@@ -67,7 +67,7 @@ export function OpeningBalancesPage(){
    <p className="text-sm text-slate-600">Не переписывает историю платежей: разница будет отражена отдельным движением и записью аудита. Закрытый финансовый день менять нельзя.</p>
    <label className="block space-y-1 text-sm font-semibold">Счёт
     <select aria-label="Счёт корректировки" className="min-h-11 w-full rounded-xl border p-2" value={account}
-      onChange={e=>{setAccount(e.target.value as FinanceAccount);setTarget(\x27\x27);setReason(\x27\x27);}}>
+      onChange={e=>{setAccount(e.target.value as FinanceAccount);setTarget('');setReason('');}}>
      <option value="CASH">Наличные</option><option value="BANK">Банк</option>
     </select></label>
    <p className="text-sm">Текущий остаток: <strong>{som(snapshot.balance)}</strong></p>
@@ -78,14 +78,14 @@ export function OpeningBalancesPage(){
      meta={x=>({account:x.account,target:x.targetBalance})}
      post={financeApi.adjustBalance}
      onDone={async()=>{
-      setTarget(\x27\x27);setReason(\x27\x27);
+      setTarget('');setReason('');
       await Promise.all([client.invalidateQueries({queryKey:financeKeys.accounts}),client.invalidateQueries({queryKey:financeKeys.flow})]);
      }}>
     {({start,locked})=><form className="space-y-3" aria-label="Изменить текущий остаток"
       onSubmit={e=>{e.preventDefault();if(!nonnegativeSom(target)||reason.trim().length<5||reason.trim().length>500){
-       setAdjustmentError(\x27Укажите сумму в целых сомах и причину не короче 5 символов.\x27);return;
-      }setAdjustmentError(\x27\x27);start({account,targetBalance:target.trim(),reason:reason.trim(),idempotencyKey:crypto.randomUUID()},
-       \x27Счёт \x27+account+\x27: изменить текущий остаток с \x27+som(snapshot.balance)+\x27 на \x27+som(target)+\x27. Причина: \x27+reason.trim());}}>
+       setAdjustmentError('Укажите сумму в целых сомах и причину не короче 5 символов.');return;
+      }setAdjustmentError('');start({account,targetBalance:target.trim(),reason:reason.trim(),idempotencyKey:crypto.randomUUID()},
+       'Счёт '+account+': изменить текущий остаток с '+som(snapshot.balance)+' на '+som(target)+'. Причина: '+reason.trim());}}>
       <label className="block space-y-1 text-sm font-semibold">Новый остаток, сом
        <Input aria-label="Новый остаток счёта" inputMode="numeric" maxLength={17} value={target}
         disabled={locked} onChange={e=>setTarget(e.target.value)}/></label>
