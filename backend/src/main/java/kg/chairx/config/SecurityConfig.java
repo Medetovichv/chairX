@@ -143,6 +143,9 @@ public class SecurityConfig {
                         .hasAuthority("SALES_CREATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/drafts")
                         .hasAuthority("SALES_CREATE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/with-delivery")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('SALES_CREATE') and hasAuthority('SALES_DRAFT_MANAGE') and hasAuthority('DELIVERIES_MANAGE')"))
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/comments")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
                                 "hasAuthority('SALES_READ') and hasAuthority('SALES_COMMENT_CREATE')"))
