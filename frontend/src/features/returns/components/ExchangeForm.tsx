@@ -5,7 +5,7 @@ import { returnsApi,returnKeys } from '../api';
 import { SaleItemsEditor,type SaleEditorRow } from '../../sales/components/SaleItemsEditor';
 import { Button } from '../../../shared/ui/button';
 import { ConfirmDialog } from '../../../shared/ui/confirm-dialog';
-import { Input } from '../../../shared/ui/input';
+import { Link } from 'react-router';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { validateExchange,uuid,positive } from '../validation';
@@ -46,19 +46,14 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
   finally{creating.current=false;}
  }
  return <form aria-label="Создать обмен" className="space-y-4 rounded-xl border bg-white p-4" onSubmit={e=>void submit(e)}>
-  <label className="block space-y-1 text-sm font-semibold">UUID физического возврата *
-   <Input aria-label="UUID возврата для обмена" value={returnId} disabled={disabled}
-    onChange={e=>setReturnId(e.target.value.trim())}/>
-  </label>
+  {!uuid(returnId)&&<div role="alert" className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><p className="font-semibold">Сначала выберите оформленный возврат.</p><p>Откройте список возвратов и нажмите «Оформить обмен» в нужной карточке. Вводить технический номер не нужно.</p><Button type="button" variant="outline" asChild><Link to="/returns">Перейти к возвратам</Link></Button></div>}
   {original.isPending&&hasPermission('RETURNS_READ')&&uuid(returnId)&&<LoadingState label="Загружаем исходный возврат…"/>}
   {original.isError&&<ErrorState error={original.error} onRetry={()=>void original.refetch()}/>}
   {original.data&&<div className="rounded-xl bg-slate-50 p-3 text-sm">
-   <p>Возврат {original.data.id} · Позиции: {original.data.items.length}</p>
+   <p className="font-semibold">Возврат выбран · Позиций: {original.data.items.length}</p>
    <p>Причина: {original.data.reason}</p>
   </div>}
-  {!hasPermission('RETURNS_READ')&&<p className="text-sm text-amber-800">
-   Нет RETURNS_READ: введите известный UUID возврата; backend проверит, что он существует и не использован.
-  </p>}
+  {!hasPermission('RETURNS_READ')&&<p className="text-sm text-amber-800">Для оформления обмена нужен доступ к исходному возврату.</p>}
   <label className="block space-y-1 text-sm font-semibold">Тип выдачи нового товара
    <select aria-label="Тип выдачи обмена" className="min-h-11 w-full rounded-xl border p-2"
     value={kind} disabled={disabled} onChange={e=>setKind(e.target.value as FulfillmentType)}>
@@ -72,12 +67,10 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
    Новую продажу создаёт ExchangeService. Доплата или возврат денег не проводятся в F09.
   </p>
   {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
-  <Button type="submit" disabled={disabled||candidate!==null}>Проверить и создать обмен</Button>
+  <Button type="submit" disabled={disabled||candidate!==null||!uuid(returnId)||!hasPermission("RETURNS_READ")||!original.isSuccess}>Проверить и создать обмен</Button>
   <ConfirmDialog open={candidate!==null} onOpenChange={open=>{if(!open)setCandidate(null);}}
     title="Подтвердить создание обмена?"
-    description={candidate?'Возврат '+candidate.returnId+
-      '. Новых позиций: '+candidate.items.length+
-      '. Тип выдачи: '+candidate.fulfillmentType+
+    description={candidate?'Новых позиций: '+candidate.items.length+
       '. Backend создаст новую продажу и складской резерв. Денежную разницу рассчитает сервер.':
       ''}
     confirmLabel="Создать обмен" onConfirm={()=>void confirm()}/>
