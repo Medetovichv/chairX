@@ -144,8 +144,6 @@ public class EmployeeDailyClosingService {
         var expenses=ownExpenses(username,day);
         BigDecimal cash=gross.cash().subtract(expenseTotal(expenses,"CASH"));
         BigDecimal bank=gross.bank().subtract(expenseTotal(expenses,"BANK"));
-        if(cash.signum()<0||bank.signum()<0)
-            throw new FinanceValidationException("Личные расходы превышают личные поступления. Требуется сверка менеджером.");
         return new Collections(cash,bank);
     }
 
@@ -164,14 +162,13 @@ public class EmployeeDailyClosingService {
                        SUM(si.quantity * si.unit_sale_price) AS total
                 FROM sale_items si WHERE si.sale_id=s.id
             ) detail ON TRUE
-            WHERE s.created_by=:actor
-              AND ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
+            WHERE ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
                     AND s.fulfilled_at>=:fromDate AND s.fulfilled_at<:untilDate)
                OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
                     AND d.status='DELIVERED'
                     AND d.delivered_at>=:fromDate AND d.delivered_at<:untilDate))
             ORDER BY completed_at,s.id
-            """).param("actor",username).param("fromDate",from).param("untilDate",until)
+            """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
                     rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
@@ -264,6 +261,8 @@ public class EmployeeDailyClosingService {
         if(existing)throw new FinanceConflictException("Личный день уже закрыт");
 
         Collections amount=netCollections(actor.username(),date);
+        if(amount.cash().signum()<0 || amount.bank().signum()<0)
+            throw new FinanceConflictException("Расходы превышают личные поступления. Обратитесь к менеджеру для сверки.");
         if(input.expectedCash().compareTo(amount.cash())!=0
                 || input.expectedBank().compareTo(amount.bank())!=0)
             throw new FinanceConflictException("Суммы изменились: обновите расчёт перед закрытием");
