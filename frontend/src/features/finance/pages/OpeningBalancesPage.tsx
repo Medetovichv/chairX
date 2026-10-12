@@ -12,7 +12,7 @@ import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { ErrorState } from '../../../shared/components/ErrorState';
 export function OpeningBalancesPage(){
- const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_INITIALIZE'),read=hasPermission('FINANCE_READ');
+ const {hasPermission,user}=useAuth(),allowed=user?.roles.includes('ADMIN')===true&&hasPermission('FINANCE_INITIALIZE'),read=hasPermission('FINANCE_READ');
  const client=useQueryClient();
  const [account,setAccount]=useState<FinanceAccount>('CASH'),[amount,setAmount]=useState('0');
  const [agreed,setAgreed]=useState(false),[error,setError]=useState('');
