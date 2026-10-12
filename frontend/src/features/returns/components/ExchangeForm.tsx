@@ -15,7 +15,7 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
  initialReturnId:string;onSubmit:(input:Omit<ExchangeInput,'idempotencyKey'>)=>Promise<void>;disabled?:boolean;
 }){
  const {hasPermission}=useAuth();
- const [returnId,setReturnId]=useState(initialReturnId);
+ const returnId=initialReturnId;
  const [kind,setKind]=useState<FulfillmentType>('SELF_PICKUP');
  const [rows,setRows]=useState<SaleEditorRow[]>([]);
  const [error,setError]=useState('');
