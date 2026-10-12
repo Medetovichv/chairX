@@ -42,7 +42,19 @@ export interface CreateSaleCommentInput {
 export interface SaleItemInput {
   productVariantId: string; warehouseId: string; quantity: number; unitSalePrice: string;
 }
+export interface InlineDeliveryDetails {
+  recipientName: string | null;
+  recipientPhone: string;
+  address: string;
+  cityRegion: string | null;
+  deliveryCost: string;
+  carrierName: string | null;
+  trackingNumber: string | null;
+  comment: string | null;
+  plannedDeliveryDate: string | null;
+}
 export interface DraftInput {
+  deliveryDetails?: InlineDeliveryDetails;
   customerId: string | null;
   fulfillmentType: FulfillmentType | null;
   items: SaleItemInput[];
