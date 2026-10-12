@@ -225,6 +225,8 @@ public class SecurityConfig {
                         .hasAuthority("FINANCE_TRANSFER")
                         .requestMatchers(HttpMethod.POST, "/api/finance/opening-balances")
                         .access(systemAdmin(users, roles, "FINANCE_INITIALIZE"))
+                        .requestMatchers(HttpMethod.POST, "/api/finance/accounts/adjustments")
+                        .access(systemAdmin(users, roles, "FINANCE_INITIALIZE"))
                         .requestMatchers(HttpMethod.GET, "/api/admin/users", "/api/admin/users/*")
                         .access(systemAdmin(users, roles, "USERS_READ"))
                         .requestMatchers(HttpMethod.POST, "/api/admin/users")
