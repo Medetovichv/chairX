@@ -6,7 +6,7 @@ const enc = (id: string) => encodeURIComponent(id);
 export const salesKeys = {
   lists: ['sales', 'list'] as const,
   list: (f: SaleFilters) =>
-    ['sales', 'list', f.status, f.from, f.to, f.number, f.page, SALES_PAGE_SIZE] as const,
+    ['sales', 'list', f.status, f.from, f.to, f.number, f.page, f.operational??false, SALES_PAGE_SIZE] as const,
   kanban: ['sales', 'kanban'] as const,
   kanbanColumn: (status: SaleStatus) => ['sales', 'kanban', status, SALES_PAGE_SIZE] as const,
   detail: (id: string) => ['sales', 'detail', id] as const,
@@ -19,6 +19,7 @@ export const salesKeys = {
 export const salesApi = {
   list: (f: SaleFilters): Promise<SalePageResponse> => {
     const search = new URLSearchParams({ page: String(f.page), size: String(SALES_PAGE_SIZE) });
+    if(f.operational) search.set('operational','true');
     if (f.status) search.set('status', f.status);
     if (f.from) search.set('from', f.from);
     if (f.to) search.set('to', f.to);
