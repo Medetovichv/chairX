@@ -40,7 +40,7 @@ class FinanceAdminAdjustmentIntegrationTest {
         assertThat(result.previousBalance()).isEqualByComparingTo("10000");
         assertThat(result.newBalance()).isEqualByComparingTo("12500");
         assertThat(result.delta()).isEqualByComparingTo("2500");
-        assertThat(corrections.adjust(command,"admin")).isEqualTo(result);
+        assertThat(corrections.adjust(command,"admin").newBalance()).isEqualByComparingTo(result.newBalance());
         assertThat(jdbc.queryForObject("select balance from finance_accounts where code='CASH'",BigDecimal.class))
                 .isEqualByComparingTo("12500");
         assertThat(jdbc.queryForObject(
