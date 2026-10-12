@@ -19,7 +19,7 @@ import {ForbiddenPage} from '../../pages/ForbiddenPage';
 const money=(value:string)=>som(value);
 function centsFree(value:unknown):bigint {
  const raw=String(value??0);
- if(!/^\\d+(?:\\.0+)?$/.test(raw))throw new Error('Invalid whole som');
+ if(!/^\d+(?:\.0+)?$/.test(raw))throw new Error('Invalid whole som');
  return BigInt(raw.split('.')[0]!);
 }
 function expectedTotal(data:PersonalClosing):string {
