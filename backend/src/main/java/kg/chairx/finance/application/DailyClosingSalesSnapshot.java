@@ -130,7 +130,6 @@ public final class DailyClosingSalesSnapshot {
                 FROM sales s
                 LEFT JOIN customers c ON c.id=s.customer_id
                 LEFT JOIN deliveries dl ON dl.sale_id=s.id
-                JOIN payments pay ON pay.sale_id=s.id AND pay.status='PAID'
                 LEFT JOIN LATERAL (
                     SELECT COALESCE(SUM(si.quantity),0) AS quantity,
                            COALESCE(SUM(si.quantity*si.unit_sale_price),0) AS total,
@@ -141,6 +140,12 @@ public final class DailyClosingSalesSnapshot {
                     JOIN products p ON p.id=v.product_id
                     WHERE si.sale_id=s.id
                 ) detail ON TRUE
+                JOIN LATERAL (
+                    SELECT SUM(p.amount) AS amount, MAX(p.paid_at) AS paid_at
+                    FROM payments p
+                    WHERE p.sale_id=s.id AND p.status='PAID'
+                    HAVING SUM(p.amount) >= COALESCE(detail.total,0)
+                ) pay ON TRUE
                 WHERE s.status='FULFILLED'
                   AND (s.fulfillment_type='SELF_PICKUP'
                     OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
