@@ -201,6 +201,19 @@ class EmployeeDailyClosingIsolationTest {
             .andExpect(jsonPath("$.orders").value(0));
     }
 
+
+    @Test void employeeCannotReadReportsOlderThanThirtyCalendarDays() throws Exception {
+        String actor=user(EMPLOYEE_ROLE);
+        LocalDate oldest=day.minusDays(29);
+        LocalDate tooOld=day.minusDays(30);
+        mvc.perform(get("/api/finance/my-closings/"+oldest)
+                .with(httpBasic(actor,PASSWORD)))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/finance/my-closings/"+tooOld)
+                .with(httpBasic(actor,PASSWORD)))
+            .andExpect(status().isForbidden());
+    }
+
     @Test void invalidWriteFailsWithoutPersistingAndCatalogIsDenied() throws Exception {
         String actor=user(EMPLOYEE_ROLE);collection(actor,"CASH",100);
         String url="/api/finance/my-closings/"+day;
