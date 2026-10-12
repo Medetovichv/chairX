@@ -46,14 +46,14 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       items.push({productVariantId:row.productVariantId,warehouseId:row.warehouseId,
         quantity:Number(row.quantity),unitSalePrice:row.unitSalePrice.trim()});
     }
-    if(withDelivery&&type&&type!=='SELF_PICKUP'){
+    if(withDelivery&&type){
       if(!recipientPhone.trim()||!deliveryAddress.trim()||!/^\d+$/.test(deliveryCost.trim())||
          !items.length){
         setError('Для немедленного оформления доставки укажите телефон, адрес, стоимость в целых сомах и хотя бы одно кресло.');return;
       }
     }
     const data:DraftInput={customerId,fulfillmentType:type,items,comment:comment.trim()||null,
-      ...(withDelivery&&type&&type!=='SELF_PICKUP'?{deliveryDetails:{
+      ...(withDelivery&&type?{deliveryDetails:{
         recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
         address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
         deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
@@ -166,7 +166,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         </p>}
         {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
         <Button className="w-full" type="submit" disabled={saving||blocked}>
-          {saving?'Сохраняем…':withDelivery&&type!=='SELF_PICKUP'?'Подтвердить продажу и доставку':'Сохранить черновик'}
+          {saving?'Сохраняем…':withDelivery?'Подтвердить продажу и доставку':'Сохранить черновик'}
         </Button>
         {onCancel&&<Button className="w-full" type="button" variant="outline" disabled={saving||blocked}
           onClick={onCancel}>Отмена</Button>}
