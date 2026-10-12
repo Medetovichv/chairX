@@ -35,6 +35,11 @@ export const salesApi = {
   addComment: (id: string, input: CreateSaleCommentInput) =>
     apiClient.post<SaleComment>('/api/sales/' + enc(id) + '/comments', input),
   createDraft: (input: CreateDraftInput) => apiClient.post<SaleResponse>('/api/sales/drafts', input),
+  createWithDelivery: (input: CreateDraftInput) => {
+    if (!input.deliveryDetails) throw new Error('Укажите сведения о доставке');
+    const {deliveryDetails,...sale}=input;
+    return apiClient.post<SaleResponse>('/api/sales/with-delivery',{sale,delivery:deliveryDetails});
+  },
   updateDraft: (id: string, input: DraftInput) =>
     apiClient.put<SaleResponse>('/api/sales/' + enc(id) + '/draft', input),
   confirm: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm'),
