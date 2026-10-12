@@ -91,8 +91,8 @@ describe('Employee daily closing isolation',()=>{
   }));
   renderPage();
   const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт CASH'}),{target:{value:'300'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт BANK'}),{target:{value:'0'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
+
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
     .getByRole('button',{name:'Сохранить моё закрытие'}));
