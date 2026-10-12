@@ -226,7 +226,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/finance/closings/*")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_WRITE')"))
                          .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
-                        .access(systemAdmin(users, roles, "DAILY_CLOSING_WRITE"))
+                        .access(companyClosingWriter(users, roles))
                         .requestMatchers(HttpMethod.GET, "/api/finance/accounts", "/api/finance/cash-flow")
                         .hasAuthority("FINANCE_READ")
                         .requestMatchers(HttpMethod.POST, "/api/finance/transfers")
@@ -325,6 +325,27 @@ public class SecurityConfig {
                         .map(user->roles.isActiveSystemEmployee(user.id()))
                         .orElse(false);
             return new org.springframework.security.authorization.AuthorizationDecision(allowed);
+        };
+    }
+
+    private static org.springframework.security.authorization.AuthorizationManager<
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext> companyClosingWriter(
+            AppUserRepository users, SecurityRoleRepository roles) {
+        return (authentication, context) -> {
+            var actor=authentication.get();
+            boolean hasFinance=actor!=null && actor.isAuthenticated()
+                && actor.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("FINANCE_READ"));
+            boolean hasClose=actor!=null && actor.getAuthorities().stream().anyMatch(
+                a->a.getAuthority().equals("DAILY_CLOSING_WRITE")||a.getAuthority().equals("FINANCE_CLOSE"));
+            // Preserve existing finance close contracts; deny active persisted manager
+            // accounts for which company closing must be read-only.
+            boolean manager=actor!=null && users.findByUsername(actor.getName())
+                .filter(AppUserRepository.AppUserRecord::active)
+                .map(user->roles.isActiveSystemManagerOrAdministrator(user.id())
+                    && !roles.isActiveSystemEmployee(user.id()))
+                .orElse(false);
+            return new org.springframework.security.authorization.AuthorizationDecision(
+                hasFinance && hasClose && !manager);
         };
     }
 
