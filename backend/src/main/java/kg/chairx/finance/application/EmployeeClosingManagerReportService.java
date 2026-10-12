@@ -22,14 +22,14 @@ public class EmployeeClosingManagerReportService {
 
     public record EmployeeClose(UUID employeeId,String username,String displayName,
         boolean closed,BigDecimal expectedCash,BigDecimal expectedBank,
-        BigDecimal actualCash,BigDecimal actualBank) {}
+        BigDecimal actualCash,BigDecimal actualBank,BigDecimal actualTotal,String totalNote) {}
     public record ExpenseLine(UUID id,String createdBy,String category,
         String paymentMethod,BigDecimal amount,String comment) {}
     public record ManagerReport(LocalDate businessDate,List<EmployeeClose> employees,
         List<ExpenseLine> expenses,BigDecimal expenseTotal,BigDecimal cashExpenses,
         BigDecimal bankExpenses,BigDecimal totalExpectedCash,BigDecimal totalExpectedBank,
         BigDecimal totalActualCash,BigDecimal totalActualBank,
-        int closedEmployees,int totalEmployees) {}
+        int closedEmployees,int totalEmployees,BigDecimal expectedTotal,BigDecimal actualTotal) {}
 
     @Transactional(readOnly=true)
     public ManagerReport report(LocalDate date){
@@ -37,7 +37,8 @@ public class EmployeeClosingManagerReportService {
             throw new FinanceValidationException("Дата отчёта недоступна");
         var employees=jdbc.sql("""
             SELECT u.id,u.username,u.display_name,c.id AS closing_id,
-                   c.expected_cash,c.expected_bank,c.actual_cash,c.actual_bank
+                   c.expected_cash,c.expected_bank,c.actual_cash,c.actual_bank,
+                   c.actual_total,c.total_note
             FROM app_users u
             LEFT JOIN employee_daily_closings c
               ON c.employee_id=u.id AND c.business_date=:date
@@ -47,7 +48,8 @@ public class EmployeeClosingManagerReportService {
                 rs.getObject("id",UUID.class),rs.getString("username"),
                 rs.getString("display_name"),rs.getObject("closing_id")!=null,
                 rs.getBigDecimal("expected_cash"),rs.getBigDecimal("expected_bank"),
-                rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"))).list();
+                rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"),
+                rs.getBigDecimal("actual_total"),rs.getString("total_note"))).list();
         var expenses=jdbc.sql("""
             SELECT id,created_by,category,payment_method,amount,comment
             FROM expenses WHERE expense_date=:date ORDER BY created_by,created_at,id
@@ -69,8 +71,13 @@ public class EmployeeClosingManagerReportService {
             .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal actualBank=employees.stream().map(EmployeeClose::actualBank)
             .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal combinedActual=employees.stream().filter(EmployeeClose::closed)
+            .map(e->e.actualTotal()!=null?e.actualTotal():
+                e.actualCash().add(e.actualBank()))
+            .reduce(BigDecimal.ZERO,BigDecimal::add);
         return new ManagerReport(date,employees,expenses,total,cash,bank,
             expectedCash,expectedBank,actualCash,actualBank,
-            (int)employees.stream().filter(EmployeeClose::closed).count(),employees.size());
+            (int)employees.stream().filter(EmployeeClose::closed).count(),employees.size(),
+            expectedCash.add(expectedBank),combinedActual);
     }
 }
