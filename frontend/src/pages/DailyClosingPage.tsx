@@ -10,6 +10,7 @@ import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-clo
 import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
 import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
+import { ManagerEmployeeClosingSummary } from '../features/daily-closing/ManagerEmployeeClosingSummary';
 import { PageHeader } from '../shared/components/PageHeader';
 import { LoadingState } from '../shared/components/LoadingState';
 import { ErrorState } from '../shared/components/ErrorState';
@@ -104,6 +105,7 @@ function CompanyDailyClosingPage() {
             variant={day === date ? 'default' : 'outline'} onClick={() => chooseDate(day)}>{day}</Button>)}
         </div>}
     </div>
+    {valid && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && (access.isPending ? <LoadingState label="Проверяем доступность отчёта…"/> :
       access.isError ? <ErrorState error={access.error} onRetry={() => void access.refetch()}/> :
       <section aria-label="Статус закрытия" className="rounded-xl border bg-white p-4 text-sm">
