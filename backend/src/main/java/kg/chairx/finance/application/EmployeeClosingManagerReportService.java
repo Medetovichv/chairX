@@ -27,7 +27,9 @@ public class EmployeeClosingManagerReportService {
         String paymentMethod,BigDecimal amount,String comment) {}
     public record ManagerReport(LocalDate businessDate,List<EmployeeClose> employees,
         List<ExpenseLine> expenses,BigDecimal expenseTotal,BigDecimal cashExpenses,
-        BigDecimal bankExpenses,int closedEmployees,int totalEmployees) {}
+        BigDecimal bankExpenses,BigDecimal totalExpectedCash,BigDecimal totalExpectedBank,
+        BigDecimal totalActualCash,BigDecimal totalActualBank,
+        int closedEmployees,int totalEmployees) {}
 
     @Transactional(readOnly=true)
     public ManagerReport report(LocalDate date){
