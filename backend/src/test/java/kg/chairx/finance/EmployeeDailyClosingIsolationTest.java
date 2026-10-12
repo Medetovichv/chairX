@@ -43,6 +43,7 @@ class EmployeeDailyClosingIsolationTest {
     final List<UUID> users=new ArrayList<>();
     final List<UUID> sales=new ArrayList<>();
     final List<UUID> movements=new ArrayList<>();
+    final List<UUID> expenses=new ArrayList<>();
     final LocalDate day=LocalDate.now(ZoneId.of("Asia/Bishkek"));
 
     @BeforeEach void checkTestDb(){
@@ -51,10 +52,12 @@ class EmployeeDailyClosingIsolationTest {
     @AfterEach void cleanup(){
         for(var id:users){
             jdbc.update("DELETE FROM employee_daily_closing_sales WHERE closing_id IN (SELECT id FROM employee_daily_closings WHERE employee_id=?)",id);
+            jdbc.update("DELETE FROM employee_daily_closing_expenses WHERE closing_id IN (SELECT id FROM employee_daily_closings WHERE employee_id=?)",id);
             jdbc.update("DELETE FROM audit_entries WHERE entity_type='EMPLOYEE_DAILY_CLOSING' AND entity_id IN (SELECT id FROM employee_daily_closings WHERE employee_id=?)",id);
             jdbc.update("DELETE FROM employee_daily_closings WHERE employee_id=?",id);
         }
         for(var id:movements)jdbc.update("DELETE FROM finance_movements WHERE id=?",id);
+        for(var id:expenses)jdbc.update("DELETE FROM expenses WHERE id=?",id);
         for(var id:sales)jdbc.update("DELETE FROM sales WHERE id=?",id);
         for(var id:users){
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",id);
@@ -87,13 +90,20 @@ class EmployeeDailyClosingIsolationTest {
             VALUES (?,?,?,'SALE_PAYMENT','PAYMENT',?,?,?,'POSTING_DATE')
             """,id,account,money,UUID.randomUUID(),actor,day);
     }
+    void expense(String actor,String method,int amount) {
+        UUID id=UUID.randomUUID();expenses.add(id);
+        jdbc.update("""
+          INSERT INTO expenses(id,category,amount,payment_method,expense_date,comment,created_by,created_at)
+          VALUES (?,'OTHER',?,?,?,'Personal fixture',?,clock_timestamp())
+          """,id,amount,method,day,actor);
+    }
     String body(String expectedCash,String expectedBank,String actualCash,String actualBank){
         return "{\"expectedCash\":\""+expectedCash+"\",\"expectedBank\":\""+expectedBank+
             "\",\"actualCash\":\""+actualCash+"\",\"actualBank\":\""+actualBank+
             "\",\"cashNote\":null,\"bankNote\":null}";
     }
 
-    @Test void employeeOnlySeesOwnSalesAndCollectionsAndCannotAccessGlobalClosing() throws Exception {
+    @Test void employeeSeesAllSalesButOnlyOwnCollectionsAndNoGlobalFinance() throws Exception {
         String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE),manager=user(MANAGER_ROLE);
         fulfilled(alice);fulfilled(bob);
         collection(alice,"CASH",300);collection(bob,"BANK",700);
@@ -102,12 +112,12 @@ class EmployeeDailyClosingIsolationTest {
             .andExpect(jsonPath("$.closed").value(false))
             .andExpect(jsonPath("$.expectedCash").value(300))
             .andExpect(jsonPath("$.expectedBank").value(0))
-            .andExpect(jsonPath("$.orders").value(1))
-            .andExpect(jsonPath("$.sales.length()").value(1));
+            .andExpect(jsonPath("$.orders").value(2))
+            .andExpect(jsonPath("$.sales.length()").value(2));
         mvc.perform(get(url).with(httpBasic(bob,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedCash").value(0))
             .andExpect(jsonPath("$.expectedBank").value(700))
-            .andExpect(jsonPath("$.orders").value(1));
+            .andExpect(jsonPath("$.orders").value(2));
         for(String path:List.of("/api/finance/closings","/api/finance/closings/"+day,
              "/api/finance/closings/"+day+"/preview","/api/finance/closings/"+day+"/sales",
              "/api/finance/closings/"+day+"/access")){
@@ -132,7 +142,7 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(post(url).with(httpBasic(a,PASSWORD)).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body("500","0","500","0")))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.closed").value(true))
-            .andExpect(jsonPath("$.expectedCash").value(500)).andExpect(jsonPath("$.orders").value(1));
+            .andExpect(jsonPath("$.expectedCash").value(500)).andExpect(jsonPath("$.orders").value(2));
         mvc.perform(post(url).with(httpBasic(a,PASSWORD)).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content(body("500","0","500","0")))
             .andExpect(status().isConflict());
@@ -151,7 +161,7 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(get(url).with(httpBasic(a,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedBank").value(0))
             .andExpect(jsonPath("$.collectionsChangedAfterClose").value(true))
-            .andExpect(jsonPath("$.orders").value(1));
+            .andExpect(jsonPath("$.orders").value(2));
     }
 
     @Test void invalidWriteFailsWithoutPersistingAndCatalogIsDenied() throws Exception {
@@ -168,4 +178,46 @@ class EmployeeDailyClosingIsolationTest {
         assertThat(jdbc.queryForObject(
             "SELECT COUNT(*) FROM employee_daily_closings WHERE employee_id=?",Integer.class,users.get(0))).isZero();
     }
+    @Test void expensesAreCreatorScopedAndFrozenAtPersonalClosing() throws Exception {
+        String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE),manager=user(MANAGER_ROLE);
+        collection(alice,"CASH",1500);
+        collection(bob,"BANK",2000);
+        expense(alice,"CASH",300);
+        expense(bob,"BANK",400);
+        expense(manager,"CASH",100);
+        String personal="/api/finance/my-closings/"+day;
+        mvc.perform(get(personal).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expectedCash").value(1200))
+            .andExpect(jsonPath("$.expenseCash").value(300))
+            .andExpect(jsonPath("$.expenses.length()").value(1))
+            .andExpect(jsonPath("$.expenses[0].paymentMethod").value("CASH"))
+            .andExpect(jsonPath("$.expenses[0].amount").value(300));
+        mvc.perform(get(personal).with(httpBasic(bob,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expectedBank").value(1600))
+            .andExpect(jsonPath("$.expenses.length()").value(1));
+        mvc.perform(get("/api/finance/employee-closings/"+day).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/finance/employee-closings/"+day).with(httpBasic(manager,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expenses.length()").value(3))
+            .andExpect(jsonPath("$.expenseTotal").value(800));
+        mvc.perform(post(personal).with(httpBasic(alice,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(body("1200","0","1200","0")))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.expenses.length()").value(1));
+        mvc.perform(get("/api/finance/employee-closings/"+day).with(httpBasic(manager,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closedEmployees").value(1))
+            .andExpect(jsonPath("$.totalExpectedCash").value(1200))
+            .andExpect(jsonPath("$.totalActualCash").value(1200));
+        expense(alice,"CASH",50);
+        mvc.perform(get(personal).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expenseCash").value(300))
+            .andExpect(jsonPath("$.expenses.length()").value(1))
+            .andExpect(jsonPath("$.collectionsChangedAfterClose").value(true));
+    }
+
 }

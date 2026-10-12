@@ -22,7 +22,7 @@ const personal=(closed=false)=>({
  actualCash:closed?'300':null,actualBank:closed?'0':null,
  cashNote:null,bankNote:null,orders:1,chairs:2,salesValue:'12000',
  sales:[{saleId:'one',saleNumber:'CX-1',quantity:2,total:'12000',
-  completedAt:'2026-10-11T03:00:00Z'}],collectionsChangedAfterClose:false,
+  completedAt:'2026-10-11T03:00:00Z'}],expenses:[],expenseCash:'0',expenseBank:'0',collectionsChangedAfterClose:false,
 });
 const renderPage=()=>render(<QueryClientProvider client={createQueryClient()}>
  <MemoryRouter><DailyClosingPage/></MemoryRouter>
@@ -44,7 +44,7 @@ describe('Employee daily closing isolation',()=>{
   }));
   renderPage();
   expect(await screen.findByText('Моё закрытие дня')).toBeInTheDocument();
-  expect(await screen.findByText(/Зарегистрировано мной/)).toBeInTheDocument();
+  expect(await screen.findByText(/К сдаче наличными/)).toBeInTheDocument();
   expect(screen.getByText(/CX-1/)).toBeInTheDocument();
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
  });

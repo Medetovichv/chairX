@@ -198,6 +198,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/defects/*/write-off")
                         .hasAuthority("DEFECTS_WRITE_OFF")
                         // Personal operational close: per-authenticated employee, never shared CASH/BANK balances.
+                        .requestMatchers(HttpMethod.GET, "/api/finance/employee-closings/*")
+                        .access(systemManagerOrAdmin(users, roles))
                         .requestMatchers(HttpMethod.GET, "/api/finance/my-closings",
                                 "/api/finance/my-closings/*")
                         .hasAuthority("DAILY_CLOSING_READ")
@@ -287,6 +289,22 @@ public class SecurityConfig {
                     && users.findByUsername(actor.getName())
                             .filter(AppUserRepository.AppUserRecord::active)
                             .map(user -> roles.isActiveSystemAdministrator(user.id()))
+                            .orElse(false);
+            return new org.springframework.security.authorization.AuthorizationDecision(granted);
+        };
+    }
+
+    private static org.springframework.security.authorization.AuthorizationManager<
+            org.springframework.security.web.access.intercept.RequestAuthorizationContext> systemManagerOrAdmin(
+            AppUserRepository users, SecurityRoleRepository roles) {
+        return (authentication, context) -> {
+            var actor = authentication.get();
+            boolean granted = actor != null && actor.isAuthenticated()
+                    && actor.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("FINANCE_READ"))
+                    && actor.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("DAILY_CLOSING_READ"))
+                    && users.findByUsername(actor.getName())
+                            .filter(AppUserRepository.AppUserRecord::active)
+                            .map(user -> roles.isActiveSystemManagerOrAdministrator(user.id()))
                             .orElse(false);
             return new org.springframework.security.authorization.AuthorizationDecision(granted);
         };

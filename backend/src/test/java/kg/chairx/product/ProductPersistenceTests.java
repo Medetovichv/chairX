@@ -103,7 +103,8 @@ class ProductPersistenceTests {
                 "finance_daily_closing_sales_snapshots",
                 "finance_daily_closing_sales",
                         "employee_daily_closings",
-                        "employee_daily_closing_sales"
+                        "employee_daily_closing_sales",
+                        "employee_daily_closing_expenses"
         );
         // A second migration run must leave the existing schema alone.
         assertThat(flyway.migrate().migrationsExecuted).isZero();

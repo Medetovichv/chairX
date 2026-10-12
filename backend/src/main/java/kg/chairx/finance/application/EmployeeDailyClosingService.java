@@ -41,6 +41,8 @@ public class EmployeeDailyClosingService {
 
     public record SaleLine(UUID saleId, String saleNumber, long quantity,
                            BigDecimal total, Instant completedAt) {}
+    public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
+                              String paymentMethod,String comment,Instant createdAt) {}
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
                           BigDecimal actualCash, BigDecimal actualBank,
                           String cashNote, String bankNote) {}
@@ -49,6 +51,7 @@ public class EmployeeDailyClosingService {
                          BigDecimal actualCash, BigDecimal actualBank,
                          String cashNote, String bankNote, long orders, long chairs,
                          BigDecimal salesValue, List<SaleLine> sales,
+                         List<ExpenseLine> expenses, BigDecimal expenseCash,BigDecimal expenseBank,
                          boolean collectionsChangedAfterClose) {}
 
     private record Employee(UUID id, String username) {}
@@ -106,6 +109,44 @@ public class EmployeeDailyClosingService {
         return new Collections(cash,bank);
     }
 
+    private List<ExpenseLine> ownExpenses(String actor,LocalDate day) {
+        return jdbc.sql("""
+            SELECT id,category,amount,payment_method,comment,created_at FROM expenses
+            WHERE created_by=:actor AND expense_date=:day
+            ORDER BY created_at,id
+            """).param("actor",actor).param("day",day)
+            .query((rs,i)->new ExpenseLine(rs.getObject("id",UUID.class),
+                rs.getString("category"),rs.getBigDecimal("amount"),
+                rs.getString("payment_method"),rs.getString("comment"),
+                rs.getTimestamp("created_at").toInstant())).list();
+    }
+
+    private List<ExpenseLine> savedExpenses(UUID closingId) {
+        return jdbc.sql("""
+            SELECT expense_id,category,amount,payment_method,comment,created_at
+            FROM employee_daily_closing_expenses
+            WHERE closing_id=:id ORDER BY created_at,expense_id
+            """).param("id",closingId)
+            .query((rs,i)->new ExpenseLine(rs.getObject("expense_id",UUID.class),
+                rs.getString("category"),rs.getBigDecimal("amount"),
+                rs.getString("payment_method"),rs.getString("comment"),
+                rs.getTimestamp("created_at").toInstant())).list();
+    }
+
+    private static BigDecimal expenseTotal(List<ExpenseLine> rows,String method){
+        return rows.stream().filter(row->method.equals(row.paymentMethod()))
+            .map(ExpenseLine::amount).reduce(BigDecimal.ZERO,BigDecimal::add);
+    }
+
+    // An expense is attributable only to its creator, not another employee.
+    private Collections netCollections(String username,LocalDate day){
+        Collections gross=collections(username,day);
+        var expenses=ownExpenses(username,day);
+        BigDecimal cash=gross.cash().subtract(expenseTotal(expenses,"CASH"));
+        BigDecimal bank=gross.bank().subtract(expenseTotal(expenses,"BANK"));
+        return new Collections(cash,bank);
+    }
+
     private List<SaleLine> liveSales(String username, LocalDate date) {
         var from=date.atStartOfDay(DailyClosingAccessPolicy.BUSINESS_ZONE).toInstant().atOffset(ZoneOffset.UTC);
         var until=date.plusDays(1).atStartOfDay(DailyClosingAccessPolicy.BUSINESS_ZONE).toInstant().atOffset(ZoneOffset.UTC);
@@ -121,14 +162,13 @@ public class EmployeeDailyClosingService {
                        SUM(si.quantity * si.unit_sale_price) AS total
                 FROM sale_items si WHERE si.sale_id=s.id
             ) detail ON TRUE
-            WHERE s.created_by=:actor
-              AND ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
+            WHERE ((s.fulfillment_type='SELF_PICKUP' AND s.status='FULFILLED'
                     AND s.fulfilled_at>=:fromDate AND s.fulfilled_at<:untilDate)
                OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
                     AND d.status='DELIVERED'
                     AND d.delivered_at>=:fromDate AND d.delivered_at<:untilDate))
             ORDER BY completed_at,s.id
-            """).param("actor",username).param("fromDate",from).param("untilDate",until)
+            """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
                     rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
@@ -158,7 +198,8 @@ public class EmployeeDailyClosingService {
                     rs.getBigDecimal("actual_cash"),rs.getBigDecimal("actual_bank"),
                     rs.getString("cash_note"),rs.getString("bank_note")))
             .optional().orElse(null);
-        Collections now=collections(actor.username(),date);
+        Collections now=netCollections(actor.username(),date);
+        List<ExpenseLine> personalExpenses=saved==null?ownExpenses(actor.username(),date):savedExpenses(saved.id());
         List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
         boolean changed=saved!=null && (saved.cash().compareTo(now.cash())!=0
                 || saved.bank().compareTo(now.bank())!=0);
@@ -172,7 +213,8 @@ public class EmployeeDailyClosingService {
                 saved==null?null:saved.bankNote(),
                 sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
                 sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
-                sales,changed);
+                sales,personalExpenses,expenseTotal(personalExpenses,"CASH"),
+                expenseTotal(personalExpenses,"BANK"),changed);
     }
 
     private record Stored(UUID id, BigDecimal cash, BigDecimal bank,
@@ -218,7 +260,9 @@ public class EmployeeDailyClosingService {
             """).param("id",actor.id()).param("day",date).query(Boolean.class).single());
         if(existing)throw new FinanceConflictException("Личный день уже закрыт");
 
-        Collections amount=collections(actor.username(),date);
+        Collections amount=netCollections(actor.username(),date);
+        if(amount.cash().signum()<0 || amount.bank().signum()<0)
+            throw new FinanceConflictException("Расходы превышают личные поступления. Обратитесь к менеджеру для сверки.");
         if(input.expectedCash().compareTo(amount.cash())!=0
                 || input.expectedBank().compareTo(amount.bank())!=0)
             throw new FinanceConflictException("Суммы изменились: обновите расчёт перед закрытием");
@@ -243,6 +287,18 @@ public class EmployeeDailyClosingService {
                 .param("number",sale.saleNumber()).param("quantity",sale.quantity())
                 .param("total",sale.total())
                 .param("completedAt",sale.completedAt().atOffset(ZoneOffset.UTC)).update();
+        }
+        for(var expense:ownExpenses(actor.username(),date)){
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_expenses
+                (closing_id,expense_id,category,amount,payment_method,comment,created_at)
+                VALUES (:closing,:expense,:category,:amount,:method,:comment,:created)
+                """).param("closing",id).param("expense",expense.expenseId())
+                .param("category",expense.category()).param("amount",expense.amount())
+                .param("method",expense.paymentMethod())
+                .param("comment",expense.comment(),java.sql.Types.VARCHAR)
+                .param("created",expense.createdAt().atOffset(ZoneOffset.UTC))
+                .update();
         }
         audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
                 "PERSONAL_DAY_CLOSED",null,java.util.Map.of(

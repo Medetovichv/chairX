@@ -10,6 +10,7 @@ import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-clo
 import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
 import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
+import { ManagerEmployeeClosingSummary } from '../features/daily-closing/ManagerEmployeeClosingSummary';
 import { PageHeader } from '../shared/components/PageHeader';
 import { LoadingState } from '../shared/components/LoadingState';
 import { ErrorState } from '../shared/components/ErrorState';
@@ -44,11 +45,12 @@ function ExistingReport({ report }: { report: ClosingReport }) {
   </section>;
 }
 function CompanyDailyClosingPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
   const write = hasPermission('DAILY_CLOSING_WRITE') || hasPermission('FINANCE_CLOSE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
+  const [personalMode,setPersonalMode]=useState(false);
   const [actualCash, setActualCash] = useState('');
   const [actualBank, setActualBank] = useState('');
   const [cashNote, setCashNote] = useState('');
@@ -69,6 +71,10 @@ function CompanyDailyClosingPage() {
     queryFn: () => closingApi.sales(date), enabled: read && valid });
 
   if (!read) return <ForbiddenPage/>;
+  if (personalMode) return <div className="space-y-4">
+    <Button type="button" variant="outline" onClick={()=>setPersonalMode(false)}>← Общая сверка компании</Button>
+    <EmployeeDailyClosingPage/>
+  </div>;
   function chooseDate(next: string) {
     setDate(next);
     setActualCash(''); setActualBank('');
@@ -84,6 +90,8 @@ function CompanyDailyClosingPage() {
     ]);
   }
   return <div className="space-y-5">
+    {user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') &&
+      <Button type="button" variant="outline" onClick={()=>setPersonalMode(true)}>Моё личное закрытие</Button>}
     <PageHeader title="Закрытие дня"
       description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
     <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
@@ -104,6 +112,7 @@ function CompanyDailyClosingPage() {
             variant={day === date ? 'default' : 'outline'} onClick={() => chooseDate(day)}>{day}</Button>)}
         </div>}
     </div>
+    {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && (access.isPending ? <LoadingState label="Проверяем доступность отчёта…"/> :
       access.isError ? <ErrorState error={access.error} onRetry={() => void access.refetch()}/> :
       <section aria-label="Статус закрытия" className="rounded-xl border bg-white p-4 text-sm">
