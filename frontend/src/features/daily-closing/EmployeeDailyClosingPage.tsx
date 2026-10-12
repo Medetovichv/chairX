@@ -1,4 +1,5 @@
 import {useState,type FormEvent} from 'react';
+import {Link} from 'react-router';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '../auth/AuthProvider';
 import {personalCloseApi,personalCloseKeys,type PersonalCloseRequest,type PersonalClosing} from './personal-api';
@@ -136,15 +137,28 @@ export function EmployeeDailyClosingPage(){
        Эта дата недоступна для обычного личного закрытия.</p>}
     </section>
     <section className="rounded-xl border bg-white p-4">
-     <h2 className="text-lg font-bold">Все завершённые продажи за день</h2>
+     <h2 className="text-lg font-bold">Оплаченные и выданные заказы за день</h2>
      <p>Заказы: {report.data.orders} · Кресла: {report.data.chairs} ·
       Сумма продаж: {money(report.data.salesValue)}</p>
-     {report.data.sales.length>0&&<ul className="divide-y">
-      {report.data.sales.map(s=><li className="py-2 text-sm" key={s.saleId}>
-       {s.saleNumber} · {s.quantity} шт. · {money(s.total)}
-      </li>)}
-     </ul>}
-     {report.data.sales.length===0&&<p>Завершённых продаж за выбранную дату нет.</p>}
+     {report.data.sales.length>0&&<div className="overflow-x-auto">
+      <table aria-label="Оплаченные выданные товары дня" className="w-full text-left text-sm">
+       <thead><tr className="border-b text-slate-600">
+        <th className="p-2">Заказ</th><th className="p-2">Кресла</th><th className="p-2">Контакт и адрес</th>
+        <th className="p-2">Состояние</th><th className="p-2 text-right">Сумма</th>
+       </tr></thead>
+       <tbody>{report.data.sales.map(s=><tr className="border-b" key={s.saleId}>
+        <td className="p-2"><Link className="font-semibold text-blue-700 underline" to={'/sales/'+encodeURIComponent(s.saleId)}>{s.saleNumber}</Link></td>
+        <td className="p-2">{s.products||'Товары в заказе'} · {s.quantity} шт.</td>
+        <td className="p-2">{s.phone||'Без номера'}
+         {s.address&&<p className="text-xs text-slate-500">{s.address}</p>}</td>
+        <td className="p-2"><span className="font-semibold text-emerald-700">Оплачено</span>
+         <p className="text-xs text-slate-600">{s.deliveryStatus==='IN_TRANSIT'?'В пути':
+          s.deliveryStatus==='DELIVERED'?'Доставлено':'Выдано'}</p></td>
+        <td className="p-2 text-right font-semibold">{money(s.total)}</td>
+       </tr>)}</tbody>
+      </table>
+     </div>}
+     {report.data.sales.length===0&&<p>Оплаченных выданных продаж за выбранную дату нет.</p>}
     </section>
     <section aria-label="Мои расходы за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
      <h2 className="text-lg font-bold">Мои расходы за день</h2>
