@@ -55,14 +55,16 @@ export function CreateSalePage() {
     }
     inFlight.current=true;setPosting(true);setProblem('');
     try {
-      const result=await salesApi.createDraft(payload);
+      const result=payload.deliveryDetails?
+        await salesApi.createWithDelivery(payload):await salesApi.createDraft(payload);
       clearPendingDraft(user.id);
       setPending(null);
       await queryClient.invalidateQueries({queryKey:salesKeys.lists});
       await queryClient.invalidateQueries({queryKey:salesKeys.kanban});
       await queryClient.invalidateQueries({queryKey:saleStatisticsKeys.last30Days});
       await queryClient.invalidateQueries({queryKey:['dashboard']});
-      if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,state:{notice:'Черновик создан.'}});
+      if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,
+        state:{notice:payload.deliveryDetails?'Продажа подтверждена, доставка создана.':'Черновик создан.'}});
       else setSuccess(result);
     }catch(error){
       setProblem(userFacingApiError(error));
@@ -78,11 +80,11 @@ export function CreateSalePage() {
   }
   if(!allowed)return <ForbiddenPage/>;
   return <div className="space-y-6">
-    <PageHeader title="Новая продажа" description="Создание черновика без резервирования товара."/>
+    <PageHeader title="Новая продажа" description="Создайте черновик или подтвердите продажу сразу с оформлением доставки."/>
     {canRead&&<Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/sales">← Все продажи</Link>}
     {success&&<div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-5">
-      <h3 className="font-bold">Черновик создан</h3>
+      <h3 className="font-bold">{success.status==='CONFIRMED'?'Продажа и доставка оформлены':'Черновик создан'}</h3>
       <p>Заказ {displaySaleNumber(success.saleNumber)}</p>
       <p>Чтобы открыть карточку заказа, требуется SALES_READ.</p>
     </div>}
