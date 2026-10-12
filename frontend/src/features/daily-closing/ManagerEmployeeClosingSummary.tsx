@@ -14,18 +14,14 @@ export function ManagerEmployeeClosingSummary({date}:{date:string}){
   {report.isPending?<LoadingState label="Загружаем общий отчёт сотрудников…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <>
-    <div className="grid gap-3 sm:grid-cols-3">
-     <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Закрыто смен</p>
-      <p className="mt-1 text-2xl font-bold">{report.data.closedEmployees} / {report.data.totalEmployees}</p></div>
-     <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Все расходы наличными</p>
-      <p className="mt-1 text-2xl font-bold">{som(report.data.cashExpenses)}</p></div>
-     <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Все расходы переводами</p>
-      <p className="mt-1 text-2xl font-bold">{som(report.data.bankExpenses)}</p></div>
+    <div className="grid gap-3 sm:grid-cols-2">
+     <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Расходы предприятия за день</p>
+      <p className="mt-1 text-2xl font-bold">{som(report.data.expenseTotal)}</p></div>
     </div>
     <div className="rounded-xl bg-slate-50 p-5">
       <p className="text-sm text-slate-500">Сумма подтверждённых сотрудниками закрытий</p>
       <p className="mt-2 text-3xl font-bold">{som(report.data.actualTotal??0)}</p>
-      <p className="mt-1 text-sm text-slate-600">Расчётная сумма: {som(report.data.expectedTotal??0)}. Завершено {report.data.closedEmployees} из {report.data.totalEmployees} закрытий.</p>
+      <p className="mt-1 text-sm text-slate-600">Расчётная сумма: {som(report.data.expectedTotal??0)}. Окончательное финансовое закрытие подтверждается отдельно менеджером.</p>
     </div>
     <details className="rounded-xl border border-slate-200 p-3"><summary className="cursor-pointer text-sm font-semibold">Разбивка старых закрытий по счётам (где сохранена)</summary>
     <div className="mt-3 grid gap-3 sm:grid-cols-2">
