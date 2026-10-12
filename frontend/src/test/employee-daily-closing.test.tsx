@@ -19,7 +19,7 @@ const reply=(data:unknown,status=200)=>new Response(JSON.stringify(data),
 const personal=(closed=false)=>({
  businessDate:day,closed,canClose:!closed,
  expectedCash:'300',expectedBank:'0',
- actualCash:closed?'300':null,actualBank:closed?'0':null,
+ actualCash:null,actualBank:null,expectedTotal:'300',actualTotal:closed?'300':null,totalNote:null,
  cashNote:null,bankNote:null,orders:1,chairs:2,salesValue:'12000',
  sales:[{saleId:'one',saleNumber:'CX-1',quantity:2,total:'12000',
   completedAt:'2026-10-11T03:00:00Z'}],expenses:[],expenseCash:'0',expenseBank:'0',collectionsChangedAfterClose:false,
@@ -44,7 +44,7 @@ describe('Employee daily closing isolation',()=>{
   }));
   renderPage();
   expect(await screen.findByText('Моё закрытие дня')).toBeInTheDocument();
-  expect(await screen.findByText(/К сдаче наличными/)).toBeInTheDocument();
+  expect(await screen.findByText(/Расчётная сумма к подтверждению/)).toBeInTheDocument();
   expect(screen.getByText(/CX-1/)).toBeInTheDocument();
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
  });
@@ -63,9 +63,8 @@ describe('Employee daily closing isolation',()=>{
   }));
   renderPage();
   const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт CASH'}),{target:{value:'300'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт BANK'}),{target:{value:'0'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Закрыть мою смену'}));
+  fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Сохранить моё закрытие'}));
@@ -73,8 +72,8 @@ describe('Employee daily closing isolation',()=>{
   const post=requests.find(r=>r.method==='POST')!;
   expect(post.path).toBe('/api/finance/my-closings/'+day);
   expect(JSON.parse(post.body || '')).toEqual({
-   expectedCash:'300',expectedBank:'0',actualCash:'300',actualBank:'0',
-   cashNote:null,bankNote:null,
+   expectedCash:'300',expectedBank:'0',actualCash:null,actualBank:null,
+   cashNote:null,bankNote:null,actualTotal:'300',totalNote:null,
   });
   expect(requests.some(r=>r.path.startsWith('/api/finance/closings'))).toBe(false);
   expect(await screen.findByText('Мой день закрыт')).toBeInTheDocument();
@@ -94,7 +93,7 @@ describe('Employee daily closing isolation',()=>{
   const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт CASH'}),{target:{value:'300'}});
   fireEvent.change(within(form).getByRole('textbox',{name:'Личный факт BANK'}),{target:{value:'0'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Закрыть мою смену'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
     .getByRole('button',{name:'Сохранить моё закрытие'}));
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Данные изменились'));
