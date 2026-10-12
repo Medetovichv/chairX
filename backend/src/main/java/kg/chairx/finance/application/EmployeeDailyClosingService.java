@@ -214,7 +214,10 @@ public class EmployeeDailyClosingService {
             """).param("id",closingId)
             .query((rs,i)->new SaleLine(rs.getObject("sale_id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
-                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant()))
+                    rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
+                    rs.getString("products"),rs.getString("phone"),rs.getString("address"),
+                    rs.getString("fulfillment_type"),rs.getString("delivery_status"),
+                    rs.getString("payment_status")))
             .list();
     }
 
