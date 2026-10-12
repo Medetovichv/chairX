@@ -54,6 +54,26 @@ public class SecurityRoleRepository {
             """).param("id",userId).query(Boolean.class).single();
     }
 
+    @Transactional(readOnly = true)
+    public boolean isActiveSystemEmployee(UUID userId) {
+        if(userId==null)return false;
+        return jdbc.sql("""
+            SELECT EXISTS(
+                SELECT 1 FROM app_users u
+                JOIN security_user_roles ur ON ur.user_id=u.id
+                JOIN security_roles r ON r.id=ur.role_id
+                WHERE u.id=:id AND u.active=TRUE AND r.system_role=TRUE
+                  AND r.code='EMPLOYEE'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM security_user_roles ur2
+                      JOIN security_roles manager_role ON manager_role.id=ur2.role_id
+                      WHERE ur2.user_id=u.id AND manager_role.system_role=TRUE
+                        AND manager_role.code IN ('ADMIN','MANAGER')
+                  )
+            )
+            """).param("id",userId).query(Boolean.class).single();
+    }
+
     public boolean hasActiveAdministrator() {
         return countActiveAdministrators() > 0;
     }

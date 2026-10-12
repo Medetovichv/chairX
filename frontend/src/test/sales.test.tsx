@@ -268,6 +268,19 @@ beforeEach(()=>{
 afterEach(()=>{authSession.clear();sessionStorage.clear();vi.unstubAllGlobals();});
 
 describe('F07 DTOs, validation and server sales list',()=>{
+  it('accepts a full employee delivery order with zero delivery cost',()=>{
+    const input={
+      customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
+      items:[{productVariantId:BLACK_ID,warehouseId:WH,quantity:1,unitSalePrice:'8500'}],
+      comment:null,deliveryDetails:{recipientName:'Айбек',recipientPhone:'+996700111222',
+        address:'Бишкек, улица Тестовая, 1',cityRegion:'Бишкек',deliveryCost:'0',
+        carrierName:null,trackingNumber:null,comment:'Позвонить перед доставкой',plannedDeliveryDate:null},
+    };
+    expect(checkDraft(input)).toBeNull();
+    expect(checkDraft({...input,deliveryDetails:{...input.deliveryDetails,address:''}}))
+      .toMatch(/адрес/i);
+  });
+
   it('matches actual statuses and prevents fractional sale prices',()=>{
     expect(saleStatuses).toEqual(['DRAFT','CONFIRMED','FULFILLED','CANCELLED']);
     for(const n of ['0','1','9999999999999999999'])expect(salePriceValid(n)).toBe(true);
@@ -347,6 +360,23 @@ describe('F07 DTOs, validation and server sales list',()=>{
   });
 });
 describe('F07 creation and idempotent drafts',()=>{
+  it('employee delivery mode immediately shows address, phone and courier comment without extra checkbox',async()=>{
+    granted.permissions.push('DELIVERIES_CREATE');
+    mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
+      {target:{value:'CITY_DELIVERY'}});
+    expect(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'})).toBeInTheDocument();
+    expect(within(form).getByRole('textbox',{name:'Адрес доставки при создании продажи'})).toBeInTheDocument();
+    expect(within(form).getByRole('textbox',{name:'Комментарий к доставке при создании продажи'})).toBeInTheDocument();
+    expect(within(form).getByRole('button',{name:'Подтвердить продажу и доставку'})).toBeInTheDocument();
+    expect(within(form).queryByRole('checkbox',{name:'Подтвердить заказ и сразу создать доставку'})).not.toBeInTheDocument();
+    fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
+      {target:{value:'SELF_PICKUP'}});
+    expect(within(form).queryByRole('textbox',{name:'Адрес доставки при создании продажи'})).not.toBeInTheDocument();
+  });
+
   it('creates empty DRAFT with a real idempotency key and no inventory reservation',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');

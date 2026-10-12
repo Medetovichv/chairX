@@ -14,8 +14,8 @@ import {ForbiddenPage} from '../../pages/ForbiddenPage';
 
 const money=(value:string)=>som(value);
 export function EmployeeDailyClosingPage(){
- const {hasPermission}=useAuth(),client=useQueryClient();
- const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE');
+ const {hasPermission,user}=useAuth(),client=useQueryClient();
+ const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE')&&user?.roles.includes('EMPLOYEE')===true&& !user.roles.some(role=>role==='MANAGER'||role==='ADMIN');
  const [day,setDay]=useState(bishkekToday),[cash,setCash]=useState(''),[bank,setBank]=useState('');
  const [cashNote,setCashNote]=useState(''),[bankNote,setBankNote]=useState('');
  const [error,setError]=useState(''),[pending,setPending]=useState(false);

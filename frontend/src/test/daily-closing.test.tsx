@@ -15,7 +15,7 @@ const access = vi.hoisted(() => ({ permissions: ['FINANCE_READ'] as string[] }))
 vi.mock('../features/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: {id:'operator-f11',username:'f11',displayName:'Operator',
-      roles:['EMPLOYEE'],permissions:access.permissions},
+      roles:['ADMIN'],permissions:access.permissions},
     hasPermission: (name:string) => access.permissions.includes(name),
   }),
 }));

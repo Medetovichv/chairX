@@ -45,7 +45,7 @@ export function checkDraft(data: DraftInput): string | null {
     if(!data.items.length)return 'Для немедленной доставки добавьте хотя бы одно кресло.';
     if(typeof d.recipientPhone!=='string'||!d.recipientPhone.trim()||d.recipientPhone.length>50||
        typeof d.address!=='string'||!d.address.trim()||d.address.length>500||
-       typeof d.deliveryCost!=='string'||!/^\\d{1,17}$/.test(d.deliveryCost.trim())||
+       typeof d.deliveryCost!=='string'||!/^\d{1,17}$/.test(d.deliveryCost.trim())||
        (d.recipientName?.length??0)>200||(d.cityRegion?.length??0)>200)
       return 'Проверьте телефон, адрес и стоимость доставки.';
   }

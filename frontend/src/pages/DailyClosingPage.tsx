@@ -47,7 +47,7 @@ function ExistingReport({ report }: { report: ClosingReport }) {
 function CompanyDailyClosingPage() {
   const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
-  const write = hasPermission('DAILY_CLOSING_WRITE') || hasPermission('FINANCE_CLOSE');
+  const write = user?.roles.includes('ADMIN')===true && hasPermission('DAILY_CLOSING_WRITE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
   const [actualCash, setActualCash] = useState('');
@@ -91,8 +91,7 @@ function CompanyDailyClosingPage() {
     ]);
   }
   return <div className="space-y-5">
-    {user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') &&
-      <Button type="button" variant="outline" onClick={()=>setPersonalMode(true)}>Моё личное закрытие</Button>}
+
     <PageHeader title="Закрытие дня"
       description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
     <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
