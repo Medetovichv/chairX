@@ -23,7 +23,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       recommended:null,
     }))??[];
   });
-  const canInlineDelivery=!initial&&hasPermission('SALES_DRAFT_MANAGE')&&hasPermission('DELIVERIES_MANAGE');
+  const canInlineDelivery=!initial&&hasPermission('SALES_DRAFT_MANAGE')&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'));
   const withDelivery=!initial&&type!==null&&type!=='SELF_PICKUP'&&canInlineDelivery;
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
