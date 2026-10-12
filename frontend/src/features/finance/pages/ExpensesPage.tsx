@@ -16,7 +16,7 @@ import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 export function ExpensesPage(){
- const {hasPermission}=useAuth(),read=hasPermission('EXPENSES_READ'),create=hasPermission('EXPENSES_CREATE');
+ const {hasPermission,user}=useAuth(),read=hasPermission('EXPENSES_READ'),create=hasPermission('EXPENSES_CREATE');
  const client=useQueryClient();
  const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth),[periodError,setPeriodError]=useState('');
  const [category,setCategory]=useState<ExpenseCategory>('ADVERTISING'),[amount,setAmount]=useState('');
@@ -66,7 +66,7 @@ export function ExpensesPage(){
   </section>}
   {create&&<section className="space-y-3">
    <h3 className="text-lg font-bold">Добавить расход</h3>
-   {hasPermission("FINANCE_READ")&&accounts.isSuccess&&accounts.data.some(x=>!x.initialized)&&<div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-semibold">Не все финансовые счета настроены</p><p className="mt-1">Для учёта расхода необходимо один раз задать начальный остаток соответствующего счёта.</p>{hasPermission("FINANCE_INITIALIZE")&&<Link className="mt-2 inline-block font-semibold text-blue-700 underline" to="/finance/opening-balances">Перейти к настройке счетов</Link>}</div>}
+   {hasPermission("FINANCE_READ")&&accounts.isSuccess&&accounts.data.some(x=>!x.initialized)&&<div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-semibold">Не все финансовые счета настроены</p><p className="mt-1">Для учёта расхода необходимо один раз задать начальный остаток соответствующего счёта.</p>{user?.roles.includes("ADMIN")&&hasPermission("FINANCE_INITIALIZE")&&<Link className="mt-2 inline-block font-semibold text-blue-700 underline" to="/finance/opening-balances">Перейти к настройке счетов</Link>}</div>}
    <GuardedPost<ExpenseInput> kind="expense" scope="create" canReplay allowed={create}
     title="Подтвердить списание расхода?" label="Провести расход" destructive
     operationKey={p=>p.idempotencyKey} meta={p=>({date:p.expenseDate,category:p.category,amount:p.amount,account:p.paymentMethod})}
