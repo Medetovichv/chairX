@@ -85,6 +85,8 @@ class ProductPersistenceTests {
                         "expenses",
                         "finance_accounts",
                         "finance_movements",
+                "finance_admin_adjustments",
+                "sale_delivery_requests",
                         "finance_transfers",
                         "app_users",
                         "security_roles",
