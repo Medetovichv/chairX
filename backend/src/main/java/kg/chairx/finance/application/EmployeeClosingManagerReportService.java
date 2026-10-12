@@ -59,7 +59,16 @@ public class EmployeeClosingManagerReportService {
             .map(ExpenseLine::amount).reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal bank=expenses.stream().filter(x->"BANK".equals(x.paymentMethod()))
             .map(ExpenseLine::amount).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal expectedCash=employees.stream().map(EmployeeClose::expectedCash)
+            .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal expectedBank=employees.stream().map(EmployeeClose::expectedBank)
+            .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal actualCash=employees.stream().map(EmployeeClose::actualCash)
+            .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal actualBank=employees.stream().map(EmployeeClose::actualBank)
+            .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO,BigDecimal::add);
         return new ManagerReport(date,employees,expenses,total,cash,bank,
+            expectedCash,expectedBank,actualCash,actualBank,
             (int)employees.stream().filter(EmployeeClose::closed).count(),employees.size());
     }
 }
