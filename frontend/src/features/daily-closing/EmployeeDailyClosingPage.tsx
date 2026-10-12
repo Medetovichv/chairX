@@ -126,8 +126,8 @@ export function EmployeeDailyClosingPage(){
   {!valid?<p role="alert">Выберите дату не позже сегодняшнего дня в Бишкеке.</p>:
    report.isPending?<LoadingState label="Загружаем мою смену…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
-   <div className="space-y-4">
-    <section className="space-y-3 rounded-xl border bg-white p-4">
+   <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+    <section className="space-y-3 rounded-xl border bg-white p-4 lg:col-start-1">
      <h2 className="text-lg font-bold">{report.data.closed?'Мой день закрыт':'Мой день открыт'}</h2>
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · поступления минус мои расходы</p>
        <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
@@ -155,7 +155,7 @@ export function EmployeeDailyClosingPage(){
      {!report.data.closed&&!report.data.canClose&&<p className="text-amber-800">
        Эта дата недоступна для обычного личного закрытия.</p>}
     </section>
-    <section className="rounded-xl border bg-white p-4">
+    <section className="rounded-xl border bg-white p-4 lg:col-start-1">
      <h2 className="text-lg font-bold">Оплаченные и выданные заказы за день</h2>
      <p>Заказы: {report.data.orders} · Кресла: {report.data.chairs} ·
       Сумма продаж: {money(report.data.salesValue)}</p>
@@ -179,7 +179,7 @@ export function EmployeeDailyClosingPage(){
      </div>}
      {report.data.sales.length===0&&<p>Оплаченных выданных продаж за выбранную дату нет.</p>}
     </section>
-    <section aria-label="Мои расходы за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+    <section aria-label="Мои расходы за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
      <h2 className="text-lg font-bold">Мои расходы за день</h2>
      <p className="text-sm text-slate-600">Только расходы, созданные под вашей учётной записью (createdBy). Чужие расходы не загружаются.</p>
      <div className="grid gap-3 sm:grid-cols-2">
