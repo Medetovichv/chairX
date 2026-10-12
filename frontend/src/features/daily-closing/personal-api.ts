@@ -12,13 +12,14 @@ export interface PersonalClosing {
  expectedCash:string; expectedBank:string;
  actualCash:string|null; actualBank:string|null;
  cashNote:string|null; bankNote:string|null;
+ expectedTotal?:string;actualTotal?:string|null;totalNote?:string|null;
  orders:number; chairs:number; salesValue:string;
  sales:EmployeeSaleLine[]; expenses:PersonalExpenseLine[];
  expenseCash:string;expenseBank:string; collectionsChangedAfterClose:boolean;
 }
 export interface PersonalCloseRequest {
- expectedCash:string;expectedBank:string; actualCash:string;actualBank:string;
- cashNote:string|null;bankNote:string|null;
+ expectedCash:string;expectedBank:string; actualCash:string|null;actualBank:string|null;
+ cashNote:string|null;bankNote:string|null;actualTotal?:string|null;totalNote?:string|null;
 }
 export const personalCloseKeys = {
  dates: ['personal-close','dates'] as const,
