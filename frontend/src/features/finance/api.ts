@@ -21,6 +21,7 @@ export const financeApi={
  flow:(from:string,to:string):Promise<CashFlowSummary>=>apiClient.get('/api/finance/cash-flow?'+period(from,to)),
  transfer:(payload:TransferInput):Promise<TransferResponse>=>apiClient.post('/api/finance/transfers',payload),
  initialize:(payload:OpeningInput):Promise<FinanceAccountResponse>=>apiClient.post('/api/finance/opening-balances',payload),
+ adjustBalance:(payload:{account:'CASH'|'BANK';targetBalance:string;reason:string;idempotencyKey:string}):Promise<{account:string;previousBalance:string|number;newBalance:string|number;delta:string|number}>=>apiClient.post('/api/finance/accounts/adjustments',payload),
  expenses:(from:string,to:string):Promise<ExpenseResponse[]>=>apiClient.get('/api/expenses?'+period(from,to)),
  expenseTotal:(from:string,to:string):Promise<string|number>=>apiClient.get('/api/expenses/total?'+period(from,to)),
  expense:(id:string):Promise<ExpenseResponse>=>apiClient.get('/api/expenses/'+enc(id)),
