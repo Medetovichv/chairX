@@ -47,7 +47,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         quantity:Number(row.quantity),unitSalePrice:row.unitSalePrice.trim()});
     }
     if(withDelivery&&type&&type!=='SELF_PICKUP'){
-      if(!recipientPhone.trim()||!deliveryAddress.trim()||!/^\\d+$/.test(deliveryCost.trim())||
+      if(!recipientPhone.trim()||!deliveryAddress.trim()||!/^\d+$/.test(deliveryCost.trim())||
          !items.length){
         setError('Для немедленного оформления доставки укажите телефон, адрес, стоимость в целых сомах и хотя бы одно кресло.');return;
       }
