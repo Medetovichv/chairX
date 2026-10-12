@@ -207,6 +207,11 @@ class EmployeeDailyClosingIsolationTest {
             .contentType(MediaType.APPLICATION_JSON).content(body("1200","0","1200","0")))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.expenses.length()").value(1));
+        mvc.perform(get("/api/finance/employee-closings/"+day).with(httpBasic(manager,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closedEmployees").value(1))
+            .andExpect(jsonPath("$.totalExpectedCash").value(1200))
+            .andExpect(jsonPath("$.totalActualCash").value(1200));
         expense(alice,"CASH",50);
         mvc.perform(get(personal).with(httpBasic(alice,PASSWORD)))
             .andExpect(status().isOk())
