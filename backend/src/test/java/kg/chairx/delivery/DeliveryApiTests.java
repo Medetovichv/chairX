@@ -183,6 +183,22 @@ class DeliveryApiTests {
     }
 
     @Test
+    @WithMockUser(username="staff",authorities={"DELIVERIES_CREATE"})
+    void employeeCanCreateButCannotDispatchDelivery() throws Exception {
+        var sale=createSale(FulfillmentType.CITY_DELIVERY,item(firstVariant,home,1,"8500"));
+        String response=mvc.perform(post("/api/deliveries").with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(deliveryJson(sale.id())))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.status").value("READY"))
+            .andReturn().getResponse().getContentAsString();
+        String id=mapper.readTree(response).get("id").asText();
+        mvc.perform(post("/api/deliveries/"+id+"/dispatch").with(csrf()))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/deliveries/"+id+"/deliver").with(csrf()))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void createsAndGetsDeliveryThroughApi() throws Exception {
         var sale = createSale(
                 FulfillmentType.CITY_DELIVERY,
