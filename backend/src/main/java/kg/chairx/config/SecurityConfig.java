@@ -198,6 +198,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/defects/*/write-off")
                         .hasAuthority("DEFECTS_WRITE_OFF")
                         // Personal operational close: per-authenticated employee, never shared CASH/BANK balances.
+                        .requestMatchers(HttpMethod.GET, "/api/finance/employee-closings/*")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_READ')"))
                         .requestMatchers(HttpMethod.GET, "/api/finance/my-closings",
                                 "/api/finance/my-closings/*")
                         .hasAuthority("DAILY_CLOSING_READ")
