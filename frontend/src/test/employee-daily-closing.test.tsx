@@ -76,7 +76,7 @@ describe('Employee daily closing isolation',()=>{
    cashNote:null,bankNote:null,actualTotal:'300',totalNote:null,
   });
   expect(requests.some(r=>r.path.startsWith('/api/finance/closings'))).toBe(false);
-  expect(await screen.findByText('Мой день закрыт')).toBeInTheDocument();
+  expect(await screen.findByText('Операционный день закрыт')).toBeInTheDocument();
  });
  it('stops before POST when amount changed during preflight',async()=>{
   let n=0;const posts:string[]=[];
