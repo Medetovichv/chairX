@@ -172,6 +172,8 @@ export function HomePage() {
           note="Создано сегодня" icon={ShoppingCart} path="/sales" />}
         {deliveries && data.pendingDeliveries !== null && <Stat title="Ожидают доставки"
           value={data.pendingDeliveries} note="Готовы к отправке или в пути" icon={Truck} path="/deliveries" />}
+        {deliveries && data.deliveredToday !== null && <Stat title="Доставлено сегодня"
+          value={data.deliveredToday} note="Завершены за текущий день" icon={Truck} path="/deliveries" />}
         {inventory && data.availableUnits !== null && <Stat title="Доступно на складах"
           value={data.availableUnits} note="С учётом резерва и блокировок" icon={Package} path="/inventory" />}
         {sales && data.activeOrders !== null && <Stat title="В работе"
