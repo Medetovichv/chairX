@@ -42,7 +42,7 @@ public class EmployeeClosingManagerReportService {
                    c.actual_total,c.total_note
             FROM app_users u
             LEFT JOIN employee_daily_closings c
-              ON c.employee_id=u.id AND c.business_date=:date
+              ON c.employee_id=u.id AND c.business_date=:date AND c.company_wide=FALSE
             WHERE u.active=TRUE
               AND EXISTS (
                 SELECT 1 FROM security_user_roles ur
