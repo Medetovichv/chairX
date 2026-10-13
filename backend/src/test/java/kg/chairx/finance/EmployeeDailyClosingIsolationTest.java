@@ -103,6 +103,39 @@ class EmployeeDailyClosingIsolationTest {
             "\",\"cashNote\":null,\"bankNote\":null}";
     }
 
+
+    @Test void companyCloseAggregatesStaffPaymentsAndExpensesOnce() throws Exception {
+        String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE);
+        collection(alice,"CASH",600);
+        collection(bob,"BANK",400);
+        expense(alice,"CASH",100);
+        expense(bob,"BANK",50);
+        String url="/api/finance/my-closings/"+day;
+        mvc.perform(get(url).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expectedTotal").value(850))
+            .andExpect(jsonPath("$.expenses.length()").value(2));
+        String input="{\"expectedCash\":\"850\",\"expectedBank\":\"0\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"850\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        mvc.perform(post(url).with(httpBasic(alice,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(input))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.closed").value(true))
+            .andExpect(jsonPath("$.expenses.length()").value(2));
+        mvc.perform(get(url).with(httpBasic(bob,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(true))
+            .andExpect(jsonPath("$.actualTotal").value(850));
+        mvc.perform(post(url).with(httpBasic(bob,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(input))
+            .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("""
+            SELECT COUNT(*) FROM employee_daily_closings
+            WHERE business_date=? AND company_wide=TRUE
+            """,Integer.class,day)).isEqualTo(1);
+    }
+
     @Test void combinedPersonalClosingStoresOneActualTotalWithoutInventedAccountSplit() throws Exception {
         String employee=user(EMPLOYEE_ROLE);
         collection(employee,"CASH",600);
