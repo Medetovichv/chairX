@@ -5,6 +5,7 @@ export interface DashboardOverview {
   orders30Days: number | null;
   activeOrders: number | null;
   pendingDeliveries: number | null;
+  deliveredToday: number | null;
   delayedDeliveries: number | null;
   availableUnits: number | null;
   lowStockVariants: number | null;

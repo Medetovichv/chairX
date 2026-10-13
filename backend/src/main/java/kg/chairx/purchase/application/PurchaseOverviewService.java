@@ -25,6 +25,12 @@ public class PurchaseOverviewService {
 
     public PurchaseOverviewPage list(PurchaseStatus status, UUID supplierId, LocalDate from,
                                       LocalDate to, String number, int page, int size) {
+        return list(status,supplierId,from,to,number,page,size,false);
+    }
+
+    public PurchaseOverviewPage list(PurchaseStatus status, UUID supplierId, LocalDate from,
+                                      LocalDate to, String number, int page, int size,
+                                      boolean includeOpenOlder) {
         if (page < 0 || size < 1 || size > 100 || (from != null && to != null && from.isAfter(to))
                 || (number != null && number.length() > 100)) {
             throw new InvalidQueryException("Некорректные параметры списка закупок");
@@ -35,8 +41,10 @@ public class PurchaseOverviewService {
         String filter = """
                 WHERE (CAST(:status AS varchar) IS NULL OR p.status = :status)
                   AND (CAST(:supplier AS uuid) IS NULL OR p.supplier_id = :supplier)
-                  AND (CAST(:fromDate AS timestamptz) IS NULL OR p.created_at >= :fromDate)
-                  AND (CAST(:toDate AS timestamptz) IS NULL OR p.created_at < :toDate)
+                  AND (((CAST(:fromDate AS timestamptz) IS NULL OR p.created_at >= :fromDate)
+                     AND (CAST(:toDate AS timestamptz) IS NULL OR p.created_at < :toDate))
+                     OR (:includeOpenOlder = TRUE
+                         AND p.status IN ('DRAFT','CONFIRMED','PARTIALLY_RECEIVED')))
                   AND (CAST(:number AS varchar) IS NULL OR p.id::text ILIKE :number)
                 """;
         var args = new Object[] {status == null ? null : status.name(), supplierId, start, end, query};
@@ -66,7 +74,7 @@ public class PurchaseOverviewService {
                 LIMIT :size OFFSET :offset
                 """;
         // Common predicates intentionally identical for rows and total; no per-purchase SELECT.
-        var rows = bind(jdbc.sql(sql),args).param("size",size).param("offset",(long)page*size)
+        var rows = bind(jdbc.sql(sql),args,includeOpenOlder).param("size",size).param("offset",(long)page*size)
                 .query((rs,row) -> {
                     long ordered = rs.getLong("ordered_quantity");
                     long received = rs.getLong("received_quantity");
@@ -81,12 +89,12 @@ public class PurchaseOverviewService {
                             rs.getTimestamp("last_receipt_at") == null ? null :
                                     rs.getTimestamp("last_receipt_at").toInstant());
                 }).list();
-        long count = bind(jdbc.sql("SELECT COUNT(*) FROM purchases p " + filter),args).query(Long.class).single();
+        long count = bind(jdbc.sql("SELECT COUNT(*) FROM purchases p " + filter),args,includeOpenOlder).query(Long.class).single();
         return new PurchaseOverviewPage(rows,page,size,count);
     }
 
-    private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, Object[] args) {
-        return statement.param("status",args[0],Types.VARCHAR)
+    private JdbcClient.StatementSpec bind(JdbcClient.StatementSpec statement, Object[] args,boolean includeOpenOlder) {
+        return statement.param("includeOpenOlder",includeOpenOlder).param("status",args[0],Types.VARCHAR)
                 .param("supplier",args[1],Types.OTHER)
                 .param("fromDate",args[2] == null ? null :
                         ((Instant)args[2]).atOffset(java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)

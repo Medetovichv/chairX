@@ -26,8 +26,9 @@ public class PurchaseOverviewController {
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) String number,
+            @RequestParam(defaultValue = "false") boolean includeOpenOlder,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        return overview.list(status,supplierId,from,to,number,page,size);
+        return overview.list(status,supplierId,from,to,number,page,size,includeOpenOlder);
     }
 }

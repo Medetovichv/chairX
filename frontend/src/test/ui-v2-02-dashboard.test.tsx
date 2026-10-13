@@ -23,7 +23,7 @@ vi.mock('../features/dashboard/api', () => ({
 
 const sample: DashboardOverview = {
   businessDate: '2026-10-11', orders30Days: 18, activeOrders: 10,
-  pendingDeliveries: 7, delayedDeliveries: 3, availableUnits: 142,
+  pendingDeliveries: 7, deliveredToday: 4, delayedDeliveries: 3, availableUnits: 142,
   lowStockVariants: 4,
   ordersByDay: [
     { day: '2026-10-05', orders: 2 }, { day: '2026-10-06', orders: 0 },
@@ -66,7 +66,7 @@ describe('UI-V2-02 real-data dashboard and permission isolation', () => {
     access.permissions = ['INVENTORY_READ'];
     vi.mocked(dashboardApi.overview).mockResolvedValue({
       ...sample, orders30Days: null, activeOrders: null, pendingDeliveries: null,
-      delayedDeliveries: null, ordersByDay: [], recentSales: [],
+      delayedDeliveries: null, deliveredToday: null, ordersByDay: [], recentSales: [],
     });
     renderHome();
     expect(await screen.findByText('Доступно на складах')).toBeInTheDocument();
@@ -83,8 +83,10 @@ describe('UI-V2-02 real-data dashboard and permission isolation', () => {
       ...sample, availableUnits: null, lowStockVariants: null,
     });
     renderHome();
-    expect(await screen.findByText('Заказов за 30 дней')).toBeInTheDocument();
-    expect(screen.getByText('18')).toBeInTheDocument();
+    expect(await screen.findByText('Заказов сегодня')).toBeInTheDocument();
+    expect(within(screen.getByText('Заказов сегодня').closest('a')!).getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Доставлено сегодня')).toBeInTheDocument();
+    expect(within(screen.getByText('Доставлено сегодня').closest('a')!).getByText('4')).toBeInTheDocument();
     expect(screen.getByText('Ожидают доставки')).toBeInTheDocument();
     expect(screen.getByText('Просроченные доставки')).toBeInTheDocument();
     expect(screen.getByText('Заказы за 7 дней')).toBeInTheDocument();

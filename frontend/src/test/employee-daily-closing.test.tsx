@@ -43,7 +43,7 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Private screen must not request '+path);
   }));
   renderPage();
-  expect(await screen.findByText('Моё закрытие дня')).toBeInTheDocument();
+  expect(await screen.findByText('Закрытие дня')).toBeInTheDocument();
   expect(await screen.findByText(/Расчётная сумма к подтверждению/)).toBeInTheDocument();
   expect(screen.getByText(/CX-1/)).toBeInTheDocument();
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
@@ -62,12 +62,12 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Unexpected '+path);
   }));
   renderPage();
-  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
-   .getByRole('button',{name:'Сохранить моё закрытие'}));
+   .getByRole('button',{name:'Закрыть операционный день'}));
   await waitFor(()=>expect(requests.filter(r=>r.method==='POST')).toHaveLength(1));
   const post=requests.find(r=>r.method==='POST')!;
   expect(post.path).toBe('/api/finance/my-closings/'+day);
@@ -76,7 +76,7 @@ describe('Employee daily closing isolation',()=>{
    cashNote:null,bankNote:null,actualTotal:'300',totalNote:null,
   });
   expect(requests.some(r=>r.path.startsWith('/api/finance/closings'))).toBe(false);
-  expect(await screen.findByText('Мой день закрыт')).toBeInTheDocument();
+  expect(await screen.findByText('Операционный день закрыт')).toBeInTheDocument();
  });
  it('stops before POST when amount changed during preflight',async()=>{
   let n=0;const posts:string[]=[];
@@ -90,12 +90,12 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Unexpected '+path);
   }));
   renderPage();
-  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
 
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
-    .getByRole('button',{name:'Сохранить моё закрытие'}));
+    .getByRole('button',{name:'Закрыть операционный день'}));
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Данные изменились'));
   expect(posts).toHaveLength(0);
  });

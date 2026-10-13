@@ -185,7 +185,7 @@ describe('F02.1 RBAC and legacy paths', () => {
     mockProfile.roles = ['EMPLOYEE'];
     mockProfile.permissions = ['DAILY_CLOSING_READ'];
     renderAt('/daily-closing');
-    expect(screen.getByRole('heading', { name: 'Моё закрытие дня', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Закрытие дня', level: 2 })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     expect(within(nav).queryByRole('link', { name: 'Финансы' })).not.toBeInTheDocument();
     expect(screen.queryByText('Сверяемые счета')).not.toBeInTheDocument();

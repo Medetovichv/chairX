@@ -19,12 +19,12 @@ public class EmployeeDailyClosingController {
 
     @GetMapping
     public List<LocalDate> dates(Authentication auth) {
-        return service.dates(auth.getName());
+        return service.companyDates(auth.getName());
     }
 
     @GetMapping("/{date}")
     public EmployeeDailyClosingService.Report get(@PathVariable LocalDate date, Authentication auth) {
-        return service.get(auth.getName(),date);
+        return service.companyReport(auth.getName(),date);
     }
 
     @PostMapping("/{date}")
@@ -33,6 +33,6 @@ public class EmployeeDailyClosingController {
             @PathVariable LocalDate date,
             @RequestBody EmployeeDailyClosingService.Request body,
             Authentication auth) {
-        return service.close(auth.getName(),date,body);
+        return service.closeCompany(auth.getName(),date,body);
     }
 }

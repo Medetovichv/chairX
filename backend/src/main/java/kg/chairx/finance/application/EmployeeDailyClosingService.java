@@ -48,7 +48,11 @@ public class EmployeeDailyClosingService {
         }
     }
     public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
-                              String paymentMethod,String comment,Instant createdAt) {}
+                              String paymentMethod,String comment,Instant createdAt,String createdBy) {
+        public ExpenseLine(UUID id,String cat,BigDecimal money,String method,String memo,Instant at) {
+            this(id,cat,money,method,memo,at,null);
+        }
+    }
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
                           BigDecimal actualCash, BigDecimal actualBank,
                           String cashNote, String bankNote,
@@ -86,19 +90,104 @@ public class EmployeeDailyClosingService {
         }
     }
 
+    private void validateEmployeeHistoryWindow(LocalDate date) {
+        if(date.isBefore(policy.today().minusDays(29))) {
+            throw new AccessDeniedException("Employee reports are available for the last 30 calendar days only");
+        }
+    }
+
     /** Only personal reports are returned; no global balances or other employees' rows. */
+    /** Combined operational receipts belong to the whole company, not the closing employee. */
+    private Collections companyNet(LocalDate date) {
+        BigDecimal gross=jdbc.sql("""
+            SELECT COALESCE(SUM(amount),0) FROM finance_movements
+            WHERE movement_type='SALE_PAYMENT' AND source_type='PAYMENT' AND business_date=:day
+            """).param("day",date).query(BigDecimal.class).single();
+        BigDecimal spent=staffExpenses(date).stream().map(ExpenseLine::amount)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+        // For company-wide reports expectedCash stores the COMBINED net, expectedBank is zero.
+        // These fields do not imply a physical CASH/BANK allocation in this scope.
+        return new Collections(gross.subtract(spent),BigDecimal.ZERO);
+    }
+
+    private List<ExpenseLine> staffExpenses(LocalDate date) {
+        return jdbc.sql("""
+            SELECT e.id,e.category,e.amount,e.payment_method,e.comment,e.created_at,e.created_by
+            FROM expenses e
+            WHERE e.expense_date=:day AND NOT EXISTS (
+                SELECT 1 FROM app_users u
+                JOIN security_user_roles ur ON ur.user_id=u.id
+                JOIN security_roles role ON role.id=ur.role_id
+                WHERE u.username=e.created_by AND role.system_role=TRUE
+                  AND role.code IN ('MANAGER','ADMIN')
+            )
+            ORDER BY e.created_at,e.id
+            """).param("day",date).query((rs,i)->new ExpenseLine(
+                rs.getObject("id",UUID.class),rs.getString("category"),
+                rs.getBigDecimal("amount"),rs.getString("payment_method"),
+                rs.getString("comment"),rs.getTimestamp("created_at").toInstant(),
+                rs.getString("created_by"))).list();
+    }
+
+    @Transactional(readOnly=true)
+    public List<LocalDate> companyDates(String username) {
+        Employee actor=employee(username);
+        return jdbc.sql("""
+            SELECT DISTINCT business_date FROM employee_daily_closings
+            WHERE (company_wide=TRUE OR employee_id=:id)
+              AND business_date>=:oldest ORDER BY business_date DESC LIMIT 30
+            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            .query(LocalDate.class).list();
+    }
+
+    @Transactional(readOnly=true)
+    public Report companyReport(String username,LocalDate date) {
+        validateDate(date);validateEmployeeHistoryWindow(date);
+        Employee actor=employee(username);
+        Stored saved=jdbc.sql("""
+            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
+                   actual_total,total_note
+            FROM employee_daily_closings WHERE company_wide=TRUE AND business_date=:day
+            """).param("day",date).query((rs,i)->new Stored(
+                rs.getObject("id",UUID.class),rs.getBigDecimal("expected_cash"),
+                rs.getBigDecimal("expected_bank"),rs.getBigDecimal("actual_cash"),
+                rs.getBigDecimal("actual_bank"),rs.getString("cash_note"),rs.getString("bank_note"),
+                rs.getBigDecimal("actual_total"),rs.getString("total_note"))).optional().orElse(null);
+        // Legacy personal rows remain in the database and are accessible via
+        // the legacy service API; they must never masquerade as a company-wide
+        // confirmation in the employee operational screen.
+        Collections now=companyNet(date);
+        List<ExpenseLine> expenses=saved==null?staffExpenses(date):savedExpenses(saved.id());
+        List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
+        boolean changed=saved!=null && saved.cash().add(saved.bank()).compareTo(now.cash())!=0;
+        return new Report(date,saved!=null,saved==null && policy.normalWriteWindow(date,policy.now()),
+                saved==null?now.cash():saved.cash(),saved==null?now.bank():saved.bank(),
+                saved==null?null:saved.actualCash(),saved==null?null:saved.actualBank(),
+                saved==null?null:saved.cashNote(),saved==null?null:saved.bankNote(),
+                sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
+                sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
+                sales,expenses,expenseTotal(expenses,"CASH"),expenseTotal(expenses,"BANK"),
+                changed,saved==null?now.cash():saved.cash().add(saved.bank()),
+                saved==null?null:saved.actualTotal()!=null?saved.actualTotal():
+                  saved.actualCash().add(saved.actualBank()),
+                saved==null?null:saved.totalNote());
+    }
+
     @Transactional(readOnly = true)
     public List<LocalDate> dates(String username) {
         Employee actor=employee(username);
         return jdbc.sql("""
             SELECT business_date FROM employee_daily_closings
-            WHERE employee_id=:id ORDER BY business_date DESC LIMIT 100
-            """).param("id",actor.id()).query(LocalDate.class).list();
+            WHERE employee_id=:id AND business_date>=:oldest
+            ORDER BY business_date DESC LIMIT 30
+            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            .query(LocalDate.class).list();
     }
 
     @Transactional(readOnly = true)
     public Report get(String username, LocalDate date) {
         validateDate(date);
+        validateEmployeeHistoryWindow(date);
         Employee actor=employee(username);
         return result(actor,date);
     }
@@ -132,12 +221,12 @@ public class EmployeeDailyClosingService {
             .query((rs,i)->new ExpenseLine(rs.getObject("id",UUID.class),
                 rs.getString("category"),rs.getBigDecimal("amount"),
                 rs.getString("payment_method"),rs.getString("comment"),
-                rs.getTimestamp("created_at").toInstant())).list();
+                rs.getTimestamp("created_at").toInstant(),rs.getString("created_by"))).list();
     }
 
     private List<ExpenseLine> savedExpenses(UUID closingId) {
         return jdbc.sql("""
-            SELECT expense_id,category,amount,payment_method,comment,created_at
+            SELECT expense_id,category,amount,payment_method,comment,created_at,created_by
             FROM employee_daily_closing_expenses
             WHERE closing_id=:id ORDER BY created_at,expense_id
             """).param("id",closingId)
@@ -386,4 +475,91 @@ public class EmployeeDailyClosingService {
                 "PERSONAL_DAY_CLOSED",null,auditDetails);
         return result(actor,date);
     }
+    /**
+     * Exactly one authorized employee confirms the immutable operational snapshot
+     * for every employee. Corporate finance closes separately after this step.
+     */
+    @Transactional
+    public Report closeCompany(String username,LocalDate date,Request input) {
+        validateDate(date);
+        if(input==null || input.actualTotal()==null)
+            throw new FinanceValidationException("Укажите одну фактическую сумму за весь день");
+        amount(input.expectedCash());amount(input.expectedBank());amount(input.actualTotal());
+        if(input.actualCash()!=null || input.actualBank()!=null)
+            throw new FinanceValidationException("Для общего отчёта не указывайте CASH/BANK отдельно");
+        String reason=note(input.totalNote());
+        if(input.actualTotal().compareTo(input.expectedCash().add(input.expectedBank()))!=0
+                && reason==null)
+            throw new FinanceValidationException("Укажите причину расхождения общей суммы");
+        Employee actor=employee(username);
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+        accounts.lockBalance(FinanceAccount.BANK);
+        accounts.lockBalance(FinanceAccount.CASH);
+        if(!policy.normalWriteWindow(date,policy.now()))
+            throw new FinanceConflictException("Операционное закрытие за эту дату недоступно");
+        boolean exists=Boolean.TRUE.equals(jdbc.sql("""
+            SELECT EXISTS(SELECT 1 FROM employee_daily_closings
+                WHERE company_wide=TRUE AND business_date=:day)
+            """).param("day",date).query(Boolean.class).single());
+        if(exists)throw new FinanceConflictException("Операционный день уже закрыт");
+        Collections net=companyNet(date);
+        if(net.cash().signum()<0)
+            throw new FinanceConflictException("Расходы сотрудников превышают поступления. Нужна сверка.");
+        if(net.cash().compareTo(input.expectedCash())!=0
+                || net.bank().compareTo(input.expectedBank())!=0)
+            throw new FinanceConflictException("Расчёт изменился. Обновите отчёт.");
+        UUID id=UUID.randomUUID();
+        jdbc.sql("""
+            INSERT INTO employee_daily_closings
+              (id,employee_id,business_date,expected_cash,expected_bank,
+               actual_cash,actual_bank,cash_note,bank_note,actual_total,total_note,company_wide)
+            VALUES (:id,:actor,:day,:cash,:bank,NULL,NULL,NULL,NULL,:actual,:note,TRUE)
+            """).param("id",id).param("actor",actor.id()).param("day",date)
+            .param("cash",net.cash()).param("bank",net.bank())
+            .param("actual",input.actualTotal()).param("note",reason,java.sql.Types.VARCHAR)
+            .update();
+        List<SaleLine> sales=liveSales(username,date);
+        for(SaleLine sale:sales) {
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_sales
+                (closing_id,sale_id,sale_number,quantity,total,completed_at,
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                VALUES (:closing,:sale,:number,:quantity,:total,:completed,
+                        :products,:phone,:address,:fulfillment,:delivery,:payment)
+                """).param("closing",id).param("sale",sale.saleId())
+                .param("number",sale.saleNumber()).param("quantity",sale.quantity())
+                .param("total",sale.total()).param("completed",sale.completedAt().atOffset(ZoneOffset.UTC))
+                .param("products",sale.products(),java.sql.Types.VARCHAR)
+                .param("phone",sale.phone(),java.sql.Types.VARCHAR)
+                .param("address",sale.address(),java.sql.Types.VARCHAR)
+                .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
+                .param("delivery",sale.deliveryStatus(),java.sql.Types.VARCHAR)
+                .param("payment",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
+        }
+        List<ExpenseLine> expenses=staffExpenses(date);
+        for(ExpenseLine expense:expenses) {
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_expenses
+                (closing_id,expense_id,category,amount,payment_method,comment,created_at,created_by)
+                VALUES (:closing,:expense,:category,:amount,:method,:comment,:created,:actor)
+                """).param("closing",id).param("expense",expense.expenseId())
+                .param("category",expense.category()).param("amount",expense.amount())
+                .param("method",expense.paymentMethod())
+                .param("comment",expense.comment(),java.sql.Types.VARCHAR)
+                .param("created",expense.createdAt().atOffset(ZoneOffset.UTC))
+                .param("actor",expense.createdBy(),java.sql.Types.VARCHAR).update();
+        }
+        var details=new java.util.LinkedHashMap<String,Object>();
+        details.put("businessDate",date.toString());
+        details.put("expectedTotal",net.cash());
+        details.put("actualTotal",input.actualTotal());
+        details.put("saleCount",sales.size());
+        details.put("expenseCount",expenses.size());
+        details.put("companyWide",true);
+        if(reason!=null)details.put("reason",reason);
+        audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
+                "OPERATIONAL_DAY_CLOSED",null,details);
+        return companyReport(username,date);
+    }
+
 }

@@ -120,8 +120,11 @@ def main():
             db(0,4,10100,4900,0)
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
-            page.get_by_text("Проверка перед закрытием не пройдена:",
-                             exact=False).wait_for(timeout=25000)
+            # The form and guarded action can both display this text;
+            # Playwright's first match may be hidden by a parent component.
+            page.locator('p[role="alert"]:visible').filter(
+                has_text="Проверка перед закрытием не пройдена:"
+            ).first.wait_for(timeout=25000)
             db(0,4,10100,4900,0)
             page.screenshot(path=str(ART/"02-concurrency-blocked.png"),full_page=True)
             cash.fill("10100");bank.fill("4900")

@@ -51,6 +51,7 @@ class DailyClosingCorrectionIntegrationTest {
     private final List<UUID> newUsers = new ArrayList<>();
     private final List<UUID> newExpenses = new ArrayList<>();
     private final List<UUID> newTransfers = new ArrayList<>();
+    private final List<UUID> operationalFixtureIds = new ArrayList<>();
     private final List<LocalDate> closingDates = new ArrayList<>();
 
     private LocalDate reportDate;
@@ -142,7 +143,19 @@ class DailyClosingCorrectionIntegrationTest {
         String body = String.format(Locale.ROOT,
                 "{\"actualCash\":%s,\"cashNote\":\"%s\",\"actualBank\":%s}",
                 cashActual.toPlainString(), cashNote, originalBank.toPlainString());
-        mvc.perform(post(url()).with(httpBasic(employee, "test-password")).with(csrf())
+        // Manager finalizes finance after one employee has confirmed the
+        // existing operational day (the ledger correction itself is tested below).
+        UUID employeeId=jdbc.queryForObject(
+                "SELECT id FROM app_users WHERE username=?",UUID.class,employee);
+        UUID operationalId=UUID.randomUUID();
+        operationalFixtureIds.add(operationalId);
+        jdbc.update("""
+                INSERT INTO employee_daily_closings
+                  (id,employee_id,business_date,expected_cash,expected_bank,
+                   actual_total,company_wide)
+                VALUES (?,?,?,0,0,0,TRUE)
+                """,operationalId,employeeId,reportDate);
+        mvc.perform(post(url()).with(httpBasic(manager, "test-password")).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
         closingDates.add(reportDate);
@@ -422,6 +435,15 @@ class DailyClosingCorrectionIntegrationTest {
                         .content("{\"reason\":\"Late closing before next day\"}"))
                 .andExpect(status().isOk());
         closingDates.add(nextDay);
+        UUID closerId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
+                UUID.class,employee);
+        UUID nextOperationalId=UUID.randomUUID();
+        operationalFixtureIds.add(nextOperationalId);
+        jdbc.update("""
+                INSERT INTO employee_daily_closings
+                  (id,employee_id,business_date,expected_cash,expected_bank,actual_total,company_wide)
+                VALUES (?,?,?,0,0,0,TRUE)
+                """,nextOperationalId,closerId,nextDay);
 
         UUID expenseKey = UUID.randomUUID();
         String closingBody = String.format(Locale.ROOT,
@@ -444,7 +466,7 @@ class DailyClosingCorrectionIntegrationTest {
                 ready.countDown();
                 if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
                 return mvc.perform(post(nextUrl)
-                                .with(httpBasic(employee, "test-password")).with(csrf())
+                                .with(httpBasic(manager, "test-password")).with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON).content(closingBody))
                         .andReturn().getResponse().getStatus();
             });
@@ -552,6 +574,9 @@ class DailyClosingCorrectionIntegrationTest {
         }
         for (UUID id : newExpenses) jdbc.update("DELETE FROM expenses WHERE id=?", id);
         for (UUID id : newTransfers) jdbc.update("DELETE FROM finance_transfers WHERE id=?", id);
+        for (UUID id : operationalFixtureIds) {
+            jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",id);
+        }
         for (UUID id : newUsers) {
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?", id);
             jdbc.update("DELETE FROM app_users WHERE id=?", id);

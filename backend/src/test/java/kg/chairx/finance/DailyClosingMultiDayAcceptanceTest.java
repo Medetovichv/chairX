@@ -98,6 +98,7 @@ class DailyClosingMultiDayAcceptanceTest {
     private final Set<UUID> originalMovements = new HashSet<>();
     private final List<UUID> users = new ArrayList<>();
     private final List<UUID> expenses = new ArrayList<>();
+    private final List<UUID> operationalFixtureIds = new ArrayList<>();
 
     private String employee;
     private String manager;
@@ -167,6 +168,7 @@ class DailyClosingMultiDayAcceptanceTest {
         originalMovements.clear();
         users.clear();
         expenses.clear();
+        operationalFixtureIds.clear();
         clock.set(0, 12, 0);
         originalMovements.addAll(jdbc.query("SELECT id FROM finance_movements",
                 (rs, row) -> rs.getObject(1, UUID.class)));
@@ -201,6 +203,19 @@ class DailyClosingMultiDayAcceptanceTest {
         employee = user(EMPLOYEE_ROLE);
         manager = user(MANAGER_ROLE);
         admin = user(ADMIN_ROLE);
+    }
+
+    private void confirmOperationalFixture(LocalDate day) {
+        UUID actorId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
+                UUID.class,employee);
+        UUID closeId=UUID.randomUUID();
+        operationalFixtureIds.add(closeId);
+        jdbc.update("""
+                INSERT INTO employee_daily_closings
+                   (id,employee_id,business_date,expected_cash,expected_bank,
+                    actual_total,company_wide)
+                VALUES (?,?,?,0,0,0,TRUE)
+                """,closeId,actorId,day);
     }
 
     private static String url(LocalDate day) {
@@ -256,13 +271,15 @@ class DailyClosingMultiDayAcceptanceTest {
         assertThat(initialBank).isEqualByComparingTo("30000");
 
         clock.set(0, 12, 0);
-        closeDay(employee, FIRST, "24000", "Observed shortage before investigation",
+        confirmOperationalFixture(FIRST);
+        closeDay(manager, FIRST, "24000", "Observed shortage before investigation",
                 "30000").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cash.expected").value(25000))
                 .andExpect(jsonPath("$.cash.actual").value(24000))
                 .andExpect(jsonPath("$.version").value(0));
         clock.set(1, 12, 0);
-        closeDay(employee, SECOND, "25000", null,
+        confirmOperationalFixture(SECOND);
+        closeDay(manager, SECOND, "25000", null,
                 "30000").andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cash.expected").value(25000))
                 .andExpect(jsonPath("$.version").value(0));
@@ -472,6 +489,9 @@ class DailyClosingMultiDayAcceptanceTest {
         }
         for (UUID id : expenses) {
             jdbc.update("DELETE FROM expenses WHERE id=?", id);
+        }
+        for (UUID id : operationalFixtureIds) {
+            jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",id);
         }
         for (UUID id : users) {
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?", id);

@@ -29,7 +29,8 @@ public class EmployeeClosingManagerReportService {
         List<ExpenseLine> expenses,BigDecimal expenseTotal,BigDecimal cashExpenses,
         BigDecimal bankExpenses,BigDecimal totalExpectedCash,BigDecimal totalExpectedBank,
         BigDecimal totalActualCash,BigDecimal totalActualBank,
-        int closedEmployees,int totalEmployees,BigDecimal expectedTotal,BigDecimal actualTotal) {}
+        int closedEmployees,int totalEmployees,BigDecimal expectedTotal,BigDecimal actualTotal,
+        boolean operationalClosed,String operationalCloser) {}
 
     @Transactional(readOnly=true)
     public ManagerReport report(LocalDate date){
@@ -41,8 +42,19 @@ public class EmployeeClosingManagerReportService {
                    c.actual_total,c.total_note
             FROM app_users u
             LEFT JOIN employee_daily_closings c
-              ON c.employee_id=u.id AND c.business_date=:date
+              ON c.employee_id=u.id AND c.business_date=:date AND c.company_wide=FALSE
             WHERE u.active=TRUE
+              AND EXISTS (
+                SELECT 1 FROM security_user_roles ur
+                JOIN security_roles er ON er.id=ur.role_id
+                WHERE ur.user_id=u.id AND er.system_role=TRUE AND er.code='EMPLOYEE'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM security_user_roles ur
+                JOIN security_roles mr ON mr.id=ur.role_id
+                WHERE ur.user_id=u.id AND mr.system_role=TRUE
+                  AND mr.code IN ('ADMIN','MANAGER')
+              )
             ORDER BY u.display_name,u.username
             """).param("date",date).query((rs,i)->new EmployeeClose(
                 rs.getObject("id",UUID.class),rs.getString("username"),
@@ -75,9 +87,26 @@ public class EmployeeClosingManagerReportService {
             .map(e->e.actualTotal()!=null?e.actualTotal():
                 e.actualCash().add(e.actualBank()))
             .reduce(BigDecimal.ZERO,BigDecimal::add);
+        record CompanyClose(String closer,BigDecimal expected,BigDecimal actual) {}
+        CompanyClose company=jdbc.sql("""
+            SELECT u.display_name,
+                   closing.expected_cash+closing.expected_bank AS expected_total,
+                   COALESCE(closing.actual_total,
+                     closing.actual_cash+closing.actual_bank) AS actual_total
+            FROM employee_daily_closings closing
+            JOIN app_users u ON u.id=closing.employee_id
+            WHERE closing.business_date=:day AND closing.company_wide=TRUE
+            """).param("day",date).query((rs,i)->new CompanyClose(
+                rs.getString("display_name"),rs.getBigDecimal("expected_total"),
+                rs.getBigDecimal("actual_total"))).optional().orElse(null);
         return new ManagerReport(date,employees,expenses,total,cash,bank,
-            expectedCash,expectedBank,actualCash,actualBank,
-            (int)employees.stream().filter(EmployeeClose::closed).count(),employees.size(),
-            expectedCash.add(expectedBank),combinedActual);
+            company==null?expectedCash:company.expected(),
+            company==null?expectedBank:BigDecimal.ZERO,
+            actualCash,actualBank,
+            company==null?(int)employees.stream().filter(EmployeeClose::closed).count():1,
+            company==null?employees.size():1,
+            company==null?expectedCash.add(expectedBank):company.expected(),
+            company==null?combinedActual:company.actual(),
+            company!=null,company==null?null:company.closer());
     }
 }

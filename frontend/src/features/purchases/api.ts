@@ -30,10 +30,11 @@ export const purchaseKeys = {
 };
 
 export const purchaseApi = {
-  overview: (f: PurchaseFilters) =>
+  overview: (f: PurchaseFilters, includeOpenOlder=false) =>
     apiClient.get<Page<PurchaseLine>>('/api/purchases/overview?' + params({
       status: f.status, supplierId: f.supplierId, from: f.from, to: f.to,
       number: f.number, page: f.page, size: PAGE_SIZE,
+      includeOpenOlder: includeOpenOlder ? "true" : undefined,
     })),
   get: (purchaseId: string) => apiClient.get<Purchase>('/api/purchases/' + id(purchaseId)),
   create: (input: PurchaseInput) => apiClient.post<Purchase>('/api/purchases', input),

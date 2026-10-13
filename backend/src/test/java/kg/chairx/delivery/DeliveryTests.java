@@ -530,6 +530,27 @@ class DeliveryTests {
     }
 
     @Test
+    void operationalListRetainsOldOpenDeliveriesButHidesOldCompletedOnes() {
+        var openSale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant,home,1,"8500"));
+        var closedSale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant,home,1,"8500"));
+        var openDelivery = deliveries.create(deliveryRequest(openSale.id()));
+        var closedDelivery = deliveries.create(deliveryRequest(closedSale.id()));
+        deliveries.dispatch(closedDelivery.id());
+        deliveries.markDelivered(closedDelivery.id());
+        jdbc.update("UPDATE deliveries SET created_at=now()-INTERVAL '8 days' WHERE id IN (?,?)",
+                openDelivery.id(),closedDelivery.id());
+
+        var active=deliveries.list(null,null,null,null,null,null,0,20,true);
+        var history=deliveries.list(null,null,null,null,null,null,0,20,false);
+        assertThat(active.items()).extracting(x->x.id())
+                .contains(openDelivery.id()).doesNotContain(closedDelivery.id());
+        assertThat(history.items()).extracting(x->x.id())
+                .contains(openDelivery.id(),closedDelivery.id());
+    }
+
+    @Test
     void deliveredDeliveryDoesNotChangeStockAgain() {
         var sale = createSale(
                 FulfillmentType.CITY_DELIVERY,

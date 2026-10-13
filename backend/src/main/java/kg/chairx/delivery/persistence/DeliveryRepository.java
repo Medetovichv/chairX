@@ -35,6 +35,12 @@ public class DeliveryRepository {
     public List<DeliverySummary> list(DeliveryStatus status, Instant from, Instant to,
                                       LocalDate plannedFrom, LocalDate plannedTo,
                                       String cityRegion, int page, int size) {
+        return list(status,from,to,plannedFrom,plannedTo,cityRegion,page,size,false);
+    }
+
+    public List<DeliverySummary> list(DeliveryStatus status, Instant from, Instant to,
+                                      LocalDate plannedFrom, LocalDate plannedTo,
+                                      String cityRegion, int page, int size,boolean operational) {
         return jdbc.sql("""
                 SELECT d.id, d.sale_id, d.status, d.recipient_name, d.city_region,
                        d.created_at, d.planned_delivery_date, d.recipient_phone,
@@ -43,11 +49,15 @@ public class DeliveryRepository {
                 WHERE (CAST(:status AS varchar) IS NULL OR d.status = :status)
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
+                  AND (:operational = FALSE OR d.status NOT IN ('DELIVERED','CANCELLED')
+                       OR d.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                            AT TIME ZONE 'Asia/Bishkek')
                   AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
                   AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
                   AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
                 ORDER BY d.created_at DESC, d.id DESC LIMIT :size OFFSET :offset
                 """)
+                .param("operational",operational)
                 .param("status", status==null ? null : status.name(), Types.VARCHAR)
                 .param("fromDate", from==null ? null : toOffsetDateTime(from), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("toDate", to==null ? null : toOffsetDateTime(to), Types.TIMESTAMP_WITH_TIMEZONE)
@@ -74,15 +84,25 @@ public class DeliveryRepository {
 
     public long count(DeliveryStatus status,Instant from,Instant to,
                       LocalDate plannedFrom,LocalDate plannedTo,String cityRegion) {
+        return count(status,from,to,plannedFrom,plannedTo,cityRegion,false);
+    }
+
+    public long count(DeliveryStatus status,Instant from,Instant to,
+                      LocalDate plannedFrom,LocalDate plannedTo,String cityRegion,
+                      boolean operational) {
         return jdbc.sql("""
                 SELECT count(*) FROM deliveries d
                 WHERE (CAST(:status AS varchar) IS NULL OR d.status = :status)
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
+                  AND (:operational = FALSE OR d.status NOT IN ('DELIVERED','CANCELLED')
+                       OR d.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+                            AT TIME ZONE 'Asia/Bishkek')
                   AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
                   AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
                   AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
                 """)
+                .param("operational",operational)
                 .param("status",status==null?null:status.name(),Types.VARCHAR)
                 .param("fromDate",from==null?null:toOffsetDateTime(from),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("toDate",to==null?null:toOffsetDateTime(to),Types.TIMESTAMP_WITH_TIMEZONE)
