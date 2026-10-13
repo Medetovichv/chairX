@@ -167,8 +167,9 @@ export function HomePage() {
     {allowed && overview.isError && <ErrorState error={overview.error} onRetry={() => void overview.refetch()} />}
     {allowed && data && <>
       <section aria-label="Показатели" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {sales && data.orders30Days !== null && <Stat title="Заказов за 30 дней"
-          value={data.orders30Days} note="Создано за период" icon={ShoppingCart} path="/sales" />}
+        {sales && <Stat title="Заказов сегодня"
+          value={data.ordersByDay.find(day=>day.day===data.businessDate)?.orders??0}
+          note="Создано сегодня" icon={ShoppingCart} path="/sales" />}
         {deliveries && data.pendingDeliveries !== null && <Stat title="Ожидают доставки"
           value={data.pendingDeliveries} note="Готовы к отправке или в пути" icon={Truck} path="/deliveries" />}
         {inventory && data.availableUnits !== null && <Stat title="Доступно на складах"
