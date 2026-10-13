@@ -254,7 +254,7 @@ class EmployeeDailyClosingIsolationTest {
         String url="/api/finance/my-closings/"+day;
         mvc.perform(post(url).with(httpBasic(actor,PASSWORD)).with(csrf())
              .contentType(MediaType.APPLICATION_JSON).content(body("0","0","0","0")))
-             .andExpect(status().isConflict());
+             .andExpect(status().isBadRequest());
         mvc.perform(post(url).with(httpBasic(actor,PASSWORD))
              .contentType(MediaType.APPLICATION_JSON).content(body("100","0","100","0")))
              .andExpect(status().isForbidden());
