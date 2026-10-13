@@ -49,6 +49,11 @@ public class DashboardService {
                 SELECT count(*) FROM deliveries
                 WHERE status IN ('READY','IN_TRANSIT')
                 """).query(Long.class).single() : null;
+        Long deliveredToday = canDeliveries ? count("""
+                SELECT count(*) FROM deliveries
+                WHERE status='DELIVERED'
+                  AND delivered_at >= :fromDate AND delivered_at < :untilDate
+                """,today,today.plusDays(1)) : null;
         Long late = canDeliveries ? jdbc.sql("""
                 SELECT count(*) FROM deliveries
                 WHERE status IN ('READY','IN_TRANSIT')
@@ -69,7 +74,7 @@ public class DashboardService {
                 ) variants
                 """).query(Long.class).single() : null;
 
-        return new DashboardOverview(today, orders, inWork, pending, late,
+        return new DashboardOverview(today, orders, inWork, pending, deliveredToday, late,
                 stock, lowStock,
                 canSales ? sevenDaySales(today) : List.of(),
                 canSales ? sales.listSummaries(null, null, null, null, 0, 5) : List.of());
