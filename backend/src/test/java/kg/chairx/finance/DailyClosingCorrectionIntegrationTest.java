@@ -435,6 +435,15 @@ class DailyClosingCorrectionIntegrationTest {
                         .content("{\"reason\":\"Late closing before next day\"}"))
                 .andExpect(status().isOk());
         closingDates.add(nextDay);
+        UUID closerId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
+                UUID.class,employee);
+        UUID nextOperationalId=UUID.randomUUID();
+        operationalFixtureIds.add(nextOperationalId);
+        jdbc.update("""
+                INSERT INTO employee_daily_closings
+                  (id,employee_id,business_date,expected_cash,expected_bank,actual_total,company_wide)
+                VALUES (?,?,?,0,0,0,TRUE)
+                """,nextOperationalId,closerId,nextDay);
 
         UUID expenseKey = UUID.randomUUID();
         String closingBody = String.format(Locale.ROOT,
@@ -457,7 +466,7 @@ class DailyClosingCorrectionIntegrationTest {
                 ready.countDown();
                 if (!start.await(15, TimeUnit.SECONDS)) throw new IllegalStateException("start timeout");
                 return mvc.perform(post(nextUrl)
-                                .with(httpBasic(employee, "test-password")).with(csrf())
+                                .with(httpBasic(manager, "test-password")).with(csrf())
                                 .contentType(MediaType.APPLICATION_JSON).content(closingBody))
                         .andReturn().getResponse().getStatus();
             });
