@@ -120,8 +120,10 @@ def main():
             db(0,4,10100,4900,0)
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
+            # The form and guarded action can both display this text.
+            # Assert at least one visible error, without relying on global text uniqueness.
             page.get_by_text("Проверка перед закрытием не пройдена:",
-                             exact=False).wait_for(timeout=25000)
+                             exact=False).first.wait_for(timeout=25000)
             db(0,4,10100,4900,0)
             page.screenshot(path=str(ART/"02-concurrency-blocked.png"),full_page=True)
             cash.fill("10100");bank.fill("4900")
