@@ -67,7 +67,7 @@ describe('Employee daily closing isolation',()=>{
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
-   .getByRole('button',{name:'Сохранить моё закрытие'}));
+   .getByRole('button',{name:'Закрыть операционный день'}));
   await waitFor(()=>expect(requests.filter(r=>r.method==='POST')).toHaveLength(1));
   const post=requests.find(r=>r.method==='POST')!;
   expect(post.path).toBe('/api/finance/my-closings/'+day);
@@ -95,7 +95,7 @@ describe('Employee daily closing isolation',()=>{
 
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
-    .getByRole('button',{name:'Сохранить моё закрытие'}));
+    .getByRole('button',{name:'Закрыть операционный день'}));
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Данные изменились'));
   expect(posts).toHaveLength(0);
  });
