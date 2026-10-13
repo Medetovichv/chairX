@@ -43,7 +43,7 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Private screen must not request '+path);
   }));
   renderPage();
-  expect(await screen.findByText('Моё закрытие дня')).toBeInTheDocument();
+  expect(await screen.findByText('Закрытие дня')).toBeInTheDocument();
   expect(await screen.findByText(/Расчётная сумма к подтверждению/)).toBeInTheDocument();
   expect(screen.getByText(/CX-1/)).toBeInTheDocument();
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
@@ -62,7 +62,7 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Unexpected '+path);
   }));
   renderPage();
-  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe('Employee daily closing isolation',()=>{
    throw Error('Unexpected '+path);
   }));
   renderPage();
-  const form=await screen.findByRole('form',{name:'Личное закрытие смены'});
+  const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
 
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
