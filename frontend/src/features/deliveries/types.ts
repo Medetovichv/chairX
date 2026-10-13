@@ -25,6 +25,7 @@ export interface DeliveryPage { items: DeliverySummary[]; page: number; size: nu
 export interface DeliveryFilters {
   status: DeliveryStatus | ''; from: string; to: string;
   plannedFrom: string; plannedTo: string; cityRegion: string; page: number;
+  operational?: boolean;
 }
 export interface CreateDeliveryInput {
   saleId: string; recipientName: string | null; recipientPhone: string;
