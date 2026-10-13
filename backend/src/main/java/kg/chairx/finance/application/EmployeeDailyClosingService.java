@@ -224,12 +224,12 @@ public class EmployeeDailyClosingService {
             .query((rs,i)->new ExpenseLine(rs.getObject("id",UUID.class),
                 rs.getString("category"),rs.getBigDecimal("amount"),
                 rs.getString("payment_method"),rs.getString("comment"),
-                rs.getTimestamp("created_at").toInstant())).list();
+                rs.getTimestamp("created_at").toInstant(),rs.getString("created_by"))).list();
     }
 
     private List<ExpenseLine> savedExpenses(UUID closingId) {
         return jdbc.sql("""
-            SELECT expense_id,category,amount,payment_method,comment,created_at
+            SELECT expense_id,category,amount,payment_method,comment,created_at,created_by
             FROM employee_daily_closing_expenses
             WHERE closing_id=:id ORDER BY created_at,expense_id
             """).param("id",closingId)
