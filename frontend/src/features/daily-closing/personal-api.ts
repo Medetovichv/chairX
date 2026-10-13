@@ -7,7 +7,7 @@ export interface EmployeeSaleLine {
 }
 export interface PersonalExpenseLine {
  expenseId:string;category:string;amount:string;paymentMethod:'CASH'|'BANK';
- comment:string|null;createdAt:string;
+ comment:string|null;createdAt:string;createdBy?:string|null;
 }
 export interface PersonalClosing {
  businessDate:string; closed:boolean; canClose:boolean;
@@ -47,6 +47,7 @@ export interface ManagerClosingReport {
  expenseTotal:string;cashExpenses:string;bankExpenses:string;
  totalExpectedCash:string;totalExpectedBank:string;totalActualCash:string;totalActualBank:string;
  closedEmployees:number;totalEmployees:number;expectedTotal?:string;actualTotal?:string;
+ operationalClosed:boolean;operationalCloser:string|null;
 }
 export const managerClosingApi={
  report:(date:string)=>apiClient.get<ManagerClosingReport>(
