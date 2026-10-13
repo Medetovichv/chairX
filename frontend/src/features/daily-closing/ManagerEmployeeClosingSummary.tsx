@@ -36,13 +36,13 @@ export function ManagerEmployeeClosingSummary({date}:{date:string}){
       <p className="mt-1 text-xs text-slate-500">Расчёт: {som(report.data.totalExpectedBank)}</p></div>
     </div>
     </details>
-    <div className="overflow-x-auto"><h3 className="mb-2 font-semibold">Закрытия за день</h3>
+    <div className="overflow-x-auto"><h3 className="mb-2 font-semibold">Подтверждение операционного дня</h3>
      <table className="w-full text-left text-sm"><thead><tr className="border-b">
       <th className="p-2">Сотрудник</th><th className="p-2">Состояние</th>
       <th className="p-2">Подтверждённая сумма</th><th className="p-2">Причина расхождения</th>
-     </tr></thead><tbody>{report.data.employees.map(e=><tr className="border-b" key={e.employeeId}>
+     </tr></thead><tbody>{report.data.employees.filter(e=>e.closed).map(e=><tr className="border-b" key={e.employeeId}>
       <td className="p-2">{e.displayName||e.username}</td>
-      <td className="p-2">{e.closed?'Закрыто':'Ожидает закрытия'}</td>
+      <td className="p-2">{'Закрыто'}</td>
       <td className="p-2">{!e.closed?'—':som(e.actualTotal??(Number(e.actualCash??0)+Number(e.actualBank??0)))}</td>
       <td className="p-2">{e.totalNote||'—'}</td>
      </tr>)}</tbody></table>
