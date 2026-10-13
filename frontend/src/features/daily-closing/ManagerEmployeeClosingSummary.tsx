@@ -8,12 +8,15 @@ import {ErrorState} from '../../shared/components/ErrorState';
 export function ManagerEmployeeClosingSummary({date}:{date:string}){
  const report=useQuery({queryKey:['employee-closings','manager',date],
   queryFn:()=>managerClosingApi.report(date)});
- return <section aria-label="Закрытия сотрудников и все расходы" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+ return <section aria-label="Операционный отчёт и расходы" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
   <div><h2 className="text-lg font-bold">Закрытия сотрудников и все расходы</h2>
-   <p className="mt-1 text-sm text-slate-600">Общая сверка руководителя: кто закрыл смену, какие расходы зарегистрировал каждый сотрудник.</p></div>
+   <p className="mt-1 text-sm text-slate-600">Один сотрудник подтверждает общий операционный день. Менеджер дополняет расходы и закрывает финансовый отчёт отдельно.</p></div>
   {report.isPending?<LoadingState label="Загружаем общий отчёт сотрудников…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <>
+    <p className="rounded-xl bg-slate-50 p-3 text-sm font-semibold">{report.data.operationalClosed
+     ? 'Операционный день закрыт: '+(report.data.operationalCloser??'сотрудник')
+     : 'Операционный день ещё не подтверждён сотрудником'}</p>
     <div className="grid gap-3 sm:grid-cols-2">
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Расходы предприятия за день</p>
       <p className="mt-1 text-2xl font-bold">{som(report.data.expenseTotal)}</p></div>
