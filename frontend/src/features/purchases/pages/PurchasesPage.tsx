@@ -63,15 +63,17 @@ export function PurchasesPage() {
   const allowed = hasPermission('PURCHASE_READ');
   const canCreate = hasPermission('PURCHASE_CREATE');
   const [filters, setFilters] = useState<PurchaseFilters>(initialFilters);
+  const [includeOpenOlder,setIncludeOpenOlder]=useState(true);
   const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
   const navigate = useNavigate();
   const client = useQueryClient();
   function change<K extends keyof PurchaseFilters>(field: K, value: PurchaseFilters[K]) {
+    if(field==='from'||field==='to')setIncludeOpenOlder(false);
     setFilters(f => ({ ...f, [field]: value, page:0 }));
   }
   const overview = useQuery({
-    queryKey: purchaseKeys.overview(filters), queryFn: () => purchaseApi.overview(filters), enabled: allowed && !creating,
+    queryKey: [...purchaseKeys.overview(filters),includeOpenOlder], queryFn: () => purchaseApi.overview(filters,includeOpenOlder), enabled: allowed && !creating,
   });
   const suppliers = useQuery({
     queryKey: purchaseKeys.supplierAll, queryFn: supplierApi.all,
@@ -91,10 +93,10 @@ export function PurchasesPage() {
     {creating && canCreate && <PurchaseForm onCancel={() => setCreating(false)}
       onSave={async value => { await create.mutateAsync(value); }} />}
     {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>setFilters(initialFilters())}>Сбросить фильтры</Button></div>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>{setFilters(initialFilters());setIncludeOpenOlder(true);}}>Сбросить фильтры</Button></div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={()=>setFilters(old=>({...old,...lastSevenDays(),page:0}))}>Последние 7 дней</Button>
-        <Button variant="outline" size="sm" onClick={()=>setFilters(old=>({...old,from:'',to:'',page:0}))}>Все даты</Button>
+        <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,...lastSevenDays(),page:0}));setIncludeOpenOlder(true);}}>Последние 7 дней + незавершённые</Button>
+        <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,from:'',to:'',page:0}));setIncludeOpenOlder(false);}}>Все даты</Button>
       </div>
       <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
