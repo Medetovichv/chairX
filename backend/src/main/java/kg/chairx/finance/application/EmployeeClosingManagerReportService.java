@@ -29,7 +29,8 @@ public class EmployeeClosingManagerReportService {
         List<ExpenseLine> expenses,BigDecimal expenseTotal,BigDecimal cashExpenses,
         BigDecimal bankExpenses,BigDecimal totalExpectedCash,BigDecimal totalExpectedBank,
         BigDecimal totalActualCash,BigDecimal totalActualBank,
-        int closedEmployees,int totalEmployees,BigDecimal expectedTotal,BigDecimal actualTotal) {}
+        int closedEmployees,int totalEmployees,BigDecimal expectedTotal,BigDecimal actualTotal,
+        boolean operationalClosed,String operationalCloser) {}
 
     @Transactional(readOnly=true)
     public ManagerReport report(LocalDate date){
@@ -86,9 +87,15 @@ public class EmployeeClosingManagerReportService {
             .map(e->e.actualTotal()!=null?e.actualTotal():
                 e.actualCash().add(e.actualBank()))
             .reduce(BigDecimal.ZERO,BigDecimal::add);
+        String closer=jdbc.sql("""
+            SELECT u.display_name FROM employee_daily_closings closing
+            JOIN app_users u ON u.id=closing.employee_id
+            WHERE closing.business_date=:day AND closing.company_wide=TRUE
+            """).param("day",date).query(String.class).optional().orElse(null);
         return new ManagerReport(date,employees,expenses,total,cash,bank,
             expectedCash,expectedBank,actualCash,actualBank,
             (int)employees.stream().filter(EmployeeClose::closed).count(),employees.size(),
-            expectedCash.add(expectedBank),combinedActual);
+            expectedCash.add(expectedBank),combinedActual,
+            closer!=null,closer);
     }
 }
