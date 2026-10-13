@@ -14,7 +14,7 @@ function params(input: Record<string, string | number | null | undefined>) {
 }
 export const purchaseKeys = {
   overviews: ['purchases', 'overview'] as const,
-  overview: (f: PurchaseFilters) => ['purchases', 'overview', f.status, f.supplierId, f.from, f.to, f.number, f.page, PAGE_SIZE] as const,
+  overview: (f: PurchaseFilters, includeOpenOlder=false) => ['purchases', 'overview', f.status, f.supplierId, f.from, f.to, f.number, f.page, PAGE_SIZE] as const,
   detail: (purchaseId: string) => ['purchases', 'detail', purchaseId] as const,
   receiving: ['purchases', 'receiving'] as const,
   receivingPage: (page: number) => ['purchases', 'receiving', page, PAGE_SIZE] as const,
@@ -34,6 +34,7 @@ export const purchaseApi = {
     apiClient.get<Page<PurchaseLine>>('/api/purchases/overview?' + params({
       status: f.status, supplierId: f.supplierId, from: f.from, to: f.to,
       number: f.number, page: f.page, size: PAGE_SIZE,
+      includeOpenOlder: includeOpenOlder ? "true" : undefined,
     })),
   get: (purchaseId: string) => apiClient.get<Purchase>('/api/purchases/' + id(purchaseId)),
   create: (input: PurchaseInput) => apiClient.post<Purchase>('/api/purchases', input),
