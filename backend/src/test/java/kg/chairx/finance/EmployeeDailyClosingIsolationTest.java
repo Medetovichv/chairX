@@ -228,6 +228,16 @@ class EmployeeDailyClosingIsolationTest {
         assertThat(jdbc.queryForObject(
             "SELECT COUNT(*) FROM employee_daily_closings WHERE employee_id=?",Integer.class,users.get(0))).isZero();
     }
+    @Test void managerOverviewCountsOnlyEmployeesNotManagerOrAdmin() throws Exception {
+        String employee=user(EMPLOYEE_ROLE);
+        String manager=user(MANAGER_ROLE);
+        mvc.perform(get("/api/finance/employee-closings/"+day)
+                .with(httpBasic(manager,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.employees[?(@.username=='"+employee+"')].length()").value(1))
+            .andExpect(jsonPath("$.employees[?(@.username=='"+manager+"')].length()").value(0));
+    }
+
     @Test void expensesAreCreatorScopedAndFrozenAtPersonalClosing() throws Exception {
         String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE),manager=user(MANAGER_ROLE);
         collection(alice,"CASH",1500);
