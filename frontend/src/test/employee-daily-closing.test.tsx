@@ -64,7 +64,7 @@ describe('Employee daily closing isolation',()=>{
   renderPage();
   const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   expect(screen.getByRole('alertdialog')).toBeInTheDocument();
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Сохранить моё закрытие'}));
@@ -93,7 +93,7 @@ describe('Employee daily closing isolation',()=>{
   const form=await screen.findByRole('form',{name:'Операционное закрытие дня'});
   fireEvent.change(within(form).getByRole('textbox',{name:'Фактическая общая сумма'}),{target:{value:'300'}});
 
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть смену'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить и закрыть день'}));
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
     .getByRole('button',{name:'Сохранить моё закрытие'}));
   await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Данные изменились'));
