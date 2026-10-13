@@ -449,7 +449,7 @@ describe('F03 value and F02.1 regression contracts', () => {
   it('keeps separate F02.1 daily closing route working', () => {
     access.permissions = ['DAILY_CLOSING_READ'];
     mockCatalog(); renderAt('/daily-closing');
-    expect(screen.getByRole('heading', { name: 'Моё закрытие дня', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Закрытие дня', level: 2 })).toBeInTheDocument();
   });
 });
 
