@@ -337,15 +337,14 @@ public class SecurityConfig {
                 && actor.getAuthorities().stream().anyMatch(a->a.getAuthority().equals("FINANCE_READ"));
             boolean hasClose=actor!=null && actor.getAuthorities().stream().anyMatch(
                 a->a.getAuthority().equals("DAILY_CLOSING_WRITE")||a.getAuthority().equals("FINANCE_CLOSE"));
-            // Preserve existing finance close contracts; deny active persisted manager
-            // accounts for which company closing must be read-only.
-            boolean manager=actor!=null && users.findByUsername(actor.getName())
+            // The second confirmation belongs to a real MANAGER or ADMIN.
+            // Custom-named roles cannot impersonate either system role.
+            boolean managerOrAdmin=actor!=null && users.findByUsername(actor.getName())
                 .filter(AppUserRepository.AppUserRecord::active)
-                .map(user->roles.isActiveSystemManagerOrAdministrator(user.id())
-                    && !roles.isActiveSystemAdministrator(user.id()))
+                .map(user->roles.isActiveSystemManagerOrAdministrator(user.id()))
                 .orElse(false);
             return new org.springframework.security.authorization.AuthorizationDecision(
-                hasFinance && hasClose && !manager);
+                hasFinance && hasClose && managerOrAdmin);
         };
     }
 
