@@ -14,6 +14,7 @@ public record DashboardOverview(
         Long orders30Days,
         Long activeOrders,
         Long pendingDeliveries,
+        Long deliveredToday,
         Long delayedDeliveries,
         Long availableUnits,
         Long lowStockVariants,
