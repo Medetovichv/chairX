@@ -478,4 +478,91 @@ public class EmployeeDailyClosingService {
                 "PERSONAL_DAY_CLOSED",null,auditDetails);
         return result(actor,date);
     }
+    /**
+     * Exactly one authorized employee confirms the immutable operational snapshot
+     * for every employee. Corporate finance closes separately after this step.
+     */
+    @Transactional
+    public Report closeCompany(String username,LocalDate date,Request input) {
+        validateDate(date);
+        if(input==null || input.actualTotal()==null)
+            throw new FinanceValidationException("Укажите одну фактическую сумму за весь день");
+        amount(input.expectedCash());amount(input.expectedBank());amount(input.actualTotal());
+        if(input.actualCash()!=null || input.actualBank()!=null)
+            throw new FinanceValidationException("Для общего отчёта не указывайте CASH/BANK отдельно");
+        String reason=note(input.totalNote());
+        if(input.actualTotal().compareTo(input.expectedCash().add(input.expectedBank()))!=0
+                && reason==null)
+            throw new FinanceValidationException("Укажите причину расхождения общей суммы");
+        Employee actor=employee(username);
+        kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+        accounts.lockBalance(FinanceAccount.BANK);
+        accounts.lockBalance(FinanceAccount.CASH);
+        if(!policy.normalWriteWindow(date,policy.now()))
+            throw new FinanceConflictException("Операционное закрытие за эту дату недоступно");
+        boolean exists=Boolean.TRUE.equals(jdbc.sql("""
+            SELECT EXISTS(SELECT 1 FROM employee_daily_closings
+                WHERE company_wide=TRUE AND business_date=:day)
+            """).param("day",date).query(Boolean.class).single());
+        if(exists)throw new FinanceConflictException("Операционный день уже закрыт");
+        Collections net=companyNet(date);
+        if(net.cash().signum()<0)
+            throw new FinanceConflictException("Расходы сотрудников превышают поступления. Нужна сверка.");
+        if(net.cash().compareTo(input.expectedCash())!=0
+                || net.bank().compareTo(input.expectedBank())!=0)
+            throw new FinanceConflictException("Расчёт изменился. Обновите отчёт.");
+        UUID id=UUID.randomUUID();
+        jdbc.sql("""
+            INSERT INTO employee_daily_closings
+              (id,employee_id,business_date,expected_cash,expected_bank,
+               actual_cash,actual_bank,cash_note,bank_note,actual_total,total_note,company_wide)
+            VALUES (:id,:actor,:day,:cash,:bank,NULL,NULL,NULL,NULL,:actual,:note,TRUE)
+            """).param("id",id).param("actor",actor.id()).param("day",date)
+            .param("cash",net.cash()).param("bank",net.bank())
+            .param("actual",input.actualTotal()).param("note",reason,java.sql.Types.VARCHAR)
+            .update();
+        List<SaleLine> sales=liveSales(username,date);
+        for(SaleLine sale:sales) {
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_sales
+                (closing_id,sale_id,sale_number,quantity,total,completed_at,
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                VALUES (:closing,:sale,:number,:quantity,:total,:completed,
+                        :products,:phone,:address,:fulfillment,:delivery,:payment)
+                """).param("closing",id).param("sale",sale.saleId())
+                .param("number",sale.saleNumber()).param("quantity",sale.quantity())
+                .param("total",sale.total()).param("completed",sale.completedAt().atOffset(ZoneOffset.UTC))
+                .param("products",sale.products(),java.sql.Types.VARCHAR)
+                .param("phone",sale.phone(),java.sql.Types.VARCHAR)
+                .param("address",sale.address(),java.sql.Types.VARCHAR)
+                .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
+                .param("delivery",sale.deliveryStatus(),java.sql.Types.VARCHAR)
+                .param("payment",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
+        }
+        List<ExpenseLine> expenses=staffExpenses(date);
+        for(ExpenseLine expense:expenses) {
+            jdbc.sql("""
+                INSERT INTO employee_daily_closing_expenses
+                (closing_id,expense_id,category,amount,payment_method,comment,created_at,created_by)
+                VALUES (:closing,:expense,:category,:amount,:method,:comment,:created,:actor)
+                """).param("closing",id).param("expense",expense.expenseId())
+                .param("category",expense.category()).param("amount",expense.amount())
+                .param("method",expense.paymentMethod())
+                .param("comment",expense.comment(),java.sql.Types.VARCHAR)
+                .param("created",expense.createdAt().atOffset(ZoneOffset.UTC))
+                .param("actor",expense.createdBy(),java.sql.Types.VARCHAR).update();
+        }
+        var details=new java.util.LinkedHashMap<String,Object>();
+        details.put("businessDate",date.toString());
+        details.put("expectedTotal",net.cash());
+        details.put("actualTotal",input.actualTotal());
+        details.put("saleCount",sales.size());
+        details.put("expenseCount",expenses.size());
+        details.put("companyWide",true);
+        if(reason!=null)details.put("reason",reason);
+        audit.recordAs(actor.username(),"EMPLOYEE_DAILY_CLOSING",id,
+                "OPERATIONAL_DAY_CLOSED",null,details);
+        return companyReport(username,date);
+    }
+
 }
