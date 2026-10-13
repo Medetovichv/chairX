@@ -89,8 +89,8 @@ export function EmployeeDailyClosingPage(){
   }finally{setPending(false);}
  }
  return <div className="space-y-5">
-  <PageHeader title="Моё закрытие дня"
-   description="Все завершённые продажи дня, мои поступления и только мои расходы. Чужие расходы недоступны."/>
+  <PageHeader title="Закрытие дня"
+   description="Единый операционный отчёт предприятия. Один сотрудник подтверждает результаты всей команды."/>
   <nav aria-label="Режим отчётов" className="flex flex-wrap gap-2">
    <Button variant={view==='current'?'default':'outline'} onClick={()=>{setView('current');chooseDate(bishkekToday());}}>Актуальный отчёт</Button>
    <Button variant={view==='history'?'default':'outline'} onClick={()=>{
@@ -133,12 +133,12 @@ export function EmployeeDailyClosingPage(){
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
     <section className="space-y-3 rounded-xl border bg-white p-4 lg:col-start-1">
-     <h2 className="text-lg font-bold">{report.data.closed?'Мой день закрыт':'Мой день открыт'}</h2>
-     <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · поступления минус мои расходы</p>
+     <h2 className="text-lg font-bold">{report.data.closed?'Операционный день закрыт':'Операционный день открыт'}</h2>
+     <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · все поступления минус расходы сотрудников</p>
        <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
-     <p className="text-sm text-slate-600">Это расчёт после вычета расходов, зарегистрированных вами за этот день. Остатки компании и расходы других сотрудников здесь не показываются.</p>
+     <p className="text-sm text-slate-600">Отчёт объединяет операции сотрудников. Управленческие расходы менеджер добавит при финансовом закрытии.</p>
      {(BigInt(report.data.expectedCash)<0n||BigInt(report.data.expectedBank)<0n)&&
-      <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Ваши расходы превышают личные поступления. Перед закрытием требуется сверка с менеджером.</p>}
+      <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Расходы сотрудников превышают поступления. Перед закрытием нужна сверка с менеджером.</p>}
      {report.data.closed&&<div className="space-y-2">
       <p>Подтверждённая сумма: <strong>{money(report.data.actualTotal??String(centsFree(report.data.actualCash)+centsFree(report.data.actualBank)))}</strong></p>
       {(report.data.totalNote||report.data.cashNote||report.data.bankNote)&&
@@ -147,7 +147,7 @@ export function EmployeeDailyClosingPage(){
        После закрытия появились изменения. Сохранённый отчёт не перезаписывается; обратитесь к менеджеру.</p>}
      </div>}
      {!report.data.closed&&write&&report.data.canClose&&
-      <form aria-label="Личное закрытие смены" onSubmit={prepare} className="space-y-3">
+      <form aria-label="Операционное закрытие дня" onSubmit={prepare} className="space-y-3">
        <label className="block space-y-1 text-sm font-semibold">Фактически подтверждаю, сом
         <Input aria-label="Фактическая общая сумма" inputMode="numeric" value={total} maxLength={17}
          onChange={e=>setTotal(e.target.value)}/></label>
@@ -155,10 +155,10 @@ export function EmployeeDailyClosingPage(){
         <textarea aria-label="Общая причина расхождения" className="w-full rounded-lg border p-3"
          maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
        <Button type="submit" disabled={pending||unknown||!nonnegativeSom(total)}>
-        Подтвердить и закрыть смену</Button>
+        Подтвердить и закрыть день</Button>
       </form>}
      {!report.data.closed&&!report.data.canClose&&<p className="text-amber-800">
-       Эта дата недоступна для обычного личного закрытия.</p>}
+       Эта дата недоступна для обычного операционного закрытия.</p>}
     </section>
     <section className="rounded-xl border bg-white p-4 lg:col-start-1">
      <h2 className="text-lg font-bold">Оплаченные и выданные заказы за день</h2>
@@ -184,9 +184,9 @@ export function EmployeeDailyClosingPage(){
      </div>}
      {report.data.sales.length===0&&<p>Оплаченных выданных продаж за выбранную дату нет.</p>}
     </section>
-    <section aria-label="Мои расходы за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
-     <h2 className="text-lg font-bold">Мои расходы за день</h2>
-     <p className="text-sm text-slate-600">Только расходы, созданные под вашей учётной записью (createdBy). Чужие расходы не загружаются.</p>
+    <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+     <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
+     <p className="text-sm text-slate-600">Все расходы сотрудников учитываются один раз; добавить новый расход можно только от собственного имени.</p>
      <div className="grid gap-3 sm:grid-cols-2">
       <p className="rounded-xl bg-slate-50 p-3">Наличные: <strong>{money(report.data.expenseCash)}</strong></p>
       <p className="rounded-xl bg-slate-50 p-3">Переводы: <strong>{money(report.data.expenseBank)}</strong></p>
@@ -214,7 +214,7 @@ export function EmployeeDailyClosingPage(){
             setError('');
             start(payload,'Расход '+expenseAmount+' сом, '+day+'. Ответственный определяется вашей авторизованной учётной записью.');
           }}>
-         <h3 className="font-semibold">Добавить мой расход</h3>
+         <h3 className="font-semibold">Добавить расход</h3>
          <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-semibold">Категория
            <select aria-label="Категория моего расхода" className="mt-1 w-full rounded-xl border p-2" value={expenseCategory}
@@ -237,11 +237,11 @@ export function EmployeeDailyClosingPage(){
          <Button type="submit" disabled={locked||!nonnegativeSom(expenseAmount)||centsFree(expenseAmount)===0n}>Добавить расход</Button>
         </form>}
        </GuardedPost>}
-     {report.data.expenses.length===0?<p className="text-sm text-slate-500">Вы не регистрировали расходы за этот день.</p>:
+     {report.data.expenses.length===0?<p className="text-sm text-slate-500">За этот день расходы сотрудников не зарегистрированы.</p>:
       <div className="overflow-x-auto"><table className="w-full text-left text-sm">
        <thead><tr className="border-b"><th className="p-2">Категория</th><th className="p-2">Комментарий</th><th className="p-2">Оплата</th><th className="p-2 text-right">Сумма</th></tr></thead>
        <tbody>{report.data.expenses.map(e=><tr key={e.expenseId} className="border-b">
-        <td className="p-2">{e.category}</td><td className="p-2">{e.comment||'—'}</td>
+        <td className="p-2">{e.category}<p className="text-xs text-slate-500">{e.createdBy||""}</p></td><td className="p-2">{e.comment||'—'}</td>
         <td className="p-2">{e.paymentMethod==='CASH'?'Наличные':'Перевод'}</td>
         <td className="p-2 text-right font-semibold">{money(e.amount)}</td>
        </tr>)}</tbody>
@@ -249,9 +249,9 @@ export function EmployeeDailyClosingPage(){
     </section>
    </div>}
   <ConfirmDialog open={confirm!==null} onOpenChange={v=>{if(!v)setConfirm(null);}}
-   title="Подтвердить моё закрытие?"
+   title="Подтвердить общее закрытие дня?"
    description={confirm?'Дата '+day+'. Подтверждаемая сумма '+money(confirm.actualTotal??'0')+
     '. Финансовые счета компании не изменяются.':''}
-   busy={pending} confirmLabel="Сохранить моё закрытие" onConfirm={()=>void close()}/>
+   busy={pending} confirmLabel="Закрыть операционный день" onConfirm={()=>void close()}/>
  </div>;
 }
