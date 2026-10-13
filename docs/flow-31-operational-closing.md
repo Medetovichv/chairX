@@ -17,7 +17,7 @@ Employees do not receive `FINANCE_READ` simply by having closing permissions. Th
 
 ## Database and historical records
 
-Flyway V63 adds `company_wide` to `employee_daily_closings` and a partial unique index on `business_date` for company-wide records. Previous employee-personal rows are retained, distinct from a true company-wide confirmation; they must not falsely satisfy the manager's company-close prerequisite. Snapshots contain the original sale identifiers, quantities and expense authors. A second company-wide confirmation for the same date is rejected.
+Flyway V63 adds `company_wide` to `employee_daily_closings` and a partial unique index on `business_date` for company-wide records. V64 replaces the old unconditional employee/date uniqueness with a legacy-personal-only unique index, allowing one employee's historical personal and new company-wide records to coexist for the same day without duplication. Previous employee-personal rows are retained, distinct from a true company-wide confirmation; they must not falsely satisfy the manager's company-close prerequisite. Snapshots contain the original sale identifiers, quantities and expense authors. A second company-wide confirmation for the same date is rejected.
 
 No new financial posting occurs when an operational report is confirmed. The manager's financial close continues to use the existing corporate ledger/snapshot code, permissions, corrections and audit policies.
 
