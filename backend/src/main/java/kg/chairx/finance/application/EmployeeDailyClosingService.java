@@ -153,12 +153,9 @@ public class EmployeeDailyClosingService {
                 rs.getBigDecimal("expected_bank"),rs.getBigDecimal("actual_cash"),
                 rs.getBigDecimal("actual_bank"),rs.getString("cash_note"),rs.getString("bank_note"),
                 rs.getBigDecimal("actual_total"),rs.getString("total_note"))).optional().orElse(null);
-        if(saved==null && Boolean.TRUE.equals(jdbc.sql("""
-            SELECT EXISTS(SELECT 1 FROM employee_daily_closings
-              WHERE employee_id=:id AND business_date=:day)
-            """).param("id",actor.id()).param("day",date).query(Boolean.class).single())) {
-            return result(actor,date); // Preserve legacy personal snapshots, without rewriting them.
-        }
+        // Legacy personal rows remain in the database and are accessible via
+        // the legacy service API; they must never masquerade as a company-wide
+        // confirmation in the employee operational screen.
         Collections now=companyNet(date);
         List<ExpenseLine> expenses=saved==null?staffExpenses(date):savedExpenses(saved.id());
         List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
