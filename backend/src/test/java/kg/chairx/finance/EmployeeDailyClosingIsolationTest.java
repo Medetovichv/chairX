@@ -105,7 +105,7 @@ class EmployeeDailyClosingIsolationTest {
 
 
     @Test void legacyPersonalCloseDoesNotCountAsCompanyOperationalApproval() throws Exception {
-        String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE);
+        String alice=user(EMPLOYEE_ROLE);
         UUID aliceId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
                 UUID.class,alice);
         UUID oldId=UUID.randomUUID();
@@ -115,7 +115,7 @@ class EmployeeDailyClosingIsolationTest {
                actual_cash,actual_bank,company_wide)
             VALUES (?,?,?,0,0,0,0,FALSE)
             """,oldId,aliceId,day);
-        collection(bob,"BANK",250);
+        collection(alice,"BANK",250);
         String url="/api/finance/my-closings/"+day;
         mvc.perform(get(url).with(httpBasic(alice,PASSWORD)))
             .andExpect(status().isOk())
@@ -129,8 +129,8 @@ class EmployeeDailyClosingIsolationTest {
             +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"250\","
             +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
         // The unique legacy employee/date constraint must not silently turn a personal
-        // record into a company close. A different authorized employee can close.
-        mvc.perform(post(url).with(httpBasic(bob,PASSWORD)).with(csrf())
+        // record into a company close. The same authorized employee can also close the company day.
+        mvc.perform(post(url).with(httpBasic(alice,PASSWORD)).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(input))
             .andExpect(status().isCreated());
         assertThat(jdbc.queryForObject("""
