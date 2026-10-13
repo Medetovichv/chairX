@@ -11,6 +11,7 @@ import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
 import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
 import { ManagerEmployeeClosingSummary } from '../features/daily-closing/ManagerEmployeeClosingSummary';
+import { managerClosingApi } from '../features/daily-closing/personal-api';
 import { PageHeader } from '../shared/components/PageHeader';
 import { LoadingState } from '../shared/components/LoadingState';
 import { ErrorState } from '../shared/components/ErrorState';
@@ -47,7 +48,8 @@ function ExistingReport({ report }: { report: ClosingReport }) {
 function CompanyDailyClosingPage() {
   const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
-  const write = user?.roles.includes('ADMIN')===true && hasPermission('DAILY_CLOSING_WRITE');
+  const manager=user?.roles.includes('MANAGER')===true && !user?.roles.includes('ADMIN');
+  const write = user?.roles.some(role=>role==='ADMIN'||role==='MANAGER')===true && hasPermission('DAILY_CLOSING_WRITE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
   const [actualCash, setActualCash] = useState('');
@@ -63,6 +65,10 @@ function CompanyDailyClosingPage() {
   const access = useQuery({ queryKey: closingKeys.access(date),
     queryFn: () => closingApi.access(date), enabled: read && valid });
   const exists = access.isSuccess && access.data.reportExists;
+  const staff=useQuery({queryKey:['employee-closings','manager',date],
+    queryFn:()=>managerClosingApi.report(date),
+    enabled:read&&valid&&manager});
+  const canFinancialClose=!manager||staff.data?.operationalClosed===true;
   const report = useQuery({ queryKey: closingKeys.report(date),
     queryFn: () => closingApi.report(date), enabled: read && valid && exists });
   const preview = useQuery({ queryKey: closingKeys.preview(date),
@@ -92,27 +98,24 @@ function CompanyDailyClosingPage() {
   }
   return <div className="space-y-5">
 
-    <PageHeader title="Закрытие дня"
+    <PageHeader title="Отчёты"
       description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
     <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
       <span>CASH</span><span>BANK</span>
     </div>
     <div className="space-y-3 rounded-xl border bg-white p-4">
-      <label className="block space-y-1 text-sm font-semibold">Отчётная дата (Asia/Bishkek)
+      <label className="block space-y-1 text-sm font-semibold">Отчётная дата
         <Input type="date" aria-label="Дата закрытия" value={date}
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
       {!valid && <p role="alert" className="text-red-700">Выберите действительную дату не позднее сегодня в Бишкеке.</p>}
       <Button type="button" variant="outline" aria-expanded={showHistory}
-        onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Скрыть историю':'История закрытых отчётов'}</Button>
-      {showHistory&&<section aria-label="История закрытий за последние 10 дней" className="space-y-3 rounded-xl bg-slate-50 p-4">
-       <h2 className="font-semibold">Закрытые отчёты за последние 10 дней</h2>
+        onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Скрыть историю':'Предыдущие отчёты'}</Button>
+      {showHistory&&<section aria-label="История финансовых отчётов" className="space-y-3 rounded-xl bg-slate-50 p-4">
+       <h2 className="font-semibold">Все закрытые финансовые отчёты</h2>
        {dates.isPending?<LoadingState label="Загружаем историю…"/>:
         dates.isError?<ErrorState error={dates.error} onRetry={()=>void dates.refetch()}/>:
-        <div className="flex flex-wrap gap-2">{dates.data.filter(day=>{
-          const end=Date.parse(bishkekToday()+'T00:00:00Z'),current=Date.parse(day+'T00:00:00Z');
-          return Number.isFinite(current)&&current<=end&&current>=end-9*86400000;
-        }).sort((x,y)=>y.localeCompare(x)).map(day=><Button type="button" key={day}
+        <div className="flex flex-wrap gap-2">{dates.data.slice().sort((x,y)=>y.localeCompare(x)).map(day=><Button type="button" key={day}
           variant={day===date?'default':'outline'}
           onClick={()=>{chooseDate(day);setShowHistory(false);}}>{day}</Button>)}
         </div>}
@@ -179,7 +182,9 @@ function CompanyDailyClosingPage() {
           <p>CASH: <strong>{som(preview.data.expectedCash)}</strong></p>
           <p>BANK: <strong>{som(preview.data.expectedBank)}</strong></p>
         </div>}
-      {write && <GuardedPost<ApprovedClosing> kind="daily-close" scope={date}
+      {manager && !canFinancialClose && <p role="status" className="text-amber-800">
+        Финансовое закрытие станет доступно после операционного закрытия сотрудником.</p>}
+      {write && canFinancialClose && <GuardedPost<ApprovedClosing> kind="daily-close" scope={date}
         allowed={write} title="Закрыть финансовый день?" label="Зафиксировать отчёт"
         operationKey={() => crypto.randomUUID()}
         meta={p => ({date, cash: p.actualCash, bank: p.actualBank})}
