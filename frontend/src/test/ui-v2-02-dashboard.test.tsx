@@ -84,9 +84,9 @@ describe('UI-V2-02 real-data dashboard and permission isolation', () => {
     });
     renderHome();
     expect(await screen.findByText('Заказов сегодня')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(within(screen.getByText('Заказов сегодня').closest('a')!).getByText('3')).toBeInTheDocument();
     expect(screen.getByText('Доставлено сегодня')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(within(screen.getByText('Доставлено сегодня').closest('a')!).getByText('4')).toBeInTheDocument();
     expect(screen.getByText('Ожидают доставки')).toBeInTheDocument();
     expect(screen.getByText('Просроченные доставки')).toBeInTheDocument();
     expect(screen.getByText('Заказы за 7 дней')).toBeInTheDocument();
