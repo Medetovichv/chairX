@@ -340,6 +340,17 @@ class PurchaseTests {
                 .andExpect(jsonPath("$.items[0].totalCost")
                         .value(org.hamcrest.Matchers.nullValue()));
 
+        mvc.perform(get("/api/purchases/overview").param("supplierId",supplier.toString())
+                        .param("from","2099-01-01").param("to","2099-01-07"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0));
+        mvc.perform(get("/api/purchases/overview").param("supplierId",supplier.toString())
+                        .param("from","2099-01-01").param("to","2099-01-07")
+                        .param("includeOpenOlder","true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(2))
+                .andExpect(jsonPath("$.items.length()").value(2));
+
         assertThat(count("stock_movements")).isEqualTo(movements);
         assertThat(count("finance_movements")).isEqualTo(finance);
     }
