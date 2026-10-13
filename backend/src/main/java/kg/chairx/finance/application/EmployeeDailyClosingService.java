@@ -97,6 +97,85 @@ public class EmployeeDailyClosingService {
     }
 
     /** Only personal reports are returned; no global balances or other employees' rows. */
+    /** Combined operational receipts belong to the whole company, not the closing employee. */
+    private Collections companyNet(LocalDate date) {
+        BigDecimal gross=jdbc.sql("""
+            SELECT COALESCE(SUM(amount),0) FROM finance_movements
+            WHERE movement_type='SALE_PAYMENT' AND source_type='PAYMENT' AND business_date=:day
+            """).param("day",date).query(BigDecimal.class).single();
+        BigDecimal spent=staffExpenses(date).stream().map(ExpenseLine::amount)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+        // For company-wide reports expectedCash stores the COMBINED net, expectedBank is zero.
+        // These fields do not imply a physical CASH/BANK allocation in this scope.
+        return new Collections(gross.subtract(spent),BigDecimal.ZERO);
+    }
+
+    private List<ExpenseLine> staffExpenses(LocalDate date) {
+        return jdbc.sql("""
+            SELECT e.id,e.category,e.amount,e.payment_method,e.comment,e.created_at,e.created_by
+            FROM expenses e
+            WHERE e.expense_date=:day AND NOT EXISTS (
+                SELECT 1 FROM app_users u
+                JOIN security_user_roles ur ON ur.user_id=u.id
+                JOIN security_roles role ON role.id=ur.role_id
+                WHERE u.username=e.created_by AND role.system_role=TRUE
+                  AND role.code IN ('MANAGER','ADMIN')
+            )
+            ORDER BY e.created_at,e.id
+            """).param("day",date).query((rs,i)->new ExpenseLine(
+                rs.getObject("id",UUID.class),rs.getString("category"),
+                rs.getBigDecimal("amount"),rs.getString("payment_method"),
+                rs.getString("comment"),rs.getTimestamp("created_at").toInstant(),
+                rs.getString("created_by"))).list();
+    }
+
+    @Transactional(readOnly=true)
+    public List<LocalDate> companyDates(String username) {
+        Employee actor=employee(username);
+        return jdbc.sql("""
+            SELECT DISTINCT business_date FROM employee_daily_closings
+            WHERE (company_wide=TRUE OR employee_id=:id)
+              AND business_date>=:oldest ORDER BY business_date DESC LIMIT 30
+            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            .query(LocalDate.class).list();
+    }
+
+    @Transactional(readOnly=true)
+    public Report companyReport(String username,LocalDate date) {
+        validateDate(date);validateEmployeeHistoryWindow(date);
+        Employee actor=employee(username);
+        Stored saved=jdbc.sql("""
+            SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
+                   actual_total,total_note
+            FROM employee_daily_closings WHERE company_wide=TRUE AND business_date=:day
+            """).param("day",date).query((rs,i)->new Stored(
+                rs.getObject("id",UUID.class),rs.getBigDecimal("expected_cash"),
+                rs.getBigDecimal("expected_bank"),rs.getBigDecimal("actual_cash"),
+                rs.getBigDecimal("actual_bank"),rs.getString("cash_note"),rs.getString("bank_note"),
+                rs.getBigDecimal("actual_total"),rs.getString("total_note"))).optional().orElse(null);
+        if(saved==null && Boolean.TRUE.equals(jdbc.sql("""
+            SELECT EXISTS(SELECT 1 FROM employee_daily_closings
+              WHERE employee_id=:id AND business_date=:day)
+            """).param("id",actor.id()).param("day",date).query(Boolean.class).single())) {
+            return result(actor,date); // Preserve legacy personal snapshots, without rewriting them.
+        }
+        Collections now=companyNet(date);
+        List<ExpenseLine> expenses=saved==null?staffExpenses(date):savedExpenses(saved.id());
+        List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
+        boolean changed=saved!=null && saved.cash().add(saved.bank()).compareTo(now.cash())!=0;
+        return new Report(date,saved!=null,saved==null && policy.normalWriteWindow(date,policy.now()),
+                saved==null?now.cash():saved.cash(),saved==null?now.bank():saved.bank(),
+                saved==null?null:saved.actualCash(),saved==null?null:saved.actualBank(),
+                saved==null?null:saved.cashNote(),saved==null?null:saved.bankNote(),
+                sales.size(),sales.stream().mapToLong(SaleLine::quantity).sum(),
+                sales.stream().map(SaleLine::total).reduce(BigDecimal.ZERO,BigDecimal::add),
+                sales,expenses,expenseTotal(expenses,"CASH"),expenseTotal(expenses,"BANK"),
+                changed,saved==null?now.cash():saved.cash().add(saved.bank()),
+                saved==null?null:saved.actualTotal()!=null?saved.actualTotal():
+                  saved.actualCash().add(saved.actualBank()),
+                saved==null?null:saved.totalNote());
+    }
+
     @Transactional(readOnly = true)
     public List<LocalDate> dates(String username) {
         Employee actor=employee(username);
