@@ -67,6 +67,35 @@ public class DailyClosingService {
         access.lockDate(date);
         assertWindow(date, authorizedHttpWrite);
 
+        // A manager can finalize finance only after a staff member has confirmed
+        // the shared operational snapshot. System administrators retain their
+        // existing emergency/legacy close path.
+        if(authorizedHttpWrite) {
+            boolean manager=Boolean.TRUE.equals(jdbc.sql("""
+                SELECT EXISTS(
+                  SELECT 1 FROM app_users u
+                  JOIN security_user_roles ur ON ur.user_id=u.id
+                  JOIN security_roles r ON r.id=ur.role_id
+                  WHERE u.username=:actor AND u.active=TRUE
+                    AND r.system_role=TRUE AND r.code='MANAGER'
+                    AND NOT EXISTS(
+                      SELECT 1 FROM security_user_roles admin_ur
+                      JOIN security_roles admin_role ON admin_role.id=admin_ur.role_id
+                      WHERE admin_ur.user_id=u.id AND admin_role.system_role=TRUE
+                        AND admin_role.code='ADMIN')
+                )
+                """).param("actor",actor).query(Boolean.class).single());
+            if(manager) {
+                boolean operationalClosed=Boolean.TRUE.equals(jdbc.sql("""
+                    SELECT EXISTS(SELECT 1 FROM employee_daily_closings
+                        WHERE company_wide=TRUE AND business_date=:day)
+                    """).param("day",date).query(Boolean.class).single());
+                if(!operationalClosed)
+                    throw new FinanceConflictException("OPERATIONAL_CLOSE_REQUIRED",
+                        "Сначала сотрудник должен закрыть операционный отчёт дня");
+            }
+        }
+
         if (!accounts.isOpeningBalanceInitialized(FinanceAccount.CASH)
                 || !accounts.isOpeningBalanceInitialized(FinanceAccount.BANK)) {
             throw new FinanceConflictException("Финансовые счета не инициализированы");
