@@ -141,6 +141,13 @@ class EmployeeDailyClosingIsolationTest {
             SELECT COUNT(*) FROM employee_daily_closings
             WHERE id=? AND company_wide=FALSE
             """,Integer.class,oldId)).isEqualTo(1);
+        String manager=user(MANAGER_ROLE);
+        mvc.perform(get("/api/finance/employee-closings/"+day)
+                .with(httpBasic(manager,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.operationalClosed").value(true))
+            .andExpect(jsonPath("$.totalEmployees").value(1))
+            .andExpect(jsonPath("$.expectedTotal").value(250));
     }
 
     @Test void companyCloseAggregatesStaffPaymentsAndExpensesOnce() throws Exception {
