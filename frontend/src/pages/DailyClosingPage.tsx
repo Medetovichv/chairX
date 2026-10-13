@@ -8,6 +8,9 @@ import { closingInputIssue, validClosingDate } from '../features/daily-closing/v
 import type { ClosingAccount, ClosingInput, ClosingReport } from '../features/daily-closing/types';
 import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-closing/verified-close';
 import { GuardedPost } from '../features/finance/components/GuardedPost';
+import { financeApi } from '../features/finance/api';
+import { categories,validateExpense } from '../features/finance/validation';
+import type { ExpenseInput } from '../features/finance/types';
 import { bishkekToday, nonnegativeSom, som, dateLabel } from '../features/finance/validation';
 import { ClosingMaintenance } from '../features/daily-closing/ClosingMaintenance';
 import { ManagerEmployeeClosingSummary } from '../features/daily-closing/ManagerEmployeeClosingSummary';
@@ -55,6 +58,10 @@ function CompanyDailyClosingPage() {
   const [actualCash, setActualCash] = useState('');
   const [actualBank, setActualBank] = useState('');
   const [cashNote, setCashNote] = useState('');
+  const [expenseAmount,setExpenseAmount]=useState('');
+  const [expenseCategory,setExpenseCategory]=useState<ExpenseInput['category']>('OTHER');
+  const [expenseMethod,setExpenseMethod]=useState<ExpenseInput['paymentMethod']>('CASH');
+  const [expenseComment,setExpenseComment]=useState('');
   const [bankNote, setBankNote] = useState('');
   const [error, setError] = useState('');
   const [showHistory,setShowHistory]=useState(false);
@@ -94,6 +101,7 @@ function CompanyDailyClosingPage() {
       client.invalidateQueries({ queryKey: closingKeys.report(date) }),
       client.invalidateQueries({ queryKey: closingKeys.preview(date) }),
       client.invalidateQueries({ queryKey: closingKeys.sales(date) }),
+      client.invalidateQueries({ queryKey: ['employee-closings','manager',date] }),
     ]);
   }
   return <div className="space-y-5">
@@ -122,6 +130,46 @@ function CompanyDailyClosingPage() {
       </section>}
     </div>
     {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
+    {valid && access.isSuccess && !exists && access.data.canEdit &&
+     hasPermission('EXPENSES_CREATE') && <details className="rounded-xl border bg-white p-4">
+      <summary className="cursor-pointer font-semibold">+ Добавить расход менеджера</summary>
+      <p className="mt-2 text-sm text-slate-600">Расход создаётся от вашей учётной записи и включается в финансовый расчёт.</p>
+      <GuardedPost<ExpenseInput> kind="manager-closing-expense" scope={date}
+       allowed canReplay destructive title="Подтвердить расход предприятия?"
+       label="Провести расход" operationKey={x=>x.idempotencyKey}
+       meta={x=>({date:x.expenseDate,amount:x.amount,category:x.category})}
+       post={financeApi.createExpense}
+       onDone={async()=>{setExpenseAmount('');setExpenseComment('');await refreshed();}}>
+       {({start,locked})=><form className="mt-3 grid gap-3 sm:grid-cols-2"
+        onSubmit={e=>{e.preventDefault();
+         const payload:ExpenseInput={idempotencyKey:crypto.randomUUID(),
+           category:expenseCategory,amount:expenseAmount.trim(),
+           paymentMethod:expenseMethod,expenseDate:date,comment:expenseComment.trim()||null};
+         const issue=validateExpense(payload);if(issue){setError(issue);return;}
+         setError('');start(payload,'Расход '+expenseAmount+' сом, '+date);
+        }}>
+        <label className="text-sm font-semibold">Категория
+         <select className="mt-1 w-full rounded-lg border p-2" value={expenseCategory}
+          disabled={locked} onChange={e=>setExpenseCategory(e.target.value as ExpenseInput['category'])}>
+          {categories.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+         </select></label>
+        <label className="text-sm font-semibold">Сумма, сом
+         <Input inputMode="numeric" value={expenseAmount} disabled={locked}
+          onChange={e=>setExpenseAmount(e.target.value)}/></label>
+        <label className="text-sm font-semibold">Способ оплаты
+         <select className="mt-1 w-full rounded-lg border p-2" value={expenseMethod}
+          disabled={locked} onChange={e=>setExpenseMethod(e.target.value as ExpenseInput['paymentMethod'])}>
+          <option value="CASH">Наличные</option><option value="BANK">Перевод</option>
+         </select></label>
+        <label className="text-sm font-semibold">Комментарий
+         <Input value={expenseComment} disabled={locked}
+          maxLength={1000} onChange={e=>setExpenseComment(e.target.value)}/></label>
+        {error&&<p role="alert" className="text-red-700 sm:col-span-2">{error}</p>}
+        <Button disabled={locked||!nonnegativeSom(expenseAmount)||expenseAmount==='0'} type="submit">
+         Добавить расход</Button>
+       </form>}
+      </GuardedPost>
+     </details>}
     {valid && (access.isPending ? <LoadingState label="Проверяем доступность отчёта…"/> :
       access.isError ? <ErrorState error={access.error} onRetry={() => void access.refetch()}/> :
       <section aria-label="Статус закрытия" className="rounded-xl border bg-white p-4 text-sm">
