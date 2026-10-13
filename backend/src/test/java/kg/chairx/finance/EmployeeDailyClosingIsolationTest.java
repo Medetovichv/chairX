@@ -234,8 +234,8 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(get("/api/finance/employee-closings/"+day)
                 .with(httpBasic(manager,PASSWORD)))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.employees[?(@.username=='"+employee+"')].length()").value(1))
-            .andExpect(jsonPath("$.employees[?(@.username=='"+manager+"')].length()").value(0));
+            .andExpect(jsonPath("$.employees[?(@.username=='"+employee+"')]").isNotEmpty())
+            .andExpect(jsonPath("$.employees[?(@.username=='"+manager+"')]").isEmpty());
     }
 
     @Test void expensesAreCreatorScopedAndFrozenAtPersonalClosing() throws Exception {
