@@ -43,6 +43,17 @@ public class EmployeeClosingManagerReportService {
             LEFT JOIN employee_daily_closings c
               ON c.employee_id=u.id AND c.business_date=:date
             WHERE u.active=TRUE
+              AND EXISTS (
+                SELECT 1 FROM security_user_roles ur
+                JOIN security_roles er ON er.id=ur.role_id
+                WHERE ur.user_id=u.id AND er.system_role=TRUE AND er.code='EMPLOYEE'
+              )
+              AND NOT EXISTS (
+                SELECT 1 FROM security_user_roles ur
+                JOIN security_roles mr ON mr.id=ur.role_id
+                WHERE ur.user_id=u.id AND mr.system_role=TRUE
+                  AND mr.code IN ('ADMIN','MANAGER')
+              )
             ORDER BY u.display_name,u.username
             """).param("date",date).query((rs,i)->new EmployeeClose(
                 rs.getObject("id",UUID.class),rs.getString("username"),
