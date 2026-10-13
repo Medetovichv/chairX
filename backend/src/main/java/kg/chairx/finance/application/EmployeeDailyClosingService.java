@@ -48,7 +48,11 @@ public class EmployeeDailyClosingService {
         }
     }
     public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
-                              String paymentMethod,String comment,Instant createdAt) {}
+                              String paymentMethod,String comment,Instant createdAt,String createdBy) {
+        public ExpenseLine(UUID id,String cat,BigDecimal money,String method,String memo,Instant at) {
+            this(id,cat,money,method,memo,at,null);
+        }
+    }
     public record Request(BigDecimal expectedCash, BigDecimal expectedBank,
                           BigDecimal actualCash, BigDecimal actualBank,
                           String cashNote, String bankNote,
