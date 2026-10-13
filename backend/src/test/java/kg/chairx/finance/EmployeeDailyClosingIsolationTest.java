@@ -104,6 +104,45 @@ class EmployeeDailyClosingIsolationTest {
     }
 
 
+    @Test void legacyPersonalCloseDoesNotCountAsCompanyOperationalApproval() throws Exception {
+        String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE);
+        UUID aliceId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
+                UUID.class,alice);
+        UUID oldId=UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO employee_daily_closings
+              (id,employee_id,business_date,expected_cash,expected_bank,
+               actual_cash,actual_bank,company_wide)
+            VALUES (?,?,?,0,0,0,0,FALSE)
+            """,oldId,aliceId,day);
+        collection(bob,"BANK",250);
+        String url="/api/finance/my-closings/"+day;
+        mvc.perform(get(url).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(false))
+            .andExpect(jsonPath("$.expectedTotal").value(250));
+        mvc.perform(get("/api/finance/employee-closings/"+day)
+                .with(httpBasic(user(MANAGER_ROLE),PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.operationalClosed").value(false));
+        String input="{\"expectedCash\":\"250\",\"expectedBank\":\"0\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"250\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        // The unique legacy employee/date constraint must not silently turn a personal
+        // record into a company close. A different authorized employee can close.
+        mvc.perform(post(url).with(httpBasic(bob,PASSWORD)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(input))
+            .andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("""
+            SELECT COUNT(*) FROM employee_daily_closings
+            WHERE business_date=? AND company_wide=TRUE
+            """,Integer.class,day)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+            SELECT COUNT(*) FROM employee_daily_closings
+            WHERE id=? AND company_wide=FALSE
+            """,Integer.class,oldId)).isEqualTo(1);
+    }
+
     @Test void companyCloseAggregatesStaffPaymentsAndExpensesOnce() throws Exception {
         String alice=user(EMPLOYEE_ROLE),bob=user(EMPLOYEE_ROLE);
         collection(alice,"CASH",600);
