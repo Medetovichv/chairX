@@ -32,11 +32,23 @@ import static org.assertj.core.api.Assertions.*;
 @Import(PostgresTestConfiguration.class)
 @AutoConfigureMockMvc
 class DailyClosingIntegrationTest {
+    private static final String FINANCE_ACTOR="finance-manager";
+    private static final String FINANCE_PASSWORD="integration-finance-password";
+    private java.util.UUID financeActorId;
     private java.util.List<kg.chairx.finance.persistence.FinanceAccountRepository.AccountSnapshot> originalAccounts;
     private final java.util.List<java.util.UUID> testTransferIds = new java.util.ArrayList<>();
 
     @org.junit.jupiter.api.BeforeEach
     void snapshotAccounts() {
+        financeActorId=java.util.UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO app_users(id,username,password_hash,display_name,active)
+            VALUES (?,?,?,?,TRUE)
+            """,financeActorId,FINANCE_ACTOR,
+            org.springframework.security.crypto.factory.PasswordEncoderFactories
+                .createDelegatingPasswordEncoder().encode(FINANCE_PASSWORD),"Finance test administrator");
+        jdbc.update("INSERT INTO security_user_roles(user_id,role_id) VALUES (?,?)",
+                financeActorId,java.util.UUID.fromString("00000000-0000-0000-0000-000000000001"));
         originalAccounts = jdbc.query(
                 "SELECT code, balance, opening_balance_initialized FROM finance_accounts ORDER BY code",
                 (rs, row) -> new kg.chairx.finance.persistence.FinanceAccountRepository.AccountSnapshot(
@@ -65,6 +77,8 @@ class DailyClosingIntegrationTest {
             jdbc.update("UPDATE finance_accounts SET balance = ?, opening_balance_initialized = ? WHERE code = ?",
                     account.balance(), account.initialized(), account.account().name());
         }
+        jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",financeActorId);
+        jdbc.update("DELETE FROM app_users WHERE id=?",financeActorId);
     }
 
     @Test
@@ -304,9 +318,7 @@ class DailyClosingIntegrationTest {
                 + ",\"actualBank\":" + bank.toPlainString() + "}";
         mvc.perform(post("/api/finance/closings/" + today)
                         .with(csrf())
-                        .with(user("finance-manager").authorities(
-                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
-                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ")))
+                        .with(httpBasic(FINANCE_ACTOR,FINANCE_PASSWORD))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated());
@@ -322,9 +334,7 @@ class DailyClosingIntegrationTest {
         jdbc.update("DELETE FROM finance_daily_closing_accounts");
         jdbc.update("DELETE FROM finance_daily_closings");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
-        var closer = user("finance-manager").authorities(
-                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
-                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
+        var closer = httpBasic(FINANCE_ACTOR,FINANCE_PASSWORD);
         mvc.perform(post("/api/finance/closings/" + today)
                         .with(csrf()).with(closer)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -474,8 +484,7 @@ class DailyClosingIntegrationTest {
     void businessValidationAndDuplicateClosingHaveCorrectHttpStatuses() throws Exception {
         jdbc.update("UPDATE finance_accounts SET opening_balance_initialized=TRUE");
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Bishkek"));
-        var writer = user("auditor").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
-                                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
+        var writer = httpBasic(FINANCE_ACTOR,FINANCE_PASSWORD);
         mvc.perform(post("/api/finance/closings/" + today).with(writer).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"actualCash\":-1,\"actualBank\":0}"))
                 .andExpect(status().isBadRequest());
