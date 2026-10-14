@@ -10,7 +10,7 @@ import subprocess
 import urllib.error
 import urllib.request
 import uuid
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 BASE="http://127.0.0.1:5173"
 DAY=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=6))).date().isoformat()
@@ -106,7 +106,7 @@ def main():
             page.get_by_role("heading",name="Отчёты").wait_for(timeout=30000)
             finish=page.get_by_role("button",name="Завершить финансовый день")
             finish.wait_for(timeout=30000)
-            assert finish.is_enabled()
+            expect(finish).to_be_enabled(timeout=30000)
             page.screenshot(path=str(ART/"01-before-close.png"),full_page=True)
             finish.click()
             page.get_by_role("alertdialog").wait_for()
