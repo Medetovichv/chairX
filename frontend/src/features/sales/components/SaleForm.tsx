@@ -30,7 +30,6 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const [deliveryAddress,setDeliveryAddress]=useState('');
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
-  const [deliveryComment,setDeliveryComment]=useState('');
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
   const inFlight=useRef(false);
@@ -57,7 +56,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
         address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
         deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
-        comment:deliveryComment.trim()||null,plannedDeliveryDate:null,
+        comment:null,plannedDeliveryDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bishkek',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
       }}:{})};
     const problem=checkDraft(data);
     if(problem){setError(problem);return;}
@@ -127,11 +126,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
                   disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
-              <label className="space-y-1 text-sm font-semibold sm:col-span-2">Комментарий курьеру
-                <textarea aria-label="Комментарий к доставке при создании продажи" rows={2} maxLength={2000} value={deliveryComment}
-                  disabled={saving||blocked} onChange={e=>setDeliveryComment(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3"/></label>
-              <p className="text-xs text-slate-600 sm:col-span-2">Одна операция создаст подтверждённую продажу и готовую доставку. Если товара нет на складе, обе операции отменятся.</p>
+              <p className="text-xs text-slate-600 sm:col-span-2">Стоимость доставки сохраняется отдельно в карточке доставки и не прибавляется автоматически к сумме кресел или оплате. Плановая дата — сегодня по Бишкеку, её можно изменить после оформления.</p>
             </div>}
           </div>}
           <label className="block space-y-2 text-sm font-semibold">Комментарий
