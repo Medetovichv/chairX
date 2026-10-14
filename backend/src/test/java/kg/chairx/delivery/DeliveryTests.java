@@ -541,6 +541,9 @@ class DeliveryTests {
         deliveries.markDelivered(closedDelivery.id());
         jdbc.update("UPDATE deliveries SET created_at=now()-INTERVAL '8 days' WHERE id IN (?,?)",
                 openDelivery.id(),closedDelivery.id());
+        // A delivery made eight days ago must be absent from current work.
+        jdbc.update("UPDATE deliveries SET delivered_at=now()-INTERVAL '8 days' WHERE id=?",
+                closedDelivery.id());
 
         var active=deliveries.list(null,null,null,null,null,null,0,20,true);
         var history=deliveries.list(null,null,null,null,null,null,0,20,false);
@@ -548,6 +551,21 @@ class DeliveryTests {
                 .contains(openDelivery.id()).doesNotContain(closedDelivery.id());
         assertThat(history.items()).extracting(x->x.id())
                 .contains(openDelivery.id(),closedDelivery.id());
+    }
+
+    @Test
+    void operationalListIncludesDeliveredTodayEvenWhenOrderIsOld() {
+        var sale=createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant,home,1,"8500"));
+        var delivery=deliveries.create(deliveryRequest(sale.id()));
+        jdbc.update("UPDATE deliveries SET created_at=now()-INTERVAL '8 days' WHERE id=?",
+                delivery.id());
+        deliveries.dispatch(delivery.id());
+        deliveries.markDelivered(delivery.id());
+
+        var active=deliveries.list(null,null,null,null,null,null,0,20,true);
+        assertThat(active.items()).extracting(x->x.id()).contains(delivery.id());
+        assertThat(active.total()).isGreaterThanOrEqualTo(1);
     }
 
     @Test
