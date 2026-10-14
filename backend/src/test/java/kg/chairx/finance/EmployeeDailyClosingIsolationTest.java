@@ -167,7 +167,7 @@ class EmployeeDailyClosingIsolationTest {
             expenseId,kg.chairx.expense.domain.ExpenseCategory.OTHER,
             new BigDecimal("50"),kg.chairx.expense.domain.ExpensePaymentMethod.CASH,
             day,"After operational closing",alice,java.time.Instant.now());
-        assertThat(expenseRepository.tryInsert(expense,UUID.randomUUID(),"integration-test")).isTrue();
+        assertThat(expenseRepository.tryInsert(expense,UUID.randomUUID(),"a".repeat(64))).isTrue();
         LocalDate assigned=jdbc.queryForObject("""
             SELECT operational_report_date FROM expenses WHERE id=?
             """,LocalDate.class,expenseId);
