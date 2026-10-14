@@ -106,13 +106,10 @@ function CompanyDailyClosingPage() {
   }
   return <div className="space-y-5">
 
-    <PageHeader title="Отчёты"
-      description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
-    <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
-      <span>CASH</span><span>BANK</span>
-    </div>
-    <div className="space-y-3 rounded-xl border bg-white p-4">
-      <label className="block space-y-1 text-sm font-semibold">Отчётная дата
+    <PageHeader title="Отчёты"/>
+
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="block w-44 space-y-1 text-sm font-semibold">Отчётная дата
         <Input type="date" aria-label="Дата закрытия" value={date}
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
@@ -216,7 +213,7 @@ function CompanyDailyClosingPage() {
                 <td className="p-2">{item.products ?? '—'}</td>
                 <td className="p-2">{item.quantity}</td>
                 <td className="p-2">{som(item.total)}</td>
-                <td className="p-2">{item.paymentStatus}</td><td className="p-2">{dateLabel(item.completedAt)}</td>
+                <td className="p-2">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus==='PARTIALLY_PAID'?'Частично оплачено':item.paymentStatus==='UNPAID'?'Не оплачено':item.paymentStatus}</td><td className="p-2">{dateLabel(item.completedAt)}</td>
               </tr>)}</tbody>
             </table></div>}
         </>}
