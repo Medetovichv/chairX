@@ -103,7 +103,7 @@ def main():
             page.get_by_label("Логин").fill("admin")
             page.get_by_label("Пароль",exact=True).fill(adminpass)
             page.get_by_role("button",name="Войти",exact=True).click()
-            page.get_by_role("heading",name="Закрытие дня",level=2).wait_for(timeout=30000)
+            page.get_by_role("heading",name="Отчёты").wait_for(timeout=30000)
             finish=page.get_by_role("button",name="Завершить финансовый день")
             finish.wait_for(timeout=30000)
             assert finish.is_enabled()
