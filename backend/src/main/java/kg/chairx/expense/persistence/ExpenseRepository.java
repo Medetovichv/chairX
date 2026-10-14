@@ -60,7 +60,19 @@ public class ExpenseRepository {
      * The caller holds CompletionGuard so the closing cannot race this read.
      * This does not alter expense_date or the finance movement posting date.
      */
-    private LocalDate operationalDate(LocalDate financialDate) {
+    private LocalDate operationalDate(LocalDate financialDate, String actor) {
+        // Manager/admin expenses remain on their financial day. Only staff
+        // expenses roll after the employee operational report is confirmed.
+        Boolean manager = jdbc.queryForObject("""
+            SELECT EXISTS (
+                SELECT 1 FROM app_users u
+                JOIN security_user_roles ur ON ur.user_id=u.id
+                JOIN security_roles r ON r.id=ur.role_id
+                WHERE u.username=? AND r.system_role=TRUE
+                  AND r.code IN ('MANAGER','ADMIN')
+            )
+            """,Boolean.class,actor);
+        if (Boolean.TRUE.equals(manager)) return financialDate;
         LocalDate current = financialDate;
         for (int i = 0; i < 366; i++) {
             Boolean closed = jdbc.queryForObject("""
@@ -90,7 +102,7 @@ public class ExpenseRepository {
                 expense.id(), expense.category().name(), expense.amount(),
                 expense.paymentMethod().name(), Date.valueOf(expense.expenseDate()),
                 expense.comment(), expense.createdBy(), Timestamp.from(expense.createdAt()),
-                key, fingerprint, Date.valueOf(operationalDate(expense.expenseDate()))
+                key, fingerprint, Date.valueOf(operationalDate(expense.expenseDate(),expense.createdBy()))
         ) == 1;
     }
 
