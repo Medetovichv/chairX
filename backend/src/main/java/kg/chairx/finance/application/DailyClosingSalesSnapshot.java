@@ -29,7 +29,14 @@ public final class DailyClosingSalesSnapshot {
     public record CompletedSale(UUID saleId, String saleNumber, String customerName,
                                 String phone, String products, long quantity, String address,
                                 String fulfillmentType, Instant completedAt, BigDecimal total,
-                                String paymentStatus) {
+                                String paymentStatus, String deliveryStatus) {
+        public CompletedSale(UUID saleId, String saleNumber, String customerName,
+                             String phone, String products, long quantity, String address,
+                             String fulfillmentType, Instant completedAt, BigDecimal total,
+                             String paymentStatus) {
+            this(saleId, saleNumber, customerName, phone, products, quantity, address,
+                 fulfillmentType, completedAt, total, paymentStatus, null);
+        }
     }
 
     public record Totals(Long orders, Long chairs, BigDecimal value) {}
@@ -49,9 +56,9 @@ public final class DailyClosingSalesSnapshot {
                     INSERT INTO finance_daily_closing_sales(
                         closing_id,sale_id,sale_number,customer_name,phone,
                         products,quantity,address,fulfillment_type,
-                        completed_at,total,payment_status)
+                        completed_at,total,payment_status,delivery_status)
                     VALUES (:closing,:sale,:number,:name,:phone,:products,:quantity,
-                            :address,:fulfillment,:completed,:total,:payment)
+                            :address,:fulfillment,:completed,:total,:payment,:delivery)
                     """)
                     .param("closing", closingId)
                     .param("sale", sale.saleId())
@@ -65,6 +72,7 @@ public final class DailyClosingSalesSnapshot {
                     .param("completed",sale.completedAt().atOffset(ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                     .param("total",sale.total())
                     .param("payment",sale.paymentStatus())
+                    .param("delivery",sale.deliveryStatus(),Types.VARCHAR)
                     .update();
         }
     }
@@ -90,7 +98,7 @@ public final class DailyClosingSalesSnapshot {
         }
         List<CompletedSale> saved = jdbc.sql("""
                 SELECT sale_id,sale_number,customer_name,phone,products,quantity,
-                       address,fulfillment_type,completed_at,total,payment_status
+                       address,fulfillment_type,completed_at,total,payment_status,delivery_status
                 FROM finance_daily_closing_sales
                 WHERE closing_id=:id
                 ORDER BY completed_at, sale_id
@@ -100,7 +108,7 @@ public final class DailyClosingSalesSnapshot {
                 rs.getString("products"),rs.getLong("quantity"),
                 rs.getString("address"),rs.getString("fulfillment_type"),
                 rs.getTimestamp("completed_at").toInstant(),rs.getBigDecimal("total"),
-                rs.getString("payment_status"))).list();
+                rs.getString("payment_status"),rs.getString("delivery_status"))).list();
         Set<UUID> ids = new HashSet<>();
         saved.forEach(row -> ids.add(row.saleId()));
         long late = live(jdbc,date).stream().filter(row -> !ids.contains(row.saleId())).count();
@@ -118,15 +126,21 @@ public final class DailyClosingSalesSnapshot {
         Instant from = day.atStartOfDay(BUSINESS_ZONE).toInstant();
         Instant until = day.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
         return jdbc.sql("""
-                SELECT s.id AS sale_id,s.sale_number,c.full_name AS customer_name,
-                       COALESCE(c.phone,c.whatsapp_phone,c.secondary_phone) AS phone,
+                SELECT s.id AS sale_id,s.sale_number,
+                       COALESCE(NULLIF(BTRIM(c.full_name),''),
+                                NULLIF(BTRIM(dl.recipient_name),'')) AS customer_name,
+                       COALESCE(NULLIF(BTRIM(dl.recipient_phone),''),
+                                NULLIF(BTRIM(c.whatsapp_phone),''),
+                                NULLIF(BTRIM(c.phone),''),
+                                NULLIF(BTRIM(c.secondary_phone),'')) AS phone,
                        detail.products,detail.quantity,dl.address,
                        s.fulfillment_type,
                        GREATEST(s.fulfilled_at,pay.paid_at) AS completed_at,
                        detail.total,
                        CASE WHEN pay.amount IS NULL THEN 'UNPAID'
                             WHEN pay.amount < detail.total THEN 'PARTIAL'
-                            ELSE 'PAID' END AS payment_status
+                            ELSE 'PAID' END AS payment_status,
+                       dl.status AS delivery_status
                 FROM sales s
                 LEFT JOIN customers c ON c.id=s.customer_id
                 LEFT JOIN deliveries dl ON dl.sale_id=s.id
@@ -162,6 +176,6 @@ public final class DailyClosingSalesSnapshot {
                         rs.getString("products"),rs.getLong("quantity"),rs.getString("address"),
                         rs.getString("fulfillment_type"),
                         rs.getTimestamp("completed_at").toInstant(),rs.getBigDecimal("total"),
-                        rs.getString("payment_status"))).list();
+                        rs.getString("payment_status"),rs.getString("delivery_status"))).list();
     }
 }
