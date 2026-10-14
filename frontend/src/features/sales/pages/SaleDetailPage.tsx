@@ -198,7 +198,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const canReadDelivery=hasPermission('DELIVERIES_READ');
   const relatedDelivery=useQuery({
     queryKey:deliveryKeys.bySale(sale.id),
-    queryFn:()=>deliveryApi.bySale(sale.id),
+    queryFn:()=>Promise.race([
+      deliveryApi.bySale(sale.id),
+      new Promise<never>((_,reject)=>window.setTimeout(
+        ()=>reject(new Error('Не удалось получить данные доставки за 10 секунд. Проверьте соединение и повторите запрос.')),10000)),
+    ]),
     enabled:requiresDelivery&&canReadDelivery,
     retry:false,
   });
@@ -375,6 +379,10 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     {requiresDelivery&&
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
+        {isConfirmed&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&
+          <Link className="inline-block font-semibold text-blue-700 underline" to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
+            Оформить доставку по этому заказу
+          </Link>}
         {!canReadDelivery?<p>Для просмотра доставки требуется разрешение DELIVERIES_READ.</p>:
           relatedDelivery.isPending?<div className="space-y-3" role="status">
             <p>Проверяем связанную доставку…</p>
