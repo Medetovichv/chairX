@@ -111,16 +111,20 @@ export function EmployeeDailyClosingPage(){
    </div>
    <div className="space-y-2">
     {dates.isPending?<LoadingState label="Загружаем отчёты…"/>:
-      Array.from({length:historyDays-1},(_,i)=>{
+      (()=>{
        const today=bishkekToday();
-       const date=new Date(today+'T12:00:00Z');date.setUTCDate(date.getUTCDate()-i-1);
-       const value=date.toISOString().slice(0,10);
-       const closed=dates.data?.includes(value)??false;
-       return <button type="button" key={value} onClick={()=>chooseDate(value)}
-        className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-blue-600':'')}>
-         <span>{value}</span><span>{closed?'Закрыт':'Нет закрытия'}</span>
-        </button>;
-      })}
+       const cutoff=new Date(today+'T12:00:00Z');
+       cutoff.setUTCDate(cutoff.getUTCDate()-(historyDays-1));
+       const oldest=cutoff.toISOString().slice(0,10);
+       const closedDates=(dates.data??[]).filter(value=>value<today&&value>=oldest)
+         .sort((a,b)=>b.localeCompare(a));
+       return closedDates.length===0
+        ? <p className="text-sm text-slate-600">За выбранный период закрытых отчётов нет.</p>
+        : closedDates.map(value=><button type="button" key={value} onClick={()=>chooseDate(value)}
+          className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-blue-600':'')}>
+           <span>{value}</span><span>Закрыт</span>
+          </button>);
+      })()}
    </div>
   </section>}
   <section className="space-y-3">
