@@ -205,7 +205,7 @@ def main():
         "roleId":"00000000-0000-0000-0000-000000000003"},204)
     employee=API(employee_username,employee_password)
     current_user=employee.must("GET","/api/auth/me",None,200)
-    for permission in ("PAYMENTS_READ","PAYMENTS_CREATE","EXPENSES_CREATE","DELIVERIES_CREATE"):
+    for permission in ("PAYMENTS_READ","PAYMENTS_CREATE","EXPENSES_CREATE","DELIVERIES_CREATE","CATALOG_READ","CUSTOMERS_READ","CUSTOMERS_CREATE"):
         assert permission in current_user["permissions"],permission
     for forbidden in ("FINANCE_READ","PAYMENTS_CANCEL","EXPENSES_READ"):
         assert forbidden not in current_user["permissions"],forbidden
