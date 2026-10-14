@@ -300,7 +300,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     const api=mockBackend({sales:rows});
     renderAt();
     expect(await screen.findByText(/Всего продаж: 22/)).toBeInTheDocument();
-    expect(screen.getAllByText('UNPAID').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Не оплачено').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/17\s?000,00 сом/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Себестоимость')).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button',{name:'Следующая'}));
@@ -360,7 +360,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
   });
 });
 describe('F07 creation and idempotent drafts',()=>{
-  it('employee delivery mode immediately shows address, phone and courier comment without extra checkbox',async()=>{
+  it('employee delivery mode shows address, phone and one sale comment without an extra checkbox',async()=>{
     granted.permissions.push('DELIVERIES_CREATE');
     mockBackend({sales:[]});
     renderAt('/sales/new');
@@ -369,7 +369,9 @@ describe('F07 creation and idempotent drafts',()=>{
       {target:{value:'CITY_DELIVERY'}});
     expect(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'})).toBeInTheDocument();
     expect(within(form).getByRole('textbox',{name:'Адрес доставки при создании продажи'})).toBeInTheDocument();
-    expect(within(form).getByRole('textbox',{name:'Комментарий к доставке при создании продажи'})).toBeInTheDocument();
+    expect(within(form).queryByRole('textbox',{name:'Комментарий к доставке при создании продажи'})).not.toBeInTheDocument();
+    expect(within(form).getByRole('textbox',{name:'Комментарий продажи'})).toBeInTheDocument();
+    expect((within(form).getByLabelText('Планируемая дата доставки при создании продажи') as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(within(form).getByRole('button',{name:'Подтвердить продажу и доставку'})).toBeInTheDocument();
     expect(within(form).queryByRole('checkbox',{name:'Подтвердить заказ и сразу создать доставку'})).not.toBeInTheDocument();
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
@@ -403,8 +405,7 @@ describe('F07 creation and idempotent drafts',()=>{
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
       {target:{value:'SELF_PICKUP'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
-    fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:MODEL_ID}});
+        fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
     fireEvent.change(within(form).getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'2'}});
@@ -412,8 +413,7 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
-    const models=within(form).getByRole('combobox',{name:'Модель кресла'});
+        const models=within(form).getByRole('combobox',{name:'Модель кресла'});
     fireEvent.change(models,{target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Серый.*ERGO-GREY/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 2'}),{target:{value:WH}});
@@ -454,7 +454,7 @@ describe('F07 creation and idempotent drafts',()=>{
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
     await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
+        await userEvent.setup().click(within(form).getByText('Поиск по наличию'));
     fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),
       {target:{value:'ERGO-BLK'}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:'Добавить Ergo Comfort — Чёрный'}));
@@ -470,8 +470,7 @@ describe('F07 creation and idempotent drafts',()=>{
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
     await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
-    fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
+        fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
       {target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),

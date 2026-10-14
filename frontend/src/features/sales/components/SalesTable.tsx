@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { SaleStatusBadge } from './SaleStatusBadge';
+import { SaleDeliveryQuickActions } from './SaleDeliveryQuickActions';
 import { money, saleDate, fulfillmentNames } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { SaleSummary } from '../types';
@@ -9,7 +10,7 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
     <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50">
-          <tr>{['Заказ','Дата','Клиент / WhatsApp','Адрес доставки','Товары','Шт.','Сумма','Статус','Оплата','Доставка'].map(h=>
+          <tr>{['Заказ','Дата','Клиент / WhatsApp','Адрес доставки','Товары','Шт.','Сумма','Статус продажи','Статус оплаты','Статус доставки'].map(h=>
             <th key={h} scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-100">{rows.map(s=>
@@ -29,9 +30,10 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             <td className="px-3 py-3"><SaleStatusBadge status={s.status}/>
               {s.status==='FULFILLED'&&s.paymentStatus!=='PAID'&&
                 <p className="mt-1 text-xs font-semibold text-amber-800">Деньги не получены</p>}</td>
-            <td className="px-3 py-3">{s.paymentStatus||'—'}</td>
-            <td className="px-3 py-3">{s.deliveryStatus||'—'}
-              {s.plannedDeliveryDate&&<p className="text-xs text-slate-500">{s.plannedDeliveryDate}</p>}</td>
+            <td className="px-3 py-3">{s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus==='UNPAID'?'Не оплачено':s.paymentStatus||'—'}</td>
+            <td className="px-3 py-3">{s.deliveryStatus==='DELIVERED'?'Доставлено':s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='READY'?'Готова к отправке':s.deliveryStatus==='FAILED'?'Не доставлено':s.deliveryStatus||'—'}
+              {s.plannedDeliveryDate&&<p className="text-xs text-slate-500">{s.plannedDeliveryDate}</p>}
+              {s.deliveryStatus&&<SaleDeliveryQuickActions saleId={s.id}/>}</td>
           </tr>)}</tbody>
       </table>
     </div>
@@ -48,7 +50,8 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
         {s.deliveryAddress&&<p className="break-words font-medium text-slate-800">Адрес: {s.deliveryAddress}</p>}
         <p className="break-words text-slate-600">{s.products||'Товары не указаны'}</p>
         <p>Шт.: {s.quantity} · <strong>{money(s.total)}</strong></p>
-        <p>Оплата: {s.paymentStatus||'—'} · Доставка: {s.deliveryStatus||'—'}</p>
+        <p>Статус оплаты: {s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus||'—'} · Статус доставки: {s.deliveryStatus==='DELIVERED'?'Доставлено':s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='READY'?'Готова к отправке':s.deliveryStatus||'—'}</p>
+        {s.deliveryStatus&&<SaleDeliveryQuickActions saleId={s.id}/>}
         <p>{s.fulfillmentType?fulfillmentNames[s.fulfillmentType]:'Способ получения не указан'}
           {s.plannedDeliveryDate?' · План: '+s.plannedDeliveryDate:''}</p>
       </article>)}

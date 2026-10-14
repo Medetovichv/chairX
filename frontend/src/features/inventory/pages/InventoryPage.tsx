@@ -14,7 +14,6 @@ import type { StockLine, Warehouse } from '../types';
 import { pages, warehouseStock } from '../lib';
 import { InventoryPager } from '../components/InventoryPager';
 import { MovementHistory } from '../components/MovementHistory';
-import { TransferHistory } from '../components/TransferHistory';
 import { TransferForm } from '../components/TransferForm';
 import { WarehouseOverviewCards } from '../components/WarehouseOverviewCards';
 
@@ -255,7 +254,6 @@ export function InventoryPage() {
               <MovementHistory key={selectedLine.productVariantId + ':' + (selectedWarehouseId ?? '')}
                 line={selectedLine} warehouses={namedWarehouses} preferredWarehouseId={selectedWarehouseId} />
             </>}
-            <TransferHistory warehouses={namedWarehouses} selectedWarehouseId={selectedWarehouseId} selectedLine={selectedLine} />
           </>}
   </div>;
 }

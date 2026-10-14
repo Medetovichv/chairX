@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { EmployeeDailyClosingPage } from '../features/daily-closing/EmployeeDailyClosingPage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthProvider';
 import { closingApi, closingKeys } from '../features/daily-closing/api';
 import { ApiClientError } from '../shared/api/api-error';
-import { closingInputIssue, validClosingDate } from '../features/daily-closing/validation';
-import type { ClosingAccount, ClosingInput, ClosingReport } from '../features/daily-closing/types';
+import { validClosingDate } from '../features/daily-closing/validation';
+import type { ClosingAccount, ClosingReport } from '../features/daily-closing/types';
 import { postVerifiedClosing, type ApprovedClosing } from '../features/daily-closing/verified-close';
 import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { financeApi } from '../features/finance/api';
@@ -40,12 +41,13 @@ function ExistingReport({ report }: { report: ClosingReport }) {
   return <section aria-label="Закрытый отчёт" className="space-y-3">
     <h2 className="text-lg font-bold">День закрыт · версия {report.version}</h2>
     <p className="text-sm">Создал {report.createdBy} · {dateLabel(report.createdAt)}</p>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <AccountView title="CASH — наличные" account={report.cash}/>
-      <AccountView title="BANK — банк" account={report.bank}/>
-    </div>
-    <p className="text-xs text-slate-600">Расхождение — наблюдение сотрудника, а не движение денег.
-      Закрытие и перерасчёт не создают финансовых проводок.</p>
+    <details className="rounded-xl border border-slate-200 bg-white p-3">
+      <summary className="cursor-pointer text-sm font-semibold">Архивные финансовые показатели</summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <AccountView title="Наличные" account={report.cash}/>
+        <AccountView title="Перевод" account={report.bank}/>
+      </div>
+    </details>
   </section>;
 }
 function CompanyDailyClosingPage() {
@@ -55,14 +57,10 @@ function CompanyDailyClosingPage() {
   const write = user?.roles.some(role=>role==='ADMIN'||role==='MANAGER')===true && hasPermission('DAILY_CLOSING_WRITE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
-  const [actualCash, setActualCash] = useState('');
-  const [actualBank, setActualBank] = useState('');
-  const [cashNote, setCashNote] = useState('');
   const [expenseAmount,setExpenseAmount]=useState('');
   const [expenseCategory,setExpenseCategory]=useState<ExpenseInput['category']>('OTHER');
   const [expenseMethod,setExpenseMethod]=useState<ExpenseInput['paymentMethod']>('CASH');
   const [expenseComment,setExpenseComment]=useState('');
-  const [bankNote, setBankNote] = useState('');
   const [error, setError] = useState('');
   const [showHistory,setShowHistory]=useState(false);
   const [personalMode,setPersonalMode]=useState(false);
@@ -90,9 +88,7 @@ function CompanyDailyClosingPage() {
     <EmployeeDailyClosingPage/>
   </div>;
   function chooseDate(next: string) {
-    setDate(next);
-    setActualCash(''); setActualBank('');
-    setCashNote(''); setBankNote(''); setError('');
+    setDate(next); setError('');
   }
   async function refreshed() {
     await Promise.all([
@@ -106,13 +102,10 @@ function CompanyDailyClosingPage() {
   }
   return <div className="space-y-5">
 
-    <PageHeader title="Отчёты"
-      description="Реальные остатки CASH/BANK, завершённые продажи и фиксирование итогов без вымышленных проводок."/>
-    <div className="flex gap-4 text-sm font-semibold text-slate-700" aria-label="Сверяемые счета">
-      <span>CASH</span><span>BANK</span>
-    </div>
-    <div className="space-y-3 rounded-xl border bg-white p-4">
-      <label className="block space-y-1 text-sm font-semibold">Отчётная дата
+    <PageHeader title="Отчёты"/>
+
+    <div className="flex flex-wrap items-end gap-3">
+      <label className="block w-44 space-y-1 text-sm font-semibold">Отчётная дата
         <Input type="date" aria-label="Дата закрытия" value={date}
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
@@ -209,90 +202,64 @@ function CompanyDailyClosingPage() {
               <thead><tr className="border-b">
                 <th className="p-2">Продажа</th><th className="p-2">Клиент</th><th className="p-2">Телефон</th>
                 <th className="p-2">Товар</th><th className="p-2">Шт.</th>
-                <th className="p-2">Сумма</th><th className="p-2">Оплата</th><th className="p-2">Завершено</th>
+                <th className="p-2">Сумма</th><th className="p-2">Оплата</th><th className="p-2">Доставка</th><th className="p-2">Завершено</th>
               </tr></thead><tbody>{sales.data.items.map(item => <tr key={item.saleId} className="border-b">
                 <td className="p-2">{item.saleNumber}</td>
                 <td className="p-2">{item.customerName ?? '—'}</td><td className="p-2">{item.phone??'—'}</td>
                 <td className="p-2">{item.products ?? '—'}</td>
                 <td className="p-2">{item.quantity}</td>
                 <td className="p-2">{som(item.total)}</td>
-                <td className="p-2">{item.paymentStatus}</td><td className="p-2">{dateLabel(item.completedAt)}</td>
+                <td className="p-2">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus==='PARTIAL'||item.paymentStatus==='PARTIALLY_PAID'?'Частично оплачено':item.paymentStatus==='UNPAID'?'Не оплачено':item.paymentStatus}</td>
+                <td className="p-2">{item.deliveryStatus==='DELIVERED'?'Доставлено':item.deliveryStatus==='IN_TRANSIT'?'В пути':item.fulfillmentType==='SELF_PICKUP'?'Самовывоз':item.deliveryStatus??'—'}</td>
+                <td className="p-2">{dateLabel(item.completedAt)}</td>
               </tr>)}</tbody>
             </table></div>}
         </>}
       <p className="text-xs text-slate-500">Итог продаж — оборот, а не остаток средств. Наличные и банк сверяются отдельно, с учётом других операций.</p>
     </section>}
-    {valid && access.isSuccess && !exists && <section className="space-y-4 rounded-xl border bg-white p-4">
-      <h2 className="text-lg font-bold">Сверка фактических сумм и закрытие дня</h2>
-      {preview.isPending ? <LoadingState label="Получаем ожидаемые остатки…"/> :
-        preview.isError ? <ErrorState error={preview.error} onRetry={() => void preview.refetch()}/> :
-        <div className="grid gap-3 sm:grid-cols-2">
-          <p>CASH: <strong>{som(preview.data.expectedCash)}</strong></p>
-          <p>BANK: <strong>{som(preview.data.expectedBank)}</strong></p>
-        </div>}
+    {valid && access.isSuccess && !exists && <section aria-label="Завершение финансового дня"
+      className="space-y-4 rounded-xl border bg-white p-4">
+      <h2 className="text-lg font-bold">Завершение финансового дня</h2>
+      {preview.isPending ? <LoadingState label="Загружаем расчёт…"/> :
+       preview.isError ? <ErrorState error={preview.error} onRetry={()=>void preview.refetch()}/> :
+       <p className="text-sm text-slate-600">Система использует учётные остатки без ручной сверки.
+        Если нужно исправить остаток, администратор может сделать документированную корректировку в финансах.</p>}
       {manager && !canFinancialClose && <p role="status" className="text-amber-800">
-        Финансовое закрытие станет доступно после операционного закрытия сотрудником.</p>}
+        Финансовое завершение доступно после операционного закрытия сотрудником.</p>}
       {write && canFinancialClose && <GuardedPost<ApprovedClosing> kind="daily-close" scope={date}
-        allowed={write} title="Закрыть финансовый день?" label="Зафиксировать отчёт"
-        operationKey={() => crypto.randomUUID()}
-        meta={p => ({date, cash: p.actualCash, bank: p.actualBank})}
-        post={async p => {
-          try { return await postVerifiedClosing(date, p); }
-          catch (cause) {
-            if (cause instanceof ApiClientError &&
-              cause.code.startsWith('CLOSING_')) {
-              setError('Проверка перед закрытием не пройдена: данные, ожидаемые остатки или права могли измениться. Проверьте обновлённый расчёт и подтвердите заново.');
-              void access.refetch();
-              void preview.refetch();
+        allowed={write} title="Завершить финансовый день?" label="Зафиксировать отчёт"
+        operationKey={()=>crypto.randomUUID()}
+        meta={p=>({date,cash:p.actualCash,bank:p.actualBank})}
+        post={async p=>{
+          try {return await postVerifiedClosing(date,p);}
+          catch(cause){
+            if(cause instanceof ApiClientError && cause.code.startsWith('CLOSING_')){
+              setError('Данные изменились. Обновите расчёт перед повторным подтверждением.');
+              void access.refetch();void preview.refetch();
             }
             throw cause;
           }
         }} onDone={refreshed}>
-        {({start, locked}) => <form aria-label="Закрытие финансового дня" className="space-y-3"
-          onSubmit={e => {
-            e.preventDefault();
-            if (!access.data.canEdit || !preview.isSuccess) {
-              setError('Отчёт заблокирован или предварительный расчёт недоступен.'); return;
-            }
-            const payload: ClosingInput = {
-              actualCash: actualCash.trim(), actualBank: actualBank.trim(),
-              cashNote: cashNote.trim() || null, bankNote: bankNote.trim() || null,
-            };
-            const issue = closingInputIssue(payload, preview.data);
-            if (issue) { setError(issue); return; }
-            setError('');
-            start({...payload, approvedExpectedCash: preview.data.expectedCash,
-              approvedExpectedBank: preview.data.expectedBank},
-              'Дата ' + date + '. CASH факт ' + som(payload.actualCash) +
-              ', BANK факт ' + som(payload.actualBank) +
-              '. Система запишет отчёт и неизменяемый снимок завершённых продаж. Остатки и журнал не изменятся.');
-          }}>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {([
-              ['CASH', actualCash, setActualCash, cashNote, setCashNote],
-              ['BANK', actualBank, setActualBank, bankNote, setBankNote],
-            ] as const).map(([name,amount,setAmount,note,setNote]) =>
-              <div className="space-y-2" key={name}>
-                <label className="block space-y-1 text-sm font-semibold">Фактически {name}, сом
-                  <Input aria-label={'Факт ' + name} inputMode="numeric" maxLength={17}
-                    disabled={locked || !access.data.canEdit || !preview.isSuccess}
-                    value={amount} onChange={e => setAmount(e.target.value)}/>
-                </label>
-                <label className="block space-y-1 text-sm font-semibold">Причина расхождения {name}
-                  <textarea aria-label={'Причина ' + name} className="w-full rounded-lg border p-2"
-                    maxLength={2000} disabled={locked || !access.data.canEdit || !preview.isSuccess}
-                    value={note} onChange={e => setNote(e.target.value)}/>
-                </label>
-              </div>
-            )}
-          </div>
-          <p className="text-xs text-slate-600">Если фактический остаток отличается от ожидаемого,
-            причина обязательна. Повторное закрытие одной даты запрещено backend.</p>
-          {error && <p role="alert" className="text-red-700">{error}</p>}
-          <Button type="submit" disabled={locked || !access.data.canEdit || !preview.isSuccess ||
-            !nonnegativeSom(actualCash) || !nonnegativeSom(actualBank)}>Проверить и закрыть</Button>
-        </form>}
+        {({start,locked})=><div className="flex flex-wrap gap-2">
+          <Button type="button" disabled={locked||!access.data.canEdit||!preview.isSuccess}
+            onClick={()=>{
+              if(!preview.data||!access.data.canEdit)return;
+              const payload:ApprovedClosing={
+                actualCash:String(preview.data.expectedCash),actualBank:String(preview.data.expectedBank),
+                cashNote:null,bankNote:null,
+                approvedExpectedCash:preview.data.expectedCash,
+                approvedExpectedBank:preview.data.expectedBank,
+              };
+              setError('');
+              start(payload,'Подтвердить финансовое закрытие '+date+
+                ' по рассчитанным остаткам. Изменение остатков выполняется отдельно через документированную корректировку.');
+            }}>Завершить финансовый день</Button>
+          {user?.roles.includes('ADMIN')&&<Button type="button" variant="outline" asChild>
+            <Link to="/finance/opening-balances">Корректировать остатки</Link>
+          </Button>}
+        </div>}
       </GuardedPost>}
+      {error&&<p role="alert" className="text-red-700">{error}</p>}
     </section>}
 
   </div>;

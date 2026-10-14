@@ -27,7 +27,7 @@ export function DeliveriesPage(){
     return ()=>clearTimeout(timeout);
   },[region]);
   const change=(p:Partial<Filters>)=>{
-    setQuick(null);setFilters(f=>({...f,...p,operational:false,page:0}));
+    setQuick(null);setFilters(f=>({...f,...p,operational:!history,page:0}));
   };
   const choose=(choice:Quick)=>{
     setQuick(choice);setFilters(f=>({...f,...applyQuick(choice),operational:!history,page:0}));

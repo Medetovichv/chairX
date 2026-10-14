@@ -59,6 +59,16 @@ public class FinancePostingService {
     }
 
     /**
+     * Serialize operational expense assignment with company-wide closing.
+     * Both flows acquire CompletionGuard before locking finance accounts.
+     */
+    public void acquireOperationalExpenseGate() {
+        if (jdbc != null) {
+            kg.chairx.common.db.CompletionGuard.acquire(jdbc);
+        }
+    }
+
+    /**
      * Expense business dates cannot be changed after that period has closed.
      * Lock the same account row used by the daily closing BEFORE inspecting
      * the closing dates, so this check and the posting cannot race a close.

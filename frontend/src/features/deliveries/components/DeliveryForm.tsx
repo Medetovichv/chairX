@@ -12,6 +12,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { validateCreate, validUUID, optional } from '../validation';
+import { bishkekToday } from '../../finance/validation';
 import type { CreateDeliveryInput } from '../types';
 
 export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
@@ -34,7 +35,7 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   const [deliveryCost,setDeliveryCost]=useState('');
   const [carrierName,setCarrierName]=useState('');
   const [trackingNumber,setTrackingNumber]=useState('');
-  const [plannedDeliveryDate,setPlannedDeliveryDate]=useState('');
+  const [plannedDeliveryDate,setPlannedDeliveryDate]=useState(bishkekToday);
   const [comment,setComment]=useState('');
   const [problem,setProblem]=useState('');
   const list=useQuery({

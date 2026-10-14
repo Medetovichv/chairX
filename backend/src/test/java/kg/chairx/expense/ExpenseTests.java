@@ -85,6 +85,61 @@ class ExpenseTests {
     }
 
     @Test
+    void expenseAfterOperationalCloseIsPostedTodayButReportedTomorrow() {
+        LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        UUID employeeId=UUID.randomUUID();
+        UUID managerId=UUID.randomUUID();
+        String managerName="expense_manager_"+managerId.toString().substring(0,12);
+        jdbc.update("""
+            INSERT INTO app_users(id,username,password_hash,display_name,active)
+            VALUES (?,?,?,'Expense test fixture',TRUE),(?,?,?,'Expense manager fixture',TRUE)
+            """,employeeId,"expense_close_"+employeeId.toString().substring(0,12),"test",
+                managerId,managerName,"test");
+        jdbc.update("""
+            INSERT INTO security_user_roles(user_id,role_id)
+            VALUES (?,'00000000-0000-0000-0000-000000000002')
+            """,managerId);
+        UUID closingId=UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO employee_daily_closings
+                (id,employee_id,business_date,expected_cash,expected_bank,
+                 actual_total,company_wide)
+            VALUES (?,?,?,0,0,0,TRUE)
+            """,closingId,employeeId,today);
+        try {
+            var created=expenses.create(request(ExpenseCategory.OTHER,"100",
+                ExpensePaymentMethod.CASH,today,"После закрытия"));
+            assertThat(jdbc.queryForObject("""
+                SELECT operational_report_date FROM expenses WHERE id=?
+                """,LocalDate.class,created.id())).isEqualTo(today.plusDays(1));
+            assertThat(jdbc.queryForObject("""
+                SELECT expense_date FROM expenses WHERE id=?
+                """,LocalDate.class,created.id())).isEqualTo(today);
+            assertThat(jdbc.queryForObject("""
+                SELECT business_date FROM finance_movements
+                WHERE source_type='EXPENSE' AND source_id=?
+                """,LocalDate.class,created.id())).isEqualTo(today);
+            var originalAuth=SecurityContextHolder.getContext().getAuthentication();
+            try {
+                String manager=managerName;
+                SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(manager,null,java.util.List.of()));
+                var managementExpense=expenses.create(request(ExpenseCategory.OTHER,"100",
+                    ExpensePaymentMethod.CASH,today,"Менеджерский расход"));
+                assertThat(jdbc.queryForObject("""
+                    SELECT operational_report_date FROM expenses WHERE id=?
+                    """,LocalDate.class,managementExpense.id())).isEqualTo(today);
+            } finally {
+                SecurityContextHolder.getContext().setAuthentication(originalAuth);
+            }
+        } finally {
+            jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",closingId);
+            jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",managerId);
+            jdbc.update("DELETE FROM app_users WHERE id IN (?,?)",managerId,employeeId);
+        }
+    }
+
+    @Test
     void createsAndPersistsExpense() {
         var created = expenses.create(
                 request(

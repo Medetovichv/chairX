@@ -64,7 +64,7 @@ public class EmployeeClosingManagerReportService {
                 rs.getBigDecimal("actual_total"),rs.getString("total_note"))).list();
         var expenses=jdbc.sql("""
             SELECT id,created_by,category,payment_method,amount,comment
-            FROM expenses WHERE expense_date=:date ORDER BY created_by,created_at,id
+            FROM expenses WHERE COALESCE(operational_report_date,expense_date)=:date ORDER BY created_by,created_at,id
             """).param("date",date).query((rs,i)->new ExpenseLine(
                 rs.getObject("id",UUID.class),rs.getString("created_by"),
                 rs.getString("category"),rs.getString("payment_method"),

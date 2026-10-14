@@ -31,7 +31,7 @@ export function EmployeeDailyClosingPage(){
  const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE')&&user?.roles.includes('EMPLOYEE')===true&& !user.roles.some(role=>role==='MANAGER'||role==='ADMIN');
  const [day,setDay]=useState(bishkekToday),[total,setTotal]=useState('');
  const [view,setView]=useState<'current'|'history'>('current');
- const [historyDays,setHistoryDays]=useState<7|30>(7);
+ const [historyDays,setHistoryDays]=useState<7|10|20|30>(30);
  const [reason,setReason]=useState('');
  const [expenseCategory,setExpenseCategory]=useState<ExpenseInput['category']>('OTHER');
  const [expenseAmount,setExpenseAmount]=useState('');
@@ -91,7 +91,11 @@ export function EmployeeDailyClosingPage(){
  return <div className="space-y-5">
   <PageHeader title="Закрытие дня"
    description="Единый операционный отчёт предприятия. Один сотрудник подтверждает результаты всей команды."/>
-  <nav aria-label="Режим отчётов" className="flex flex-wrap gap-2">
+  <nav aria-label="Режим отчётов" className="flex flex-wrap items-end gap-2">
+   <label className="text-sm font-semibold">Отчётная дата
+    <Input className="mt-1 w-44" aria-label="Отчётная дата" type="date"
+     max={bishkekToday()} value={day} onChange={e=>chooseDate(e.target.value)}/>
+   </label>
    <Button variant={view==='current'?'default':'outline'} onClick={()=>{setView('current');chooseDate(bishkekToday());}}>Актуальный отчёт</Button>
    <Button variant={view==='history'?'default':'outline'} onClick={()=>{
     setView('history');
@@ -102,25 +106,28 @@ export function EmployeeDailyClosingPage(){
   </nav>
   {view==='history'&&<section aria-label="Предыдущие отчёты" className="space-y-3 rounded-xl border bg-white p-4">
    <div className="flex gap-2">
-    <Button variant={historyDays===7?'default':'outline'} onClick={()=>setHistoryDays(7)}>7 дней</Button>
-    <Button variant={historyDays===30?'default':'outline'} onClick={()=>setHistoryDays(30)}>30 дней</Button>
+    {([7,10,20,30] as const).map(count=><Button key={count} variant={historyDays===count?'default':'outline'}
+      onClick={()=>setHistoryDays(count)}>{count} дней</Button>)}
    </div>
    <div className="space-y-2">
     {dates.isPending?<LoadingState label="Загружаем отчёты…"/>:
-      Array.from({length:historyDays-1},(_,i)=>{
+      (()=>{
        const today=bishkekToday();
-       const date=new Date(today+'T12:00:00Z');date.setUTCDate(date.getUTCDate()-i-1);
-       const value=date.toISOString().slice(0,10);
-       const closed=dates.data?.includes(value)??false;
-       return <button type="button" key={value} onClick={()=>chooseDate(value)}
-        className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-blue-600':'')}>
-         <span>{value}</span><span>{closed?'Закрыт':'Нет закрытия'}</span>
-        </button>;
-      })}
+       const cutoff=new Date(today+'T12:00:00Z');
+       cutoff.setUTCDate(cutoff.getUTCDate()-(historyDays-1));
+       const oldest=cutoff.toISOString().slice(0,10);
+       const closedDates=(dates.data??[]).filter(value=>value<today&&value>=oldest)
+         .sort((a,b)=>b.localeCompare(a));
+       return closedDates.length===0
+        ? <p className="text-sm text-slate-600">За выбранный период закрытых отчётов нет.</p>
+        : closedDates.map(value=><button type="button" key={value} onClick={()=>chooseDate(value)}
+          className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-blue-600':'')}>
+           <span>{value}</span><span>Закрыт</span>
+          </button>);
+      })()}
    </div>
   </section>}
-  <section className="space-y-3 rounded-xl border bg-white p-4">
-   <p className="text-sm font-semibold">{view==='current'?'Сегодня':'Просмотр отчёта'}: {day}</p>
+  <section className="space-y-3">
    {unknown&&<Button variant="outline" onClick={()=>{
     void client.invalidateQueries({queryKey:personalCloseKeys.report(day)}).then(()=>{
      setUnknown(false);setError('');

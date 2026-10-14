@@ -79,6 +79,12 @@ public class ExpenseService {
             return replay(existing.get(), request, normalizedAmount, comment, fingerprint);
         }
 
+        if (!reportCorrection) {
+            // Operational reporting day is picked under the same gate as company close.
+            // Never change the actual accounting date of the expense or journal.
+            finance.acquireOperationalExpenseGate();
+        }
+
         Expense expense = new Expense(
                 UUID.randomUUID(), request.category(), normalizedAmount,
                 request.paymentMethod(), request.expenseDate(), comment,

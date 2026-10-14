@@ -10,7 +10,7 @@ import subprocess
 import urllib.error
 import urllib.request
 import uuid
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
 BASE="http://127.0.0.1:5173"
 DAY=datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=6))).date().isoformat()
@@ -103,14 +103,12 @@ def main():
             page.get_by_label("Логин").fill("admin")
             page.get_by_label("Пароль",exact=True).fill(adminpass)
             page.get_by_role("button",name="Войти",exact=True).click()
-            page.get_by_role("heading",name="Закрытие дня",level=2).wait_for(timeout=30000)
-            page.get_by_role("heading",name="Сверка фактических сумм и закрытие дня").wait_for()
-            form=page.get_by_role("form",name="Закрытие финансового дня")
-            cash=form.get_by_role("textbox",name="Факт CASH")
-            bank=form.get_by_role("textbox",name="Факт BANK")
-            cash.fill("10000");bank.fill("5000")
+            page.get_by_role("heading",name="Отчёты").wait_for(timeout=30000)
+            finish=page.get_by_role("button",name="Завершить финансовый день")
+            finish.wait_for(timeout=30000)
+            expect(finish).to_be_enabled(timeout=30000)
             page.screenshot(path=str(ART/"01-before-close.png"),full_page=True)
-            form.get_by_role("button",name="Проверить и закрыть").click()
+            finish.click()
             page.get_by_role("alertdialog").wait_for()
             # Real concurrent financial transfer changes expected balances
             # after the employee viewed the preview, before their confirmation.
@@ -120,15 +118,16 @@ def main():
             db(0,4,10100,4900,0)
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
-            # The form and guarded action can both display this text;
-            # Playwright's first match may be hidden by a parent component.
-            page.locator('p[role="alert"]:visible').filter(
-                has_text="Проверка перед закрытием не пройдена:"
-            ).first.wait_for(timeout=25000)
+            # A changed preview is rejected before POST and visibly reported.
+            # The rejection must exist in the DOM even if a dialog temporarily
+            # marks the background page inert.
+            page.get_by_text(
+                "Данные изменились. Обновите расчёт перед повторным подтверждением.",
+                exact=False,
+            ).first.wait_for(state="attached",timeout=25000)
             db(0,4,10100,4900,0)
             page.screenshot(path=str(ART/"02-concurrency-blocked.png"),full_page=True)
-            cash.fill("10100");bank.fill("4900")
-            form.get_by_role("button",name="Проверить и закрыть").click()
+            finish.click()
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
             page.get_by_role("heading",name="День закрыт",exact=False).wait_for(timeout=30000)

@@ -356,19 +356,15 @@ describe('F04 stock position and histories', () => {
       String(c[0]).includes('variantId=' + VARIANT))).toBe(true);
     expect(calls.mock.calls.some((c) => String(c[0]).includes('/api/inventory/balances/' + HOME + '/' + VARIANT))).toBe(true);
   });
-  it('fetches transfer history without displaying cost and filters by chosen warehouse and variant', async () => {
-    const { calls } = fakeBackend(); renderAt();
-    await screen.findByRole('columnheader', { name: 'Модель' });
-    const transferHistory = screen.getByRole('region', { name: 'История перемещений' });
-    expect(transferHistory).toHaveTextContent('employee');
-    expect(transferHistory).toHaveTextContent('Домашний');
-    expect(transferHistory).toHaveTextContent('Офисный');
-    expect(transferHistory).not.toHaveTextContent('987654321');
-    await userEvent.setup().click(stockAction('Подробнее'));
-    await userEvent.setup().click(screen.getByRole('checkbox', { name: 'Только выбранная вариация' }));
-    await waitFor(() => expect(calls.mock.calls.some((c) =>
-      String(c[0]).includes('/api/inventory/transfers?') &&
-      String(c[0]).includes('variantId=' + VARIANT))).toBe(true));
+  it('shows history in a dedicated page rather than below stock details',async()=>{
+    fakeBackend();renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    expect(screen.queryByRole('region',{name:'История перемещений'})).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('link',{name:'История перемещений'}));
+    const history=await screen.findByRole('region',{name:'История перемещений'});
+    expect(history).toHaveTextContent('Домашний');
+    expect(history).toHaveTextContent('Офисный');
+    expect(history).not.toHaveTextContent('987654321');
   });
   it('read-only inventory staff never sees transfer buttons, even with CUSTOM role', async () => {
     access.permissions = ['INVENTORY_READ']; access.roles = ['CUSTOM_READER'];
@@ -517,16 +513,13 @@ describe('F04 contracts and regression', () => {
     expect(local).not.toHaveBeenCalled();
     local.mockRestore();
   });
-  it('never shows inventory costs when a legacy backend exposes totalCost in JSON', async () => {
-    const { calls } = fakeBackend(); renderAt();
-    await screen.findByRole('columnheader', { name: 'Модель' });
-    const history = await screen.findByRole('region', { name: 'История перемещений' });
-    expect(calls.mock.calls.some((c) => String(c[0]).startsWith('/api/inventory/transfers?'))).toBe(true);
-    expect(history).toHaveTextContent('Домашний');
+  it('never shows transfer costs in the stock screen or its dedicated history',async()=>{
+    fakeBackend();renderAt();
+    await screen.findByRole('columnheader',{name:'Модель'});
+    expect(screen.queryByRole('region',{name:'История перемещений'})).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole('link',{name:'История перемещений'}));
+    const history=await screen.findByRole('region',{name:'История перемещений'});
     expect(history).not.toHaveTextContent('987654321');
-    // The HTTP fixture includes totalCost to prove UI output stays cost-free.
-    // This test must NOT require totalCost to exist in the real backend API.
-    // Backend exposure is tracked separately in Issue #20.
   });
 });
 
@@ -551,17 +544,15 @@ describe('UI-V2-04 warehouse dashboard and readable transfer history', () => {
     expect(calls.mock.calls.some(([url]) => String(url).includes('warehouseId='+HOME))).toBe(true);
   });
 
-  it('never displays internal UUID or transferred FIFO valuation in the stock card and transfer history', async () => {
-    fakeBackend(); renderAt();
+  it('never displays internal UUID or valuation in stock details',async()=>{
+    fakeBackend();renderAt();
     await screen.findByRole('columnheader',{name:'Модель'});
     await userEvent.setup().click(stockAction('Подробнее'));
     const detail=screen.getByRole('region',{name:'Карточка складской позиции'});
     expect(detail).toHaveTextContent('Ergo Comfort / Чёрный');
     expect(detail).not.toHaveTextContent(VARIANT);
-    const history=await screen.findByRole('region',{name:'История перемещений'});
-    expect(history).not.toHaveTextContent('UUID:');
-    expect(history).not.toHaveTextContent('987654321');
-    expect(history).toHaveTextContent('Домашний');
+    expect(detail).not.toHaveTextContent('987654321');
+    expect(screen.queryByRole('region',{name:'История перемещений'})).not.toBeInTheDocument();
   });
 
   it('fetches warehouse summary only with inventory read rights, without any transfers for read-only roles', async () => {

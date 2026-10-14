@@ -5,6 +5,7 @@ import { Button } from '../../../shared/ui/button';
 import { CustomerPicker } from './CustomerPicker';
 import { SaleItemsEditor, nextKey, type SaleEditorRow } from './SaleItemsEditor';
 import { checkDraft, countValid, fulfillmentNames, integerSom, money, salePriceValid } from '../validation';
+import { bishkekToday } from '../../finance/validation';
 import type { DraftInput, FulfillmentType, SaleResponse } from '../types';
 
 export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked=false}:{
@@ -30,7 +31,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const [deliveryAddress,setDeliveryAddress]=useState('');
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
-  const [deliveryComment,setDeliveryComment]=useState('');
+  const [plannedDeliveryDate,setPlannedDeliveryDate]=useState(bishkekToday);
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
   const inFlight=useRef(false);
@@ -57,7 +58,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
         address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
         deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
-        comment:deliveryComment.trim()||null,plannedDeliveryDate:null,
+        comment:null,plannedDeliveryDate,
       }}:{})};
     const problem=checkDraft(data);
     if(problem){setError(problem);return;}
@@ -123,15 +124,16 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Город доставки при создании продажи" maxLength={200} value={deliveryCity}
                   disabled={saving||blocked} onChange={e=>setDeliveryCity(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              <label className="space-y-1 text-sm font-semibold">Планируемая дата доставки
+                <input aria-label="Планируемая дата доставки при создании продажи"
+                  type="date" value={plannedDeliveryDate} disabled={saving||blocked}
+                  onChange={e=>setPlannedDeliveryDate(e.target.value)}
+                  className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold">Стоимость доставки, сом
                 <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
                   disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
-              <label className="space-y-1 text-sm font-semibold sm:col-span-2">Комментарий курьеру
-                <textarea aria-label="Комментарий к доставке при создании продажи" rows={2} maxLength={2000} value={deliveryComment}
-                  disabled={saving||blocked} onChange={e=>setDeliveryComment(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white p-3"/></label>
-              <p className="text-xs text-slate-600 sm:col-span-2">Одна операция создаст подтверждённую продажу и готовую доставку. Если товара нет на складе, обе операции отменятся.</p>
+              <p className="text-xs text-slate-600 sm:col-span-2">Стоимость доставки сохраняется отдельно в карточке доставки и не прибавляется автоматически к сумме кресел или оплате. Плановая дата по умолчанию сегодня по Бишкеку; при необходимости выберите другую дату.</p>
             </div>}
           </div>}
           <label className="block space-y-2 text-sm font-semibold">Комментарий

@@ -114,7 +114,7 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT e.id,e.category,e.amount,e.payment_method,e.comment,e.created_at,e.created_by
             FROM expenses e
-            WHERE e.expense_date=:day AND NOT EXISTS (
+            WHERE COALESCE(e.operational_report_date,e.expense_date)=:day AND NOT EXISTS (
                 SELECT 1 FROM app_users u
                 JOIN security_user_roles ur ON ur.user_id=u.id
                 JOIN security_roles role ON role.id=ur.role_id
@@ -131,12 +131,12 @@ public class EmployeeDailyClosingService {
 
     @Transactional(readOnly=true)
     public List<LocalDate> companyDates(String username) {
-        Employee actor=employee(username);
+        employee(username);
         return jdbc.sql("""
             SELECT DISTINCT business_date FROM employee_daily_closings
-            WHERE (company_wide=TRUE OR employee_id=:id)
+            WHERE company_wide=TRUE
               AND business_date>=:oldest ORDER BY business_date DESC LIMIT 30
-            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            """).param("oldest",policy.today().minusDays(29))
             .query(LocalDate.class).list();
     }
 

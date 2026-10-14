@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -80,7 +80,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   view();
   expect(await screen.findByText(/День закрыт/)).toBeInTheDocument();
   expect(await screen.findByText(/нет сохранённого снимка продаж/)).toBeInTheDocument();
-  expect(screen.queryByRole('form',{name:'Закрытие финансового дня'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Завершить финансовый день'})).not.toBeInTheDocument();
   expect(calls.every(path=>path.startsWith('/api/finance/closings'))).toBe(true);
  });
  it('does not send GET without report read permission',()=>{
@@ -90,7 +90,7 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
   expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
   expect(fetchMock).not.toHaveBeenCalled();
  });
- it('requires discrepancy reason, confirms once and shows the server-signed closing',async()=>{
+ it('confirms calculated balances once without manual CASH/BANK input',async()=>{
   access.permissions=['FINANCE_READ','DAILY_CLOSING_WRITE'];
   let closed=false;const posts:Record<string,unknown>[]=[];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL,init?:RequestInit)=>{
@@ -106,22 +106,17 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
     throw Error('Unexpected '+path);
   }));
   view();
-  const form=await screen.findByRole('form',{name:'Закрытие финансового дня'});
-  await waitFor(()=>expect(within(form).getByRole('textbox',{name:'Факт CASH'})).toBeEnabled());
-  fireEvent.change(within(form).getByRole('textbox',{name:'Факт CASH'}),{target:{value:'4900'}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Факт BANK'}),{target:{value:'2000'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и закрыть'}));
-  expect(screen.getByText(/При расхождении CASH/)).toBeInTheDocument();
-  expect(posts).toHaveLength(0);
-  fireEvent.change(within(form).getByRole('textbox',{name:'Причина CASH'}),{target:{value:'Пересчёт кассы'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и закрыть'}));
+  const finish=await screen.findByRole('button',{name:'Завершить финансовый день'});
+  await waitFor(()=>expect(finish).toBeEnabled());
+  expect(screen.queryByRole('textbox',{name:'Факт CASH'})).not.toBeInTheDocument();
+  await userEvent.setup().click(finish);
   expect(screen.getByRole('alertdialog')).toHaveTextContent(day);
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
     .getByRole('button',{name:'Зафиксировать отчёт'}));
   await waitFor(()=>expect(posts).toHaveLength(1));
-  expect(posts[0]).toEqual({actualCash:'4900',actualBank:'2000',cashNote:'Пересчёт кассы',bankNote:null});
+  expect(posts[0]).toEqual({actualCash:'5000',actualBank:'2000',cashNote:null,bankNote:null});
   expect(await screen.findByText(/День закрыт/)).toBeInTheDocument();
-  expect(screen.queryByRole('form',{name:'Закрытие финансового дня'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Завершить финансовый день'})).not.toBeInTheDocument();
  });
 
  it('does not POST after displayed CASH/BANK expectation changed in a concurrent session',async()=>{
@@ -202,8 +197,8 @@ describe('F11 Daily Closing backend contract and guarded workflow',()=>{
     throw Error('Unexpected '+path);
   }));
   view();
-  const form=await screen.findByRole('form',{name:'Закрытие финансового дня'});
-  expect(within(form).getByRole('button',{name:'Проверить и закрыть'})).toBeDisabled();
+  const finish=await screen.findByRole('button',{name:'Завершить финансовый день'});
+  expect(finish).toBeDisabled();
   expect(posts).toHaveLength(0);
  });
 });
