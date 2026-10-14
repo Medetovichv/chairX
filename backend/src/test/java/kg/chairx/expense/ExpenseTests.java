@@ -87,7 +87,18 @@ class ExpenseTests {
     @Test
     void expenseAfterOperationalCloseIsPostedTodayButReportedTomorrow() {
         LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
-        UUID employeeId=jdbc.queryForObject("SELECT id FROM app_users LIMIT 1",UUID.class);
+        UUID employeeId=UUID.randomUUID();
+        UUID managerId=UUID.randomUUID();
+        String managerName="expense_manager_"+managerId.toString().substring(0,12);
+        jdbc.update("""
+            INSERT INTO app_users(id,username,password_hash,display_name,active)
+            VALUES (?,?,?,'Expense test fixture',TRUE),(?,?,?,'Expense manager fixture',TRUE)
+            """,employeeId,"expense_close_"+employeeId.toString().substring(0,12),"test",
+                managerId,managerName,"test");
+        jdbc.update("""
+            INSERT INTO security_user_roles(user_id,role_id)
+            VALUES (?,'00000000-0000-0000-0000-000000000002')
+            """,managerId);
         UUID closingId=UUID.randomUUID();
         jdbc.update("""
             INSERT INTO employee_daily_closings
@@ -110,13 +121,7 @@ class ExpenseTests {
                 """,LocalDate.class,created.id())).isEqualTo(today);
             var originalAuth=SecurityContextHolder.getContext().getAuthentication();
             try {
-                String manager=jdbc.queryForObject("""
-                    SELECT u.username FROM app_users u
-                    JOIN security_user_roles ur ON ur.user_id=u.id
-                    JOIN security_roles r ON r.id=ur.role_id
-                    WHERE r.system_role=TRUE AND r.code IN ('MANAGER','ADMIN')
-                    LIMIT 1
-                    """,String.class);
+                String manager=managerName;
                 SecurityContextHolder.getContext().setAuthentication(
                     new UsernamePasswordAuthenticationToken(manager,null,java.util.List.of()));
                 var managementExpense=expenses.create(request(ExpenseCategory.OTHER,"100",
@@ -129,6 +134,8 @@ class ExpenseTests {
             }
         } finally {
             jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",closingId);
+            jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",managerId);
+            jdbc.update("DELETE FROM app_users WHERE id IN (?,?)",managerId,employeeId);
         }
     }
 
