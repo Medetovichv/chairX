@@ -131,12 +131,12 @@ public class EmployeeDailyClosingService {
 
     @Transactional(readOnly=true)
     public List<LocalDate> companyDates(String username) {
-        Employee actor=employee(username);
+        employee(username);
         return jdbc.sql("""
             SELECT DISTINCT business_date FROM employee_daily_closings
-            WHERE (company_wide=TRUE OR employee_id=:id)
+            WHERE company_wide=TRUE
               AND business_date>=:oldest ORDER BY business_date DESC LIMIT 30
-            """).param("id",actor.id()).param("oldest",policy.today().minusDays(29))
+            """).param("oldest",policy.today().minusDays(29))
             .query(LocalDate.class).list();
     }
 
