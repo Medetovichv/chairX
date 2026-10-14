@@ -563,6 +563,13 @@ class DeliveryTests {
         deliveries.dispatch(delivery.id());
         deliveries.markDelivered(delivery.id());
         jdbc.update("UPDATE deliveries SET delivered_at=clock_timestamp() WHERE id=?",delivery.id());
+        assertThat(jdbc.queryForObject("SELECT status FROM deliveries WHERE id=?",
+                String.class,delivery.id())).isEqualTo("DELIVERED");
+        assertThat(jdbc.queryForObject("""
+            SELECT (delivered_at AT TIME ZONE 'Asia/Bishkek')::date =
+                   (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
+            FROM deliveries WHERE id=?
+            """,Boolean.class,delivery.id())).isTrue();
 
         var active=deliveries.list(null,null,null,null,null,null,0,20,true);
         assertThat(active.items()).extracting(x->x.id()).contains(delivery.id());
