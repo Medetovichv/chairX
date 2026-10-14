@@ -40,6 +40,7 @@ class EmployeeDailyClosingIsolationTest {
     private static final String PASSWORD="test-password";
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired kg.chairx.expense.persistence.ExpenseRepository expenseRepository;
     final List<UUID> users=new ArrayList<>();
     final List<UUID> sales=new ArrayList<>();
     final List<UUID> movements=new ArrayList<>();
@@ -148,6 +149,36 @@ class EmployeeDailyClosingIsolationTest {
             .andExpect(jsonPath("$.operationalClosed").value(true))
             .andExpect(jsonPath("$.totalEmployees").value(1))
             .andExpect(jsonPath("$.expectedTotal").value(250));
+    }
+
+    @Test void newExpenseAfterCompanyCloseIsAssignedToNextOperationalDay() throws Exception {
+        String alice=user(EMPLOYEE_ROLE);
+        String url="/api/finance/my-closings/"+day;
+        String closing="{\"expectedCash\":\"0\",\"expectedBank\":\"0\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"0\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        mvc.perform(post(url).with(httpBasic(alice,PASSWORD)).with(csrf())
+            .contentType(MediaType.APPLICATION_JSON).content(closing))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.expenses.length()").value(0));
+        UUID expenseId=UUID.randomUUID();
+        expenses.add(expenseId);
+        var expense=new kg.chairx.expense.domain.Expense(
+            expenseId,kg.chairx.expense.domain.ExpenseCategory.OTHER,
+            new BigDecimal("50"),kg.chairx.expense.domain.ExpensePaymentMethod.CASH,
+            day,"After operational closing",alice,java.time.Instant.now());
+        assertThat(expenseRepository.tryInsert(expense,UUID.randomUUID(),"integration-test")).isTrue();
+        LocalDate assigned=jdbc.queryForObject("""
+            SELECT operational_report_date FROM expenses WHERE id=?
+            """,LocalDate.class,expenseId);
+        assertThat(assigned).isEqualTo(day.plusDays(1));
+        assertThat(jdbc.queryForObject("""
+            SELECT expense_date FROM expenses WHERE id=?
+            """,LocalDate.class,expenseId)).isEqualTo(day);
+        mvc.perform(get(url).with(httpBasic(alice,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.closed").value(true))
+            .andExpect(jsonPath("$.expenses.length()").value(0));
     }
 
     @Test void companyCloseAggregatesStaffPaymentsAndExpensesOnce() throws Exception {
