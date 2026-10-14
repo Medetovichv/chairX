@@ -8,6 +8,7 @@ import { categories,periodMonth,validPeriod,bishkekToday,validLocalDate,
 import type {ExpenseCategory,ExpenseInput,FinanceAccount} from '../types';
 import { GuardedPost } from '../components/GuardedPost';
 import { FinanceTabs } from '../components/FinanceTabs';
+import { personalCloseApi, personalCloseKeys } from '../../daily-closing/personal-api';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -26,6 +27,13 @@ export function ExpensesPage(){
   queryFn:()=>financeApi.expenses(period.from,period.to),enabled:read});
  const total=useQuery({queryKey:financeKeys.expenseTotal(period.from,period.to),
   queryFn:()=>financeApi.expenseTotal(period.from,period.to),enabled:read});
+ const today=bishkekToday();
+ const operationalClose=useQuery({
+  queryKey:personalCloseKeys.report(today),
+  queryFn:()=>personalCloseApi.report(today),
+  enabled:create&&hasPermission('DAILY_CLOSING_READ')&&
+   user?.roles.includes('EMPLOYEE')===true&&!user.roles.some(r=>r==='ADMIN'||r==='MANAGER'),
+ });
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,
   enabled:create&&hasPermission('FINANCE_READ')});
  function setRange(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){
@@ -43,6 +51,7 @@ export function ExpensesPage(){
  return <div className="space-y-5">
   <PageHeader title="Расходы"/>
   <FinanceTabs/>
+  {operationalClose.data?.closed&&<p role="status" className="rounded-xl border border-red-300 bg-red-50 p-4 font-semibold text-red-800">Операционный отчёт за сегодня закрыт. Новые расходы, проведённые до финансового закрытия, попадут в следующий операционный отчёт. Уже закрытый отчёт не изменится.</p>}
   {read&&<section className="space-y-3">
    <form aria-label="Период расходов" className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={setRange}>
     <label className="space-y-1 text-sm font-semibold">С (включительно)
