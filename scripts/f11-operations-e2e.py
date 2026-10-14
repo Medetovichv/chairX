@@ -286,6 +286,34 @@ def main():
             page.get_by_role("textbox",name="Телефон доставки при создании продажи").wait_for()
             page.get_by_role("textbox",name="Комментарий к доставке при создании продажи").wait_for()
             page.screenshot(path=str(ART/"00-employee-inline-shipping-form.png"),full_page=True)
+            # FLOW-30: perform the complete employee order-entry journey in the
+            # actual browser, not just a screenshot of an empty delivery form.
+            # No payment is posted: a physically prepared delivery must NOT
+            # be falsely reported as financially paid or included in closing.
+            page.get_by_role("textbox",name="Адрес доставки при создании продажи").fill("F30 City Address 9 microdistrict")
+            page.get_by_role("textbox",name="Телефон доставки при создании продажи").fill("+996700909090")
+            page.get_by_role("textbox",name="Город доставки при создании продажи").fill("Bishkek")
+            page.get_by_role("textbox",name="Стоимость доставки при создании продажи").fill("0")
+            page.get_by_role("textbox",name="Комментарий продажи").fill("Позвонить перед прибытием")
+            page.get_by_role("button",name="+ Добавить кресло").click()
+            page.get_by_role("combobox",name="Модель кресла").select_option(product["id"])
+            page.get_by_role("button",name="Black",exact=False).click()
+            page.get_by_role("combobox",name="Склад позиции 1").select_option(home)
+            page.get_by_role("textbox",name="Количество позиции 1").fill("1")
+            page.get_by_role("textbox",name="Цена продажи позиции 1").fill("8500")
+            page.get_by_role("button",name="Подтвердить продажу и доставку").click()
+            page.get_by_role("link",name="Зарегистрировать оплату").wait_for(timeout=30000)
+            page.get_by_role("heading",name="Оплата заказа").wait_for(timeout=30000)
+            page.get_by_text("F30 City Address 9 microdistrict").first.wait_for(timeout=30000)
+            page.screenshot(path=str(ART/"00-employee-complete-unpaid-delivery-order.png"),full_page=True)
+            auto_sale_id=sql("SELECT sale_id FROM deliveries WHERE address='F30 City Address 9 microdistrict'")
+            assert auto_sale_id, "Employee flow did not create a linked delivery"
+            automatically_created=admin.must("GET","/api/sales/"+auto_sale_id,None,200)
+            assert automatically_created["status"]=="CONFIRMED",automatically_created
+            assert int(automatically_created["total"])==8500
+            assert admin.must("GET","/api/deliveries/by-sale/"+auto_sale_id,None,200)["status"]=="READY"
+            db_number("SELECT count(*) FROM payments WHERE sale_id='"+auto_sale_id+"'",0)
+
         finally:
             browser.close()
 
