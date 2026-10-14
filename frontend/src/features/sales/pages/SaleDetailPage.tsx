@@ -8,6 +8,7 @@ import type { Warehouse } from '../../inventory/types';
 import { customersApi } from '../../customers/api';
 import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { DeliveryForm } from '../../deliveries/components/DeliveryForm';
+import { DeliveryActions } from '../../deliveries/components/DeliveryActions';
 import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../../deliveries/pending-create';
 import type { CreateDeliveryInput } from '../../deliveries/types';
 import { deliveryStatusNames } from '../../deliveries/validation';
@@ -408,6 +409,17 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           <ErrorState title="Не удалось проверить связанную доставку"
             error={relatedDelivery.error} onRetry={()=>void relatedDelivery.refetch()}/>}
       </section>}
+    {delivery&&hasPermission('DELIVERIES_MANAGE')&&<DeliveryActions delivery={delivery}
+      onChanged={async result=>{
+        client.setQueryData(deliveryKeys.bySale(sale.id),result);
+        await Promise.all([
+          client.invalidateQueries({queryKey:deliveryKeys.lists}),
+          client.invalidateQueries({queryKey:salesKeys.lists}),
+          client.invalidateQueries({queryKey:salesKeys.detail(sale.id)}),
+          client.invalidateQueries({queryKey:inventoryKeys.overviewPrefix}),
+          client.invalidateQueries({queryKey:inventoryKeys.balancePrefix}),
+        ]);
+      }}/>}
     <section aria-label="Карточка заказа" className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-sm sm:grid-cols-2">
       <div><p className="text-slate-500">Статус</p><SaleStatusBadge status={sale.status}/></div>
       <div><p className="text-slate-500">Клиент</p>
