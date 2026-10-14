@@ -390,7 +390,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     {requiresDelivery&&
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
-        {isConfirmed&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&
+        {isConfirmed&&!relatedDelivery.data&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&
           <Link className="inline-block font-semibold text-blue-700 underline" to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
             Оформить доставку по этому заказу
           </Link>}
