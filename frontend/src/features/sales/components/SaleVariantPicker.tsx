@@ -67,8 +67,8 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
     </p>}
     {!allowed?<p className="text-sm text-amber-800">
       Для выбора вариации требуется CATALOG_READ.</p>:
-      <Button type="button" variant="outline" disabled={disabled}
-        onClick={()=>setOpen(x=>!x)}>{value?'Изменить модель':'Выбрать модель'}</Button>}
+      value?<Button type="button" variant="outline" disabled={disabled}
+        onClick={()=>setOpen(x=>!x)}>Изменить модель</Button>:null}
     {open&&allowed&&<section aria-label="Каталог для продажи"
       className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
       {canReadInventory&&<section aria-label="Быстрый поиск кресел" className="space-y-2">
