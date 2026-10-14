@@ -5,6 +5,7 @@ import { Button } from '../../../shared/ui/button';
 import { CustomerPicker } from './CustomerPicker';
 import { SaleItemsEditor, nextKey, type SaleEditorRow } from './SaleItemsEditor';
 import { checkDraft, countValid, fulfillmentNames, integerSom, money, salePriceValid } from '../validation';
+import { bishkekToday } from '../../finance/validation';
 import type { DraftInput, FulfillmentType, SaleResponse } from '../types';
 
 export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked=false}:{
@@ -56,7 +57,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         recipientName:recipientName.trim()||null,recipientPhone:recipientPhone.trim(),
         address:deliveryAddress.trim(),cityRegion:deliveryCity.trim()||null,
         deliveryCost:deliveryCost.trim(),carrierName:null,trackingNumber:null,
-        comment:null,plannedDeliveryDate:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bishkek',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()),
+        comment:null,plannedDeliveryDate:bishkekToday(),
       }}:{})};
     const problem=checkDraft(data);
     if(problem){setError(problem);return;}
