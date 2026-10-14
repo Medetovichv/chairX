@@ -108,6 +108,25 @@ class ExpenseTests {
                 SELECT business_date FROM finance_movements
                 WHERE source_type='EXPENSE' AND source_id=?
                 """,LocalDate.class,created.id())).isEqualTo(today);
+            var originalAuth=SecurityContextHolder.getContext().getAuthentication();
+            try {
+                String manager=jdbc.queryForObject("""
+                    SELECT u.username FROM app_users u
+                    JOIN security_user_roles ur ON ur.user_id=u.id
+                    JOIN security_roles r ON r.id=ur.role_id
+                    WHERE r.system_role=TRUE AND r.code IN ('MANAGER','ADMIN')
+                    LIMIT 1
+                    """,String.class);
+                SecurityContextHolder.getContext().setAuthentication(
+                    new UsernamePasswordAuthenticationToken(manager,null,java.util.List.of()));
+                var managementExpense=expenses.create(request(ExpenseCategory.OTHER,"100",
+                    ExpensePaymentMethod.CASH,today,"Менеджерский расход"));
+                assertThat(jdbc.queryForObject("""
+                    SELECT operational_report_date FROM expenses WHERE id=?
+                    """,LocalDate.class,managementExpense.id())).isEqualTo(today);
+            } finally {
+                SecurityContextHolder.getContext().setAuthentication(originalAuth);
+            }
         } finally {
             jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",closingId);
         }
