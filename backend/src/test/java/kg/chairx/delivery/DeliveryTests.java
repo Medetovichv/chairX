@@ -562,6 +562,7 @@ class DeliveryTests {
                 delivery.id());
         deliveries.dispatch(delivery.id());
         deliveries.markDelivered(delivery.id());
+        jdbc.update("UPDATE deliveries SET delivered_at=clock_timestamp() WHERE id=?",delivery.id());
 
         var active=deliveries.list(null,null,null,null,null,null,0,20,true);
         assertThat(active.items()).extracting(x->x.id()).contains(delivery.id());
