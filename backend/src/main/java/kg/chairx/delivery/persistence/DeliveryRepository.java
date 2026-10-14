@@ -50,8 +50,7 @@ public class DeliveryRepository {
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
                   AND (:operational = FALSE OR d.status NOT IN ('DELIVERED','CANCELLED')
-                       OR d.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
-                            AT TIME ZONE 'Asia/Bishkek')
+                       OR (d.status='DELIVERED' AND d.delivered_at >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date AT TIME ZONE 'Asia/Bishkek')))
                   AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
                   AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
                   AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
@@ -96,8 +95,7 @@ public class DeliveryRepository {
                   AND (CAST(:fromDate AS timestamptz) IS NULL OR d.created_at >= :fromDate)
                   AND (CAST(:toDate AS timestamptz) IS NULL OR d.created_at < :toDate)
                   AND (:operational = FALSE OR d.status NOT IN ('DELIVERED','CANCELLED')
-                       OR d.created_at >= (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date
-                            AT TIME ZONE 'Asia/Bishkek')
+                       OR (d.status='DELIVERED' AND d.delivered_at >= ((CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Bishkek')::date AT TIME ZONE 'Asia/Bishkek')))
                   AND (CAST(:plannedFrom AS date) IS NULL OR d.planned_delivery_date >= :plannedFrom)
                   AND (CAST(:plannedTo AS date) IS NULL OR d.planned_delivery_date <= :plannedTo)
                   AND (CAST(:region AS varchar) IS NULL OR d.city_region ILIKE '%'||:region||'%')
