@@ -318,8 +318,9 @@ describe('F08 create delivery and non-idempotent network outcomes',()=>{
     expect(api.counts().creates).toBe(1);
     const post=api.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/deliveries'&&(init as RequestInit).method==='POST');
     const body=JSON.parse(String((post?.[1] as RequestInit).body)) as CreateDeliveryInput;
+    expect(body.plannedDeliveryDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(body).toMatchObject({saleId:SALE,recipientPhone:'+996700123456',
-      address:'Бишкек, 12',deliveryCost:'300',plannedDeliveryDate:null,recipientName:null});
+      address:'Бишкек, 12',deliveryCost:'300',recipientName:null});
     expect(requests(api,'/api/payments')).toHaveLength(0);
   });
   it('creates REGION_DELIVERY with carrier, tracking and planned LocalDate',async()=>{
