@@ -41,12 +41,13 @@ function ExistingReport({ report }: { report: ClosingReport }) {
   return <section aria-label="Закрытый отчёт" className="space-y-3">
     <h2 className="text-lg font-bold">День закрыт · версия {report.version}</h2>
     <p className="text-sm">Создал {report.createdBy} · {dateLabel(report.createdAt)}</p>
-    <div className="grid gap-3 sm:grid-cols-2">
-      <AccountView title="CASH — наличные" account={report.cash}/>
-      <AccountView title="BANK — банк" account={report.bank}/>
-    </div>
-    <p className="text-xs text-slate-600">Расхождение — наблюдение сотрудника, а не движение денег.
-      Закрытие и перерасчёт не создают финансовых проводок.</p>
+    <details className="rounded-xl border border-slate-200 bg-white p-3">
+      <summary className="cursor-pointer text-sm font-semibold">Архивные финансовые показатели</summary>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <AccountView title="Наличные" account={report.cash}/>
+        <AccountView title="Перевод" account={report.bank}/>
+      </div>
+    </details>
   </section>;
 }
 function CompanyDailyClosingPage() {
