@@ -41,7 +41,7 @@ export function ExpensesPage(){
  }
  if(!read&&!create)return <ForbiddenPage/>;
  return <div className="space-y-5">
-  <PageHeader title="Расходы" description="Операционные расходы. Оплаты закупок и карго учитываются отдельно."/>
+  <PageHeader title="Расходы"/>
   <FinanceTabs/>
   {read&&<section className="space-y-3">
    <form aria-label="Период расходов" className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={setRange}>
@@ -59,7 +59,7 @@ export function ExpensesPage(){
      <div aria-label="Список расходов" className="space-y-2">
        {list.data.map(e=><article key={e.id} className="grid gap-2 rounded-xl border bg-white p-4 text-sm sm:grid-cols-3">
         <div><strong>{categories.find(x=>x.value===e.category)?.label??e.category}</strong>
-         <p>{dateLabel(e.expenseDate)} · {e.paymentMethod}</p></div>
+         <p>{dateLabel(e.expenseDate)} · {e.paymentMethod==='CASH'?'Наличные':'Перевод'}</p></div>
         <p className="font-semibold">{som(e.amount)}</p>
         <div><p>{e.comment||'Без комментария'}</p><p>{e.createdBy} · {dateLabel(e.createdAt)}</p></div>
        </article>)}</div>}
@@ -106,7 +106,6 @@ export function ExpensesPage(){
       <textarea aria-label="Комментарий расхода" value={comment} maxLength={1000}
        disabled={locked} onChange={e=>setComment(e.target.value)}
        className="w-full rounded-xl border p-3" rows={2}/></label>
-     <p className="text-xs text-slate-600">Если день закрыт, операция останется отклонённой. Не меняйте дату ради обхода запрета. Коррекции закрытого дня — F11.</p>
      {error&&<p role="alert" className="text-red-700">{error}</p>}
      <Button type="submit" disabled={locked||!positiveSom(amount)||!validLocalDate(date)}>
        Создать расход</Button>
