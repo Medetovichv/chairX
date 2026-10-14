@@ -59,7 +59,7 @@ function summary(s:SaleResponse):SaleSummary {
 function mockBackend(options:{
   sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
   draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
-  deny?:Record<string,number>; alternateWarehouse?:boolean;
+  deny?:Record<string,number>; alternateWarehouse?:boolean; hangDeliveryLookup?:boolean;
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
@@ -95,6 +95,7 @@ function mockBackend(options:{
       return json({items:entries,page:0,size:20,total:entries.length});
     }
     if(path==='/api/deliveries/by-sale/'+SALE_ID&&method==='GET'){
+      if(options.hangDeliveryLookup)return new Promise<Response>(()=>{});
       return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY'});
     }
     if(path==='/api/sales/statistics'&&method==='GET'){
@@ -522,6 +523,28 @@ describe('F07 creation and idempotent drafts',()=>{
   });
 });
 describe('F07 detail, state transitions, reservations and RBAC',()=>{
+  it('shows unpaid payment registration in confirmed sale without scrolling the whole card',async()=>{
+    granted.permissions.push('PAYMENTS_CREATE');
+    mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'SELF_PICKUP'})]});
+    renderAt('/sales/'+SALE_ID);
+    expect(await screen.findByRole('link',{name:'Зарегистрировать оплату'}))
+      .toHaveAttribute('href','#sale-payment-section');
+    expect(screen.getByRole('region',{name:'Незавершённая оплата продажи'}))
+      .toHaveTextContent('финансово не закрыт');
+    expect(screen.getByRole('region',{name:'Оплата заказа'}))
+      .toHaveAttribute('id','sale-payment-section');
+    expect(screen.getByRole('form',{name:'Регистрация оплаты'})).toBeInTheDocument();
+  });
+  it('does not trap employee on a hanging delivery lookup and offers a real create link',async()=>{
+    granted.permissions.push('DELIVERIES_CREATE','DELIVERIES_READ');
+    mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'CITY_DELIVERY'})],
+      hangDeliveryLookup:true});
+    renderAt('/sales/'+SALE_ID);
+    expect(await screen.findByRole('link',{name:'Оформить доставку по этому заказу'}))
+      .toHaveAttribute('href','/deliveries/new?saleId='+SALE_ID);
+    expect(screen.getByText('Проверяем связанную доставку…')).toBeInTheDocument();
+  });
+
   it('employee with payment permission sees payment capture on confirmed delivered-order flow',async()=>{
     granted.roles=['EMPLOYEE'];
     granted.permissions.push('PAYMENTS_READ','PAYMENTS_CREATE','DELIVERIES_CREATE','DELIVERIES_READ');
