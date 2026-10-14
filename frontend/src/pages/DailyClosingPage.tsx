@@ -206,14 +206,16 @@ function CompanyDailyClosingPage() {
               <thead><tr className="border-b">
                 <th className="p-2">Продажа</th><th className="p-2">Клиент</th><th className="p-2">Телефон</th>
                 <th className="p-2">Товар</th><th className="p-2">Шт.</th>
-                <th className="p-2">Сумма</th><th className="p-2">Оплата</th><th className="p-2">Завершено</th>
+                <th className="p-2">Сумма</th><th className="p-2">Оплата</th><th className="p-2">Доставка</th><th className="p-2">Завершено</th>
               </tr></thead><tbody>{sales.data.items.map(item => <tr key={item.saleId} className="border-b">
                 <td className="p-2">{item.saleNumber}</td>
                 <td className="p-2">{item.customerName ?? '—'}</td><td className="p-2">{item.phone??'—'}</td>
                 <td className="p-2">{item.products ?? '—'}</td>
                 <td className="p-2">{item.quantity}</td>
                 <td className="p-2">{som(item.total)}</td>
-                <td className="p-2">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus==='PARTIALLY_PAID'?'Частично оплачено':item.paymentStatus==='UNPAID'?'Не оплачено':item.paymentStatus}</td><td className="p-2">{dateLabel(item.completedAt)}</td>
+                <td className="p-2">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus==='PARTIAL'||item.paymentStatus==='PARTIALLY_PAID'?'Частично оплачено':item.paymentStatus==='UNPAID'?'Не оплачено':item.paymentStatus}</td>
+                <td className="p-2">{item.deliveryStatus==='DELIVERED'?'Доставлено':item.deliveryStatus==='IN_TRANSIT'?'В пути':item.fulfillmentType==='SELF_PICKUP'?'Самовывоз':item.deliveryStatus??'—'}</td>
+                <td className="p-2">{dateLabel(item.completedAt)}</td>
               </tr>)}</tbody>
             </table></div>}
         </>}
