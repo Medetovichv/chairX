@@ -313,6 +313,18 @@ def main():
             assert int(automatically_created["total"])==8500
             assert admin.must("GET","/api/deliveries/by-sale/"+auto_sale_id,None,200)["status"]=="READY"
             db_number("SELECT count(*) FROM payments WHERE sale_id='"+auto_sale_id+"'",0)
+            # The employee daily closing must expose exactly one amount and
+            # own expenses; it must not show the manager's CASH/BANK controls.
+            page.evaluate("""path => {
+                history.pushState({}, '', path);
+                window.dispatchEvent(new PopStateEvent('popstate'));
+            }""", "/daily-closing")
+            page.get_by_role("form",name="Операционное закрытие дня").wait_for(timeout=30000)
+            assert page.get_by_role("textbox",name="Фактическая общая сумма").count()==1
+            assert page.get_by_role("textbox",name="Фактически собрано CASH").count()==0
+            assert page.get_by_role("textbox",name="Фактически собрано BANK").count()==0
+            page.screenshot(path=str(ART/"00-employee-single-amount-closing.png"),full_page=True)
+
 
         finally:
             browser.close()
