@@ -54,7 +54,7 @@ export function ManagerEmployeeClosingSummary({date}:{date:string}){
        <th className="p-2">Назначение</th><th className="p-2">Счёт</th>
        <th className="p-2 text-right">Сумма</th>
       </tr></thead><tbody>{report.data.expenses.map(e=><tr className="border-b" key={e.id}>
-       <td className="p-2">{e.createdBy}</td><td className="p-2">{e.category}</td>
+       <td className="p-2">{e.createdBy}</td><td className="p-2">{categories.find(x=>x.value===e.category)?.label??e.category}</td>
        <td className="p-2">{e.comment||'—'}</td>
        <td className="p-2">{e.paymentMethod==='CASH'?'Наличные':'Перевод'}</td>
        <td className="p-2 text-right font-semibold">{som(e.amount)}</td>
