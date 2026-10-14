@@ -459,7 +459,6 @@ describe('F09 exchange and settlements boundaries',()=>{
   renderAt('/returns/exchanges?returnId='+RET);
   const form=await screen.findByRole('form',{name:'Создать обмен'});
   await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
   await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
@@ -614,7 +613,6 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
   await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
   const picker=await within(form).findByRole('combobox',{name:'Позиция поступления'});
@@ -634,7 +632,6 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать вариацию'}));
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
     {target:{value:SALE}});
   await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
