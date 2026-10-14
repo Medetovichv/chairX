@@ -114,7 +114,7 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT e.id,e.category,e.amount,e.payment_method,e.comment,e.created_at,e.created_by
             FROM expenses e
-            WHERE e.expense_date=:day AND NOT EXISTS (
+            WHERE COALESCE(e.operational_report_date,e.expense_date)=:day AND NOT EXISTS (
                 SELECT 1 FROM app_users u
                 JOIN security_user_roles ur ON ur.user_id=u.id
                 JOIN security_roles role ON role.id=ur.role_id
