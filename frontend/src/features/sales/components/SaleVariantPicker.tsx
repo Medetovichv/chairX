@@ -16,7 +16,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
   const {hasPermission}=useAuth();
   const allowed=hasPermission('CATALOG_READ');
   const canReadInventory=hasPermission('INVENTORY_READ');
-  const [open,setOpen]=useState(false);
+  const [open,setOpen]=useState(!value);
   const [stockSearch,setStockSearch]=useState('');
   const [searchTerm,setSearchTerm]=useState('');
   const [searchPage,setSearchPage]=useState(0);
@@ -68,7 +68,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
     {!allowed?<p className="text-sm text-amber-800">
       Для выбора вариации требуется CATALOG_READ.</p>:
       <Button type="button" variant="outline" disabled={disabled}
-        onClick={()=>setOpen(x=>!x)}>{value?'Сменить вариацию':'Выбрать вариацию'}</Button>}
+        onClick={()=>setOpen(x=>!x)}>{value?'Изменить модель':'Выбрать модель'}</Button>}
     {open&&allowed&&<section aria-label="Каталог для продажи"
       className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
       {canReadInventory&&<section aria-label="Быстрый поиск кресел" className="space-y-2">
@@ -105,7 +105,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
           </div>)}
       </section>}
       {selectionError&&<p role="alert" className="text-sm text-red-700">{selectionError}</p>}
-      <p className="text-xs text-slate-500">Также можно выбрать модель и вариацию через каталог ниже.</p>
+
       {models.isPending?<LoadingState label="Модели…"/>:
         models.isError?<ErrorState error={models.error} onRetry={()=>void models.refetch()}/>:
         <div className="space-y-2">
@@ -122,7 +122,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
             onPage={p=>{setModelPage(p);setModelId('');setVariantPage(0);}}/>
         </div>}
       {modelId&&<div className="space-y-2">
-        <p className="font-semibold">Вариации</p>
+        <p className="font-semibold">Выберите вариацию</p>
         {variants.isPending?<LoadingState label="Вариации…"/>:
           variants.isError?<ErrorState error={variants.error} onRetry={()=>void variants.refetch()}/>:
           <>
