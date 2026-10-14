@@ -1,6 +1,6 @@
 import {useQuery} from '@tanstack/react-query';
 import {managerClosingApi} from './personal-api';
-import {som} from '../finance/validation';
+import {som,categories} from '../finance/validation';
 import {LoadingState} from '../../shared/components/LoadingState';
 import {ErrorState} from '../../shared/components/ErrorState';
 
