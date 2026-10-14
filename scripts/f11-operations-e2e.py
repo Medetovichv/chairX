@@ -284,7 +284,7 @@ def main():
             page.get_by_role("combobox",name="Способ получения").select_option("CITY_DELIVERY")
             page.get_by_role("textbox",name="Адрес доставки при создании продажи").wait_for()
             page.get_by_role("textbox",name="Телефон доставки при создании продажи").wait_for()
-            page.get_by_role("textbox",name="Комментарий к доставке при создании продажи").wait_for()
+            page.get_by_role("textbox",name="Комментарий продажи").wait_for()
             page.screenshot(path=str(ART/"00-employee-inline-shipping-form.png"),full_page=True)
         finally:
             browser.close()
