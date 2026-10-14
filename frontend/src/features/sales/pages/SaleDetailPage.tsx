@@ -354,6 +354,17 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     <Link to="/sales" className="inline-flex min-h-11 items-center font-semibold text-indigo-700">
       ← Все продажи</Link>
     <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)}/>
+    {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&matched?.paymentStatus!=='PAID'&&
+      <section aria-label="Незавершённая оплата продажи" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <div className="space-y-1 text-sm text-amber-950">
+          <p className="font-bold">Оплата не подтверждена — заказ финансово не закрыт</p>
+          <p>Отгрузка, доставка и выдача не подтверждают получение денег. Сумма к оплате: <strong>{money(sale.total)}</strong>.</p>
+        </div>
+        {hasPermission('PAYMENTS_CREATE')?
+          <a className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
+            href="#sale-payment-section">Зарегистрировать оплату</a>:
+          <p className="text-sm text-amber-950">Для регистрации оплаты необходим доступ PAYMENTS_CREATE.</p>}
+      </section>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
