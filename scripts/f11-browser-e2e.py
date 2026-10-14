@@ -119,10 +119,12 @@ def main():
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
             # A changed preview is rejected before POST and visibly reported.
+            # The rejection must exist in the DOM even if a dialog temporarily
+            # marks the background page inert.
             page.get_by_text(
                 "Данные изменились. Обновите расчёт перед повторным подтверждением.",
                 exact=False,
-            ).first.wait_for(timeout=25000)
+            ).first.wait_for(state="attached",timeout=25000)
             db(0,4,10100,4900,0)
             page.screenshot(path=str(ART/"02-concurrency-blocked.png"),full_page=True)
             finish.click()
