@@ -315,7 +315,7 @@ def main():
                 history.pushState({}, '', path);
                 window.dispatchEvent(new PopStateEvent('popstate'));
             }""", "/daily-closing")
-            page.get_by_role("heading",name="Сверка фактических сумм и закрытие дня").wait_for(timeout=30000)
+            page.get_by_role("heading",name="Завершение финансового дня").wait_for(timeout=30000)
             sales_day=admin.must("GET","/api/finance/closings/"+DAY+"/sales",None,200)
             assert sales_day["preliminary"] and not sales_day["closed"]
             assert sales_day["totals"]["orders"]==1
@@ -323,10 +323,7 @@ def main():
             assert int(sales_day["totals"]["value"])==25500
             assert sales_day["items"][0]["saleId"]==sid
             # Browser signs exactly once on nonempty financial state.
-            form=page.get_by_role("form",name="Закрытие финансового дня")
-            form.get_by_role("textbox",name="Факт CASH").fill("20000")
-            form.get_by_role("textbox",name="Факт BANK").fill("117000")
-            form.get_by_role("button",name="Проверить и закрыть").click()
+            page.get_by_role("button",name="Завершить финансовый день").click()
             page.get_by_role("alertdialog").get_by_role(
                 "button",name="Зафиксировать отчёт").click()
             page.get_by_role("heading",name="День закрыт",exact=False).wait_for(timeout=30000)
