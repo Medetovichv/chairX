@@ -85,6 +85,35 @@ class ExpenseTests {
     }
 
     @Test
+    void expenseAfterOperationalCloseIsPostedTodayButReportedTomorrow() {
+        LocalDate today=LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        UUID employeeId=jdbc.queryForObject("SELECT id FROM app_users LIMIT 1",UUID.class);
+        UUID closingId=UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO employee_daily_closings
+                (id,employee_id,business_date,expected_cash,expected_bank,
+                 actual_total,company_wide)
+            VALUES (?,?,?,0,0,0,TRUE)
+            """,closingId,employeeId,today);
+        try {
+            var created=expenses.create(request(ExpenseCategory.OTHER,"100",
+                ExpensePaymentMethod.CASH,today,"После закрытия"));
+            assertThat(jdbc.queryForObject("""
+                SELECT operational_report_date FROM expenses WHERE id=?
+                """,LocalDate.class,created.id())).isEqualTo(today.plusDays(1));
+            assertThat(jdbc.queryForObject("""
+                SELECT expense_date FROM expenses WHERE id=?
+                """,LocalDate.class,created.id())).isEqualTo(today);
+            assertThat(jdbc.queryForObject("""
+                SELECT business_date FROM finance_movements
+                WHERE source_type='EXPENSE' AND source_id=?
+                """,LocalDate.class,created.id())).isEqualTo(today);
+        } finally {
+            jdbc.update("DELETE FROM employee_daily_closings WHERE id=?",closingId);
+        }
+    }
+
+    @Test
     void createsAndPersistsExpense() {
         var created = expenses.create(
                 request(
