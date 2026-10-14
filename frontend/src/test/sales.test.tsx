@@ -300,7 +300,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     const api=mockBackend({sales:rows});
     renderAt();
     expect(await screen.findByText(/Всего продаж: 22/)).toBeInTheDocument();
-    expect(screen.getAllByText('UNPAID').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Не оплачено').length).toBeGreaterThan(0);
     expect(screen.getAllByText(/17\s?000,00 сом/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Себестоимость')).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button',{name:'Следующая'}));
@@ -371,7 +371,7 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(within(form).getByRole('textbox',{name:'Адрес доставки при создании продажи'})).toBeInTheDocument();
     expect(within(form).queryByRole('textbox',{name:'Комментарий к доставке при создании продажи'})).not.toBeInTheDocument();
     expect(within(form).getByRole('textbox',{name:'Комментарий продажи'})).toBeInTheDocument();
-    expect(within(form).getByLabelText('Планируемая дата доставки при создании продажи')).toHaveValue(expect.stringMatching(/^\\d{4}-\\d{2}-\\d{2}$/));
+    expect((within(form).getByLabelText('Планируемая дата доставки при создании продажи') as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(within(form).getByRole('button',{name:'Подтвердить продажу и доставку'})).toBeInTheDocument();
     expect(within(form).queryByRole('checkbox',{name:'Подтвердить заказ и сразу создать доставку'})).not.toBeInTheDocument();
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
