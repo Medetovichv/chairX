@@ -51,7 +51,7 @@ export interface CompletedSale {
   completedAt: string;
   total: Money;
   paymentStatus: string;
-  deliveryStatus: string | null;
+  deliveryStatus?: string | null;
 }
 export interface CompletedSales {
   businessDate: string;
