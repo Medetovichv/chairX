@@ -24,11 +24,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     onChange(rows.map(r=>r.key===key?{...r,...update}:r));
   }
   return <section aria-label="Товары продажи" className="space-y-3">
-    <h3 className="text-lg font-semibold">Кресла и вариации</h3>
-    <p className="text-sm text-slate-600">
-      Позиции сохраняются внутри одного заказа. Склад и цена указаны для каждой вариации.
-      Рекомендуемая цена не применяется автоматически.
-    </p>
+    {rows.length===0&&<Button type="button" variant="outline" disabled={disabled}
+      onClick={()=>onChange([{key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null}])}>Выбрать модель</Button>}
     {!inventoryRead&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
       Нет INVENTORY_READ: нельзя выбрать склад или проверить остаток для новых строк.
       При редактировании существующих строк выбранный склад сохраняется.
