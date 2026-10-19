@@ -38,7 +38,7 @@ export function EmployeeDailyClosingPage(){
  const [day,setDay]=useState(bishkekToday),[total,setTotal]=useState('');
  const [view,setView]=useState<'current'|'history'>('current');
  const [saleSearch,setSaleSearch]=useState('');
- const [historyDays,setHistoryDays]=useState<7|10|20|30>(30);
+ const [historyDays,setHistoryDays]=useState<7|10|20|30>(7);
  const [reason,setReason]=useState('');
  const [expenseCategory,setExpenseCategory]=useState<ExpenseInput['category']>('OTHER');
  const [expenseAmount,setExpenseAmount]=useState('');
@@ -215,7 +215,9 @@ export function EmployeeDailyClosingPage(){
          </div>
        </article>)}
       </div>
-     {report.data.sales.length===0&&<p>Продаж, соответствующих условиям закрытия, за выбранную дату нет.</p>}
+     {report.data.sales.length===0?<p className="mt-3 text-sm text-slate-600">Продаж, соответствующих условиям закрытия, за выбранную дату нет.</p>:
+      !report.data.sales.some(s=>(s.saleNumber+' '+(s.phone||'')+' '+(s.products||'')).toLowerCase().includes(saleSearch.trim().toLowerCase()))&&
+      <p role="status" className="mt-3 text-sm text-slate-600">По вашему запросу продаж не найдено.</p>}
     </section>
     <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
      <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
