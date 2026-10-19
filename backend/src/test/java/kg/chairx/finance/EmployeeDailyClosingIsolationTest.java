@@ -296,7 +296,7 @@ class EmployeeDailyClosingIsolationTest {
              .andExpect(jsonPath("$.expectedCash").value(1000))
             .andExpect(jsonPath("$.expectedBank").value(0))
             .andExpect(jsonPath("$.orders").value(2))
-            .andExpect(jsonPath("$.sales.length()").value(0));
+            .andExpect(jsonPath("$.sales.length()").value(2));
         mvc.perform(get(url).with(httpBasic(bob,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedCash").value(1000))
             .andExpect(jsonPath("$.expectedBank").value(0))
