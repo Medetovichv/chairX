@@ -90,10 +90,26 @@ public class FinanceProfitabilityService {
                               WHERE ap.expense_id=e.id)
             """).param("from",from).param("to",to).query(BigDecimal.class).single();
         boolean complete=rows.stream().allMatch(SaleCost::completeCost);
-        // Returns, exchanges and ordinary non-accrual expenses require the
-        // final accounting reconciliation; refuse to publish net profit.
-        return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,complete,false,
-                complete?revenue.subtract(fifo):null,null,rows,
-                "Net P&L requires reconciliation of returns and exchanges; recognized accruals and other expenses are reported separately");
+        // Returns, exchanges and refunds can reverse revenue or FIFO cost in
+        // other periods. Publish a final operating result only when no such
+        // adjustment occurred inside the requested reporting window.
+        boolean adjustments=jdbc.sql("""
+            SELECT EXISTS (
+               SELECT id FROM returns WHERE created_at>=:from AND created_at<:to
+               UNION ALL
+               SELECT id FROM exchanges WHERE created_at>=:from AND created_at<:to
+               UNION ALL
+               SELECT id FROM refunds WHERE refunded_at>=:from AND refunded_at<:to
+            )
+            """).param("from",java.sql.Timestamp.from(begin.toInstant()))
+               .param("to",java.sql.Timestamp.from(end.toInstant()))
+               .query(Boolean.class).single();
+        boolean available=complete && !adjustments;
+        BigDecimal gross=complete?revenue.subtract(fifo):null;
+        BigDecimal operating=available?gross.subtract(expenses).subtract(nonAccrualExpenses):null;
+        return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,complete,
+                available,gross,operating,rows,
+                available?"No returns, exchanges or refunds in period; expense recognition is separated from cash movements":
+                "Profit cannot be finalized: incomplete FIFO or return/exchange/refund adjustments require reconciliation");
     }
 }
