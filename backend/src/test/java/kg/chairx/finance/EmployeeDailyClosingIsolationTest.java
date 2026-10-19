@@ -45,6 +45,8 @@ class EmployeeDailyClosingIsolationTest {
     final List<UUID> sales=new ArrayList<>();
     final List<UUID> movements=new ArrayList<>();
     final List<UUID> expenses=new ArrayList<>();
+    final List<UUID> products=new ArrayList<>();
+    final List<UUID> variants=new ArrayList<>();
     final LocalDate day=LocalDate.now(ZoneId.of("Asia/Bishkek"));
 
     @BeforeEach void checkTestDb(){
@@ -59,7 +61,9 @@ class EmployeeDailyClosingIsolationTest {
         }
         for(var id:movements)jdbc.update("DELETE FROM finance_movements WHERE id=?",id);
         for(var id:expenses)jdbc.update("DELETE FROM expenses WHERE id=?",id);
-        for(var id:sales)jdbc.update("DELETE FROM sales WHERE id=?",id);
+        for(var id:sales){jdbc.update("DELETE FROM payments WHERE sale_id=?",id);jdbc.update("DELETE FROM sale_items WHERE sale_id=?",id);jdbc.update("DELETE FROM sales WHERE id=?",id);}
+        for(var id:variants)jdbc.update("DELETE FROM product_variants WHERE id=?",id);
+        for(var id:products)jdbc.update("DELETE FROM products WHERE id=?",id);
         for(var id:users){
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",id);
             jdbc.update("DELETE FROM app_users WHERE id=?",id);
@@ -83,8 +87,30 @@ class EmployeeDailyClosingIsolationTest {
             VALUES (?,?,?,?,'SELF_PICKUP','FULFILLED',?,clock_timestamp(),?,clock_timestamp())
             """,id,number,UUID.randomUUID(),"fixture",actor,actor);
     }
+    // Actual eligible sale fixture: the operational report must NOT use orphan
+    // journal movements in place of paid and fulfilled sales.
     void collection(String actor,String account,int money){
-        UUID id=UUID.randomUUID();movements.add(id);
+        UUID product=UUID.randomUUID(),variant=UUID.randomUUID(),sale=UUID.randomUUID();
+        products.add(product); variants.add(variant);sales.add(sale);
+        jdbc.update("INSERT INTO products(id,name,active,created_at,updated_at) VALUES (?,'Daily close fixture',TRUE,now(),now())",product);
+        jdbc.update("INSERT INTO product_variants(id,product_id,name,recommended_sale_price,active,created_at,updated_at) VALUES (?,?,'Default',?,TRUE,now(),now())",variant,product,money);
+        String number="P"+sale.toString().replace("-","").substring(0,16);
+        jdbc.update("""
+            INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,fulfillment_type,status,created_by,created_at,fulfilled_by,fulfilled_at)
+            VALUES (?,?,?,?,'SELF_PICKUP','FULFILLED',?,clock_timestamp(),?,clock_timestamp())
+            """,sale,number,UUID.randomUUID(),"fixture",actor,actor);
+        UUID warehouse=jdbc.queryForObject("SELECT id FROM warehouses WHERE code='HOME'",UUID.class);
+        jdbc.update("""
+            INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
+            VALUES (?,?,?,?,1,?)
+            """,UUID.randomUUID(),sale,variant,warehouse,money);
+        jdbc.update("""
+            INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
+            VALUES (?,?,?,?,'PAID',?,clock_timestamp())
+            """,UUID.randomUUID(),sale,money,account.equals("CASH")?"CASH":"TRANSFER",actor);
+    }
+    void orphanCollection(String actor,String account,int money){
+        UUID id=UUID.randomUUID(); movements.add(id);
         jdbc.update("""
             INSERT INTO finance_movements(id,account_code,amount,movement_type,source_type,
                source_id,created_by,business_date,business_date_source)
@@ -107,8 +133,8 @@ class EmployeeDailyClosingIsolationTest {
 
     @Test void paymentWithoutEligibleSaleDoesNotIncreaseOperationalClosing() throws Exception {
         String employee=user(EMPLOYEE_ROLE);
-        collection(employee,"CASH",600);
-        collection(employee,"BANK",400);
+        orphanCollection(employee,"CASH",600);
+        orphanCollection(employee,"BANK",400);
         String url="/api/finance/my-closings/"+day;
         mvc.perform(get(url).with(httpBasic(employee,PASSWORD)))
             .andExpect(status().isOk())
@@ -326,10 +352,10 @@ class EmployeeDailyClosingIsolationTest {
         assertThat(jdbc.queryForObject("SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class))
             .isEqualByComparingTo(beforeBank);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM finance_movements",Integer.class)).isEqualTo(beforeJournal);
-        collection(a,"BANK",50);
+        orphanCollection(a,"BANK",50);
         mvc.perform(get(url).with(httpBasic(a,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedBank").value(0))
-            .andExpect(jsonPath("$.collectionsChangedAfterClose").value(true))
+            .andExpect(jsonPath("$.collectionsChangedAfterClose").value(false))
             .andExpect(jsonPath("$.orders").value(0));
     }
 
