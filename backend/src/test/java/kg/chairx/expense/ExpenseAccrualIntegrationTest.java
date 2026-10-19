@@ -52,4 +52,32 @@ class ExpenseAccrualIntegrationTest {
             jdbc.update("DELETE FROM expense_accruals WHERE idempotency_key=?",key);
         }
     }
+    @Test void linkingAlreadyPaidExpenseDoesNotCreateSecondMovement() {
+        UUID key=UUID.randomUUID();
+        UUID expenseId=UUID.randomUUID();
+        LocalDate day=LocalDate.of(2026,11,4);
+        int movements=jdbc.queryForObject("SELECT COUNT(*) FROM finance_movements",Integer.class);
+        var accrual=service.create(new ExpenseAccrualService.Create(key,ExpenseCategory.RENT,
+                "Test linked rent "+key,new BigDecimal("900"),day,day.plusDays(3)),"f14-integration");
+        jdbc.update("""
+            INSERT INTO expenses(id,category,amount,payment_method,expense_date,comment,created_by,created_at)
+            VALUES (?,'RENT',300,'CASH',?,'Existing payment','f14-integration',clock_timestamp())
+            """,expenseId,day);
+        try {
+            service.linkExistingPayment(accrual.id(),expenseId,"f14-integration");
+            service.linkExistingPayment(accrual.id(),expenseId,"f14-integration");
+            var report=service.report(day,day.plusDays(3)).stream()
+                    .filter(r->r.accrual().id().equals(accrual.id())).findFirst().orElseThrow();
+            assertThat(report.recognized()).isEqualByComparingTo("900");
+            assertThat(report.paid()).isEqualByComparingTo("300");
+            assertThat(report.outstanding()).isEqualByComparingTo("600");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM finance_movements",Integer.class))
+                    .isEqualTo(movements);
+        } finally {
+            jdbc.update("DELETE FROM expense_accrual_payments WHERE expense_id=?",expenseId);
+            jdbc.update("DELETE FROM expenses WHERE id=?",expenseId);
+            jdbc.update("DELETE FROM expense_accruals WHERE idempotency_key=?",key);
+        }
+    }
+
 }
