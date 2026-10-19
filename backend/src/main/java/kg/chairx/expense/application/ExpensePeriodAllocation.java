@@ -48,6 +48,20 @@ public final class ExpensePeriodAllocation {
         return accrued.subtract(paid).max(BigDecimal.ZERO);
     }
 
+    /**
+     * How much of a paid amount exceeds already accrued cost.
+     * An advance is a balance-sheet prepayment, not negative P&L expense.
+     * This is a pure calculation; no funds are moved.
+     */
+    public static BigDecimal prepaid(BigDecimal accrued, BigDecimal paid) {
+        if (accrued == null || paid == null || accrued.signum() < 0 || paid.signum() < 0
+                || accrued.stripTrailingZeros().scale() > 0
+                || paid.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Accrued and paid must be whole non-negative som");
+        }
+        return paid.subtract(accrued).max(BigDecimal.ZERO);
+    }
+
     public static Map<LocalDate, BigDecimal> allocate(
             BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
