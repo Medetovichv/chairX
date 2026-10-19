@@ -7,10 +7,10 @@ import {createQueryClient} from '../shared/api/query';
 import {DailyClosingPage} from '../pages/DailyClosingPage';
 import {authSession} from '../features/auth/session';
 import {bishkekToday} from '../features/finance/validation';
-const perms=vi.hoisted(()=>({values:['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'] as string[]}));
+const perms=vi.hoisted(()=>({values:['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'] as string[],roles:['EMPLOYEE'] as string[]}));
 vi.mock('../features/auth/AuthProvider',()=>({
  useAuth:()=>({user:{id:'mine',username:'alice',displayName:'Alice',
-     roles:['EMPLOYEE'],permissions:perms.values},
+     roles:perms.roles,permissions:perms.values},
      hasPermission:(name:string)=>perms.values.includes(name)}),
 }));
 const day=bishkekToday();
@@ -28,7 +28,7 @@ const renderPage=()=>render(<QueryClientProvider client={createQueryClient()}>
  <MemoryRouter><DailyClosingPage/></MemoryRouter>
 </QueryClientProvider>);
 beforeEach(()=>{
- perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+ perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];perms.roles=['EMPLOYEE'];
  authSession.activate('Basic test-private',{headerName:'X-CSRF-TOKEN',token:'csrf'});
  sessionStorage.clear();
 });
@@ -83,6 +83,17 @@ describe('Employee daily closing isolation',()=>{
   fireEvent.change(screen.getByRole('textbox',{name:'Поиск продаж'}),
    {target:{value:'not found'}});
   expect(within(cards).queryByText('CX-1')).not.toBeInTheDocument();
+ });
+ it('supports custom role grants for operational closing without requiring EMPLOYEE role name',async()=>{
+  perms.roles=['CUSTOM_DAILY_OPERATOR'];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  expect(await screen.findByRole('form',{name:'Операционное закрытие дня'})).toBeInTheDocument();
  });
  it('keeps the expense creation form collapsed until explicitly requested',async()=>{
   perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE','EXPENSES_CREATE'];
