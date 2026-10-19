@@ -39,9 +39,9 @@ class ExpenseAccrualIntegrationTest {
             var report=service.report(LocalDate.of(2026,11,1),LocalDate.of(2026,12,1));
             var row=report.stream().filter(r->r.accrual().id().equals(saved.id())).findFirst().orElseThrow();
             assertThat(row.recognized()).isEqualByComparingTo("34");
-            assertThat(row.paid()).isNull();
-            assertThat(row.outstanding()).isNull();
-            assertThat(row.prepaid()).isNull();
+            assertThat(row.paid()).isEqualByComparingTo("0");
+            assertThat(row.outstanding()).isEqualByComparingTo("34");
+            assertThat(row.prepaid()).isEqualByComparingTo("0");
             assertThat(jdbc.queryForObject("SELECT count(*) FROM finance_movements",Integer.class))
                     .isEqualTo(movements);
             assertThatThrownBy(()->service.create(new ExpenseAccrualService.Create(key,
