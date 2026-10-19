@@ -44,6 +44,7 @@ export const childRoutes: readonly RouteMeta[] = [
   { path: '/finance/expenses', parent: '/finance', label: 'Расходы', permissions: ['EXPENSES_READ','EXPENSES_CREATE'] },
   { path: '/finance/transfers', parent: '/finance', label: 'Переводы', permissions: ['FINANCE_TRANSFER'] },
   { path: '/finance/opening-balances', parent: '/finance', label: 'Начальные остатки', permissions: ['FINANCE_INITIALIZE'] },
+  { path: '/finance/report', parent: '/finance', label: 'Финансовый отчёт', permissions: ['FINANCE_READ'] },
   { path: '/finance/cash-flow', parent: '/finance', label: 'Движение денег', permissions: ['FINANCE_READ'] },
   { path: '/admin/users', parent: '/admin', label: 'Сотрудники', permissions: ['USERS_READ'] },
   { path: '/admin/roles', parent: '/admin', label: 'Роли и разрешения', permissions: ['ROLES_READ'] },
