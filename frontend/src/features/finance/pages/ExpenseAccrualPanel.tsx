@@ -9,6 +9,8 @@ export function ExpenseAccrualPanel({from,to,canCreate}:{from:string;to:string;c
  const client=useQueryClient();
  const key=['finance','accruals',from,to] as const;
  const query=useQuery({queryKey:key,queryFn:()=>financeApi.accruals(from,to)});
+ const paidExpenses=useQuery({queryKey:['finance','expenses',from,to],queryFn:()=>financeApi.expenses(from,to),enabled:canCreate});
+ const [chosen,setChosen]=useState<Record<string,string>>({});
  const [category,setCategory]=useState('RENT');
  const [amount,setAmount]=useState('');
  const [description,setDescription]=useState('');
@@ -16,6 +18,14 @@ export function ExpenseAccrualPanel({from,to,canCreate}:{from:string;to:string;c
  const [end,setEnd]=useState(to);
  const [error,setError]=useState('');
  const [saving,setSaving]=useState(false);
+ async function linkPayment(accrualId:string){
+  const expenseId=chosen[accrualId];
+  if(!expenseId)return;
+  setSaving(true);setError('');
+  try {await financeApi.linkAccrualPayment(accrualId,expenseId);await client.invalidateQueries({queryKey:key});}
+  catch {setError('Не удалось связать оплату: возможно, расход уже связан с другим начислением.');}
+  finally {setSaving(false);}
+ }
  async function submit(event:FormEvent){
   event.preventDefault();
   if(!positiveSom(amount)||!description.trim()||!validLocalDate(start)||!validLocalDate(end)||start>=end){
@@ -39,11 +49,21 @@ export function ExpenseAccrualPanel({from,to,canCreate}:{from:string;to:string;c
     <p role="alert">Не удалось получить начисления.</p>:
    query.data.length===0?<p>За этот период начислений нет.</p>:
    <div className="overflow-x-auto"><table className="w-full text-left text-sm">
-    <thead><tr><th>Категория</th><th>Назначение</th><th>Период</th><th>Начислено за выборку</th></tr></thead>
-    <tbody>{query.data.map(({accrual,recognized})=><tr className="border-t" key={accrual.id}>
+    <thead><tr><th>Категория</th><th>Назначение</th><th>Период</th><th>Начислено</th><th>Оплачено</th><th>Остаток</th>{canCreate&&<th>Связать оплату</th>}</tr></thead>
+    <tbody>{query.data.map(({accrual,recognized,paid,outstanding})=><tr className="border-t" key={accrual.id}>
      <td className="p-2">{accrual.category}</td><td className="p-2">{accrual.description}</td>
      <td className="p-2">{accrual.periodStart} — {accrual.periodEnd} (не включая конец)</td>
      <td className="p-2">{som(recognized)}</td>
+     <td className="p-2">{som(paid)}</td><td className="p-2">{som(outstanding)}</td>
+     {canCreate&&<td className="p-2"><div className="flex flex-wrap gap-2">
+       <select aria-label={'Оплата начисления '+accrual.description} className="max-w-64 rounded border p-2"
+        value={chosen[accrual.id]??''} onChange={e=>setChosen(v=>({...v,[accrual.id]:e.target.value}))}>
+        <option value="">Выберите проведённый расход</option>
+        {paidExpenses.data?.filter(e=>e.category===accrual.category).map(e=>
+         <option key={e.id} value={e.id}>{e.expenseDate} · {som(e.amount)} · {e.comment||e.category}</option>)}
+       </select><Button type="button" disabled={!chosen[accrual.id]||saving}
+        onClick={()=>void linkPayment(accrual.id)}>Связать</Button>
+      </div></td>}
     </tr>)}</tbody>
    </table></div>}
   {canCreate&&<form onSubmit={e=>void submit(e)} className="grid gap-3 md:grid-cols-2" aria-label="Добавить начисление">
