@@ -248,6 +248,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   const urls:string[]=[];
   vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
    urls.push(String(url));
+   if(String(url).includes('/api/expenses/accruals?'))return j([]);
    return String(url).includes('/total?')?j('2500'):j([{
     id:validID,category:'RENT',amount:'2500',paymentMethod:'BANK',expenseDate:'2026-10-11',
     comment:'Офис',createdBy:'f10',createdAt:NOW,
