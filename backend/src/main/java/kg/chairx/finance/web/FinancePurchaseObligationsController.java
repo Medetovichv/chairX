@@ -48,11 +48,13 @@ public class FinancePurchaseObligationsController {
             BigDecimal cargo=rs.getBigDecimal("cargo_total");
             BigDecimal paidSupplier=rs.getBigDecimal("supplier_paid");
             BigDecimal paidCargo=rs.getBigDecimal("cargo_paid");
-            BigDecimal total=supplier.add(cargo),paid=paidSupplier.add(paidCargo);
+            BigDecimal due=supplier.subtract(paidSupplier).max(BigDecimal.ZERO)
+                    .add(cargo.subtract(paidCargo).max(BigDecimal.ZERO));
+            BigDecimal advance=paidSupplier.subtract(supplier).max(BigDecimal.ZERO)
+                    .add(paidCargo.subtract(cargo).max(BigDecimal.ZERO));
             return new PurchaseDebt(rs.getObject("id",UUID.class),rs.getString("status"),
                   supplier,cargo,paidSupplier,paidCargo,
-                  total.subtract(paid).max(BigDecimal.ZERO),
-                  paid.subtract(total).max(BigDecimal.ZERO));
+                  due,advance);
           }).list();
         return new Obligations(lines.stream().map(PurchaseDebt::outstanding)
                 .reduce(BigDecimal.ZERO,BigDecimal::add),
