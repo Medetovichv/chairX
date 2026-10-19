@@ -8,6 +8,7 @@ import { categories,periodMonth,validPeriod,bishkekToday,validLocalDate,
 import type {ExpenseCategory,ExpenseInput,FinanceAccount} from '../types';
 import { GuardedPost } from '../components/GuardedPost';
 import { FinanceTabs } from '../components/FinanceTabs';
+import { ExpenseAccrualPanel } from './ExpenseAccrualPanel';
 import { personalCloseApi, personalCloseKeys } from '../../daily-closing/personal-api';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -121,5 +122,6 @@ export function ExpensesPage(){
     </form>}
    </GuardedPost>
   </section>}
+  {read&&<ExpenseAccrualPanel from={period.from} to={period.to} canCreate={create&&hasPermission('FINANCE_READ')}/>}
  </div>;
 }
