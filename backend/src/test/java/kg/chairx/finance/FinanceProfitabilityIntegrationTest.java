@@ -159,4 +159,23 @@ class FinanceProfitabilityIntegrationTest {
         assertThat(line.prepaid()).isEqualByComparingTo("30");
     }
 
+    @Test void monthlyAnalyticsSeparatesCashFromProfitAndGuardsPermissions() throws Exception {
+        mvc.perform(get("/api/finance/analytics")
+                .param("from","2024-01-01").param("to","2024-03-01")
+                .with(user("finance").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.months.length()").value(2))
+                .andExpect(jsonPath("$.months[0].cashIn").isNumber())
+                .andExpect(jsonPath("$.months[0].recognizedRevenue").isNumber())
+                .andExpect(jsonPath("$.months[0].profitVerified").isBoolean());
+        mvc.perform(get("/api/finance/analytics")
+                .param("from","2024-01-01").param("to","2024-03-01")
+                .with(user("stock").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/finance/analytics")
+                .param("from","2024-01-02").param("to","2024-03-01")
+                .with(user("finance").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isBadRequest());
+    }
+
 }
