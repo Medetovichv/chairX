@@ -125,7 +125,7 @@ function CompanyDailyClosingPage() {
        <h2 className="font-semibold">Все закрытые финансовые отчёты</h2>
        {dates.isPending?<LoadingState label="Загружаем историю…"/>:
         dates.isError?<ErrorState error={dates.error} onRetry={()=>void dates.refetch()}/>:
-        <div className="flex flex-wrap gap-2">{dates.data.slice().sort((x,y)=>y.localeCompare(x)).map(day=><Button type="button" key={day}
+        <div className="flex flex-wrap gap-2">{dates.data.slice().sort((x,y)=>y.localeCompare(x)).slice(0,7).map(day=><Button type="button" key={day}
           variant={day===date?'default':'outline'}
           onClick={()=>{chooseDate(day);setShowHistory(false);}}>{day}</Button>)}
         </div>}
