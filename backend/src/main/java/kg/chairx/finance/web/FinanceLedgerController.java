@@ -56,8 +56,8 @@ public class FinanceLedgerController {
              SELECT id,created_at,business_date,account_code,amount,
                     movement_type,source_type,source_id,created_by
              """+clause+" ORDER BY created_at DESC,id DESC LIMIT :limit OFFSET :offset")
-             .param("from",start).param("to",end)
-             .param("account",account).param("kind",movementType)
+             .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
+             .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)
              .param("limit",size).param("offset",page*size)
              .query((rs,row)->new Line(
                  rs.getObject("id",UUID.class),
