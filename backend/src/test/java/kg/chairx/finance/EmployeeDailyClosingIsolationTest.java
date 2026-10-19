@@ -295,12 +295,12 @@ class EmployeeDailyClosingIsolationTest {
             .andExpect(jsonPath("$.closed").value(false))
              .andExpect(jsonPath("$.expectedCash").value(1000))
             .andExpect(jsonPath("$.expectedBank").value(0))
-            .andExpect(jsonPath("$.orders").value(0))
+            .andExpect(jsonPath("$.orders").value(2))
             .andExpect(jsonPath("$.sales.length()").value(0));
         mvc.perform(get(url).with(httpBasic(bob,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedCash").value(1000))
             .andExpect(jsonPath("$.expectedBank").value(0))
-            .andExpect(jsonPath("$.orders").value(0));
+            .andExpect(jsonPath("$.orders").value(2));
         for(String path:List.of("/api/finance/closings","/api/finance/closings/"+day,
              "/api/finance/closings/"+day+"/preview","/api/finance/closings/"+day+"/sales",
              "/api/finance/closings/"+day+"/access")){
@@ -336,7 +336,7 @@ class EmployeeDailyClosingIsolationTest {
             .contentType(MediaType.APPLICATION_JSON).content("{\"expectedCash\":\"1400\",\"expectedBank\":\"0\","
                 +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"1400\"}"))
             .andExpect(status().isCreated()).andExpect(jsonPath("$.closed").value(true))
-            .andExpect(jsonPath("$.expectedCash").value(1400)).andExpect(jsonPath("$.orders").value(0));
+            .andExpect(jsonPath("$.expectedCash").value(1400)).andExpect(jsonPath("$.orders").value(2));
         mvc.perform(post(url).with(httpBasic(a,PASSWORD)).with(csrf())
             .contentType(MediaType.APPLICATION_JSON).content("{\"expectedCash\":\"1400\",\"expectedBank\":\"0\","
                 +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"1400\"}"))
@@ -356,7 +356,7 @@ class EmployeeDailyClosingIsolationTest {
         mvc.perform(get(url).with(httpBasic(a,PASSWORD))).andExpect(status().isOk())
             .andExpect(jsonPath("$.expectedBank").value(0))
             .andExpect(jsonPath("$.collectionsChangedAfterClose").value(false))
-            .andExpect(jsonPath("$.orders").value(0));
+            .andExpect(jsonPath("$.orders").value(2));
     }
 
 
