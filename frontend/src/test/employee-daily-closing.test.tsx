@@ -48,6 +48,20 @@ describe('Employee daily closing isolation',()=>{
   expect(screen.getByText(/CX-1/)).toBeInTheDocument();
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
  });
+ it('shows qualifying sales before expenses and the close confirmation',async()=>{
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const sales=await screen.findByRole('table',{name:'Оплаченные выданные товары дня'});
+  const expenses=screen.getByRole('region',{name:'Расходы сотрудников за день'});
+  const confirm=screen.getByRole('form',{name:'Операционное закрытие дня'});
+  expect(sales.compareDocumentPosition(expenses)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(expenses.compareDocumentPosition(confirm)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ });
  it('checks for races before one personal POST with no company mutations',async()=>{
   const requests:{path:string;method:string;body?:string}[]=[];
   let closed=false;
