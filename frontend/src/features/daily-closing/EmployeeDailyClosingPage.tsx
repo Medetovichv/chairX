@@ -18,6 +18,12 @@ import {ConfirmDialog} from '../../shared/ui/confirm-dialog';
 import {ForbiddenPage} from '../../pages/ForbiddenPage';
 
 const money=(value:string)=>som(value);
+const categoryLabel=(value:string)=>categories.find(category=>category.value===value)?.label??value;
+function shiftDay(value:string,offset:number):string {
+ const current=new Date(value+'T12:00:00Z');
+ current.setUTCDate(current.getUTCDate()+offset);
+ return current.toISOString().slice(0,10);
+}
 function centsFree(value:unknown):bigint {
  const raw=String(value??0);
  if(!/^\d+(?:\.0+)?$/.test(raw))throw new Error('Invalid whole som');
@@ -31,6 +37,7 @@ export function EmployeeDailyClosingPage(){
  const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE')&&user?.roles.includes('EMPLOYEE')===true&& !user.roles.some(role=>role==='MANAGER'||role==='ADMIN');
  const [day,setDay]=useState(bishkekToday),[total,setTotal]=useState('');
  const [view,setView]=useState<'current'|'history'>('current');
+ const [saleSearch,setSaleSearch]=useState('');
  const [historyDays,setHistoryDays]=useState<7|10|20|30>(30);
  const [reason,setReason]=useState('');
  const [expenseCategory,setExpenseCategory]=useState<ExpenseInput['category']>('OTHER');
@@ -88,10 +95,14 @@ export function EmployeeDailyClosingPage(){
    }else setError('Закрытие отклонено сервером. Проверьте права, дату и ожидаемые суммы.');
   }finally{setPending(false);}
  }
- return <div className="space-y-5">
+ return <div className="space-y-5 bg-[#f5f8ff]/40 pb-6">
   <PageHeader title="Закрытие дня"
-   description="Единый операционный отчёт предприятия. Один сотрудник подтверждает результаты всей команды."/>
-  <nav aria-label="Режим отчётов" className="flex flex-wrap items-end gap-2">
+   description="Ежедневный операционный отчёт предприятия"/>
+  <nav aria-label="Режим отчётов" className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm"> 
+   <Button type="button" variant="outline" aria-label="Предыдущий день" onClick={()=>chooseDate(shiftDay(day,-1))}>‹</Button>
+   <Button type="button" variant="outline" aria-label="Следующий день"
+    disabled={day>=bishkekToday()} onClick={()=>chooseDate(shiftDay(day,1))}>›</Button>
+  <div aria-label="Режим отчётов" className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
    <label className="text-sm font-semibold">Отчётная дата
     <Input className="mt-1 w-44" aria-label="Отчётная дата" type="date"
      max={bishkekToday()} value={day} onChange={e=>chooseDate(e.target.value)}/>
@@ -103,7 +114,7 @@ export function EmployeeDailyClosingPage(){
     previous.setUTCDate(previous.getUTCDate()-1);
     chooseDate(previous.toISOString().slice(0,10));
    }}>Предыдущие отчёты</Button>
-  </nav>
+  </div></nav>
   {view==='history'&&<section aria-label="Предыдущие отчёты" className="space-y-3 rounded-xl border bg-white p-4">
    <div className="flex gap-2">
     {([7,10,20,30] as const).map(count=><Button key={count} variant={historyDays===count?'default':'outline'}
@@ -139,17 +150,44 @@ export function EmployeeDailyClosingPage(){
    report.isPending?<LoadingState label="Загружаем мою смену…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <div className="flex flex-col gap-4">
-    <section className="rounded-xl border bg-white p-4 lg:col-start-1">
+    <section aria-label="Показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🛒 Продажи</p>
+       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.salesValue)}</p>
+       <p className="text-xs text-slate-500">{report.data.orders} заказов · {report.data.chairs} кресел</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
+       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedCash)}</p>
+       <p className="text-xs text-slate-500">Из операционного отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
+       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedBank)}</p>
+       <p className="text-xs text-slate-500">Из операционного отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
+       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{som(String(centsFree(report.data.expenseCash)+centsFree(report.data.expenseBank)))}</p>
+       <p className="text-xs text-slate-500">Все сотрудники за день</p>
+      </article>
+    </section>
+    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+
      <h2 className="text-lg font-bold">Продажи, включаемые в закрытие дня</h2>
-     <p>Заказы: {report.data.orders} · Кресла: {report.data.chairs} ·
-      Сумма продаж: {money(report.data.salesValue)}</p>
-     {report.data.sales.length>0&&<div className="overflow-x-auto">
+     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+       <p className="text-sm text-slate-600">Заказы: {report.data.orders} · Кресла: {report.data.chairs} · Сумма: {money(report.data.salesValue)}</p>
+       <input aria-label="Поиск продаж" placeholder="Поиск по заказу, телефону или креслу"
+        className="min-h-11 min-w-0 w-full rounded-xl border border-slate-200 px-3 text-sm sm:w-72"
+        value={saleSearch} onChange={e=>setSaleSearch(e.target.value)}/>
+      </div>
+     {report.data.sales.length>0&&<div className="hidden overflow-x-auto md:block">
       <table aria-label="Оплаченные выданные товары дня" className="w-full text-left text-sm">
        <thead><tr className="border-b text-slate-600">
         <th className="p-2">Заказ</th><th className="p-2">Кресла</th><th className="p-2">Контакт и адрес</th>
         <th className="p-2">Состояние</th><th className="p-2 text-right">Сумма</th>
        </tr></thead>
-       <tbody>{report.data.sales.map(s=><tr className="border-b" key={s.saleId}>
+       <tbody>{report.data.sales.filter(s=>(s.saleNumber+' '+(s.phone||'')+' '+(s.products||'')).toLowerCase().includes(saleSearch.trim().toLowerCase())).map(s=><tr className="border-b" key={s.saleId}>
         <td className="p-2"><Link className="font-semibold text-blue-700 underline" to={'/sales/'+encodeURIComponent(s.saleId)}>{s.saleNumber}</Link></td>
         <td className="p-2">{s.products||'Товары в заказе'} · {s.quantity} шт.</td>
         <td className="p-2">{s.phone||'Без номера'}
@@ -161,9 +199,25 @@ export function EmployeeDailyClosingPage(){
        </tr>)}</tbody>
       </table>
      </div>}
+     <div aria-label="Карточки продаж" className="mt-3 space-y-2 md:hidden">
+       {report.data.sales.filter(s=>(s.saleNumber+' '+(s.phone||'')+' '+(s.products||'')).toLowerCase().includes(saleSearch.trim().toLowerCase())).map(s=>
+       <article key={s.saleId} className="min-w-0 rounded-xl border border-slate-100 p-3">
+         <div className="flex flex-wrap items-start justify-between gap-2">
+           <Link className="break-all text-sm font-semibold text-blue-700" to={'/sales/'+encodeURIComponent(s.saleId)}>{s.saleNumber}</Link>
+           <strong className="text-sm">{money(s.total)}</strong>
+         </div>
+         <p className="mt-1 text-sm text-slate-600">{s.phone||'Контакт не указан'}</p>
+         <p className="mt-1 break-words text-sm">{s.products||'Товары в заказе'} · {s.quantity} шт.</p>
+         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">Оплачено</span>
+          <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
+           {s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='DELIVERED'?'Доставлено':'Выдано'}</span>
+         </div>
+       </article>)}
+      </div>
      {report.data.sales.length===0&&<p>Продаж, соответствующих условиям закрытия, за выбранную дату нет.</p>}
     </section>
-    <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+    <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
      <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
      <p className="text-sm text-slate-600">Все расходы сотрудников учитываются один раз; добавить новый расход можно только от собственного имени.</p>
      <div className="grid gap-3 sm:grid-cols-2">
@@ -220,14 +274,14 @@ export function EmployeeDailyClosingPage(){
       <div className="overflow-x-auto"><table className="w-full text-left text-sm">
        <thead><tr className="border-b"><th className="p-2">Категория</th><th className="p-2">Комментарий</th><th className="p-2">Оплата</th><th className="p-2 text-right">Сумма</th></tr></thead>
        <tbody>{report.data.expenses.map(e=><tr key={e.expenseId} className="border-b">
-        <td className="p-2">{e.category}<p className="text-xs text-slate-500">{e.createdBy||""}</p></td><td className="p-2">{e.comment||'—'}</td>
+        <td className="p-2">{categoryLabel(e.category)}<p className="text-xs text-slate-500">{e.createdBy||""}</p></td><td className="p-2">{e.comment||'—'}</td>
         <td className="p-2">{e.paymentMethod==='CASH'?'Наличные':'Перевод'}</td>
         <td className="p-2 text-right font-semibold">{money(e.amount)}</td>
        </tr>)}</tbody>
       </table></div>}
     </section>
-    <section className="space-y-3 rounded-xl border bg-white p-4 lg:col-start-1">
-     <h2 className="text-lg font-bold">{report.data.closed?'Операционный день закрыт':'Операционный день открыт'}</h2>
+    <section className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm">
+     <h2 className="text-lg font-bold">{report.data.closed?'✓ Операционный день закрыт':'Итог к подтверждению'}</h2>
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · подходящие продажи минус расходы сотрудников</p>
        <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
      <p className="text-sm text-slate-600">Отчёт включает подходящие продажи всей команды и операционные расходы. Постоянные затраты учитываются отдельно в финансовой аналитике.</p>
