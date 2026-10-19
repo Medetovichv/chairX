@@ -57,6 +57,34 @@ public class ExpenseAccrualService {
         return existing;
     }
 
+    /**
+     * Associate an existing paid expense with an accrual. This is bookkeeping
+     * only; the ExpenseService has already posted the actual cash movement.
+     */
+    @Transactional
+    public void linkExistingPayment(UUID accrualId, UUID expenseId, String actor) {
+        if (accrualId == null || expenseId == null || actor == null || actor.isBlank()) {
+            throw new IllegalArgumentException("Payment link fields required");
+        }
+        String accrualCategory=jdbc.sql("SELECT category FROM expense_accruals WHERE id=:id FOR UPDATE")
+                .param("id",accrualId).query(String.class).single();
+        String expenseCategory=jdbc.sql("SELECT category FROM expenses WHERE id=:id")
+                .param("id",expenseId).query(String.class).single();
+        if (!accrualCategory.equals(expenseCategory)) {
+            throw new IllegalArgumentException("Payment category must match accrual category");
+        }
+        jdbc.sql("""
+             INSERT INTO expense_accrual_payments(accrual_id,expense_id,linked_by)
+             VALUES (:accrual,:expense,:actor) ON CONFLICT (expense_id) DO NOTHING
+             """).param("accrual",accrualId).param("expense",expenseId)
+             .param("actor",actor).update();
+        UUID linked=jdbc.sql("SELECT accrual_id FROM expense_accrual_payments WHERE expense_id=:id")
+                .param("id",expenseId).query(UUID.class).single();
+        if (!accrualId.equals(linked)) {
+            throw new IllegalStateException("Expense is already linked to another accrual");
+        }
+    }
+
     @Transactional(readOnly=true)
     public List<ReportLine> report(LocalDate from, LocalDate to) {
         if (from == null || to == null || !from.isBefore(to)
@@ -71,9 +99,15 @@ public class ExpenseAccrualService {
             """).param("from",from).param("to",to).query(this::map).list().stream().map(a->{
                 BigDecimal accrued=ExpensePeriodAllocation.accruedWithin(
                      a.amount(),a.periodStart(),a.periodEnd(),from,to);
-                // Settlement linkage is not implemented. Unknown paid/debt/advance
-                // must not be misrepresented as zero.
-                return new ReportLine(a,accrued,null,null,null);
+                BigDecimal paid=jdbc.sql("""
+                    SELECT COALESCE(SUM(e.amount),0)
+                    FROM expense_accrual_payments ap
+                    JOIN expenses e ON e.id=ap.expense_id
+                    WHERE ap.accrual_id=:id
+                    """).param("id",a.id()).query(BigDecimal.class).single();
+                return new ReportLine(a,accrued,paid,
+                        ExpensePeriodAllocation.outstanding(accrued,paid),
+                        ExpensePeriodAllocation.prepaid(accrued,paid));
             }).toList();
     }
 
