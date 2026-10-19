@@ -45,12 +45,12 @@ public class FinanceLedgerController {
         String clause="""
                 FROM finance_movements
                 WHERE created_at>=:from AND created_at<:to
-                  AND (:account IS NULL OR account_code=:account)
-                  AND (:kind IS NULL OR movement_type=:kind)
+                  AND (:account = '' OR account_code=:account)
+                  AND (:kind = '' OR movement_type=:kind)
                 """;
         var base=jdbc.sql("SELECT COUNT(*) "+clause)
-                .param("from",start).param("to",end)
-                .param("account",account).param("kind",movementType);
+                .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
+                .param("account",account==null?"":account).param("kind",movementType==null?"":movementType);
         long count=base.query(Long.class).single();
         var entries=jdbc.sql("""
              SELECT id,created_at,business_date,account_code,amount,
