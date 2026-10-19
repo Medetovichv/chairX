@@ -33,6 +33,21 @@ public final class ExpensePeriodAllocation {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * Recognition and payment are independent: outstanding is the
+     * non-negative accrued amount not yet settled by actual payments.
+     * Payments above accrual are treated as advances, not negative expense.
+     */
+    public static BigDecimal outstanding(BigDecimal accrued, BigDecimal paid) {
+        if (accrued == null || paid == null || accrued.signum() < 0 || paid.signum() < 0) {
+            throw new IllegalArgumentException("Accrued and paid amounts must be non-negative");
+        }
+        if (accrued.stripTrailingZeros().scale() > 0 || paid.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException("Amounts must be whole som");
+        }
+        return accrued.subtract(paid).max(BigDecimal.ZERO);
+    }
+
     public static Map<LocalDate, BigDecimal> allocate(
             BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
