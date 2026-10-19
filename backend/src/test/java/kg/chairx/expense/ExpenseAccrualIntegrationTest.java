@@ -49,6 +49,7 @@ class ExpenseAccrualIntegrationTest {
                     start,start.plusDays(3)),"f14-integration"))
                     .isInstanceOf(IllegalStateException.class);
         } finally {
+            jdbc.update("DELETE FROM audit_entries WHERE entity_type='EXPENSE_ACCRUAL' AND entity_id IN (SELECT id FROM expense_accruals WHERE idempotency_key=?)",key);
             jdbc.update("DELETE FROM expense_accruals WHERE idempotency_key=?",key);
         }
     }
