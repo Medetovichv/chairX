@@ -97,16 +97,13 @@ public class EmployeeDailyClosingService {
     }
 
     /** Only personal reports are returned; no global balances or other employees' rows. */
-    /** Combined operational receipts belong to the whole company, not the closing employee. */
+    /** Operational confirmation is based on qualifying completed sales, NOT payment posting dates. */
     private Collections companyNet(LocalDate date) {
-        BigDecimal gross=jdbc.sql("""
-            SELECT COALESCE(SUM(amount),0) FROM finance_movements
-            WHERE movement_type='SALE_PAYMENT' AND source_type='PAYMENT' AND business_date=:day
-            """).param("day",date).query(BigDecimal.class).single();
+        BigDecimal gross=liveSales(null,date).stream().map(SaleLine::total)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal spent=staffExpenses(date).stream().map(ExpenseLine::amount)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
-        // For company-wide reports expectedCash stores the COMBINED net, expectedBank is zero.
-        // These fields do not imply a physical CASH/BANK allocation in this scope.
+        // Legacy expectedCash column stores the combined operational net, not physical cash.
         return new Collections(gross.subtract(spent),BigDecimal.ZERO);
     }
 
@@ -143,7 +140,7 @@ public class EmployeeDailyClosingService {
     @Transactional(readOnly=true)
     public Report companyReport(String username,LocalDate date) {
         validateDate(date);validateEmployeeHistoryWindow(date);
-        Employee actor=employee(username);
+        employee(username);
         Stored saved=jdbc.sql("""
             SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
                    actual_total,total_note
@@ -158,7 +155,7 @@ public class EmployeeDailyClosingService {
         // confirmation in the employee operational screen.
         Collections now=companyNet(date);
         List<ExpenseLine> expenses=saved==null?staffExpenses(date):savedExpenses(saved.id());
-        List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
+        List<SaleLine> sales=saved==null?liveSales(null,date):snapshot(saved.id());
         boolean changed=saved!=null && saved.cash().add(saved.bank()).compareTo(now.cash())!=0;
         return new Report(date,saved!=null,saved==null && policy.normalWriteWindow(date,policy.now()),
                 saved==null?now.cash():saved.cash(),saved==null?now.bank():saved.bank(),
@@ -256,7 +253,7 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) AS total,
-                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at,
+                   GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at) AS completed_at,
                    detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
                    COALESCE(d.address,c.address) AS address,
                    s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
@@ -274,19 +271,24 @@ public class EmployeeDailyClosingService {
                 WHERE si.sale_id=s.id
             ) detail ON TRUE
             JOIN LATERAL (
-                SELECT SUM(payment.amount) AS amount, MAX(payment.paid_at) AS paid_at
-                FROM payments payment
-                WHERE payment.sale_id=s.id AND payment.status='PAID'
-                HAVING SUM(payment.amount) >= COALESCE(detail.total,0)
+                SELECT SUM(payment.amount) AS amount,
+                       MIN(payment.paid_at) FILTER (WHERE payment.running_total >= detail.total) AS paid_at
+                FROM (
+                    SELECT amount, paid_at,
+                           SUM(amount) OVER (ORDER BY paid_at, id) AS running_total
+                    FROM payments
+                    WHERE sale_id=s.id AND status='PAID'
+                ) payment
+                HAVING SUM(payment.amount) >= detail.total AND detail.total > 0
             ) p ON TRUE
             WHERE s.status='FULFILLED'
               AND (s.fulfillment_type='SELF_PICKUP'
-                   OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
-                       AND d.status IN ('IN_TRANSIT','DELIVERED')))
+                   OR (s.fulfillment_type='CITY_DELIVERY' AND d.status IN ('IN_TRANSIT','DELIVERED'))
+                   OR (s.fulfillment_type='REGION_DELIVERY' AND d.status='DELIVERED'))
               -- One sale belongs to one business day: the day both physical
               -- handover and full payment have been registered.
-              AND GREATEST(s.fulfilled_at,p.paid_at)>=:fromDate
-              AND GREATEST(s.fulfilled_at,p.paid_at)<:untilDate
+              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)>=:fromDate
+              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)<:untilDate
             ORDER BY completed_at,s.id
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),

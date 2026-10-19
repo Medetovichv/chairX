@@ -138,37 +138,9 @@ export function EmployeeDailyClosingPage(){
   {!valid?<p role="alert">Выберите дату не позже сегодняшнего дня в Бишкеке.</p>:
    report.isPending?<LoadingState label="Загружаем мою смену…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
-   <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
-    <section className="space-y-3 rounded-xl border bg-white p-4 lg:col-start-1">
-     <h2 className="text-lg font-bold">{report.data.closed?'Операционный день закрыт':'Операционный день открыт'}</h2>
-     <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · все поступления минус расходы сотрудников</p>
-       <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
-     <p className="text-sm text-slate-600">Отчёт объединяет операции сотрудников. Управленческие расходы менеджер добавит при финансовом закрытии.</p>
-     {(BigInt(report.data.expectedCash)<0n||BigInt(report.data.expectedBank)<0n)&&
-      <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Расходы сотрудников превышают поступления. Перед закрытием нужна сверка с менеджером.</p>}
-     {report.data.closed&&<div className="space-y-2">
-      <p>Подтверждённая сумма: <strong>{money(report.data.actualTotal??String(centsFree(report.data.actualCash)+centsFree(report.data.actualBank)))}</strong></p>
-      {(report.data.totalNote||report.data.cashNote||report.data.bankNote)&&
-        <p>Причина расхождения: {report.data.totalNote||[report.data.cashNote,report.data.bankNote].filter(Boolean).join('; ')}</p>}
-      {report.data.collectionsChangedAfterClose&&<p role="alert" className="text-amber-800">
-       После закрытия появились изменения. Сохранённый отчёт не перезаписывается; обратитесь к менеджеру.</p>}
-     </div>}
-     {!report.data.closed&&write&&report.data.canClose&&
-      <form aria-label="Операционное закрытие дня" onSubmit={prepare} className="space-y-3">
-       <label className="block space-y-1 text-sm font-semibold">Фактически подтверждаю, сом
-        <Input aria-label="Фактическая общая сумма" inputMode="numeric" value={total} maxLength={17}
-         onChange={e=>setTotal(e.target.value)}/></label>
-       <label className="block space-y-1 text-sm font-semibold">Причина расхождения {nonnegativeSom(total)&&centsFree(total)!==centsFree(expectedTotal(report.data))?'*':''}
-        <textarea aria-label="Общая причина расхождения" className="w-full rounded-lg border p-3"
-         maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
-       <Button type="submit" disabled={pending||unknown||!nonnegativeSom(total)}>
-        Подтвердить и закрыть день</Button>
-      </form>}
-     {!report.data.closed&&!report.data.canClose&&<p className="text-amber-800">
-       Эта дата недоступна для обычного операционного закрытия.</p>}
-    </section>
+   <div className="flex flex-col gap-4">
     <section className="rounded-xl border bg-white p-4 lg:col-start-1">
-     <h2 className="text-lg font-bold">Оплаченные и выданные заказы за день</h2>
+     <h2 className="text-lg font-bold">Продажи, включаемые в закрытие дня</h2>
      <p>Заказы: {report.data.orders} · Кресла: {report.data.chairs} ·
       Сумма продаж: {money(report.data.salesValue)}</p>
      {report.data.sales.length>0&&<div className="overflow-x-auto">
@@ -189,7 +161,7 @@ export function EmployeeDailyClosingPage(){
        </tr>)}</tbody>
       </table>
      </div>}
-     {report.data.sales.length===0&&<p>Оплаченных выданных продаж за выбранную дату нет.</p>}
+     {report.data.sales.length===0&&<p>Продаж, соответствующих условиям закрытия, за выбранную дату нет.</p>}
     </section>
     <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
      <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
@@ -253,6 +225,34 @@ export function EmployeeDailyClosingPage(){
         <td className="p-2 text-right font-semibold">{money(e.amount)}</td>
        </tr>)}</tbody>
       </table></div>}
+    </section>
+    <section className="space-y-3 rounded-xl border bg-white p-4 lg:col-start-1">
+     <h2 className="text-lg font-bold">{report.data.closed?'Операционный день закрыт':'Операционный день открыт'}</h2>
+     <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · подходящие продажи минус расходы сотрудников</p>
+       <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
+     <p className="text-sm text-slate-600">Отчёт включает подходящие продажи всей команды и операционные расходы. Постоянные затраты учитываются отдельно в финансовой аналитике.</p>
+     {(BigInt(report.data.expectedCash)<0n||BigInt(report.data.expectedBank)<0n)&&
+      <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Операционные расходы превышают сумму подходящих продаж. Перед закрытием нужна проверка с менеджером.</p>}
+     {report.data.closed&&<div className="space-y-2">
+      <p>Подтверждённая сумма: <strong>{money(report.data.actualTotal??String(centsFree(report.data.actualCash)+centsFree(report.data.actualBank)))}</strong></p>
+      {(report.data.totalNote||report.data.cashNote||report.data.bankNote)&&
+        <p>Причина расхождения: {report.data.totalNote||[report.data.cashNote,report.data.bankNote].filter(Boolean).join('; ')}</p>}
+      {report.data.collectionsChangedAfterClose&&<p role="alert" className="text-amber-800">
+       После закрытия появились изменения. Сохранённый отчёт не перезаписывается; обратитесь к менеджеру.</p>}
+     </div>}
+     {!report.data.closed&&write&&report.data.canClose&&
+      <form aria-label="Операционное закрытие дня" onSubmit={prepare} className="space-y-3">
+       <label className="block space-y-1 text-sm font-semibold">Фактически подтверждаю, сом
+        <Input aria-label="Фактическая общая сумма" inputMode="numeric" value={total} maxLength={17}
+         onChange={e=>setTotal(e.target.value)}/></label>
+       <label className="block space-y-1 text-sm font-semibold">Причина расхождения {nonnegativeSom(total)&&centsFree(total)!==centsFree(expectedTotal(report.data))?'*':''}
+        <textarea aria-label="Общая причина расхождения" className="w-full rounded-lg border p-3"
+         maxLength={2000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+       <Button type="submit" disabled={pending||unknown||!nonnegativeSom(total)}>
+        Подтвердить и закрыть день</Button>
+      </form>}
+     {!report.data.closed&&!report.data.canClose&&<p className="text-amber-800">
+       Эта дата недоступна для обычного операционного закрытия.</p>}
     </section>
    </div>}
   <ConfirmDialog open={confirm!==null} onOpenChange={v=>{if(!v)setConfirm(null);}}
