@@ -17,6 +17,11 @@ public class FinanceProfitabilityController {
     public FinanceProfitabilityService.Profitability report(
             @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to) {
+        if(from==null||to==null||!from.isBefore(to)
+                ||java.time.temporal.ChronoUnit.DAYS.between(from,to)>93) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid report period");
+        }
         return service.calculate(from,to);
     }
 }
