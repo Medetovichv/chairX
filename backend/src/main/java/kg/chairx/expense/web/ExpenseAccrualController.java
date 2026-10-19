@@ -39,4 +39,16 @@ public class ExpenseAccrualController {
             @RequestParam LocalDate from, @RequestParam LocalDate to) {
         return service.report(from,to);
     }
+    @ExceptionHandler(IllegalArgumentException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public java.util.Map<String,String> badRequest(IllegalArgumentException ex) {
+        return java.util.Map.of("code","INVALID_ACCRUAL","message",ex.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public java.util.Map<String,String> conflict(IllegalStateException ex) {
+        return java.util.Map.of("code","ACCRUAL_CONFLICT","message",ex.getMessage());
+    }
+
 }
