@@ -155,10 +155,15 @@ public final class DailyClosingSalesSnapshot {
                     WHERE si.sale_id=s.id
                 ) detail ON TRUE
                 JOIN LATERAL (
-                    SELECT SUM(p.amount) AS amount, MAX(p.paid_at) AS paid_at
-                    FROM payments p
-                    WHERE p.sale_id=s.id AND p.status='PAID'
-                    HAVING SUM(p.amount) >= COALESCE(detail.total,0)
+                    SELECT SUM(p.amount) AS amount,
+                           MIN(p.paid_at) FILTER (WHERE p.running_total >= detail.total) AS paid_at
+                    FROM (
+                        SELECT amount, paid_at,
+                               SUM(amount) OVER (ORDER BY paid_at, id) AS running_total
+                        FROM payments
+                        WHERE sale_id=s.id AND status='PAID'
+                    ) p
+                    HAVING SUM(p.amount) >= detail.total AND detail.total > 0
                 ) pay ON TRUE
                 WHERE s.status='FULFILLED'
                   AND (s.fulfillment_type='SELF_PICKUP'
