@@ -64,4 +64,30 @@ class FinanceProfitabilityIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void fulfilledUnpaidSaleIsRecognizedButMissingFifoBlocksProfit() throws Exception {
+        java.util.UUID product=java.util.UUID.randomUUID();
+        java.util.UUID variant=java.util.UUID.randomUUID();
+        java.util.UUID sale=java.util.UUID.randomUUID();
+        java.util.UUID warehouse=jdbc.queryForObject(
+                "SELECT id FROM warehouses WHERE code='HOME'",java.util.UUID.class);
+        var day=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        jdbc.update("INSERT INTO products(id,name,active,created_at,updated_at) VALUES (?,'Profit fixture',TRUE,now(),now())",product);
+        jdbc.update("INSERT INTO product_variants(id,product_id,name,recommended_sale_price,active,created_at,updated_at) VALUES (?,?,'Default',1000,TRUE,now(),now())",variant,product);
+        jdbc.update("""
+             INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,fulfillment_type,status,created_by,created_at,fulfilled_by,fulfilled_at)
+             VALUES (?,?,?,?,'SELF_PICKUP','FULFILLED','report-test',now(),'report-test',now())
+             """,sale,"REPORT-"+sale.toString().substring(0,13),java.util.UUID.randomUUID(),"report-test");
+        jdbc.update("""
+             INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
+             VALUES (?,?,?,?,1,1000)
+             """,java.util.UUID.randomUUID(),sale,variant,warehouse);
+        mvc.perform(get("/api/finance/profitability")
+                .param("from",day.toString()).param("to",day.plusDays(1).toString())
+                .with(user("accountant").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sales[?(@.saleId == '"+sale+"')].recognizedRevenue").value(1000))
+                .andExpect(jsonPath("$.completeCost").value(false))
+                .andExpect(jsonPath("$.operatingProfit").doesNotExist());
+    }
+
 }
