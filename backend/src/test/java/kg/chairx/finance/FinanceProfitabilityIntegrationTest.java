@@ -42,4 +42,15 @@ class FinanceProfitabilityIntegrationTest {
                 .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
                 .andExpect(status().isForbidden());
     }
+    @Test void fifoInventoryValuationRequiresFinancialAccess() throws Exception {
+        mvc.perform(get("/api/finance/inventory-valuation")
+                .with(user("finance").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalCost").isNumber())
+                .andExpect(jsonPath("$.models").isArray());
+        mvc.perform(get("/api/finance/inventory-valuation")
+                .with(user("stock").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+                .andExpect(status().isForbidden());
+    }
+
 }
