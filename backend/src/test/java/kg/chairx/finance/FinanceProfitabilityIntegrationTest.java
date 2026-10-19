@@ -53,4 +53,15 @@ class FinanceProfitabilityIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void purchaseLiabilitiesRequireFinancialAccess() throws Exception {
+        mvc.perform(get("/api/finance/purchase-obligations")
+                .with(user("finance").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalOutstanding").isNumber())
+                .andExpect(jsonPath("$.purchases").isArray());
+        mvc.perform(get("/api/finance/purchase-obligations")
+                .with(user("stock").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+                .andExpect(status().isForbidden());
+    }
+
 }
