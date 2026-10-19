@@ -75,6 +75,24 @@ public final class ExpensePeriodAllocation {
         return java.util.Collections.unmodifiableMap(totals);
     }
 
+    /**
+     * Calculates accrued expense and separately paid balances for a period.
+     * Paid amount reflects actual settlements provided by the caller;
+     * no payment is created or inferred from the accrual.
+     */
+    public static PeriodPosition position(
+            BigDecimal amount, LocalDate periodStart, LocalDate periodEnd,
+            LocalDate reportFrom, LocalDate reportTo, BigDecimal actuallyPaid) {
+        BigDecimal recognized = accruedWithin(amount, periodStart, periodEnd, reportFrom, reportTo);
+        BigDecimal debt = outstanding(recognized, actuallyPaid);
+        BigDecimal advance = prepaid(recognized, actuallyPaid);
+        return new PeriodPosition(recognized, actuallyPaid, debt, advance);
+    }
+
+    public record PeriodPosition(
+            BigDecimal recognized, BigDecimal paid,
+            BigDecimal outstanding, BigDecimal prepaid) {}
+
     public static Map<LocalDate, BigDecimal> allocate(
             BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
