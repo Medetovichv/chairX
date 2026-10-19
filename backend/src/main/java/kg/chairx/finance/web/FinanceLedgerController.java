@@ -35,11 +35,11 @@ public class FinanceLedgerController {
         if(from==null||to==null||!from.isBefore(to)
                 ||java.time.temporal.ChronoUnit.DAYS.between(from,to)>366
                 ||page<0||size<1||size>100||page>10000)
-            throw new IllegalArgumentException("Invalid ledger pagination or period");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid ledger pagination or period");
         if(account!=null&&!Set.of("CASH","BANK").contains(account))
-            throw new IllegalArgumentException("Invalid finance account");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid finance account");
         if(movementType!=null&&!movementType.matches("[A-Z_]{1,50}"))
-            throw new IllegalArgumentException("Invalid movement type");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid movement type");
         Instant start=from.atStartOfDay(ZONE).toInstant();
         Instant end=to.atStartOfDay(ZONE).toInstant();
         String clause="""
