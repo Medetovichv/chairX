@@ -33,8 +33,8 @@ function expectedTotal(data:PersonalClosing):string {
  return data.expectedTotal??String(centsFree(data.expectedCash)+centsFree(data.expectedBank));
 }
 export function EmployeeDailyClosingPage(){
- const {hasPermission,user}=useAuth(),client=useQueryClient();
- const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE')&&user?.roles.includes('EMPLOYEE')===true&& !user.roles.some(role=>role==='MANAGER'||role==='ADMIN');
+ const {hasPermission}=useAuth(),client=useQueryClient();
+ const read=hasPermission('DAILY_CLOSING_READ'),write=hasPermission('DAILY_CLOSING_WRITE');
  const [day,setDay]=useState(bishkekToday),[total,setTotal]=useState('');
  const [view,setView]=useState<'current'|'history'>('current');
  const [saleSearch,setSaleSearch]=useState('');
