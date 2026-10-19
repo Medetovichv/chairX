@@ -97,16 +97,13 @@ public class EmployeeDailyClosingService {
     }
 
     /** Only personal reports are returned; no global balances or other employees' rows. */
-    /** Combined operational receipts belong to the whole company, not the closing employee. */
+    /** Operational confirmation is based on qualifying completed sales, NOT payment posting dates. */
     private Collections companyNet(LocalDate date) {
-        BigDecimal gross=jdbc.sql("""
-            SELECT COALESCE(SUM(amount),0) FROM finance_movements
-            WHERE movement_type='SALE_PAYMENT' AND source_type='PAYMENT' AND business_date=:day
-            """).param("day",date).query(BigDecimal.class).single();
+        BigDecimal gross=liveSales(null,date).stream().map(SaleLine::total)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal spent=staffExpenses(date).stream().map(ExpenseLine::amount)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
-        // For company-wide reports expectedCash stores the COMBINED net, expectedBank is zero.
-        // These fields do not imply a physical CASH/BANK allocation in this scope.
+        // Legacy expectedCash column stores the combined operational net, not physical cash.
         return new Collections(gross.subtract(spent),BigDecimal.ZERO);
     }
 
