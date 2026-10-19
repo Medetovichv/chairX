@@ -10,7 +10,7 @@ import java.util.*;
 
 /**
  * Read-only recognized sales and FIFO exposure, independent of cash postings.
- * Eligibility matches EmployeeDailyClosingService.liveSales. Returns/exchanges
+ * Revenue recognition follows fulfillment independently of when cash arrives. Returns/exchanges
  * are deliberately excluded from net profit until compensation can be reconciled.
  */
 @Service
@@ -46,14 +46,6 @@ public class FinanceProfitabilityService {
               FROM sale_items si WHERE si.sale_id=s.id
               HAVING COUNT(*)>0
           ) detail ON TRUE
-          JOIN LATERAL (
-              SELECT MIN(paid_at) FILTER (WHERE running>=detail.total) AS fully_paid_at
-              FROM (
-                SELECT paid_at,SUM(amount) OVER (ORDER BY paid_at,id) AS running
-                FROM payments WHERE sale_id=s.id AND status='PAID'
-              ) p
-              HAVING MAX(running)>=detail.total AND detail.total>0
-          ) payment ON TRUE
           LEFT JOIN LATERAL (
              SELECT COALESCE(SUM(per_item.cost),0) AS value,
                     COUNT(*) FILTER (WHERE per_item.valued) AS valued_items
@@ -73,12 +65,10 @@ public class FinanceProfitabilityService {
             AND (s.fulfillment_type='SELF_PICKUP'
               OR (s.fulfillment_type='CITY_DELIVERY' AND d.status IN ('IN_TRANSIT','DELIVERED'))
               OR (s.fulfillment_type='REGION_DELIVERY' AND d.status='DELIVERED'))
-            AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY'
-                          THEN d.delivered_at ELSE s.fulfilled_at END,
-                         payment.fully_paid_at)>=:begin
-            AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY'
-                          THEN d.delivered_at ELSE s.fulfilled_at END,
-                         payment.fully_paid_at)<:end
+            AND (CASE WHEN s.fulfillment_type='REGION_DELIVERY'
+                          THEN d.delivered_at ELSE s.fulfilled_at END)>=:begin
+            AND (CASE WHEN s.fulfillment_type='REGION_DELIVERY'
+                          THEN d.delivered_at ELSE s.fulfilled_at END)<:end
           ORDER BY s.id
           """).param("begin",begin).param("end",end)
           .query((rs,i)->new SaleCost(rs.getObject("id",UUID.class),
