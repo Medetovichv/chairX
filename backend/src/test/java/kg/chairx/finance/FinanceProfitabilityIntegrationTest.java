@@ -122,4 +122,36 @@ class FinanceProfitabilityIntegrationTest {
             .andExpect(jsonPath("$.operatingProfit").value(-1000));
     }
 
+    @Test void purchaseSupplierDebtAndCargoAdvanceAreKeptSeparate() throws Exception {
+        var supplier=java.util.UUID.randomUUID();
+        var model=java.util.UUID.randomUUID();
+        var variant=java.util.UUID.randomUUID();
+        var purchase=java.util.UUID.randomUUID();
+        jdbc.update("INSERT INTO suppliers(id,name,active,created_at,updated_at) VALUES (?,'Report supplier',TRUE,now(),now())",supplier);
+        jdbc.update("INSERT INTO products(id,name,active,created_at,updated_at) VALUES (?,'Report product',TRUE,now(),now())",model);
+        jdbc.update("INSERT INTO product_variants(id,product_id,name,recommended_sale_price,active,created_at,updated_at) VALUES (?,?,'Default',700,TRUE,now(),now())",variant,model);
+        jdbc.update("""
+            INSERT INTO purchases(id,supplier_id,status,cargo_cost,cargo_allocation_method,comment,created_by,created_at,updated_at)
+            VALUES (?,?,'CONFIRMED',100,'BY_QUANTITY','Report order','report-test',now(),now())
+            """,purchase,supplier);
+        jdbc.update("""
+            INSERT INTO purchase_items(id,purchase_id,product_variant_id,line_number,ordered_quantity,purchase_unit_cost)
+            VALUES (?,?,?,1,2,300)
+            """,java.util.UUID.randomUUID(),purchase,variant);
+        for(var item:java.util.List.of(new Object[]{"SUPPLIER",400},new Object[]{"CARGO",130})) {
+            jdbc.update("""
+                INSERT INTO purchase_payments(id,purchase_id,payment_kind,account_code,amount,
+                    idempotency_key,request_fingerprint,created_by)
+                VALUES (?, ?, ?, 'CASH', ?, ?, ?, 'report-test')
+                """,java.util.UUID.randomUUID(),purchase,item[0],item[1],
+                java.util.UUID.randomUUID(),"test-fingerprint");
+        }
+        mvc.perform(get("/api/finance/purchase-obligations")
+          .with(user("accountant").authorities(
+             new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.purchases[?(@.purchaseId == '"+purchase+"')].outstanding").exists())
+          .andExpect(jsonPath("$.purchases[?(@.purchaseId == '"+purchase+"')].prepaid").exists());
+    }
+
 }
