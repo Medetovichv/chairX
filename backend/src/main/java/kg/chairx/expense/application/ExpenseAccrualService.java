@@ -71,9 +71,9 @@ public class ExpenseAccrualService {
             """).param("from",from).param("to",to).query(this::map).list().stream().map(a->{
                 BigDecimal accrued=ExpensePeriodAllocation.accruedWithin(
                      a.amount(),a.periodStart(),a.periodEnd(),from,to);
-                // No settlement relationship exists yet: never fabricate paid amounts.
-                BigDecimal paid=BigDecimal.ZERO;
-                return new ReportLine(a,accrued,paid,accrued,BigDecimal.ZERO);
+                // Settlement linkage is not implemented. Unknown paid/debt/advance
+                // must not be misrepresented as zero.
+                return new ReportLine(a,accrued,null,null,null);
             }).toList();
     }
 
