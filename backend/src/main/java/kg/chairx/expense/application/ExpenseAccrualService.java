@@ -103,8 +103,8 @@ public class ExpenseAccrualService {
                     SELECT COALESCE(SUM(e.amount),0)
                     FROM expense_accrual_payments ap
                     JOIN expenses e ON e.id=ap.expense_id
-                    WHERE ap.accrual_id=:id
-                    """).param("id",a.id()).query(BigDecimal.class).single();
+                    WHERE ap.accrual_id=:id AND e.expense_date < :asOf
+                    """).param("id",a.id()).param("asOf",to).query(BigDecimal.class).single();
                 return new ReportLine(a,accrued,paid,
                         ExpensePeriodAllocation.outstanding(accrued,paid),
                         ExpensePeriodAllocation.prepaid(accrued,paid));
