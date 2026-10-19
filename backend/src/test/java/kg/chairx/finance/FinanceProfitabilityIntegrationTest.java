@@ -35,8 +35,8 @@ class FinanceProfitabilityIntegrationTest {
                 .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.grossRevenue").value(0))
-                .andExpect(jsonPath("$.netProfitAvailable").value(false))
-                .andExpect(jsonPath("$.operatingProfit").doesNotExist())
+                .andExpect(jsonPath("$.netProfitAvailable").value(true))
+                .andExpect(jsonPath("$.operatingProfit").value(0))
                 .andExpect(jsonPath("$.sales").isArray());
         mvc.perform(get("/api/finance/profitability").param("from",from).param("to",to)
                 .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
@@ -118,7 +118,8 @@ class FinanceProfitabilityIntegrationTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.recognizedAccruals").value(900))
             .andExpect(jsonPath("$.otherOperatingExpenses").value(100))
-            .andExpect(jsonPath("$.netProfitAvailable").value(false));
+            .andExpect(jsonPath("$.netProfitAvailable").value(true))
+            .andExpect(jsonPath("$.operatingProfit").value(-1000));
     }
 
 }
