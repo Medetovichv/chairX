@@ -26,6 +26,7 @@ export interface ExpenseAccrualLine {
 }
 export const financeApi={
  accruals:(from:string,to:string):Promise<ExpenseAccrualLine[]>=>apiClient.get('/api/expenses/accruals?'+period(from,to)),
+ linkAccrualPayment:(accrualId:string,expenseId:string):Promise<void>=>apiClient.post('/api/expenses/accruals/'+enc(accrualId)+'/payments',{expenseId}),
  createAccrual:(input:{idempotencyKey:string;category:string;description:string;amount:string;periodStart:string;periodEnd:string}):Promise<ExpenseAccrual>=>apiClient.post('/api/expenses/accruals',input),
  accounts:():Promise<FinanceAccountResponse[]>=>apiClient.get('/api/finance/accounts'),
  flow:(from:string,to:string):Promise<CashFlowSummary>=>apiClient.get('/api/finance/cash-flow?'+period(from,to)),
