@@ -72,7 +72,7 @@ function CompanyDailyClosingPage() {
   const exists = access.isSuccess && access.data.reportExists;
   const staff=useQuery({queryKey:['employee-closings','manager',date],
     queryFn:()=>managerClosingApi.report(date),
-    enabled:read&&valid&&manager});
+    enabled:read&&valid&&hasPermission('DAILY_CLOSING_READ')});
   const canFinancialClose=!manager||staff.data?.operationalClosed===true;
   const report = useQuery({ queryKey: closingKeys.report(date),
     queryFn: () => closingApi.report(date), enabled: read && valid && exists });
@@ -131,6 +131,33 @@ function CompanyDailyClosingPage() {
         </div>}
       </section>}
     </div>
+    {valid&&<section aria-label="Финансовые показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🛒 Завершённые продажи</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {sales.isSuccess&&sales.data.totals.value!==null?som(sales.data.totals.value):'—'}</p>
+       <p className="text-xs text-slate-500">
+        {sales.isSuccess?`${sales.data.totals.orders??'—'} заказов · ${sales.data.totals.chairs??'—'} кресел`:'Данные загружаются'}</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {exists?(report.isSuccess?som(report.data.cash.expected):'—'):(preview.isSuccess?som(preview.data.expectedCash):'—')}</p>
+       <p className="text-xs text-slate-500">По данным финансового отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {exists?(report.isSuccess?som(report.data.bank.expected):'—'):(preview.isSuccess?som(preview.data.expectedBank):'—')}</p>
+       <p className="text-xs text-slate-500">По данным финансового отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {staff.isSuccess?som(staff.data.expenseTotal):'—'}</p>
+       <p className="text-xs text-slate-500">{staff.isError?'Не удалось загрузить': 'Операционные расходы за день'}</p>
+      </article>
+    </section>}
     {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && access.isSuccess && !exists && access.data.canEdit &&
      hasPermission('EXPENSES_CREATE') && <details className="rounded-xl border bg-white p-4">
