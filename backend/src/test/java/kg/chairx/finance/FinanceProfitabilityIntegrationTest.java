@@ -89,6 +89,17 @@ class FinanceProfitabilityIntegrationTest {
                 .andExpect(jsonPath("$.sales[?(@.saleId == '"+sale+"')].recognizedRevenue").exists())
                 .andExpect(jsonPath("$.completeCost").value(false))
                 .andExpect(jsonPath("$.operatingProfit").doesNotExist());
+        mvc.perform(get("/api/finance/model-margins")
+                .param("from",day.toString()).param("to",day.plusDays(1).toString())
+                .with(user("accountant").authorities(
+                  new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.variantId == '"+variant+"')].revenue").exists());
+        mvc.perform(get("/api/finance/model-margins")
+                .param("from",day.toString()).param("to",day.plusDays(1).toString())
+                .with(user("warehouse").authorities(
+                  new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+                .andExpect(status().isForbidden());
     }
 
     @Test void linkedExpenseIsNotChargedTwiceWhenAccrualIsRecognized() throws Exception {
