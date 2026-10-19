@@ -68,6 +68,17 @@ class ExpensePeriodAllocationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test void advancePaymentsRemainSeparateFromOutstanding() {
+        assertThat(ExpensePeriodAllocation.prepaid(new BigDecimal("1000"), new BigDecimal("1200")))
+                .isEqualByComparingTo("200");
+        assertThat(ExpensePeriodAllocation.prepaid(new BigDecimal("1000"), new BigDecimal("300")))
+                .isEqualByComparingTo("0");
+        assertThat(ExpensePeriodAllocation.prepaid(new BigDecimal("1000"), new BigDecimal("1000")))
+                .isEqualByComparingTo("0");
+        assertThatThrownBy(() -> ExpensePeriodAllocation.prepaid(BigDecimal.ZERO, new BigDecimal("-1")))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test void invalidPeriodsAndAmountsAreRejected() {
         var date = LocalDate.of(2026, 10, 19);
         assertThatThrownBy(() -> ExpensePeriodAllocation.allocate(BigDecimal.ZERO, date, date.plusDays(1)))
