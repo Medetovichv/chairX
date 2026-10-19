@@ -7,10 +7,10 @@ import {createQueryClient} from '../shared/api/query';
 import {DailyClosingPage} from '../pages/DailyClosingPage';
 import {authSession} from '../features/auth/session';
 import {bishkekToday} from '../features/finance/validation';
-const perms=vi.hoisted(()=>({values:['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'] as string[]}));
+const perms=vi.hoisted(()=>({values:['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'] as string[],roles:['EMPLOYEE'] as string[]}));
 vi.mock('../features/auth/AuthProvider',()=>({
  useAuth:()=>({user:{id:'mine',username:'alice',displayName:'Alice',
-     roles:['EMPLOYEE'],permissions:perms.values},
+     roles:perms.roles,permissions:perms.values},
      hasPermission:(name:string)=>perms.values.includes(name)}),
 }));
 const day=bishkekToday();
@@ -28,7 +28,7 @@ const renderPage=()=>render(<QueryClientProvider client={createQueryClient()}>
  <MemoryRouter><DailyClosingPage/></MemoryRouter>
 </QueryClientProvider>);
 beforeEach(()=>{
- perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];
+ perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE'];perms.roles=['EMPLOYEE'];
  authSession.activate('Basic test-private',{headerName:'X-CSRF-TOKEN',token:'csrf'});
  sessionStorage.clear();
 });
@@ -45,7 +45,7 @@ describe('Employee daily closing isolation',()=>{
   renderPage();
   expect(await screen.findByText('Закрытие дня')).toBeInTheDocument();
   expect(await screen.findByText(/Расчётная сумма к подтверждению/)).toBeInTheDocument();
-  expect(screen.getByText(/CX-1/)).toBeInTheDocument();
+  expect(screen.getAllByText(/CX-1/).length).toBeGreaterThan(0);
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
  });
  it('shows qualifying sales before expenses and the close confirmation',async()=>{
@@ -61,6 +61,55 @@ describe('Employee daily closing isolation',()=>{
   const confirm=screen.getByRole('form',{name:'Операционное закрытие дня'});
   expect(sales.compareDocumentPosition(expenses)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(expenses.compareDocumentPosition(confirm)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+ });
+ it('renders mobile order cards, four summaries and filters by phone',async()=>{
+  const fixture={...personal(),sales:[{saleId:'one',saleNumber:'CX-1',
+   quantity:2,total:'12000',phone:'+996555123456',products:'Комфорт / Чёрный',
+   deliveryStatus:'DELIVERED',completedAt:'2026-10-11T03:00:00Z'}]};
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(fixture);
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  expect(await screen.findByRole('region',{name:'Показатели дня'})).toBeInTheDocument();
+  const cards=screen.getByLabelText('Карточки продаж');
+  expect(within(cards).getByText('CX-1')).toBeInTheDocument();
+  expect(within(cards).getByText('Комфорт / Чёрный · 2 шт.')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox',{name:'Поиск продаж'}),
+   {target:{value:'+996555123456'}});
+  expect(within(cards).getByText('CX-1')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox',{name:'Поиск продаж'}),
+   {target:{value:'not found'}});
+  expect(within(cards).queryByText('CX-1')).not.toBeInTheDocument();
+ });
+ it('supports custom role grants for operational closing without requiring EMPLOYEE role name',async()=>{
+  perms.roles=['CUSTOM_DAILY_OPERATOR'];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  expect(await screen.findByRole('form',{name:'Операционное закрытие дня'})).toBeInTheDocument();
+ });
+ it('keeps the expense creation form collapsed until explicitly requested',async()=>{
+  perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE','EXPENSES_CREATE'];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const button=await screen.findByRole('button',{name:'+ Добавить расход'});
+  expect(screen.queryByRole('form',{name:'Добавить расход при закрытии'})).not.toBeInTheDocument();
+  await userEvent.setup().click(button);
+  expect(screen.getByRole('form',{name:'Добавить расход при закрытии'})).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Свернуть форму'}));
+  expect(screen.queryByRole('form',{name:'Добавить расход при закрытии'})).not.toBeInTheDocument();
  });
  it('checks for races before one personal POST with no company mutations',async()=>{
   const requests:{path:string;method:string;body?:string}[]=[];

@@ -54,7 +54,7 @@ function CompanyDailyClosingPage() {
   const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
   const manager=user?.roles.includes('MANAGER')===true && !user?.roles.includes('ADMIN');
-  const write = user?.roles.some(role=>role==='ADMIN'||role==='MANAGER')===true && hasPermission('DAILY_CLOSING_WRITE');
+  const write = hasPermission('DAILY_CLOSING_WRITE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
   const [expenseAmount,setExpenseAmount]=useState('');
@@ -72,7 +72,7 @@ function CompanyDailyClosingPage() {
   const exists = access.isSuccess && access.data.reportExists;
   const staff=useQuery({queryKey:['employee-closings','manager',date],
     queryFn:()=>managerClosingApi.report(date),
-    enabled:read&&valid&&manager});
+    enabled:read&&valid&&hasPermission('DAILY_CLOSING_READ')});
   const canFinancialClose=!manager||staff.data?.operationalClosed===true;
   const report = useQuery({ queryKey: closingKeys.report(date),
     queryFn: () => closingApi.report(date), enabled: read && valid && exists });
@@ -102,27 +102,63 @@ function CompanyDailyClosingPage() {
   }
   return <div className="space-y-5">
 
-    <PageHeader title="Отчёты"/>
+    <PageHeader title="Закрытие дня" description="Ежедневный операционный и финансовый отчёт"/>
 
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+      <Button type="button" variant="outline" aria-label="Предыдущий день" onClick={()=>{
+        const previous=new Date(date+'T12:00:00Z');previous.setUTCDate(previous.getUTCDate()-1);
+        chooseDate(previous.toISOString().slice(0,10));
+      }}>‹</Button>
+      <Button type="button" variant="outline" aria-label="Следующий день" disabled={date>=bishkekToday()} onClick={()=>{
+        const next=new Date(date+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);
+        chooseDate(next.toISOString().slice(0,10));
+      }}>›</Button>
       <label className="block w-44 space-y-1 text-sm font-semibold">Отчётная дата
         <Input type="date" aria-label="Дата закрытия" value={date}
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
       {!valid && <p role="alert" className="text-red-700">Выберите действительную дату не позднее сегодня в Бишкеке.</p>}
+      <Button type="button" onClick={()=>{chooseDate(bishkekToday());setShowHistory(false);}}>Актуальный отчёт</Button>
       <Button type="button" variant="outline" aria-expanded={showHistory}
         onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Скрыть историю':'Предыдущие отчёты'}</Button>
       {showHistory&&<section aria-label="История финансовых отчётов" className="space-y-3 rounded-xl bg-slate-50 p-4">
        <h2 className="font-semibold">Все закрытые финансовые отчёты</h2>
        {dates.isPending?<LoadingState label="Загружаем историю…"/>:
         dates.isError?<ErrorState error={dates.error} onRetry={()=>void dates.refetch()}/>:
-        <div className="flex flex-wrap gap-2">{dates.data.slice().sort((x,y)=>y.localeCompare(x)).map(day=><Button type="button" key={day}
+        <div className="flex flex-wrap gap-2">{dates.data.slice().sort((x,y)=>y.localeCompare(x)).slice(0,7).map(day=><Button type="button" key={day}
           variant={day===date?'default':'outline'}
           onClick={()=>{chooseDate(day);setShowHistory(false);}}>{day}</Button>)}
         </div>}
       </section>}
     </div>
-    {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
+    {valid&&<section aria-label="Финансовые показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🛒 Завершённые продажи</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {sales.isSuccess&&sales.data.totals.value!==null?som(sales.data.totals.value):'—'}</p>
+       <p className="text-xs text-slate-500">
+        {sales.isSuccess?`${sales.data.totals.orders??'—'} заказов · ${sales.data.totals.chairs??'—'} кресел`:'Данные загружаются'}</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {exists?(report.isSuccess?som(report.data.cash.expected):'—'):(preview.isSuccess?som(preview.data.expectedCash):'—')}</p>
+       <p className="text-xs text-slate-500">По данным финансового отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {exists?(report.isSuccess?som(report.data.bank.expected):'—'):(preview.isSuccess?som(preview.data.expectedBank):'—')}</p>
+       <p className="text-xs text-slate-500">По данным финансового отчёта</p>
+      </article>
+      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+       <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
+       <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
+        {staff.isSuccess?som(staff.data.expenseTotal):'—'}</p>
+       <p className="text-xs text-slate-500">{staff.isError?'Не удалось загрузить': 'Операционные расходы за день'}</p>
+      </article>
+    </section>}
+    {valid && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && access.isSuccess && !exists && access.data.canEdit &&
      hasPermission('EXPENSES_CREATE') && <details className="rounded-xl border bg-white p-4">
       <summary className="cursor-pointer font-semibold">+ Добавить расход менеджера</summary>
@@ -179,7 +215,7 @@ function CompanyDailyClosingPage() {
     {valid && access.isSuccess && (!exists || report.isSuccess) &&
       <ClosingMaintenance key={date + ':' + (report.data?.version ?? 'new')} date={date}
         access={access.data} report={report.data} onChanged={refreshed}/>}
-    {valid && <section aria-label="Завершённые продажи" className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    {valid && <section aria-label="Завершённые продажи" className="space-y-5 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-bold">Отчёт о продажах за {date}</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{exists?"Закрытый день":"Сегодняшние данные до закрытия"}</span></div>
       <p className="text-sm text-slate-600">Список завершённых заказов с креслами, количеством, клиентами и оплатой.</p>
       {sales.isPending ? <LoadingState label="Загружаем продажи дня…"/> :
@@ -198,7 +234,7 @@ function CompanyDailyClosingPage() {
             <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">Итого продажи</p><p className="mt-1 text-2xl font-bold">{sales.data.totals.value===null?'—':som(sales.data.totals.value)}</p></div>
           </div>
           {sales.data.items.length === 0 ? <p className="text-sm text-slate-500">Нет подтверждённых завершённых продаж.</p> :
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm">
               <thead><tr className="border-b">
                 <th className="p-2">Продажа</th><th className="p-2">Клиент</th><th className="p-2">Телефон</th>
                 <th className="p-2">Товар</th><th className="p-2">Шт.</th>
@@ -214,6 +250,20 @@ function CompanyDailyClosingPage() {
                 <td className="p-2">{dateLabel(item.completedAt)}</td>
               </tr>)}</tbody>
             </table></div>}
+          {sales.data.items.length>0&&<div className="space-y-2 md:hidden" aria-label="Карточки завершённых продаж">
+           {sales.data.items.map(item=><article key={item.saleId} className="min-w-0 rounded-xl border border-slate-100 p-3 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+             <Link to={'/sales/'+encodeURIComponent(item.saleId)} className="break-all font-semibold text-blue-700">{item.saleNumber}</Link>
+             <strong>{som(item.total)}</strong>
+            </div>
+            <p className="mt-1 break-words">{item.products??'Товары в заказе'} · {item.quantity} шт.</p>
+            <p className="mt-1 text-slate-600">{item.customerName||item.phone||'Контакт не указан'}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+             <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-800">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus}</span>
+             <span className="rounded-md bg-blue-50 px-2 py-1 text-blue-800">{item.deliveryStatus==='DELIVERED'?'Доставлено':item.deliveryStatus==='IN_TRANSIT'?'В пути':item.fulfillmentType==='SELF_PICKUP'?'Самовывоз':item.deliveryStatus||'—'}</span>
+            </div>
+           </article>)}
+          </div>}
         </>}
       <p className="text-xs text-slate-500">Итог продаж — оборот, а не остаток средств. Наличные и банк сверяются отдельно, с учётом других операций.</p>
     </section>}
