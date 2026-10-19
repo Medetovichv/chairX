@@ -79,6 +79,15 @@ class ExpensePeriodAllocationTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test void accountingMonthBreakdownReconcilesToOriginalCost() {
+        var totals = ExpensePeriodAllocation.byMonth(new BigDecimal("100"),
+                LocalDate.of(2026, 10, 30), LocalDate.of(2026, 11, 2));
+        assertThat(totals).containsEntry(java.time.YearMonth.of(2026, 10), new BigDecimal("66"))
+                .containsEntry(java.time.YearMonth.of(2026, 11), new BigDecimal("34"));
+        assertThat(totals.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add))
+                .isEqualByComparingTo("100");
+    }
+
     @Test void invalidPeriodsAndAmountsAreRejected() {
         var date = LocalDate.of(2026, 10, 19);
         assertThatThrownBy(() -> ExpensePeriodAllocation.allocate(BigDecimal.ZERO, date, date.plusDays(1)))
