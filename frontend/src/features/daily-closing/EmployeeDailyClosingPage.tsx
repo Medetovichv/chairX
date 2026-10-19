@@ -44,6 +44,7 @@ export function EmployeeDailyClosingPage(){
  const [expenseAmount,setExpenseAmount]=useState('');
  const [expenseMethod,setExpenseMethod]=useState<ExpenseInput['paymentMethod']>('CASH');
  const [expenseComment,setExpenseComment]=useState('');
+ const [showExpenseForm,setShowExpenseForm]=useState(false);
  const [error,setError]=useState(''),[pending,setPending]=useState(false);
  const [unknown,setUnknown]=useState(false),[confirm,setConfirm]=useState<PersonalCloseRequest|null>(null);
  const valid=/^\d{4}-\d{2}-\d{2}$/.test(day)&&day<=bishkekToday();
@@ -220,20 +221,25 @@ export function EmployeeDailyClosingPage(){
       <p role="status" className="mt-3 text-sm text-slate-600">По вашему запросу продаж не найдено.</p>}
     </section>
     <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-     <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
+     <div className="flex flex-wrap items-center justify-between gap-2">
+      <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
+      {!report.data.closed&&write&&hasPermission('EXPENSES_CREATE')&&
+       <Button type="button" variant="outline" aria-expanded={showExpenseForm}
+        onClick={()=>setShowExpenseForm(v=>!v)}>{showExpenseForm?'Свернуть форму':'+ Добавить расход'}</Button>}
+     </div>
      <p className="text-sm text-slate-600">Все расходы сотрудников учитываются один раз; добавить новый расход можно только от собственного имени.</p>
      <div className="grid gap-3 sm:grid-cols-2">
       <p className="rounded-xl bg-slate-50 p-3">Наличные: <strong>{money(report.data.expenseCash)}</strong></p>
       <p className="rounded-xl bg-slate-50 p-3">Переводы: <strong>{money(report.data.expenseBank)}</strong></p>
      </div>
-     {!report.data.closed&&write&&hasPermission('EXPENSES_CREATE')&&
+     {!report.data.closed&&write&&hasPermission('EXPENSES_CREATE')&&showExpenseForm&&
        <GuardedPost<ExpenseInput> kind="employee-expense" scope={day} allowed canReplay
          destructive title="Зарегистрировать мой расход?" label="Провести расход"
          operationKey={x=>x.idempotencyKey}
          meta={x=>({amount:x.amount,category:x.category,day:x.expenseDate})}
          post={financeApi.createExpense}
          onDone={async()=>{
-           setExpenseAmount('');setExpenseComment('');
+           setExpenseAmount('');setExpenseComment('');setShowExpenseForm(false);
            await Promise.all([
              client.invalidateQueries({queryKey:personalCloseKeys.report(day)}),
              client.invalidateQueries({queryKey:['employee-closings','manager',day]}),
