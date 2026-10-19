@@ -62,6 +62,19 @@ public final class ExpensePeriodAllocation {
         return paid.subtract(accrued).max(BigDecimal.ZERO);
     }
 
+    /**
+     * Returns a month-level recognition breakdown for a single cost period.
+     * Payments do not affect recognized operating expense.
+     */
+    public static Map<java.time.YearMonth, BigDecimal> byMonth(
+            BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
+        Map<LocalDate, BigDecimal> daily = allocate(amount, fromInclusive, toExclusive);
+        java.util.TreeMap<java.time.YearMonth, BigDecimal> totals = new java.util.TreeMap<>();
+        daily.forEach((day, cost) -> totals.merge(
+                java.time.YearMonth.from(day), cost, BigDecimal::add));
+        return java.util.Collections.unmodifiableMap(totals);
+    }
+
     public static Map<LocalDate, BigDecimal> allocate(
             BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
