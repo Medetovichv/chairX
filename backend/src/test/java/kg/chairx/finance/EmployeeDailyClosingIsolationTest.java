@@ -105,6 +105,26 @@ class EmployeeDailyClosingIsolationTest {
     }
 
 
+    @Test void paymentWithoutEligibleSaleDoesNotIncreaseOperationalClosing() throws Exception {
+        String employee=user(EMPLOYEE_ROLE);
+        collection(employee,"CASH",600);
+        collection(employee,"BANK",400);
+        String url="/api/finance/my-closings/"+day;
+        mvc.perform(get(url).with(httpBasic(employee,PASSWORD)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.expectedTotal").value(0))
+            .andExpect(jsonPath("$.salesValue").value(0))
+            .andExpect(jsonPath("$.orders").value(0));
+        String body="{\"expectedCash\":\"0\",\"expectedBank\":\"0\","
+            +"\"actualCash\":null,\"actualBank\":null,\"actualTotal\":\"0\","
+            +"\"totalNote\":null,\"cashNote\":null,\"bankNote\":null}";
+        mvc.perform(post(url).with(httpBasic(employee,PASSWORD)).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.expectedTotal").value(0))
+            .andExpect(jsonPath("$.sales.length()").value(0));
+    }
+
     @Test void legacyPersonalCloseDoesNotCountAsCompanyOperationalApproval() throws Exception {
         String alice=user(EMPLOYEE_ROLE);
         UUID aliceId=jdbc.queryForObject("SELECT id FROM app_users WHERE username=?",
