@@ -62,6 +62,28 @@ describe('Employee daily closing isolation',()=>{
   expect(sales.compareDocumentPosition(expenses)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(expenses.compareDocumentPosition(confirm)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  });
+ it('renders mobile order cards, four summaries and filters by phone',async()=>{
+  const fixture={...personal(),sales:[{saleId:'one',saleNumber:'CX-1',
+   quantity:2,total:'12000',phone:'+996555123456',products:'Комфорт / Чёрный',
+   deliveryStatus:'DELIVERED',completedAt:'2026-10-11T03:00:00Z'}]};
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(fixture);
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  expect(await screen.findByRole('region',{name:'Показатели дня'})).toBeInTheDocument();
+  const cards=screen.getByLabelText('Карточки продаж');
+  expect(within(cards).getByText('CX-1')).toBeInTheDocument();
+  expect(within(cards).getByText('Комфорт / Чёрный · 2 шт.')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox',{name:'Поиск продаж'}),
+   {target:{value:'+996555123456'}});
+  expect(within(cards).getByText('CX-1')).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox',{name:'Поиск продаж'}),
+   {target:{value:'not found'}});
+  expect(within(cards).queryByText('CX-1')).not.toBeInTheDocument();
+ });
  it('checks for races before one personal POST with no company mutations',async()=>{
   const requests:{path:string;method:string;body?:string}[]=[];
   let closed=false;
