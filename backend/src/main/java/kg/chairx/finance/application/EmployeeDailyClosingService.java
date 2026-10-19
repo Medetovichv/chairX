@@ -253,7 +253,7 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) AS total,
-                   GREATEST(s.fulfilled_at,p.paid_at) AS completed_at,
+                   GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at) AS completed_at,
                    detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
                    COALESCE(d.address,c.address) AS address,
                    s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
@@ -282,8 +282,8 @@ public class EmployeeDailyClosingService {
                    OR (s.fulfillment_type='REGION_DELIVERY' AND d.status='DELIVERED'))
               -- One sale belongs to one business day: the day both physical
               -- handover and full payment have been registered.
-              AND GREATEST(s.fulfilled_at,p.paid_at)>=:fromDate
-              AND GREATEST(s.fulfilled_at,p.paid_at)<:untilDate
+              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)>=:fromDate
+              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)<:untilDate
             ORDER BY completed_at,s.id
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
