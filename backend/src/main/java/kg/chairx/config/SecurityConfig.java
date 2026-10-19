@@ -227,7 +227,7 @@ public class SecurityConfig {
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager("hasAuthority('FINANCE_READ') and hasAuthority('DAILY_CLOSING_WRITE')"))
                          .requestMatchers(HttpMethod.POST, "/api/finance/closings/*")
                         .access(companyClosingWriter(users, roles))
-                        .requestMatchers(HttpMethod.GET, "/api/finance/accounts", "/api/finance/cash-flow", "/api/finance/ledger", "/api/finance/profitability", "/api/finance/inventory-valuation")
+                        .requestMatchers(HttpMethod.GET, "/api/finance/accounts", "/api/finance/cash-flow", "/api/finance/ledger", "/api/finance/profitability", "/api/finance/inventory-valuation", "/api/finance/purchase-obligations")
                         .hasAuthority("FINANCE_READ")
                         .requestMatchers(HttpMethod.POST, "/api/finance/transfers")
                         .hasAuthority("FINANCE_TRANSFER")
