@@ -132,6 +132,24 @@ def main():
                 "button",name="Зафиксировать отчёт").click()
             page.get_by_role("heading",name="День закрыт",exact=False).wait_for(timeout=30000)
             page.screenshot(path=str(ART/"03-closed-day.png"),full_page=True)
+            # Verify the same authorized closing screen remains usable on the
+            # narrow viewports specified for the mobile redesign. Screenshots
+            # are collected from the live stack, not mocked frontend data.
+            for width in (320,360,375,390,430,768):
+                page.set_viewport_size({"width":width,"height":844})
+                page.wait_for_timeout(200)
+                overflow=page.evaluate("""() => ({
+                    scroll: document.documentElement.scrollWidth,
+                    client: document.documentElement.clientWidth
+                })""")
+                assert overflow["scroll"] <= overflow["client"]+1, (
+                    f"Closing page overflows horizontally at {width}px: {overflow}"
+                )
+                assert page.get_by_role("heading",name="Закрытие дня").is_visible()
+                if width in (320,390):
+                    page.screenshot(path=str(ART/f"04-mobile-{width}px.png"),full_page=True)
+            page.set_viewport_size({"width":1440,"height":900})
+
             db(1,4,10100,4900,1)
             report=admin.must("GET",url,None,200)
             assert int(report["cash"]["expected"])==10100
