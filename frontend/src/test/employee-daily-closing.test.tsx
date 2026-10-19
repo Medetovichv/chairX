@@ -84,6 +84,22 @@ describe('Employee daily closing isolation',()=>{
    {target:{value:'not found'}});
   expect(within(cards).queryByText('CX-1')).not.toBeInTheDocument();
  });
+ it('keeps the expense creation form collapsed until explicitly requested',async()=>{
+  perms.values=['DAILY_CLOSING_READ','DAILY_CLOSING_WRITE','EXPENSES_CREATE'];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(personal());
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const button=await screen.findByRole('button',{name:'+ Добавить расход'});
+  expect(screen.queryByRole('form',{name:'Добавить расход при закрытии'})).not.toBeInTheDocument();
+  await userEvent.setup().click(button);
+  expect(screen.getByRole('form',{name:'Добавить расход при закрытии'})).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('button',{name:'Свернуть форму'}));
+  expect(screen.queryByRole('form',{name:'Добавить расход при закрытии'})).not.toBeInTheDocument();
+ });
  it('checks for races before one personal POST with no company mutations',async()=>{
   const requests:{path:string;method:string;body?:string}[]=[];
   let closed=false;
