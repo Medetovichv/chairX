@@ -15,6 +15,24 @@ import java.util.Map;
 public final class ExpensePeriodAllocation {
     private ExpensePeriodAllocation() {}
 
+    /**
+     * Total accrued within [fromInclusive, toExclusive), including partial
+     * overlap with the original allocation period. Does not post payments.
+     */
+    public static BigDecimal accruedWithin(
+            BigDecimal amount, LocalDate periodStart, LocalDate periodEnd,
+            LocalDate fromInclusive, LocalDate toExclusive) {
+        if (fromInclusive == null || toExclusive == null || fromInclusive.isAfter(toExclusive)) {
+            throw new IllegalArgumentException("Invalid reporting interval");
+        }
+        Map<LocalDate, BigDecimal> daily = allocate(amount, periodStart, periodEnd);
+        return daily.entrySet().stream()
+                .filter(entry -> !entry.getKey().isBefore(fromInclusive)
+                        && entry.getKey().isBefore(toExclusive))
+                .map(Map.Entry::getValue)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     public static Map<LocalDate, BigDecimal> allocate(
             BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive) {
         if (amount == null || amount.signum() <= 0 || amount.stripTrailingZeros().scale() > 0) {
