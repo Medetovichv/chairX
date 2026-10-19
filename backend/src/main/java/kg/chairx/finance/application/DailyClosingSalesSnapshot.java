@@ -135,7 +135,7 @@ public final class DailyClosingSalesSnapshot {
                                 NULLIF(BTRIM(c.secondary_phone),'')) AS phone,
                        detail.products,detail.quantity,dl.address,
                        s.fulfillment_type,
-                       GREATEST(s.fulfilled_at,pay.paid_at) AS completed_at,
+                       GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at) AS completed_at,
                        detail.total,
                        CASE WHEN pay.amount IS NULL THEN 'UNPAID'
                             WHEN pay.amount < detail.total THEN 'PARTIAL'
@@ -164,8 +164,8 @@ public final class DailyClosingSalesSnapshot {
                   AND (s.fulfillment_type='SELF_PICKUP'
                     OR (s.fulfillment_type='CITY_DELIVERY' AND dl.status IN ('IN_TRANSIT','DELIVERED'))
                     OR (s.fulfillment_type='REGION_DELIVERY' AND dl.status='DELIVERED'))
-                  AND GREATEST(s.fulfilled_at,pay.paid_at)>=:begin
-                  AND GREATEST(s.fulfilled_at,pay.paid_at)<:until
+                  AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at)>=:begin
+                  AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at)<:until
                 ORDER BY completed_at,s.id
                 """)
                 .param("begin",from.atOffset(ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
