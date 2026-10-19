@@ -26,7 +26,7 @@ public class FinanceProfitabilityService {
                            BigDecimal fifoCost,boolean completeCost) {}
     public record Profitability(LocalDate from,LocalDate to,BigDecimal grossRevenue,
                                 BigDecimal verifiedFifoCost,BigDecimal recognizedAccruals,
-                                boolean completeCost,boolean netProfitAvailable,
+                                BigDecimal otherOperatingExpenses,boolean completeCost,boolean netProfitAvailable,
                                 BigDecimal grossProfit,BigDecimal operatingProfit,
                                 List<SaleCost> sales,String caveat) {}
     public Profitability calculate(LocalDate from,LocalDate to){
@@ -80,11 +80,20 @@ public class FinanceProfitabilityService {
         BigDecimal expenses=accruals.report(from,to).stream()
                 .map(ExpenseAccrualService.ReportLine::recognized)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
+        // Cash expenses without a linked F14 accrual are recognized once.
+        // Linked settlements do not create a second P&L cost.
+        BigDecimal nonAccrualExpenses=jdbc.sql("""
+            SELECT COALESCE(SUM(e.amount),0)
+            FROM expenses e
+            WHERE e.expense_date>=:from AND e.expense_date<:to
+              AND NOT EXISTS (SELECT 1 FROM expense_accrual_payments ap
+                              WHERE ap.expense_id=e.id)
+            """).param("from",from).param("to",to).query(BigDecimal.class).single();
         boolean complete=rows.stream().allMatch(SaleCost::completeCost);
         // Returns, exchanges and ordinary non-accrual expenses require the
         // final accounting reconciliation; refuse to publish net profit.
-        return new Profitability(from,to,revenue,fifo,expenses,complete,false,
+        return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,complete,false,
                 complete?revenue.subtract(fifo):null,null,rows,
-                "Net P&L requires reconciliation of returns, exchanges and non-accrual operating expenses");
+                "Net P&L requires reconciliation of returns and exchanges; recognized accruals and other expenses are reported separately");
     }
 }
