@@ -122,6 +122,6 @@ export function ExpensesPage(){
     </form>}
    </GuardedPost>
   </section>}
-  {read&&<ExpenseAccrualPanel from={period.from} to={period.to} canCreate={create&&user?.roles.some(r=>r==='ADMIN'||r==='MANAGER')===true}/>}
+  {read&&<ExpenseAccrualPanel from={period.from} to={period.to} canCreate={create&&hasPermission('FINANCE_READ')}/>}
  </div>;
 }
