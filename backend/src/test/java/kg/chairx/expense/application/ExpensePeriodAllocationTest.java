@@ -55,6 +55,19 @@ class ExpensePeriodAllocationTest {
                 .isEqualByComparingTo("0");
     }
 
+    @Test void outstandingNeverCountsAdvanceAsNegativeOperatingExpense() {
+        assertThat(ExpensePeriodAllocation.outstanding(new BigDecimal("1000"), new BigDecimal("300")))
+                .isEqualByComparingTo("700");
+        assertThat(ExpensePeriodAllocation.outstanding(new BigDecimal("1000"), new BigDecimal("1000")))
+                .isEqualByComparingTo("0");
+        assertThat(ExpensePeriodAllocation.outstanding(new BigDecimal("1000"), new BigDecimal("1200")))
+                .isEqualByComparingTo("0");
+        assertThatThrownBy(() -> ExpensePeriodAllocation.outstanding(new BigDecimal("-1"), BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ExpensePeriodAllocation.outstanding(new BigDecimal("1.5"), BigDecimal.ZERO))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test void invalidPeriodsAndAmountsAreRejected() {
         var date = LocalDate.of(2026, 10, 19);
         assertThatThrownBy(() -> ExpensePeriodAllocation.allocate(BigDecimal.ZERO, date, date.plusDays(1)))
