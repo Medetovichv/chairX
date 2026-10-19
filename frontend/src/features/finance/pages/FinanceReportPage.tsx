@@ -28,6 +28,10 @@ export function FinanceReportPage(){
  const [draft,setDraft]=useState(periodMonth);
  const [dates,setDates]=useState(periodMonth);
  const [error,setError]=useState('');
+ const [page,setPage]=useState(0);
+ const [account,setAccount]=useState('');
+ const ledger=useQuery({queryKey:['finance','ledger',dates.from,dates.to,page,account],
+  queryFn:()=>financeApi.ledger(dates.from,dates.to,page,50,account||undefined),enabled:allowed});
  const flow=useQuery({queryKey:financeKeys.flowPeriod(dates.from,dates.to),
   queryFn:()=>financeApi.flow(dates.from,dates.to),enabled:allowed});
  const expense=useQuery({queryKey:financeKeys.expenseList(dates.from,dates.to),
@@ -39,7 +43,7 @@ export function FinanceReportPage(){
  function changePeriod(e:FormEvent){
   e.preventDefault();
   if(!validPeriod(draft.from,draft.to)){setError('Период должен быть корректным и не длиннее 93 дней.');return;}
-  setDates({...draft});setError('');
+  setDates({...draft});setPage(0);setError('');
  }
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-5 pb-6">
@@ -83,6 +87,43 @@ export function FinanceReportPage(){
      <p className="border-t p-3 text-xs text-slate-600">Перемещения CASH ↔ BANK не являются внешним доходом или расходом. Выручка и прибыль рассчитываются отдельно от денежного потока.</p>
     </section>
    </>}
+  <section className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+   <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+    <div><h2 className="text-lg font-bold">Все операции — журнал денег</h2>
+     <p className="text-xs text-slate-600">Все проведённые финансовые движения с первоисточниками; внутренние переводы тоже отображаются, но не увеличивают доходы.</p></div>
+    <label className="text-sm">Счёт
+      <select className="ml-2 rounded-lg border p-2" value={account}
+       onChange={e=>{setAccount(e.target.value);setPage(0);}}>
+       <option value="">Все счета</option><option value="CASH">Наличные</option>
+       <option value="BANK">Банк</option></select>
+    </label>
+   </div>
+   {ledger.isPending?<LoadingState label="Загружаем журнал операций…"/>:
+    ledger.isError?<ErrorState error={ledger.error} onRetry={()=>void ledger.refetch()}/>:
+    <>
+     {ledger.data.items.length===0?<p className="p-4 text-sm text-slate-600">За выбранный период проводок нет.</p>:
+      <div className="overflow-x-auto"><table aria-label="Журнал денежных операций" className="w-full min-w-[720px] text-left text-sm">
+       <thead className="bg-slate-50"><tr><th className="p-3">Дата и время</th><th className="p-3">Тип</th>
+        <th className="p-3">Счёт</th><th className="p-3">Основание</th>
+        <th className="p-3 text-right">Сумма</th></tr></thead>
+       <tbody>{ledger.data.items.map(item=><tr key={item.id} className="border-t">
+        <td className="p-3">{new Date(item.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})}</td>
+        <td className="p-3">{item.type.replaceAll('_',' ')}</td>
+        <td className="p-3">{item.account==='CASH'?'Наличные':'Банк'}</td>
+        <td className="p-3">{item.sourceType.replaceAll('_',' ')}{item.createdBy&&<p className="text-xs text-slate-500">{item.createdBy}</p>}</td>
+        <td className={'p-3 text-right font-semibold tabular-nums '+(String(item.amount).startsWith('-')?'text-rose-700':'text-emerald-700')}>
+         {som(item.amount)}</td>
+       </tr>)}</tbody>
+      </table></div>}
+     <div className="flex flex-wrap items-center justify-between gap-3 border-t p-3 text-sm">
+      <span>Записей: {ledger.data.total} · Страница {page+1}</span>
+      <div className="flex gap-2">
+       <Button type="button" variant="outline" disabled={page===0} onClick={()=>setPage(p=>p-1)}>← Назад</Button>
+       <Button type="button" variant="outline" disabled={(page+1)*50>=ledger.data.total} onClick={()=>setPage(p=>p+1)}>Вперёд →</Button>
+      </div>
+     </div>
+    </>}
+  </section>
   {hasPermission('EXPENSES_READ')&&<section className="rounded-2xl border bg-white p-4 shadow-sm">
    <div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-bold">Расходы и начисления</h2>
     <Link className="text-sm text-blue-700 underline" to="/finance/expenses">Открыть расходы</Link></div>
