@@ -16,7 +16,17 @@ export const financeKeys={
  activePayment:(saleId:string)=>['finance','payments',saleId,'active'] as const,
  refunds:(saleId:string)=>['finance','refunds',saleId] as const,
 };
+export interface ExpenseAccrual {
+ id:string;idempotencyKey:string;category:string;description:string;amount:string|number;
+ periodStart:string;periodEnd:string;createdBy:string;
+}
+export interface ExpenseAccrualLine {
+ accrual:ExpenseAccrual;recognized:string|number;paid:string|number;
+ outstanding:string|number;prepaid:string|number;
+}
 export const financeApi={
+ accruals:(from:string,to:string):Promise<ExpenseAccrualLine[]>=>apiClient.get('/api/expenses/accruals?'+period(from,to)),
+ createAccrual:(input:{idempotencyKey:string;category:string;description:string;amount:string;periodStart:string;periodEnd:string}):Promise<ExpenseAccrual>=>apiClient.post('/api/expenses/accruals',input),
  accounts:():Promise<FinanceAccountResponse[]>=>apiClient.get('/api/finance/accounts'),
  flow:(from:string,to:string):Promise<CashFlowSummary>=>apiClient.get('/api/finance/cash-flow?'+period(from,to)),
  transfer:(payload:TransferInput):Promise<TransferResponse>=>apiClient.post('/api/finance/transfers',payload),
