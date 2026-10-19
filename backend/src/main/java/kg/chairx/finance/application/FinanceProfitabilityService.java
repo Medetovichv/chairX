@@ -63,12 +63,11 @@ public class FinanceProfitabilityService {
           ) cost ON TRUE
           WHERE s.status='FULFILLED'
             AND (s.fulfillment_type='SELF_PICKUP'
-              OR (s.fulfillment_type='CITY_DELIVERY' AND d.status IN ('IN_TRANSIT','DELIVERED'))
-              OR (s.fulfillment_type='REGION_DELIVERY' AND d.status='DELIVERED'))
-            AND (CASE WHEN s.fulfillment_type='REGION_DELIVERY'
-                          THEN d.delivered_at ELSE s.fulfilled_at END)>=:begin
-            AND (CASE WHEN s.fulfillment_type='REGION_DELIVERY'
-                          THEN d.delivered_at ELSE s.fulfilled_at END)<:end
+              OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY') AND d.status='DELIVERED'))
+            AND (CASE WHEN s.fulfillment_type='SELF_PICKUP'
+                          THEN s.fulfilled_at ELSE d.delivered_at END)>=:begin
+            AND (CASE WHEN s.fulfillment_type='SELF_PICKUP'
+                          THEN s.fulfilled_at ELSE d.delivered_at END)<:end
           ORDER BY s.id
           """).param("begin",begin).param("end",end)
           .query((rs,i)->new SaleCost(rs.getObject("id",UUID.class),
