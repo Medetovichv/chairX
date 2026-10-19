@@ -16,7 +16,7 @@ public class ExpenseAccrualController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasAuthority('EXPENSES_CREATE')")
+    @PreAuthorize("hasAuthority('EXPENSES_CREATE') and hasAuthority('FINANCE_READ')")
     public ExpenseAccrualService.Accrual create(
             @RequestBody ExpenseAccrualService.Create request, Authentication authentication) {
         return service.create(request,authentication.getName());
