@@ -24,6 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class FinanceProfitabilityIntegrationTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
+    @Autowired kg.chairx.finance.web.FinancePurchaseObligationsController obligations;
 
     @Test void profitabilityIsProtectedAndDoesNotPretendUnreconciledPnlIsReady() throws Exception {
         assertThat(jdbc.queryForObject("SELECT current_database()",String.class))
@@ -144,7 +145,7 @@ class FinanceProfitabilityIntegrationTest {
                     idempotency_key,request_fingerprint,created_by)
                 VALUES (?, ?, ?, 'CASH', ?, ?, ?, 'report-test')
                 """,java.util.UUID.randomUUID(),purchase,item[0],item[1],
-                java.util.UUID.randomUUID(),"test-fingerprint");
+                java.util.UUID.randomUUID(),"a".repeat(64));
         }
         mvc.perform(get("/api/finance/purchase-obligations")
           .with(user("accountant").authorities(
@@ -152,6 +153,10 @@ class FinanceProfitabilityIntegrationTest {
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.purchases[?(@.purchaseId == '"+purchase+"')].outstanding").exists())
           .andExpect(jsonPath("$.purchases[?(@.purchaseId == '"+purchase+"')].prepaid").exists());
+        var line=obligations.list().purchases().stream().filter(p->p.purchaseId().equals(purchase))
+                .findFirst().orElseThrow();
+        assertThat(line.outstanding()).isEqualByComparingTo("200");
+        assertThat(line.prepaid()).isEqualByComparingTo("30");
     }
 
 }
