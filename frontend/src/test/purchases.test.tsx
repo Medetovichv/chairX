@@ -32,7 +32,13 @@ const WID='44444444-4444-4444-8444-444444444444';
 const PID='55555555-5555-4555-8555-555555555555';
 const ITEM='66666666-6666-4666-8666-666666666666';
 const RID='77777777-7777-4777-8777-777777777777';
-const TIME='2026-10-10T10:00:00Z';
+// Keep default fixtures inside the page's rolling 7-day Bishkek window.
+const TIME=(()=>{
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bishkek',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const p=Object.fromEntries(parts.map(v=>[v.type,v.value]));
+  return `${p.year}-${p.month}-${p.day}T10:00:00Z`;
+})();
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),
   {status,headers:{'Content-Type':'application/json'}});
 function supplier(changes:Partial<Supplier>={}):Supplier {
