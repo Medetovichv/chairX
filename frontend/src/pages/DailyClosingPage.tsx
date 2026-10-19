@@ -54,7 +54,7 @@ function CompanyDailyClosingPage() {
   const { hasPermission, user } = useAuth();
   const read = hasPermission('DAILY_CLOSING_READ') || hasPermission('FINANCE_READ');
   const manager=user?.roles.includes('MANAGER')===true && !user?.roles.includes('ADMIN');
-  const write = user?.roles.some(role=>role==='ADMIN'||role==='MANAGER')===true && hasPermission('DAILY_CLOSING_WRITE');
+  const write = hasPermission('DAILY_CLOSING_WRITE');
   const client = useQueryClient();
   const [date, setDate] = useState(bishkekToday);
   const [expenseAmount,setExpenseAmount]=useState('');
@@ -158,7 +158,7 @@ function CompanyDailyClosingPage() {
        <p className="text-xs text-slate-500">{staff.isError?'Не удалось загрузить': 'Операционные расходы за день'}</p>
       </article>
     </section>}
-    {valid && user?.roles.some(role=>role==='ADMIN'||role==='MANAGER') && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
+    {valid && hasPermission('DAILY_CLOSING_READ') && <ManagerEmployeeClosingSummary date={date}/>}
     {valid && access.isSuccess && !exists && access.data.canEdit &&
      hasPermission('EXPENSES_CREATE') && <details className="rounded-xl border bg-white p-4">
       <summary className="cursor-pointer font-semibold">+ Добавить расход менеджера</summary>
