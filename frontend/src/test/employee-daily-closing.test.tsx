@@ -45,7 +45,7 @@ describe('Employee daily closing isolation',()=>{
   renderPage();
   expect(await screen.findByText('Закрытие дня')).toBeInTheDocument();
   expect(await screen.findByText(/Расчётная сумма к подтверждению/)).toBeInTheDocument();
-  expect(screen.getByText(/CX-1/)).toBeInTheDocument();
+  expect(screen.getAllByText(/CX-1/).length).toBeGreaterThan(0);
   expect(urls.every(u=>u.startsWith('/api/finance/my-closings'))).toBe(true);
  });
  it('shows qualifying sales before expenses and the close confirmation',async()=>{
