@@ -271,14 +271,23 @@ export function EmployeeDailyClosingPage(){
         </form>}
        </GuardedPost>}
      {report.data.expenses.length===0?<p className="text-sm text-slate-500">За этот день расходы сотрудников не зарегистрированы.</p>:
-      <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+      <><div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm">
        <thead><tr className="border-b"><th className="p-2">Категория</th><th className="p-2">Комментарий</th><th className="p-2">Оплата</th><th className="p-2 text-right">Сумма</th></tr></thead>
        <tbody>{report.data.expenses.map(e=><tr key={e.expenseId} className="border-b">
         <td className="p-2">{categoryLabel(e.category)}<p className="text-xs text-slate-500">{e.createdBy||""}</p></td><td className="p-2">{e.comment||'—'}</td>
         <td className="p-2">{e.paymentMethod==='CASH'?'Наличные':'Перевод'}</td>
         <td className="p-2 text-right font-semibold">{money(e.amount)}</td>
        </tr>)}</tbody>
-      </table></div>}
+      </table></div>
+      <div aria-label="Карточки расходов" className="space-y-2 md:hidden">
+       {report.data.expenses.map(e=><article key={e.expenseId} className="min-w-0 rounded-xl border border-slate-100 p-3 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+         <strong>{categoryLabel(e.category)}</strong><strong>{money(e.amount)}</strong>
+        </div>
+        <p className="mt-1 break-words text-slate-600">{e.comment||'Без комментария'}</p>
+        <p className="mt-1 text-xs text-slate-500">{e.paymentMethod==='CASH'?'Наличные':'Перевод'} · {e.createdBy||'Сотрудник'}</p>
+       </article>)}
+      </div></>}
     </section>
     <section className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm">
      <h2 className="text-lg font-bold">{report.data.closed?'✓ Операционный день закрыт':'Итог к подтверждению'}</h2>
