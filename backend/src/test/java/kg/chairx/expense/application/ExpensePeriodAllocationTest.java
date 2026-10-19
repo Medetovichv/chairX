@@ -88,6 +88,17 @@ class ExpensePeriodAllocationTest {
                 .isEqualByComparingTo("100");
     }
 
+    @Test void financialPositionSeparatesRecognizedCostsFromRealPayments() {
+        var position = ExpensePeriodAllocation.position(
+                new BigDecimal("3000"), LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 12, 1), LocalDate.of(2026, 11, 1),
+                LocalDate.of(2026, 11, 16), new BigDecimal("2000"));
+        assertThat(position.recognized()).isEqualByComparingTo("1500");
+        assertThat(position.paid()).isEqualByComparingTo("2000");
+        assertThat(position.outstanding()).isEqualByComparingTo("0");
+        assertThat(position.prepaid()).isEqualByComparingTo("500");
+    }
+
     @Test void invalidPeriodsAndAmountsAreRejected() {
         var date = LocalDate.of(2026, 10, 19);
         assertThatThrownBy(() -> ExpensePeriodAllocation.allocate(BigDecimal.ZERO, date, date.plusDays(1)))
