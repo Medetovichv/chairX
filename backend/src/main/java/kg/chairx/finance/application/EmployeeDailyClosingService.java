@@ -140,7 +140,7 @@ public class EmployeeDailyClosingService {
     @Transactional(readOnly=true)
     public Report companyReport(String username,LocalDate date) {
         validateDate(date);validateEmployeeHistoryWindow(date);
-        Employee actor=employee(username);
+        employee(username);
         Stored saved=jdbc.sql("""
             SELECT id,expected_cash,expected_bank,actual_cash,actual_bank,cash_note,bank_note,
                    actual_total,total_note
@@ -155,7 +155,7 @@ public class EmployeeDailyClosingService {
         // confirmation in the employee operational screen.
         Collections now=companyNet(date);
         List<ExpenseLine> expenses=saved==null?staffExpenses(date):savedExpenses(saved.id());
-        List<SaleLine> sales=saved==null?liveSales(actor.username(),date):snapshot(saved.id());
+        List<SaleLine> sales=saved==null?liveSales(null,date):snapshot(saved.id());
         boolean changed=saved!=null && saved.cash().add(saved.bank()).compareTo(now.cash())!=0;
         return new Report(date,saved!=null,saved==null && policy.normalWriteWindow(date,policy.now()),
                 saved==null?now.cash():saved.cash(),saved==null?now.bank():saved.bank(),
