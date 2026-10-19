@@ -271,10 +271,15 @@ public class EmployeeDailyClosingService {
                 WHERE si.sale_id=s.id
             ) detail ON TRUE
             JOIN LATERAL (
-                SELECT SUM(payment.amount) AS amount, MAX(payment.paid_at) AS paid_at
-                FROM payments payment
-                WHERE payment.sale_id=s.id AND payment.status='PAID'
-                HAVING SUM(payment.amount) >= COALESCE(detail.total,0)
+                SELECT SUM(payment.amount) AS amount,
+                       MIN(payment.paid_at) FILTER (WHERE payment.running_total >= detail.total) AS paid_at
+                FROM (
+                    SELECT amount, paid_at,
+                           SUM(amount) OVER (ORDER BY paid_at, id) AS running_total
+                    FROM payments
+                    WHERE sale_id=s.id AND status='PAID'
+                ) payment
+                HAVING SUM(payment.amount) >= detail.total AND detail.total > 0
             ) p ON TRUE
             WHERE s.status='FULFILLED'
               AND (s.fulfillment_type='SELF_PICKUP'
