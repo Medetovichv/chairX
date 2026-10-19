@@ -90,4 +90,35 @@ class FinanceProfitabilityIntegrationTest {
                 .andExpect(jsonPath("$.operatingProfit").doesNotExist());
     }
 
+    @Test void linkedExpenseIsNotChargedTwiceWhenAccrualIsRecognized() throws Exception {
+        var accrual=java.util.UUID.randomUUID();
+        var linked=java.util.UUID.randomUUID();
+        var other=java.util.UUID.randomUUID();
+        jdbc.update("""
+            INSERT INTO expense_accruals(id,idempotency_key,category,description,amount,
+                period_start,period_end,created_by)
+            VALUES (?,?,'RENT','Office rent',900,'2024-05-01','2024-05-04','finance-test')
+            """,accrual,java.util.UUID.randomUUID());
+        jdbc.update("""
+            INSERT INTO expenses(id,category,amount,payment_method,expense_date,comment,created_by,created_at)
+            VALUES (?,'RENT',900,'CASH','2024-05-02','Rent payment','finance-test',now())
+            """,linked);
+        jdbc.update("""
+            INSERT INTO expenses(id,category,amount,payment_method,expense_date,comment,created_by,created_at)
+            VALUES (?,'OTHER',100,'BANK','2024-05-02','Separate expense','finance-test',now())
+            """,other);
+        jdbc.update("""
+            INSERT INTO expense_accrual_payments(accrual_id,expense_id,linked_by)
+            VALUES (?,?,'finance-test')
+            """,accrual,linked);
+        mvc.perform(get("/api/finance/profitability")
+            .param("from","2024-05-01").param("to","2024-05-04")
+            .with(user("accountant").authorities(
+              new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.recognizedAccruals").value(900))
+            .andExpect(jsonPath("$.otherOperatingExpenses").value(100))
+            .andExpect(jsonPath("$.netProfitAvailable").value(false));
+    }
+
 }
