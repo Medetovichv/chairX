@@ -18,6 +18,7 @@ export function ExpenseAccrualPanel({from,to,canCreate}:{from:string;to:string;c
  const [end,setEnd]=useState(to);
  const [error,setError]=useState('');
  const [saving,setSaving]=useState(false);
+ const [pendingKey,setPendingKey]=useState(()=>crypto.randomUUID());
  async function linkPayment(accrualId:string){
   const expenseId=chosen[accrualId];
   if(!expenseId)return;
@@ -33,9 +34,9 @@ export function ExpenseAccrualPanel({from,to,canCreate}:{from:string;to:string;c
   }
   setSaving(true);setError('');
   try {
-   await financeApi.createAccrual({idempotencyKey:crypto.randomUUID(),category,
+   await financeApi.createAccrual({idempotencyKey:pendingKey,category,
     description:description.trim(),amount,periodStart:start,periodEnd:end});
-   setAmount('');setDescription('');
+   setAmount('');setDescription('');setPendingKey(crypto.randomUUID());
    await client.invalidateQueries({queryKey:key});
   } catch {
    setError('Не удалось сохранить начисление. Проверьте доступ и соединение.');
