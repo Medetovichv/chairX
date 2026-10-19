@@ -102,14 +102,23 @@ function CompanyDailyClosingPage() {
   }
   return <div className="space-y-5">
 
-    <PageHeader title="Отчёты"/>
+    <PageHeader title="Закрытие дня" description="Ежедневный операционный и финансовый отчёт"/>
 
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+      <Button type="button" variant="outline" aria-label="Предыдущий день" onClick={()=>{
+        const previous=new Date(date+'T12:00:00Z');previous.setUTCDate(previous.getUTCDate()-1);
+        chooseDate(previous.toISOString().slice(0,10));
+      }}>‹</Button>
+      <Button type="button" variant="outline" aria-label="Следующий день" disabled={date>=bishkekToday()} onClick={()=>{
+        const next=new Date(date+'T12:00:00Z');next.setUTCDate(next.getUTCDate()+1);
+        chooseDate(next.toISOString().slice(0,10));
+      }}>›</Button>
       <label className="block w-44 space-y-1 text-sm font-semibold">Отчётная дата
         <Input type="date" aria-label="Дата закрытия" value={date}
           max={bishkekToday()} onChange={e => chooseDate(e.target.value)}/>
       </label>
       {!valid && <p role="alert" className="text-red-700">Выберите действительную дату не позднее сегодня в Бишкеке.</p>}
+      <Button type="button" onClick={()=>{chooseDate(bishkekToday());setShowHistory(false);}}>Актуальный отчёт</Button>
       <Button type="button" variant="outline" aria-expanded={showHistory}
         onClick={()=>setShowHistory(v=>!v)}>{showHistory?'Скрыть историю':'Предыдущие отчёты'}</Button>
       {showHistory&&<section aria-label="История финансовых отчётов" className="space-y-3 rounded-xl bg-slate-50 p-4">
@@ -179,7 +188,7 @@ function CompanyDailyClosingPage() {
     {valid && access.isSuccess && (!exists || report.isSuccess) &&
       <ClosingMaintenance key={date + ':' + (report.data?.version ?? 'new')} date={date}
         access={access.data} report={report.data} onChanged={refreshed}/>}
-    {valid && <section aria-label="Завершённые продажи" className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    {valid && <section aria-label="Завершённые продажи" className="space-y-5 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-bold">Отчёт о продажах за {date}</h2><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold">{exists?"Закрытый день":"Сегодняшние данные до закрытия"}</span></div>
       <p className="text-sm text-slate-600">Список завершённых заказов с креслами, количеством, клиентами и оплатой.</p>
       {sales.isPending ? <LoadingState label="Загружаем продажи дня…"/> :
@@ -198,7 +207,7 @@ function CompanyDailyClosingPage() {
             <div className="rounded-xl bg-slate-50 p-4"><p className="text-xs text-slate-600">Итого продажи</p><p className="mt-1 text-2xl font-bold">{sales.data.totals.value===null?'—':som(sales.data.totals.value)}</p></div>
           </div>
           {sales.data.items.length === 0 ? <p className="text-sm text-slate-500">Нет подтверждённых завершённых продаж.</p> :
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+            <div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm">
               <thead><tr className="border-b">
                 <th className="p-2">Продажа</th><th className="p-2">Клиент</th><th className="p-2">Телефон</th>
                 <th className="p-2">Товар</th><th className="p-2">Шт.</th>
@@ -214,6 +223,20 @@ function CompanyDailyClosingPage() {
                 <td className="p-2">{dateLabel(item.completedAt)}</td>
               </tr>)}</tbody>
             </table></div>}
+          {sales.data.items.length>0&&<div className="space-y-2 md:hidden" aria-label="Карточки завершённых продаж">
+           {sales.data.items.map(item=><article key={item.saleId} className="min-w-0 rounded-xl border border-slate-100 p-3 text-sm">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+             <Link to={'/sales/'+encodeURIComponent(item.saleId)} className="break-all font-semibold text-blue-700">{item.saleNumber}</Link>
+             <strong>{som(item.total)}</strong>
+            </div>
+            <p className="mt-1 break-words">{item.products??'Товары в заказе'} · {item.quantity} шт.</p>
+            <p className="mt-1 text-slate-600">{item.customerName||item.phone||'Контакт не указан'}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+             <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-800">{item.paymentStatus==='PAID'?'Оплачено':item.paymentStatus}</span>
+             <span className="rounded-md bg-blue-50 px-2 py-1 text-blue-800">{item.deliveryStatus==='DELIVERED'?'Доставлено':item.deliveryStatus==='IN_TRANSIT'?'В пути':item.fulfillmentType==='SELF_PICKUP'?'Самовывоз':item.deliveryStatus||'—'}</span>
+            </div>
+           </article>)}
+          </div>}
         </>}
       <p className="text-xs text-slate-500">Итог продаж — оборот, а не остаток средств. Наличные и банк сверяются отдельно, с учётом других операций.</p>
     </section>}
