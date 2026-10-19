@@ -290,7 +290,7 @@ export function EmployeeDailyClosingPage(){
       </div></>}
     </section>
     <section className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 shadow-sm">
-     <h2 className="text-lg font-bold">{report.data.closed?'✓ Операционный день закрыт':'Итог к подтверждению'}</h2>
+     <h2 className="text-lg font-bold">{report.data.closed?'Операционный день закрыт':'Итог к подтверждению'}</h2>
      <div className="rounded-xl bg-slate-50 p-4"><p className="text-sm text-slate-600">Расчётная сумма к подтверждению · подходящие продажи минус расходы сотрудников</p>
        <p className="mt-2 text-3xl font-bold">{money(expectedTotal(report.data))}</p></div>
      <p className="text-sm text-slate-600">Отчёт включает подходящие продажи всей команды и операционные расходы. Постоянные затраты учитываются отдельно в финансовой аналитике.</p>
