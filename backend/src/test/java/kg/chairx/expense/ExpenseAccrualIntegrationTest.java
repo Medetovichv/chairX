@@ -6,6 +6,14 @@ import kg.chairx.expense.domain.ExpenseCategory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import org.springframework.http.MediaType;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -21,9 +29,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
     "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
+@AutoConfigureMockMvc
 class ExpenseAccrualIntegrationTest {
     @Autowired ExpenseAccrualService service;
     @Autowired JdbcTemplate jdbc;
+    @Autowired MockMvc mvc;
 
     @Test void accrualPersistsAndReportsWithoutFinancialPostings() {
         assertThat(jdbc.queryForObject("SELECT current_database()",String.class))
@@ -79,6 +89,24 @@ class ExpenseAccrualIntegrationTest {
             jdbc.update("DELETE FROM expenses WHERE id=?",expenseId);
             jdbc.update("DELETE FROM expense_accruals WHERE idempotency_key=?",key);
         }
+    }
+
+    @Test
+    @WithMockUser(authorities={"EXPENSES_READ"})
+    void readGrantDoesNotAllowCreationOrPaymentLink() throws Exception {
+        mvc.perform(get("/api/expenses/accruals")
+                .param("from","2026-10-01").param("to","2026-11-01"))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/expenses/accruals").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idempotencyKey\":\""+UUID.randomUUID()+"\",\"category\":\"RENT\","+
+                        "\"description\":\"Unauthorized\",\"amount\":\"100\","+
+                        "\"periodStart\":\"2026-10-01\",\"periodEnd\":\"2026-11-01\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/expenses/accruals/"+UUID.randomUUID()+"/payments").with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"expenseId\":\""+UUID.randomUUID()+"\"}"))
+                .andExpect(status().isForbidden());
     }
 
 }
