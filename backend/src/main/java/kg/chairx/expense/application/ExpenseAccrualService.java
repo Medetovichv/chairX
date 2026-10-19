@@ -12,7 +12,11 @@ import java.util.UUID;
 @Service
 public class ExpenseAccrualService {
     private final JdbcClient jdbc;
-    public ExpenseAccrualService(JdbcClient jdbc) { this.jdbc = jdbc; }
+    private final kg.chairx.audit.AuditService audit;
+    public ExpenseAccrualService(JdbcClient jdbc, kg.chairx.audit.AuditService audit) {
+        this.jdbc=jdbc;
+        this.audit=audit;
+    }
 
     public record Create(UUID idempotencyKey, ExpenseCategory category, String description,
                          BigDecimal amount, LocalDate periodStart, LocalDate periodEnd) {}
@@ -35,7 +39,7 @@ public class ExpenseAccrualService {
         validate(input);
         if (actor == null || actor.isBlank()) throw new IllegalArgumentException("Actor required");
         UUID id = UUID.randomUUID();
-        jdbc.sql("""
+        int inserted=jdbc.sql("""
              INSERT INTO expense_accruals
                (id,idempotency_key,category,description,amount,period_start,period_end,created_by)
              VALUES (:id,:key,:category,:description,:amount,:start,:end,:actor)
@@ -43,7 +47,14 @@ public class ExpenseAccrualService {
              """).param("id",id).param("key",input.idempotencyKey())
              .param("category",input.category().name()).param("description",input.description().trim())
              .param("amount",input.amount()).param("start",input.periodStart())
-             .param("end",input.periodEnd()).param("actor",actor).update();
+              .param("end",input.periodEnd()).param("actor",actor).update();
+        if (inserted == 1) {
+            audit.recordAs(actor,"EXPENSE_ACCRUAL",id,"CREATED",null,
+                    java.util.Map.of("category",input.category().name(),
+                            "amount",input.amount().toPlainString(),
+                            "periodStart",input.periodStart().toString(),
+                            "periodEnd",input.periodEnd().toString()));
+        }
         Accrual existing=jdbc.sql("""
                 SELECT id,idempotency_key,category,description,amount,period_start,period_end,created_by
                 FROM expense_accruals WHERE idempotency_key=:key
@@ -73,7 +84,7 @@ public class ExpenseAccrualService {
         if (!accrualCategory.equals(expenseCategory)) {
             throw new IllegalArgumentException("Payment category must match accrual category");
         }
-        jdbc.sql("""
+        int inserted=jdbc.sql("""
              INSERT INTO expense_accrual_payments(accrual_id,expense_id,linked_by)
              VALUES (:accrual,:expense,:actor) ON CONFLICT (expense_id) DO NOTHING
              """).param("accrual",accrualId).param("expense",expenseId)
@@ -82,6 +93,10 @@ public class ExpenseAccrualService {
                 .param("id",expenseId).query(UUID.class).single();
         if (!accrualId.equals(linked)) {
             throw new IllegalStateException("Expense is already linked to another accrual");
+        }
+        if (inserted == 1) {
+            audit.recordAs(actor,"EXPENSE_ACCRUAL",accrualId,"EXISTING_EXPENSE_LINKED",null,
+                    java.util.Map.of("expenseId",expenseId.toString()));
         }
     }
 
