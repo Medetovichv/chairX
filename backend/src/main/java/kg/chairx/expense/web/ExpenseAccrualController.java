@@ -22,6 +22,17 @@ public class ExpenseAccrualController {
         return service.create(request,authentication.getName());
     }
 
+    public record LinkPaymentRequest(java.util.UUID expenseId) {}
+
+    @PostMapping("/{id}/payments")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAuthority('EXPENSES_CREATE') and hasAuthority('FINANCE_READ')")
+    public void linkExistingPayment(@PathVariable java.util.UUID id,
+            @RequestBody LinkPaymentRequest request, Authentication authentication) {
+        if (request == null) throw new IllegalArgumentException("Expense id required");
+        service.linkExistingPayment(id,request.expenseId(),authentication.getName());
+    }
+
     @GetMapping
     @PreAuthorize("hasAuthority('EXPENSES_READ')")
     public List<ExpenseAccrualService.ReportLine> report(
