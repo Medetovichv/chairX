@@ -38,6 +38,23 @@ class ExpensePeriodAllocationTest {
                 new BigDecimal("2"), new BigDecimal("3"));
     }
 
+    @Test void accrualWindowSpanningMonthsUsesOnlyOverlappingDays() {
+        var start = LocalDate.of(2026, 10, 30);
+        var end = LocalDate.of(2026, 11, 2);
+        assertThat(ExpensePeriodAllocation.accruedWithin(
+                new BigDecimal("100"), start, end,
+                LocalDate.of(2026, 11, 1), LocalDate.of(2026, 12, 1)))
+                .isEqualByComparingTo("34");
+        assertThat(ExpensePeriodAllocation.accruedWithin(
+                new BigDecimal("100"), start, end,
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 11, 1)))
+                .isEqualByComparingTo("66");
+        assertThat(ExpensePeriodAllocation.accruedWithin(
+                new BigDecimal("100"), start, end,
+                LocalDate.of(2027, 1, 1), LocalDate.of(2027, 2, 1)))
+                .isEqualByComparingTo("0");
+    }
+
     @Test void invalidPeriodsAndAmountsAreRejected() {
         var date = LocalDate.of(2026, 10, 19);
         assertThatThrownBy(() -> ExpensePeriodAllocation.allocate(BigDecimal.ZERO, date, date.plusDays(1)))
