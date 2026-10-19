@@ -162,8 +162,8 @@ public final class DailyClosingSalesSnapshot {
                 ) pay ON TRUE
                 WHERE s.status='FULFILLED'
                   AND (s.fulfillment_type='SELF_PICKUP'
-                    OR (s.fulfillment_type IN ('CITY_DELIVERY','REGION_DELIVERY')
-                        AND dl.status IN ('IN_TRANSIT','DELIVERED')))
+                    OR (s.fulfillment_type='CITY_DELIVERY' AND dl.status IN ('IN_TRANSIT','DELIVERED'))
+                    OR (s.fulfillment_type='REGION_DELIVERY' AND dl.status='DELIVERED'))
                   AND GREATEST(s.fulfilled_at,pay.paid_at)>=:begin
                   AND GREATEST(s.fulfilled_at,pay.paid_at)<:until
                 ORDER BY completed_at,s.id
