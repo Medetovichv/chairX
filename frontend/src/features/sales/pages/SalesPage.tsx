@@ -1,3 +1,4 @@
+import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
@@ -40,7 +41,7 @@ function dayRange(days: number): { from: string; to: string } {
 }
 
 export function SalesPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
   const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
@@ -65,11 +66,11 @@ export function SalesPage() {
   const create = hasPermission('SALES_CREATE');
   // Table is retained as the default for existing operational workflows.
   // Staff can switch to the visual Kanban without losing their filters.
-  const [view, setView] = useState<View>('table');
-  const [history,setHistory]=useState(false);
-  const [search, setSearch] = useState('');
+  const [view, setView] = usePersistedListState<View>('sales-view', user?.id, 'table');
+  const [history,setHistory]=usePersistedListState('sales-history',user?.id,false);
+  const [search, setSearch] = usePersistedListState('sales-search',user?.id,'');
   const [term, setTerm] = useState('');
-  const [filters, setFilters] = useState<SaleFilters>(empty);
+  const [filters, setFilters] = usePersistedListState<SaleFilters>('sales-filters',user?.id,empty);
   useEffect(() => {
     const timeout = setTimeout(() => setTerm(search.trim()), 350);
     return () => clearTimeout(timeout);
