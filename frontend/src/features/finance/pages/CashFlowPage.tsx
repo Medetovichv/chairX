@@ -5,6 +5,7 @@ import { financeApi,financeKeys } from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
 import { validPeriod,som,dateLabel } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
+import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -26,6 +27,7 @@ export function CashFlowPage(){
  return <div className="space-y-5">
   <PageHeader title="Движение денег" description="Поступления, выплаты и чистое движение средств за выбранный период."/>
   <FinanceTabs/>
+  <FinanceQuickPeriods onChoose={next=>{setPeriod(next);setDraft(next);}}/>
   <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={submit}>
    <label className="text-sm font-semibold">С (включительно)
     <Input type="date" aria-label="Cash Flow с" value={draft.from}
