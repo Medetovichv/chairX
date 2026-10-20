@@ -14,6 +14,7 @@ export function FinanceAnalyticsPage(){
  const [year,setYear]=useState(new Date().getFullYear());
  const from=year+'-01-01',to=String(year+1)+'-01-01';
  const [expensePeriod]=useFinancePeriod();
+ const margins=useQuery({queryKey:['f15','model-margins',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.margins(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const turnover=useQuery({queryKey:['f15','turnover',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.inventoryTurnover(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const categories=useQuery({queryKey:['f15','expense-categories',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.expenseCategories(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const q=useQuery({queryKey:['f15','analytics',year],queryFn:()=>reportingApi.analytics(from,to),enabled:allowed});
@@ -32,6 +33,21 @@ export function FinanceAnalyticsPage(){
    <select aria-label="Год аналитики" className="rounded-lg border p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>
     {[year-2,year-1,year,year+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=><option key={x} value={x}>{x}</option>)}
    </select></label>
+  <section aria-label="Маржинальность моделей" className="min-w-0 rounded-2xl border bg-white p-4">
+   <h2 className="font-semibold">Продажи и маржинальность моделей</h2>
+   <p className="mt-1 text-xs text-slate-500">Фактическая FIFO-себестоимость проданных вариаций; неполная себестоимость не заменяется текущей ценой закупки.</p>
+   {margins.isPending?<LoadingState label="Загружаем модели…"/>:margins.isError?<ErrorState error={margins.error} onRetry={()=>void margins.refetch()}/>:
+    margins.data.length===0?<p className="mt-3 text-sm text-slate-500">Нет продаж моделей за выбранный период.</p>:
+    <>
+     <div className="mt-3 hidden overflow-x-auto sm:block"><table className="w-full min-w-[620px] text-left text-sm">
+      <thead className="bg-slate-50"><tr>{['Модель / вариация','Продано','Выручка','Себестоимость FIFO','Валовая прибыль'].map(x=><th key={x} className="p-3">{x}</th>)}</tr></thead>
+      <tbody>{margins.data.map(m=><tr key={m.variantId} className="border-t"><td className="p-3 font-medium">{m.model} · {m.variation}</td><td className="p-3">{m.quantity}</td><td className="p-3">{som(m.revenue)}</td><td className="p-3">{m.costComplete?som(m.knownFifoCost):'Не подтверждена'}</td><td className="p-3">{m.costComplete&&m.grossProfit!=null?som(m.grossProfit):'Недоступно'}</td></tr>)}</tbody>
+     </table></div>
+     <div className="mt-3 space-y-3 sm:hidden">{margins.data.map(m=><article key={m.variantId} className="min-w-0 rounded-xl border p-3 text-sm">
+      <h3 className="break-words font-semibold">{m.model} · {m.variation}</h3><p>Продано: {m.quantity}</p><p>Выручка: {som(m.revenue)}</p><p>FIFO: {m.costComplete?som(m.knownFifoCost):'Не подтверждена'}</p><p className="font-medium">Валовая прибыль: {m.costComplete&&m.grossProfit!=null?som(m.grossProfit):'Недоступно'}</p>
+     </article>)}</div>
+    </>}
+  </section>
   <section aria-label="Оборачиваемость запасов" className="min-w-0 rounded-2xl border bg-white p-4">
    <h2 className="font-semibold">Оборачиваемость склада · {expensePeriod.from} — {expensePeriod.to}</h2>
    <p className="mt-1 text-xs text-slate-500">FIFO-себестоимость реализованных товаров за вычетом восстановленной стоимости возвратов, разделённая на среднюю стоимость запасов на границах периода.</p>
