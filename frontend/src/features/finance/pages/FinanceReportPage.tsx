@@ -86,7 +86,17 @@ export function FinanceReportPage(){
    </div>
   </section>
   <section className="rounded-2xl border bg-white p-4"><h2 className="font-semibold">Помесячная динамика · {year}</h2>
-   {analytics.isSuccess?<div className="mt-3 space-y-2">{analytics.data.months.map(m=><div className="grid grid-cols-[70px_1fr_1fr] items-center gap-2 text-sm" key={m.from}><span>{m.from.slice(5,7)}.{year.slice(2)}</span><span className="rounded-lg bg-blue-50 p-2">Выручка: {money(m.netRevenue)}</span><span className="rounded-lg bg-slate-50 p-2">Прибыль: {m.profitVerified?money(m.operatingProfit):'Недоступно'}</span></div>)}</div>:analytics.isError?<ErrorState error={analytics.error} onRetry={()=>void analytics.refetch()}/>:<LoadingState label="Загружаем динамику…"/>}
+   {analytics.isSuccess?<div className="mt-3 space-y-2">{analytics.data.months.map(m=><div className="grid grid-cols-[70px_1fr_1fr] items-center gap-2 text-sm" key={m.from}><span>{m.from.slice(5,7)}.{year.slice(2)}</span><div className="min-w-0 rounded-lg bg-blue-50 p-2">
+      <div className="mb-1 truncate">Выручка: {money(m.netRevenue)}</div>
+      <div role="img" aria-label={'Выручка '+money(m.netRevenue)} className="h-2 rounded bg-blue-100">
+       <div className="h-2 rounded bg-blue-600" style={{width:(()=>{
+        const amount=Math.max(0,Number(m.netRevenue));
+        const highest=Math.max(1,...analytics.data.months.map(item=>Math.max(0,Number(item.netRevenue))));
+        return (Number.isFinite(amount)&&Number.isFinite(highest)?Math.min(100,amount/highest*100):0)+'%';
+       })()}}/>
+      </div>
+     </div>
+     <span className="min-w-0 break-words rounded-lg bg-slate-50 p-2">Прибыль: {m.profitVerified?money(m.operatingProfit):'Недоступно'}</span></div>)}</div>:analytics.isError?<ErrorState error={analytics.error} onRetry={()=>void analytics.refetch()}/>:<LoadingState label="Загружаем динамику…"/>}
   </section>
   <p className="text-sm text-slate-600">Для подробностей используйте <Link className="text-blue-700 underline" to="/finance/expenses">Расходы</Link>, <Link className="text-blue-700 underline" to="/purchases">Закупки</Link> и <Link className="text-blue-700 underline" to="/finance/cash-flow">Cash Flow</Link>.</p>
  </div>;
