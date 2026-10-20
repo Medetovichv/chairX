@@ -105,5 +105,5 @@ export function CustomersPage() {
                   total={total} onPage={setPage} /> : null}
             </div>}
     </section>}
-  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick}><CustomerQuickView id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
