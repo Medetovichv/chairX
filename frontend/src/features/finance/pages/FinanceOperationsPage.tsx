@@ -9,6 +9,7 @@ import {LoadingState} from '../../../shared/components/LoadingState';
 import {ErrorState} from '../../../shared/components/ErrorState';
 import {ForbiddenPage} from '../../../pages/ForbiddenPage';
 import {Button} from '../../../shared/ui/button';
+import {FinanceExportButton} from '../components/FinanceExportButton';
 const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
 export function FinanceOperationsPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
@@ -25,6 +26,7 @@ export function FinanceOperationsPage(){
    <label className="text-sm">С <input aria-label="Операции с" className="block rounded-lg border p-2" type="date" value={period.from} onChange={e=>{setPeriod(p=>({...p,from:e.target.value}));setPage(0);}}/></label>
    <label className="text-sm">По (исключительно) <input aria-label="Операции по" className="block rounded-lg border p-2" type="date" value={period.to} onChange={e=>{setPeriod(p=>({...p,to:e.target.value}));setPage(0);}}/></label>
    <label className="text-sm">Счёт <select aria-label="Счёт операций" className="block rounded-lg border p-2" value={account} onChange={e=>{setAccount(e.target.value);setPage(0);}}><option value="">Все</option><option value="CASH">Наличные</option><option value="BANK">Банк</option></select></label>
+   <FinanceExportButton from={period.from} to={period.to} account={account}/>
   </div>
   {report.isPending?<LoadingState label="Загружаем проводки…"/>:report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
   <section aria-label="Журнал денежных операций" className="overflow-hidden rounded-2xl border bg-white">
