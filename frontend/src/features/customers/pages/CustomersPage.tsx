@@ -1,3 +1,4 @@
+import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
@@ -20,7 +21,7 @@ import { CustomerSearch } from '../components/CustomerSearch';
 import { CustomerTable } from '../components/CustomerTable';
 
 export function CustomersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
   const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
@@ -46,9 +47,9 @@ export function CustomersPage() {
   const withSales = hasPermission('SALES_READ');
   const navigate = useNavigate();
   const client = useQueryClient();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = usePersistedListState('customer-search',user?.id,'');
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = usePersistedListState('customer-page',user?.id,0);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
