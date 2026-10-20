@@ -6,6 +6,7 @@ import { CustomerForm } from '../../features/customers/components/CustomerForm';
 import { DeliveryActions } from '../../features/deliveries/components/DeliveryActions';
 import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryTimeline';
 import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
+import { SaleForm } from '../../features/sales/components/SaleForm';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
@@ -33,6 +34,10 @@ function Section({ children }: { children: React.ReactNode }) {
 }
 export function SaleQuickView({ id }: { id: string }) {
   const [tab, setTab] = useState<Tab>('overview');
+  const { hasPermission } = useAuth();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const detail = useQuery({ queryKey: salesKeys.detail(id), queryFn: () => salesApi.get(id) });
   const history = useQuery({ queryKey: salesKeys.history(id, 0), queryFn: () => salesApi.history(id, 0) });
   if (detail.isPending) return <LoadingState label="Загружаем продажу…"/>;
@@ -56,6 +61,26 @@ export function SaleQuickView({ id }: { id: string }) {
       </Section>)}
     </section></>}
     {tab === 'actions' && <div className="space-y-3">
+      {saveError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
+      {sale.status === 'DRAFT' && hasPermission('SALES_DRAFT_MANAGE') && !editing && <button type="button" className="rounded-xl bg-blue-600 px-4 py-3 text-white" onClick={() => setEditing(true)}>Редактировать черновик</button>}
+      {editing && <SaleForm initial={sale} onCancel={() => setEditing(false)} onSave={async input => {
+        const fresh = await salesApi.get(id);
+        const snapshot = (value: typeof fresh) => JSON.stringify({status:value.status,customerId:value.customerId,fulfillmentType:value.fulfillmentType,comment:value.comment,items:value.items.map(i=>[i.productVariantId,i.warehouseId,i.quantity,String(i.unitSalePrice)]),total:String(value.total)});
+        if (snapshot(fresh) !== snapshot(sale)) {
+          queryClient.setQueryData(salesKeys.detail(id), fresh);
+          throw new Error('Черновик изменён другим сотрудником; проверьте обновлённые данные.');
+        }
+        try {
+          const updated = await salesApi.updateDraft(id, input);
+          queryClient.setQueryData(salesKeys.detail(id), updated);
+          await Promise.all([queryClient.invalidateQueries({queryKey:salesKeys.lists}),queryClient.invalidateQueries({queryKey:salesKeys.kanban}),queryClient.invalidateQueries({queryKey:salesKeys.historyPrefix(id)})]);
+          setEditing(false);
+          setSaveError('');
+        } catch (cause) {
+          setSaveError('Результат сохранения необходимо проверить перед повтором.');
+          throw cause;
+        }
+      }}/>}
       <p className="text-sm text-slate-600">Для изменения товара, выдачи, оплаты или отмены используйте полную карточку: она проверяет актуальность данных перед необратимой операцией.</p>
       <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-white" to={'/sales/' + encodeURIComponent(id)}>Открыть действия продажи</Link>
       <SaleCommentsPanel saleId={id}/>
