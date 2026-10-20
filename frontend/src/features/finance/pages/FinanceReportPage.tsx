@@ -70,6 +70,18 @@ export function FinanceReportPage(){
     ['Операционная прибыль',pnl.data.operatingProfit]] as const).map(([name,value])=>
     <div key={name} className="flex justify-between gap-3 border-b border-slate-100 py-2"><span>{name}</span><strong className="text-right tabular-nums">{money(value)}</strong></div>)}</div>:<p className="text-sm text-slate-500">Данные P&L загружаются отдельно от денежных проводок.</p>}
   </section>
+  {pnl.isSuccess&&<details className="rounded-2xl border bg-white p-4">
+   <summary className="cursor-pointer font-semibold">Признанные продажи и FIFO — расшифровка ({pnl.data.sales.length})</summary>
+   <p className="mt-2 text-xs text-slate-500">Выручка признаётся по фактическому исполнению заказа, независимо от даты оплаты. Историческая себестоимость берётся из FIFO allocations.</p>
+   <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm">
+    <thead className="bg-slate-50"><tr><th className="p-3">Заказ</th><th className="p-3 text-right">Выручка</th><th className="p-3 text-right">FIFO стоимость</th><th className="p-3">Проверка</th></tr></thead>
+    <tbody>{pnl.data.sales.map(sale=><tr key={sale.saleId} className="border-t">
+     <td className="p-3">{hasPermission('SALES_READ')?<Link to={'/sales/'+encodeURIComponent(sale.saleId)} className="text-blue-700 underline">{sale.saleNumber}</Link>:sale.saleNumber}</td>
+     <td className="p-3 text-right">{money(sale.recognizedRevenue)}</td><td className="p-3 text-right">{sale.completeCost?money(sale.fifoCost):'Недоступно'}</td>
+     <td className="p-3">{sale.completeCost?'Подтверждено':'Не проверено'}</td>
+    </tr>)}</tbody>
+   </table>{!pnl.data.sales.length&&<p className="p-3 text-sm text-slate-500">Признанных продаж за период нет.</p>}</div>
+  </details>}
   <section className="overflow-hidden rounded-2xl border bg-white">
    <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h2 className="font-semibold">Все денежные операции</h2><p className="text-xs text-slate-500">Проводки, включая внутренние переводы; это не P&L.</p></div>
     <label className="text-sm">Счёт <select className="rounded-lg border p-2" value={account} onChange={e=>{setAccount(e.target.value);setPage(0);}}><option value="">Все</option><option value="CASH">Наличные</option><option value="BANK">Банк</option></select></label></div>
