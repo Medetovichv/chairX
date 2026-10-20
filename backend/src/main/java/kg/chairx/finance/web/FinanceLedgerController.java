@@ -95,7 +95,7 @@ public class FinanceLedgerController {
                    .append(csv(line.account())).append(';')
                    .append(csv(line.type())).append(';')
                    .append(csv(line.sourceType())).append(';')
-                   .append(csv(line.amount().toPlainString())).append(';')
+                   .append(line.amount().toPlainString()).append(';')
                    .append(csv(line.createdBy())).append("\r\n");
             }
         }
