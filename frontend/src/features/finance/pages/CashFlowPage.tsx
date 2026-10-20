@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { financeApi,financeKeys } from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
-import { periodMonth,validPeriod,som,dateLabel } from '../validation';
+import { validPeriod,som,dateLabel } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
