@@ -17,7 +17,8 @@ public class FinanceLedgerController {
 
     public record Line(UUID id, Instant postedAt, LocalDate businessDate,
                        String account, BigDecimal amount, String type,
-                       String sourceType, UUID sourceId, String createdBy) {}
+                       String sourceType, UUID sourceId, String createdBy,
+                       String documentKind, UUID documentId, String documentLabel) {}
     public record Page(List<Line> items,long total,int page,int size) {}
 
     /**
@@ -50,18 +51,23 @@ public class FinanceLedgerController {
         Instant start=from.atStartOfDay(ZONE).toInstant();
         Instant end=to.atStartOfDay(ZONE).toInstant();
         String clause="""
-                FROM finance_movements
-                WHERE created_at>=:from AND created_at<:to
-                  AND (:account = '' OR account_code=:account)
-                  AND (:kind = '' OR movement_type=:kind)
-                  AND (:search = '' OR created_by ILIKE :searchPattern
-                       OR movement_type ILIKE :searchPattern
-                       OR source_type ILIKE :searchPattern
-                       OR CAST(source_id AS text) ILIKE :searchPattern)
-                  AND (:minAmount IS NULL OR amount >= :minAmount)
-                  AND (:maxAmount IS NULL OR amount <= :maxAmount)
+                FROM finance_movements fm
+                LEFT JOIN payments pay ON fm.source_type = 'PAYMENT' AND pay.id=fm.source_id
+                LEFT JOIN sales sale ON sale.id=pay.sale_id
+                LEFT JOIN purchase_payments pp ON fm.source_type = 'PURCHASE_PAYMENT' AND pp.id=fm.source_id
+                LEFT JOIN purchases pur ON pur.id=pp.purchase_id
+                LEFT JOIN suppliers supplier ON supplier.id=pur.supplier_id
+                WHERE fm.created_at>=:from AND fm.created_at<:to
+                  AND (:account = '' OR fm.account_code=:account)
+                  AND (:kind = '' OR fm.movement_type=:kind)
+                  AND (:search = '' OR fm.created_by ILIKE :searchPattern
+                       OR fm.movement_type ILIKE :searchPattern
+                       OR fm.source_type ILIKE :searchPattern
+                       OR CAST(fm.source_id AS text) ILIKE :searchPattern)
+                  AND (:minAmount IS NULL OR fm.amount >= :minAmount)
+                  AND (:maxAmount IS NULL OR fm.amount <= :maxAmount)
                 """;
-        String order=switch(sort){case "oldest"->"created_at ASC,id ASC";case "amountAsc"->"amount ASC,id ASC";case "amountDesc"->"amount DESC,id DESC";default->"created_at DESC,id DESC";};
+        String order=switch(sort){case "oldest"->"fm.created_at ASC,fm.id ASC";case "amountAsc"->"fm.amount ASC,fm.id ASC";case "amountDesc"->"fm.amount DESC,fm.id DESC";default->"fm.created_at DESC,fm.id DESC";};
         String q=search==null?"":search.strip();
         String pattern="%"+q.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
         var base=jdbc.sql("SELECT COUNT(*) "+clause)
@@ -71,8 +77,11 @@ public class FinanceLedgerController {
                 .param("minAmount",minAmount,java.sql.Types.NUMERIC).param("maxAmount",maxAmount,java.sql.Types.NUMERIC);
         long count=base.query(Long.class).single();
         var entries=jdbc.sql("""
-             SELECT id,created_at,business_date,account_code,amount,
-                    movement_type,source_type,source_id,created_by
+             SELECT fm.id,fm.created_at,fm.business_date,fm.account_code,fm.amount,
+                    fm.movement_type,fm.source_type,fm.source_id,fm.created_by,
+                    CASE WHEN sale.id IS NOT NULL THEN 'SALE' WHEN pur.id IS NOT NULL THEN 'PURCHASE' ELSE NULL END AS document_kind,
+                    COALESCE(sale.id,pur.id) AS document_id,
+                    CASE WHEN sale.id IS NOT NULL THEN sale.sale_number WHEN pur.id IS NOT NULL THEN supplier.name ELSE NULL END AS document_label
              """+clause+" ORDER BY "+order+" LIMIT :limit OFFSET :offset")
              .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
              .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)
@@ -85,7 +94,9 @@ public class FinanceLedgerController {
                  rs.getDate("business_date")==null?null:rs.getDate("business_date").toLocalDate(),
                  rs.getString("account_code"),rs.getBigDecimal("amount"),
                  rs.getString("movement_type"),rs.getString("source_type"),
-                 rs.getObject("source_id",UUID.class),rs.getString("created_by"))).list();
+                 rs.getObject("source_id",UUID.class),rs.getString("created_by"),
+                 rs.getString("document_kind"),rs.getObject("document_id",UUID.class),
+                 rs.getString("document_label"))).list();
         return new Page(entries,count,page,size);
     }
 
