@@ -33,6 +33,10 @@ import { ExchangeDetailPage } from '../../features/returns/pages/ExchangeDetailP
 import { DefectsPage } from '../../features/returns/pages/DefectsPage';
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
 import { FinanceOverviewPage } from '../../features/finance/pages/FinanceOverviewPage';
+import { FinanceOperationsPage } from '../../features/finance/pages/FinanceOperationsPage';
+import { FinanceSourceDocumentPage } from '../../features/finance/pages/FinanceSourceDocumentPage';
+import { FinanceObligationsPage } from '../../features/finance/pages/FinanceObligationsPage';
+import { FinanceAnalyticsPage } from '../../features/finance/pages/FinanceAnalyticsPage';
 import { FinanceReportPage } from '../../features/finance/pages/FinanceReportPage';
 import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
 import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
@@ -126,6 +130,9 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/returns/defects') return <DefectsPage />;
   if (path === '/finance') return <FinanceOverviewPage />;
   if (path === '/finance/expenses') return <ExpensesPage />;
+  if (path === '/finance/operations') return <FinanceOperationsPage />;
+  if (path === '/finance/obligations') return <FinanceObligationsPage />;
+  if (path === '/finance/analytics') return <FinanceAnalyticsPage />;
   if (path === '/finance/report') return <FinanceReportPage />;
   if (path === '/finance/cash-flow') return <CashFlowPage />;
   if (path === '/finance/transfers') return <FinanceTransferPage />;
@@ -163,6 +170,7 @@ export function AppRouter() {
           {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
+          <Route path="finance/documents/:kind/:documentId" element={<FinanceSourceDocumentPage/>}/>
           <Route path="returns/new" element={<ReturnCreateGate/>}/>
           <Route path="returns/:returnId/refund" element={<ReturnRefundGate/>}/>
           <Route path="returns/exchanges/:exchangeId" element={<ExchangeDetailGate/>}/>

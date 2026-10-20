@@ -13,6 +13,9 @@ import { SaleFinancialSection } from '../features/finance/components/SaleFinanci
 import { ExpensesPage } from '../features/finance/pages/ExpensesPage';
 import { FinanceOverviewPage } from '../features/finance/pages/FinanceOverviewPage';
 import { FinanceReportPage } from '../features/finance/pages/FinanceReportPage';
+import { FinanceOperationsPage } from '../features/finance/pages/FinanceOperationsPage';
+import { FinanceObligationsPage } from '../features/finance/pages/FinanceObligationsPage';
+import { FinanceAnalyticsPage } from '../features/finance/pages/FinanceAnalyticsPage';
 import { ExchangeSettlementForm } from '../features/finance/components/ExchangeSettlementForm';
 import { readFinancePending } from '../features/finance/pending';
 import {
@@ -69,6 +72,35 @@ beforeEach(()=>{
 });
 afterEach(()=>{
  authSession.clear();sessionStorage.clear();vi.restoreAllMocks();vi.unstubAllGlobals();
+});
+describe('F15 financial pages and permission boundaries',()=>{
+ it('rejects access to journal, supplier debts and analytics without FINANCE_READ',()=>{
+  access.permissions=['INVENTORY_READ'];
+  const views=[<FinanceOperationsPage/>,<FinanceObligationsPage/>,<FinanceAnalyticsPage/>];
+  for(const element of views){
+   const ui=wrapper(element);
+   expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
+   ui.unmount();
+  }
+ });
+ it('loads actual ledger rows and opens a mobile-friendly detail view',async()=>{
+  access.permissions=['FINANCE_READ'];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path.startsWith('/api/finance/ledger?'))return j({page:0,size:50,total:1,items:[{
+    id:'a',postedAt:'2026-10-20T09:00:00Z',businessDate:'2026-10-20',
+    account:'CASH',amount:'8500',type:'SALE_PAYMENT',sourceType:'PAYMENT',
+    sourceId:'source-1',createdBy:'cashier',documentKind:'SALE',documentId:SALE,documentLabel:'CX-125'
+   }]});
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<FinanceOperationsPage/>);
+  const region=await screen.findByRole('region',{name:'Журнал денежных операций'});
+  expect(within(region).getAllByText('Оплата продажи').length).toBeGreaterThan(0);
+  await userEvent.setup().click(within(region).getAllByRole('button',{name:/Оплата продажи/})[0]!);
+  expect(screen.getByRole('dialog',{name:'Детали финансовой операции'})).toBeInTheDocument();
+  expect(screen.queryByRole('link',{name:'Открыть заказ →'})).not.toBeInTheDocument();
+ });
 });
 describe('Finance reporting RBAC and unavailable profit',()=>{
  it('does not render profitability without FINANCE_READ',()=>{

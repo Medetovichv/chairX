@@ -16,7 +16,7 @@ public class FinancePurchaseObligationsController {
     private final JdbcClient jdbc;
     public FinancePurchaseObligationsController(JdbcClient jdbc){this.jdbc=jdbc;}
 
-    public record PurchaseDebt(UUID purchaseId,String status,BigDecimal supplierTotal,
+    public record PurchaseDebt(UUID purchaseId,String supplierName,java.time.Instant createdAt,String status,BigDecimal supplierTotal,
             BigDecimal cargoTotal,BigDecimal supplierPaid,BigDecimal cargoPaid,
             BigDecimal outstanding,BigDecimal prepaid) {}
     public record Obligations(BigDecimal totalOutstanding,BigDecimal totalPrepaid,
@@ -26,12 +26,13 @@ public class FinancePurchaseObligationsController {
     @PreAuthorize("hasAuthority('FINANCE_READ')")
     public Obligations list() {
         var lines=jdbc.sql("""
-          SELECT p.id,p.status,
+          SELECT p.id,p.status,p.created_at,supplier.name AS supplier_name,
             COALESCE(items.amount,0) AS supplier_total,
             COALESCE(p.cargo_cost,0) AS cargo_total,
             COALESCE(pay.supplier_paid,0) AS supplier_paid,
             COALESCE(pay.cargo_paid,0) AS cargo_paid
           FROM purchases p
+          JOIN suppliers supplier ON supplier.id=p.supplier_id
           LEFT JOIN LATERAL (
              SELECT SUM(ordered_quantity*purchase_unit_cost) AS amount
              FROM purchase_items WHERE purchase_id=p.id
@@ -52,7 +53,7 @@ public class FinancePurchaseObligationsController {
                     .add(cargo.subtract(paidCargo).max(BigDecimal.ZERO));
             BigDecimal advance=paidSupplier.subtract(supplier).max(BigDecimal.ZERO)
                     .add(paidCargo.subtract(cargo).max(BigDecimal.ZERO));
-            return new PurchaseDebt(rs.getObject("id",UUID.class),rs.getString("status"),
+            return new PurchaseDebt(rs.getObject("id",UUID.class),rs.getString("supplier_name"),rs.getTimestamp("created_at").toInstant(),rs.getString("status"),
                   supplier,cargo,paidSupplier,paidCargo,
                   due,advance);
           }).list();

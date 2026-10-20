@@ -2,8 +2,10 @@ import { useState,type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { financeApi,financeKeys } from '../api';
-import { periodMonth,validPeriod,som,dateLabel } from '../validation';
+import {useFinancePeriod} from '../useFinancePeriod';
+import { validPeriod,som,dateLabel } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
+import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
@@ -12,7 +14,8 @@ import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 export function CashFlowPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
- const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth),[error,setError]=useState('');
+ const [period,setPeriod]=useFinancePeriod();
+ const [draft,setDraft]=useState(period),[error,setError]=useState('');
  const q=useQuery({queryKey:financeKeys.flowPeriod(period.from,period.to),
   queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){
@@ -24,6 +27,7 @@ export function CashFlowPage(){
  return <div className="space-y-5">
   <PageHeader title="Движение денег" description="Поступления, выплаты и чистое движение средств за выбранный период."/>
   <FinanceTabs/>
+  <FinanceQuickPeriods onChoose={next=>{setPeriod(next);setDraft(next);}}/>
   <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-white p-4" onSubmit={submit}>
    <label className="text-sm font-semibold">С (включительно)
     <Input type="date" aria-label="Cash Flow с" value={draft.from}

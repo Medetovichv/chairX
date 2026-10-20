@@ -15,7 +15,7 @@ export function AppLayout() {
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen min-w-0 bg-[#f5f9fe]">
+    <div className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-clip bg-[#f5f9fe]">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header title={routeLabel(pathname)} onOpenMenu={() => setMobileOpen(true)} />

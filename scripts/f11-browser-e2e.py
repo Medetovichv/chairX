@@ -150,6 +150,46 @@ def main():
                     page.screenshot(path=str(ART/f"04-mobile-{width}px.png"),full_page=True)
             page.set_viewport_size({"width":1440,"height":900})
 
+            # F15: integrated financial pages use the same authenticated
+            # real database and must remain accessible on desktop/mobile.
+            for route,title in (
+                    ("finance","Финансы"),
+                    ("finance/report","Финансовый отчёт"),
+                    ("finance/operations","Все операции"),
+                    ("finance/cash-flow","Движение денег"),
+                    ("finance/expenses","Расходы"),
+                    ("finance/obligations","Закупки и обязательства"),
+                    ("finance/analytics","Аналитика")):
+                # SPA routing preserves the in-memory F02 authentication session.
+                # Hard navigation would reset auth and redirect to /login.
+                page.evaluate("""route => {
+                    history.pushState({}, '', '/' + route);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                }""",route)
+                page.get_by_role("heading",name=title,exact=True).wait_for(timeout=30000)
+                for width in (320,360,375,390,430,768,1440):
+                    page.set_viewport_size({"width":width,"height":844})
+                    page.wait_for_timeout(100)
+                    overflow=page.evaluate("""() => ({
+                        scroll: document.documentElement.scrollWidth,
+                        client: document.documentElement.clientWidth
+                    })""")
+                    if overflow["scroll"]>overflow["client"]+1:
+                        offenders=page.evaluate("""() => [...document.querySelectorAll('body *')]
+                            .map(el=>({tag:el.tagName,cls:String(el.className).slice(0,100),
+                                       right:Math.round(el.getBoundingClientRect().right),
+                                       width:Math.round(el.getBoundingClientRect().width)}))
+                            .filter(x=>x.right>document.documentElement.clientWidth+1)
+                            .slice(0,12)""")
+                        raise AssertionError(
+                            f"{route}: horizontal page overflow at {width}px: {overflow}; offenders: {offenders}"
+                        )
+                    if route.startswith("finance/") and width in (320,390,768,1440):
+                        page.screenshot(path=str(ART/f"f15-{route.replace('/', '-')}-{width}.png"),full_page=True)
+                    if route=="finance/operations" and width in (390,1440):
+                        page.screenshot(path=str(ART/f"f15-operations-{width}.png"),full_page=True)
+                page.set_viewport_size({"width":1440,"height":900})
+
             db(1,4,10100,4900,1)
             report=admin.must("GET",url,None,200)
             assert int(report["cash"]["expected"])==10100

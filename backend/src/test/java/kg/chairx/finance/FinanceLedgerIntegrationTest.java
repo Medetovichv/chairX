@@ -47,6 +47,30 @@ class FinanceLedgerIntegrationTest {
         .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
         .andExpect(status().isForbidden());
     mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
+        .param("search","ledger-test").param("minAmount","1000").param("maxAmount","2000")
+        .param("sort","amountDesc")
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items").isArray());
+    mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
+        .param("sort","id DROP TABLE finance_movements")
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/finance/expense-categories").param("from",day).param("to",tomorrow)
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.grandTotal").exists())
+        .andExpect(jsonPath("$.categories").isArray());
+    mvc.perform(get("/api/finance/expense-categories").param("from",day).param("to",tomorrow)
+        .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Disposition",org.hamcrest.Matchers.containsString("attachment;")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("1234")));
+    mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
+        .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+        .andExpect(status().isForbidden());
+    mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
         .param("size","101")
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
         .andExpect(status().is4xxClientError());

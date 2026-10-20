@@ -4,8 +4,10 @@ import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
 import {financeApi} from '../api';
-import {som,periodMonth,validPeriod} from '../validation';
+import {useFinancePeriod} from '../useFinancePeriod';
+import {som,validPeriod} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
+import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
 import {ErrorState} from '../../../shared/components/ErrorState';
@@ -14,6 +16,16 @@ import {Input} from '../../../shared/ui/input';
 import {Button} from '../../../shared/ui/button';
 
 const money=(v:string|number|null|undefined)=>v==null?'Недоступно':som(v);
+function previousPeriod(from:string,to:string){
+ const first=new Date(from+'T12:00:00Z');
+ const last=new Date(to+'T12:00:00Z');
+ const days=Math.round((last.getTime()-first.getTime())/86400000);
+ if(days<=0||days>93)return null;
+ const prevTo=new Date(first);const prevFrom=new Date(first);
+ prevFrom.setUTCDate(prevFrom.getUTCDate()-days);
+ return {from:prevFrom.toISOString().slice(0,10),to:prevTo.toISOString().slice(0,10)};
+}
+
 const typeNames:Record<string,string>={
  SALE_PAYMENT:'Платёж клиента',PAYMENT_REVERSAL:'Отмена платежа',
  CUSTOMER_REFUND:'Возврат клиенту',PURCHASE_PAYMENT:'Оплата закупки',
@@ -24,9 +36,13 @@ const card=(name:string,value:string,caption?:string)=><article key={name} class
 </article>;
 export function FinanceReportPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
- const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth);
+ const [period,setPeriod]=useFinancePeriod();
+ const [draft,setDraft]=useState(period);
  const [error,setError]=useState(''),[page,setPage]=useState(0),[account,setAccount]=useState('');
  const pnl=useQuery({queryKey:['reporting','pnl',period.from,period.to],queryFn:()=>reportingApi.profitability(period.from,period.to),enabled:allowed});
+ const previous=previousPeriod(period.from,period.to);
+ const priorPnl=useQuery({queryKey:['reporting','prior-pnl',previous?.from,previous?.to],
+  queryFn:()=>reportingApi.profitability(previous!.from,previous!.to),enabled:allowed&&previous!==null});
  const flow=useQuery({queryKey:['reporting','flow',period.from,period.to],queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  const ledger=useQuery({queryKey:['reporting','ledger',period.from,period.to,page,account],queryFn:()=>reportingApi.ledger(period.from,period.to,page,account),enabled:allowed});
  const margins=useQuery({queryKey:['reporting','margins',period.from,period.to],queryFn:()=>reportingApi.margins(period.from,period.to),enabled:allowed});
@@ -35,9 +51,10 @@ export function FinanceReportPage(){
  const year=period.from.slice(0,4),analytics=useQuery({queryKey:['reporting','analytics',year],queryFn:()=>reportingApi.analytics(year+'-01-01',String(Number(year)+1)+'-01-01'),enabled:allowed});
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){setError('Выберите корректный период не длиннее 93 дней.');return;}setError('');setPage(0);setPeriod({...draft});}
  if(!allowed)return <ForbiddenPage/>;
- return <div className="space-y-5 pb-10">
+ return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Финансовый отчёт" description="Прибыль, денежные потоки, склад и обязательства — отдельно, без двойного учёта"/>
   <FinanceTabs/>
+  <FinanceQuickPeriods onChoose={next=>{setPeriod(next);setDraft(next);setPage(0);}}/>
   <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
    <label className="text-sm">С (включительно)<Input aria-label="Отчёт с даты" type="date" value={draft.from} onChange={e=>setDraft(d=>({...d,from:e.target.value}))}/></label>
    <label className="text-sm">По (исключительно)<Input aria-label="Отчёт по дату" type="date" value={draft.to} onChange={e=>setDraft(d=>({...d,to:e.target.value}))}/></label>
@@ -55,6 +72,22 @@ export function FinanceReportPage(){
    {flow.isSuccess?<>{card('Поступления денег',money(flow.data.totalIn))}{card('Денежные выплаты',money(flow.data.totalOut))}</>:flow.isError?<ErrorState error={flow.error} onRetry={()=>void flow.refetch()}/>:<LoadingState label="Загружаем денежные потоки…"/>}
   </section>
   {pnl.isSuccess&&!pnl.data.netProfitAvailable&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">Прибыль не подтверждена. {pnl.data.caveat||'Требуется сверка FIFO или возвратов.'} Денежный поток не используется вместо прибыли.</p>}
+  <section aria-label="Сравнение периодов" className="rounded-2xl border bg-white p-4">
+    <h2 className="font-semibold">Сравнение с предыдущим равным периодом</h2>
+    {priorPnl.isSuccess&&pnl.isSuccess&&previous?<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="rounded-xl bg-slate-50 p-3">
+       <p className="text-xs text-slate-600">Текущий · {period.from} — {period.to}</p>
+       <p className="mt-2 text-sm">Выручка: <strong>{money(pnl.data.netRevenue)}</strong></p>
+       <p className="mt-1 text-sm">Прибыль: <strong>{pnl.data.netProfitAvailable?money(pnl.data.operatingProfit):'Недоступно'}</strong></p>
+      </div>
+      <div className="rounded-xl bg-slate-50 p-3">
+       <p className="text-xs text-slate-600">Предыдущий · {previous.from} — {previous.to}</p>
+       <p className="mt-2 text-sm">Выручка: <strong>{money(priorPnl.data.netRevenue)}</strong></p>
+       <p className="mt-1 text-sm">Прибыль: <strong>{priorPnl.data.netProfitAvailable?money(priorPnl.data.operatingProfit):'Недоступно'}</strong></p>
+      </div>
+     </div>:priorPnl.isError?<ErrorState error={priorPnl.error} onRetry={()=>void priorPnl.refetch()}/>:<LoadingState label="Загружаем предыдущий период…"/>}
+    <p className="mt-2 text-xs text-slate-500">Верхние границы периодов исключаются. Неподтверждённая прибыль никогда не подменяется денежным потоком.</p>
+  </section>
   <section className="rounded-2xl border bg-white p-4">
    <h2 className="mb-3 font-semibold">Отчёт о прибыли и убытках (P&L)</h2>
    {pnl.isSuccess?<div className="space-y-2 text-sm">{([
@@ -70,6 +103,18 @@ export function FinanceReportPage(){
     ['Операционная прибыль',pnl.data.operatingProfit]] as const).map(([name,value])=>
     <div key={name} className="flex justify-between gap-3 border-b border-slate-100 py-2"><span>{name}</span><strong className="text-right tabular-nums">{money(value)}</strong></div>)}</div>:<p className="text-sm text-slate-500">Данные P&L загружаются отдельно от денежных проводок.</p>}
   </section>
+  {pnl.isSuccess&&<details className="rounded-2xl border bg-white p-4">
+   <summary className="cursor-pointer font-semibold">Признанные продажи и FIFO — расшифровка ({pnl.data.sales.length})</summary>
+   <p className="mt-2 text-xs text-slate-500">Выручка признаётся по фактическому исполнению заказа, независимо от даты оплаты. Историческая себестоимость берётся из FIFO allocations.</p>
+   <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm">
+    <thead className="bg-slate-50"><tr><th className="p-3">Заказ</th><th className="p-3 text-right">Выручка</th><th className="p-3 text-right">FIFO стоимость</th><th className="p-3">Проверка</th></tr></thead>
+    <tbody>{pnl.data.sales.map(sale=><tr key={sale.saleId} className="border-t">
+     <td className="p-3">{hasPermission('SALES_READ')?<Link to={'/sales/'+encodeURIComponent(sale.saleId)} className="text-blue-700 underline">{sale.saleNumber}</Link>:sale.saleNumber}</td>
+     <td className="p-3 text-right">{money(sale.recognizedRevenue)}</td><td className="p-3 text-right">{sale.completeCost?money(sale.fifoCost):'Недоступно'}</td>
+     <td className="p-3">{sale.completeCost?'Подтверждено':'Не проверено'}</td>
+    </tr>)}</tbody>
+   </table>{!pnl.data.sales.length&&<p className="p-3 text-sm text-slate-500">Признанных продаж за период нет.</p>}</div>
+  </details>}
   <section className="overflow-hidden rounded-2xl border bg-white">
    <div className="flex flex-wrap items-center justify-between gap-3 p-4"><div><h2 className="font-semibold">Все денежные операции</h2><p className="text-xs text-slate-500">Проводки, включая внутренние переводы; это не P&L.</p></div>
     <label className="text-sm">Счёт <select className="rounded-lg border p-2" value={account} onChange={e=>{setAccount(e.target.value);setPage(0);}}><option value="">Все</option><option value="CASH">Наличные</option><option value="BANK">Банк</option></select></label></div>
