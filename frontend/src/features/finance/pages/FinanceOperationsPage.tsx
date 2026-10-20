@@ -22,7 +22,7 @@ export function FinanceOperationsPage(){
  queryFn:()=>reportingApi.ledger(period.from,period.to,page,account,movementType,search,minAmount,maxAmount,sort),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
  const line=report.data?.items.find(item=>item.id===selected);
- return <div className="space-y-5 pb-10">
+ return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Все операции" description="Реальные денежные проводки; внутренние переводы не считаются выручкой"/>
   <FinanceTabs/>
   <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
