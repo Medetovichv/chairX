@@ -36,7 +36,7 @@ export function FinanceReportPage(){
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){setError('Выберите корректный период не длиннее 93 дней.');return;}setError('');setPage(0);setPeriod({...draft});}
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-5 pb-10">
-  <PageHeader title="Финансовая аналитика" description="Прибыль, денежные потоки, склад и обязательства — отдельно, без двойного учёта"/>
+  <PageHeader title="Финансовый отчёт" description="Прибыль, денежные потоки, склад и обязательства — отдельно, без двойного учёта"/>
   <FinanceTabs/>
   <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
    <label className="text-sm">С (включительно)<Input aria-label="Отчёт с даты" type="date" value={draft.from} onChange={e=>setDraft(d=>({...d,from:e.target.value}))}/></label>
