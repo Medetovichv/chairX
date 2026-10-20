@@ -158,7 +158,12 @@ def main():
                     ("finance/operations","Все операции"),
                     ("finance/obligations","Закупки и обязательства"),
                     ("finance/analytics","Аналитика")):
-                page.goto(BASE+"/"+route,wait_until="domcontentloaded")
+                # SPA routing preserves the in-memory F02 authentication session.
+                # Hard navigation would reset auth and redirect to /login.
+                page.evaluate("""route => {
+                    history.pushState({}, '', '/' + route);
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                }""",route)
                 page.get_by_role("heading",name=title,exact=True).wait_for(timeout=30000)
                 for width in (320,390,768,1440):
                     page.set_viewport_size({"width":width,"height":844})
