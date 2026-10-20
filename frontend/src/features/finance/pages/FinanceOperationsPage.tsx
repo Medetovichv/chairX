@@ -76,6 +76,8 @@ export function FinanceOperationsPage(){
     <td className="p-3">{labels[x.type]||x.type.replaceAll('_',' ')}</td>
     <td className="p-3">{x.account==='CASH'?'Наличные':'Банк'}</td><td className="p-3">{x.documentLabel||x.sourceType.replaceAll('_',' ')}{x.documentKind==='SALE'&&x.documentId&&hasPermission('SALES_READ')&&
      <Link to={'/sales/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть заказ</Link>}
+    {x.documentKind==='EXCHANGE'&&x.documentId&&hasPermission('EXCHANGES_READ')&&
+     <Link to={'/returns/exchanges/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть обмен</Link>}
     {x.documentKind==='RETURN'&&x.documentId&&hasPermission('RETURNS_READ')&&
      <Link to={'/returns/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть возврат</Link>}
     {x.documentKind==='PURCHASE'&&x.documentId&&hasPermission('PURCHASE_READ')&&
@@ -99,6 +101,8 @@ export function FinanceOperationsPage(){
     <div><dt className="text-slate-500">Источник</dt><dd>{line.documentLabel||line.sourceType}</dd></div>
     {line.documentKind==='SALE'&&line.documentId&&hasPermission('SALES_READ')&&
      <Link to={'/sales/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть заказ →</Link>}
+    {line.documentKind==='EXCHANGE'&&line.documentId&&hasPermission('EXCHANGES_READ')&&
+     <Link to={'/returns/exchanges/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть обмен →</Link>}
     {line.documentKind==='RETURN'&&line.documentId&&hasPermission('RETURNS_READ')&&
      <Link to={'/returns/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть возврат →</Link>}
     {line.documentKind==='PURCHASE'&&line.documentId&&hasPermission('PURCHASE_READ')&&
