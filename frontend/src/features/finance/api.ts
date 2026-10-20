@@ -24,19 +24,7 @@ export interface ExpenseAccrualLine {
  accrual:ExpenseAccrual;recognized:string|number;paid:string|number;
  outstanding:string|number;prepaid:string|number;
 }
-export interface FinanceLedgerLine {
- id:string;postedAt:string;businessDate:string|null;account:'CASH'|'BANK';amount:string|number;
- type:string;sourceType:string;sourceId:string|null;createdBy:string;
-}
-export interface FinanceLedgerPage {
- items:FinanceLedgerLine[];total:number;page:number;size:number;
-}
 export const financeApi={
- ledger:(from:string,to:string,page=0,size=50,account?:string):Promise<FinanceLedgerPage>=>{
-  const query=new URLSearchParams({from,to,page:String(page),size:String(size)});
-  if(account)query.set('account',account);
-  return apiClient.get('/api/finance/ledger?'+query.toString());
- },
  accruals:(from:string,to:string):Promise<ExpenseAccrualLine[]>=>apiClient.get('/api/expenses/accruals?'+period(from,to)),
  linkAccrualPayment:(accrualId:string,expenseId:string):Promise<void>=>apiClient.post('/api/expenses/accruals/'+enc(accrualId)+'/payments',{expenseId}),
  createAccrual:(input:{idempotencyKey:string;category:string;description:string;amount:string;periodStart:string;periodEnd:string}):Promise<ExpenseAccrual>=>apiClient.post('/api/expenses/accruals',input),
