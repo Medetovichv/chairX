@@ -33,6 +33,7 @@ import { ExchangeDetailPage } from '../../features/returns/pages/ExchangeDetailP
 import { DefectsPage } from '../../features/returns/pages/DefectsPage';
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
 import { FinanceOverviewPage } from '../../features/finance/pages/FinanceOverviewPage';
+import { FinanceReportPage } from '../../features/finance/pages/FinanceReportPage';
 import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
 import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
 import { FinanceTransferPage } from '../../features/finance/pages/FinanceTransferPage';
@@ -125,6 +126,7 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/returns/defects') return <DefectsPage />;
   if (path === '/finance') return <FinanceOverviewPage />;
   if (path === '/finance/expenses') return <ExpensesPage />;
+  if (path === '/finance/report') return <FinanceReportPage />;
   if (path === '/finance/cash-flow') return <CashFlowPage />;
   if (path === '/finance/transfers') return <FinanceTransferPage />;
   if (path === '/finance/opening-balances') return <OpeningBalancesPage />;
