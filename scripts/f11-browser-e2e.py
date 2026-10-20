@@ -172,9 +172,16 @@ def main():
                         scroll: document.documentElement.scrollWidth,
                         client: document.documentElement.clientWidth
                     })""")
-                    assert overflow["scroll"]<=overflow["client"]+1, (
-                        f"{route}: horizontal page overflow at {width}px: {overflow}"
-                    )
+                    if overflow["scroll"]>overflow["client"]+1:
+                        offenders=page.evaluate("""() => [...document.querySelectorAll('body *')]
+                            .map(el=>({tag:el.tagName,cls:String(el.className).slice(0,100),
+                                       right:Math.round(el.getBoundingClientRect().right),
+                                       width:Math.round(el.getBoundingClientRect().width)}))
+                            .filter(x=>x.right>document.documentElement.clientWidth+1)
+                            .slice(0,12)""")
+                        raise AssertionError(
+                            f"{route}: horizontal page overflow at {width}px: {overflow}; offenders: {offenders}"
+                        )
                     if route=="finance/operations" and width in (390,1440):
                         page.screenshot(path=str(ART/f"f15-operations-{width}.png"),full_page=True)
                 page.set_viewport_size({"width":1440,"height":900})
