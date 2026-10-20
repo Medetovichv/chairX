@@ -46,6 +46,14 @@ class FinanceLedgerIntegrationTest {
     mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
         .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
         .andExpect(status().isForbidden());
+    mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Disposition",org.hamcrest.Matchers.containsString("attachment;")))
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("1234")));
+    mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
+        .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+        .andExpect(status().isForbidden());
     mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
         .param("size","101")
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
