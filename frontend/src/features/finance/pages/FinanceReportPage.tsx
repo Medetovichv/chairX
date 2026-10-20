@@ -7,6 +7,7 @@ import {financeApi} from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
 import {som,validPeriod} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
+import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
 import {ErrorState} from '../../../shared/components/ErrorState';
@@ -53,6 +54,7 @@ export function FinanceReportPage(){
  return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Финансовый отчёт" description="Прибыль, денежные потоки, склад и обязательства — отдельно, без двойного учёта"/>
   <FinanceTabs/>
+  <FinanceQuickPeriods onChoose={next=>{setPeriod(next);setDraft(next);setPage(0);}}/>
   <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
    <label className="text-sm">С (включительно)<Input aria-label="Отчёт с даты" type="date" value={draft.from} onChange={e=>setDraft(d=>({...d,from:e.target.value}))}/></label>
    <label className="text-sm">По (исключительно)<Input aria-label="Отчёт по дату" type="date" value={draft.to} onChange={e=>setDraft(d=>({...d,to:e.target.value}))}/></label>
