@@ -194,5 +194,5 @@ export function SalesPage() {
           total={listing.data.total} label="продаж"
           onPage={p => setFilters(old => ({ ...old, page: p }))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]) : undefined}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
