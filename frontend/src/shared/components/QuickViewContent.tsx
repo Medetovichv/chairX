@@ -4,6 +4,8 @@ import { Link } from 'react-router';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { CustomerForm } from '../../features/customers/components/CustomerForm';
 import { DeliveryActions } from '../../features/deliveries/components/DeliveryActions';
+import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryTimeline';
+import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
@@ -11,6 +13,15 @@ import { salesApi, salesKeys } from '../../features/sales/api';
 import { ErrorState } from './ErrorState';
 import { LoadingState } from './LoadingState';
 
+type Tab = 'overview' | 'actions' | 'history';
+function Tabs({ value, onChange }: { value: Tab; onChange: (tab: Tab) => void }) {
+  return <div role="tablist" aria-label="Разделы карточки" className="flex gap-2 border-b border-slate-200 pb-2">
+    {([['overview', 'Обзор'], ['actions', 'Действия'], ['history', 'История']] as const).map(([key, label]) =>
+      <button type="button" role="tab" aria-selected={value === key} key={key}
+        className={'rounded-xl px-3 py-2 text-sm font-medium ' + (value === key ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700')}
+        onClick={() => onChange(key)}>{label}</button>)}
+  </div>;
+}
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
   return <div className="border-b border-slate-100 py-3">
     <dt className="text-xs font-medium text-slate-500">{label}</dt>
@@ -21,13 +32,15 @@ function Section({ children }: { children: React.ReactNode }) {
   return <dl className="rounded-xl border border-slate-200 bg-white px-4">{children}</dl>;
 }
 export function SaleQuickView({ id }: { id: string }) {
+  const [tab, setTab] = useState<Tab>('overview');
   const detail = useQuery({ queryKey: salesKeys.detail(id), queryFn: () => salesApi.get(id) });
   const history = useQuery({ queryKey: salesKeys.history(id, 0), queryFn: () => salesApi.history(id, 0) });
   if (detail.isPending) return <LoadingState label="Загружаем продажу…"/>;
   if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()}/>;
   const sale = detail.data;
   return <div className="space-y-5">
-    <Section>
+    <Tabs value={tab} onChange={setTab}/>
+    {tab === 'overview' && <><Section>
       <Field label="Заказ" value={sale.saleNumber}/>
       <Field label="Статус" value={sale.status}/>
       <Field label="Создан" value={new Date(sale.createdAt).toLocaleString('ru-RU')}/>
@@ -41,20 +54,27 @@ export function SaleQuickView({ id }: { id: string }) {
         <Field label="Цена за единицу, сом" value={item.unitSalePrice}/>
         <Field label="Итого, сом" value={item.total}/>
       </Section>)}
-    </section>
-    <section><h3 className="mb-2 font-semibold">История</h3>
+    </section></>}
+    {tab === 'actions' && <div className="space-y-3">
+      <p className="text-sm text-slate-600">Для изменения товара, выдачи, оплаты или отмены используйте полную карточку: она проверяет актуальность данных перед необратимой операцией.</p>
+      <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-white" to={'/sales/' + encodeURIComponent(id)}>Открыть действия продажи</Link>
+      <SaleCommentsPanel saleId={id}/>
+    </div>}
+    {tab === 'history' && <section><h3 className="mb-2 font-semibold">История</h3>
       {history.isPending ? <LoadingState label="Загружаем историю…"/> :
         history.isError ? <p role="status" className="text-sm text-slate-600">История недоступна.</p> :
         history.data.items.length ? <ul className="space-y-2 text-sm">{history.data.items.map((event, index) =>
           <li key={index} className="rounded-xl bg-slate-50 p-3">{event.action} · {event.actor} · {new Date(event.occurredAt).toLocaleString('ru-RU')}</li>)}</ul> :
         <p className="text-sm text-slate-500">Событий нет.</p>}
-    </section>
+      <SaleCommentsPanel saleId={id}/>
+    </section>}
   </div>;
 }
 export function CustomerQuickView({ id }: { id: string }) {
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<Tab>('overview');
   const [notice, setNotice] = useState('');
   const customer = useQuery({ queryKey: customerKeys.detail(id), queryFn: () => customersApi.get(id) });
   const history = useQuery({ queryKey: customerKeys.history(id, 0), queryFn: () => customersApi.history(id, 0),
@@ -63,9 +83,10 @@ export function CustomerQuickView({ id }: { id: string }) {
   if (customer.isError) return <ErrorState error={customer.error} onRetry={() => void customer.refetch()}/>;
   const c = customer.data;
   return <div className="space-y-5">
+    <Tabs value={tab} onChange={setTab}/>
     {notice && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
-    {hasPermission('CUSTOMERS_MANAGE') && !editing && <button type="button" className="rounded-xl border px-4 py-2 font-medium" onClick={() => setEditing(true)}>Редактировать клиента</button>}
-    {editing && <CustomerForm key={c.updatedAt} initial={c} onCancel={() => setEditing(false)} onSave={async input => {
+    {tab === 'actions' && hasPermission('CUSTOMERS_MANAGE') && !editing && <button type="button" className="rounded-xl border px-4 py-2 font-medium" onClick={() => setEditing(true)}>Редактировать клиента</button>}
+    {tab === 'actions' && editing && <CustomerForm key={c.updatedAt} initial={c} onCancel={() => setEditing(false)} onSave={async input => {
       const fresh = await customersApi.get(id);
       if (fresh.updatedAt !== c.updatedAt) {
         queryClient.setQueryData(customerKeys.detail(id), fresh);
@@ -77,7 +98,7 @@ export function CustomerQuickView({ id }: { id: string }) {
       setEditing(false);
       setNotice('Клиент обновлён.');
     }}/ >}
-    <Section>
+    {tab === 'overview' && <Section>
       <Field label="Имя" value={c.fullName}/>
       <Field label="Телефон" value={c.phone}/>
       <Field label="WhatsApp" value={c.whatsappPhone}/>
@@ -86,19 +107,20 @@ export function CustomerQuickView({ id }: { id: string }) {
       <Field label="Регион" value={c.cityRegion}/>
       <Field label="Адрес" value={c.address}/>
       <Field label="Комментарий" value={c.comment}/>
-    </Section>
-    {hasPermission('SALES_READ') && <section><h3 className="mb-2 font-semibold">Заказы клиента</h3>
+    </Section>}
+    {tab === 'history' && hasPermission('SALES_READ') && <section><h3 className="mb-2 font-semibold">Заказы клиента</h3>
       {history.isPending ? <LoadingState label="Загружаем заказы…"/> :
         history.isError ? <p role="status">История недоступна.</p> :
         history.data.items.length ? <ul className="space-y-2">{history.data.items.map(s =>
           <li key={s.id}><Link className="text-blue-700 underline" to={'/sales/' + encodeURIComponent(s.id)}>{s.saleNumber}</Link> · {s.status}</li>)}</ul> :
         <p className="text-sm text-slate-500">Заказов нет.</p>}
     </section>}
-    {hasPermission('SALES_CREATE') && <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
+    {tab === 'actions' && hasPermission('SALES_CREATE') && c.active && <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
       to={'/sales/new?customerId=' + encodeURIComponent(id)}>Новая продажа</Link>}
   </div>;
 }
 export function DeliveryQuickView({ id }: { id: string }) {
+  const [tab, setTab] = useState<Tab>('overview');
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const delivery = useQuery({ queryKey: deliveryKeys.detail(id), queryFn: () => deliveryApi.get(id) });
@@ -106,7 +128,8 @@ export function DeliveryQuickView({ id }: { id: string }) {
   if (delivery.isError) return <ErrorState error={delivery.error} onRetry={() => void delivery.refetch()}/>;
   const d = delivery.data;
   return <div className="space-y-5">
-    <Section>
+    <Tabs value={tab} onChange={setTab}/>
+    {tab === 'overview' && <Section>
       <Field label="Статус" value={d.status}/>
       <Field label="Получатель" value={d.recipientName}/>
       <Field label="Телефон" value={d.recipientPhone}/>
@@ -118,9 +141,9 @@ export function DeliveryQuickView({ id }: { id: string }) {
       <Field label="Трек-номер" value={d.trackingNumber}/>
       <Field label="Комментарий" value={d.comment}/>
       <Field label="Причина неудачи" value={d.failureReason}/>
-    </Section>
+    </Section>}
     {hasPermission('SALES_READ') && <Link to={'/sales/' + encodeURIComponent(d.saleId)} className="inline-block text-sm font-medium text-blue-700 underline">Открыть связанную продажу</Link>}
-    <DeliveryActions key={d.id} delivery={d} onChanged={async updated => {
+    {tab === 'actions' && <DeliveryActions key={d.id} delivery={d} onChanged={async updated => {
       queryClient.setQueryData(deliveryKeys.detail(id), updated);
       queryClient.setQueryData(deliveryKeys.bySale(updated.saleId), updated);
       await Promise.all([
@@ -132,6 +155,7 @@ export function DeliveryQuickView({ id }: { id: string }) {
         queryClient.invalidateQueries({ queryKey: inventoryKeys.balancePrefix }),
         queryClient.invalidateQueries({ queryKey: inventoryKeys.movementsPrefix }),
       ]);
-    }}/>
+    }}/ >}
+    {tab === 'history' && <DeliveryTimeline delivery={d}/>}
   </div>;
 }
