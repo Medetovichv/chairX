@@ -97,7 +97,7 @@ describe('F15 financial pages and permission boundaries',()=>{
   wrapper(<FinanceOperationsPage/>);
   const region=await screen.findByRole('region',{name:'Журнал денежных операций'});
   expect(within(region).getAllByText('Оплата продажи').length).toBeGreaterThan(0);
-  await userEvent.setup().click(within(region).getAllByRole('button',{name:/Оплата продажи/})[0]);
+  await userEvent.setup().click(within(region).getAllByRole('button',{name:/Оплата продажи/})[0]!);
   expect(screen.getByRole('dialog',{name:'Детали финансовой операции'})).toBeInTheDocument();
  });
 });
