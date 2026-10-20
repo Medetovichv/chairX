@@ -1,3 +1,4 @@
+import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
@@ -20,7 +21,7 @@ import { DeliveryFilters, applyQuick, type Quick } from '../components/DeliveryF
 import type { DeliveryFilters as Filters } from '../types';
 const initial:Filters={status:'',from:'',to:'',plannedFrom:'',plannedTo:'',cityRegion:'',page:0,operational:true};
 export function DeliveriesPage(){
-  const {hasPermission}=useAuth();
+  const {hasPermission,user}=useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
   const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
@@ -42,10 +43,10 @@ export function DeliveriesPage(){
   };
 
   const read=hasPermission('DELIVERIES_READ'),manage=hasPermission('DELIVERIES_MANAGE');
-  const [filters,setFilters]=useState<Filters>(initial);
-  const [region,setRegion]=useState('');
-  const [quick,setQuick]=useState<Quick|null>('all');
-  const [history,setHistory]=useState(false);
+  const [filters,setFilters]=usePersistedListState<Filters>('delivery-filters',user?.id,initial);
+  const [region,setRegion]=usePersistedListState('delivery-region',user?.id,'');
+  const [quick,setQuick]=usePersistedListState<Quick|null>('delivery-quick',user?.id,'all');
+  const [history,setHistory]=usePersistedListState('delivery-history',user?.id,false);
   useEffect(()=>{
     const timeout=setTimeout(()=>setFilters(f=>({...f,cityRegion:region.trim(),page:0})),350);
     return ()=>clearTimeout(timeout);
