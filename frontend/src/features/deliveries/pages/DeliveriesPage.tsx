@@ -84,5 +84,5 @@ export function DeliveriesPage(){
         <PurchasePager page={q.data.page} size={q.data.size} total={q.data.total}
           label="доставок" onPage={page=>setFilters(f=>({...f,page}))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]) : undefined}><DeliveryQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><DeliveryQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
