@@ -19,14 +19,19 @@ public class FinanceProfitabilityService {
     private static final ZoneId ZONE=ZoneId.of("Asia/Bishkek");
     private final JdbcClient jdbc;
     private final ExpenseAccrualService accruals;
-    public FinanceProfitabilityService(JdbcClient jdbc,ExpenseAccrualService accruals){
-        this.jdbc=jdbc;this.accruals=accruals;
+    private final FinanceSaleAdjustmentsService adjustmentsService;
+    public FinanceProfitabilityService(JdbcClient jdbc,ExpenseAccrualService accruals,
+                                        FinanceSaleAdjustmentsService adjustmentsService){
+        this.jdbc=jdbc;this.accruals=accruals;this.adjustmentsService=adjustmentsService;
     }
     public record SaleCost(UUID saleId,String saleNumber,BigDecimal recognizedRevenue,
                            BigDecimal fifoCost,boolean completeCost) {}
     public record Profitability(LocalDate from,LocalDate to,BigDecimal grossRevenue,
                                 BigDecimal verifiedFifoCost,BigDecimal recognizedAccruals,
-                                BigDecimal otherOperatingExpenses,boolean completeCost,boolean netProfitAvailable,
+                                BigDecimal otherOperatingExpenses,
+                                BigDecimal returnedRevenue,BigDecimal refundOnlyDiscounts,
+                                BigDecimal restoredFifoCost,BigDecimal netRevenue,
+                                boolean completeCost,boolean netProfitAvailable,
                                 BigDecimal grossProfit,BigDecimal operatingProfit,
                                 List<SaleCost> sales,String caveat) {}
     public Profitability calculate(LocalDate from,LocalDate to){
@@ -52,7 +57,8 @@ public class FinanceProfitabilityService {
              FROM (
                SELECT si.id,
                       COALESCE(SUM(a.allocated_cost),0) AS cost,
-                      COUNT(a.id)>0 AS valued
+                      COALESCE(SUM(a.quantity),0)=si.quantity
+                        AND COUNT(DISTINCT sm.id)=1 AS valued
                FROM sale_items si
                LEFT JOIN stock_movements sm
                  ON sm.source_type='SALE_ITEM' AND sm.source_id=si.id
@@ -90,26 +96,23 @@ public class FinanceProfitabilityService {
                               WHERE ap.expense_id=e.id)
             """).param("from",from).param("to",to).query(BigDecimal.class).single();
         boolean complete=rows.stream().allMatch(SaleCost::completeCost);
-        // Returns, exchanges and refunds can reverse revenue or FIFO cost in
-        // other periods. Publish a final operating result only when no such
-        // adjustment occurred inside the requested reporting window.
-        boolean adjustments=jdbc.sql("""
-            SELECT EXISTS (
-               SELECT id FROM returns WHERE created_at>=:from AND created_at<:to
-               UNION ALL
-               SELECT id FROM exchanges WHERE created_at>=:from AND created_at<:to
-               UNION ALL
-               SELECT id FROM refunds WHERE refunded_at>=:from AND refunded_at<:to
-            )
-            """).param("from",java.sql.Timestamp.from(begin.toInstant()))
-               .param("to",java.sql.Timestamp.from(end.toInstant()))
-               .query(Boolean.class).single();
-        boolean available=complete && !adjustments;
-        BigDecimal gross=complete?revenue.subtract(fifo):null;
+        // Economic returns reverse the ORIGINAL sale on the date of physical return.
+        // A later refund tied to the return is a payment only, not second revenue.
+        var adjustments=adjustmentsService.forPeriod(from,to);
+        BigDecimal netRevenue=revenue.subtract(adjustments.returnedRevenue())
+                .subtract(adjustments.refundOnlyDiscounts());
+        boolean allValued=complete && adjustments.completeReturnCost();
+        // A return/refund made before fulfillment cannot safely adjust
+        // recognized sales; do not publish a misleading final profit.
+        boolean available=allValued && !adjustments.unrecognizedAdjustments();
+        BigDecimal gross=allValued?netRevenue.subtract(fifo)
+                .add(adjustments.restoredFifoCost()):null;
         BigDecimal operating=available?gross.subtract(expenses).subtract(nonAccrualExpenses):null;
-        return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,complete,
+        return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,
+                adjustments.returnedRevenue(),adjustments.refundOnlyDiscounts(),
+                adjustments.restoredFifoCost(),netRevenue,allValued,
                 available,gross,operating,rows,
-                available?"No returns, exchanges or refunds in period; expense recognition is separated from cash movements":
-                "Profit cannot be finalized: incomplete FIFO or return/exchange/refund adjustments require reconciliation");
+                available?"Revenue and FIFO reflect historical returns, refunds and allocated expenses":
+                "Financial result unavailable: incomplete FIFO restoration, missing cost allocations or adjustments before fulfillment");
     }
 }
