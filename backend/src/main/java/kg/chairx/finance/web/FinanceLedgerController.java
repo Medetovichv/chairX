@@ -63,7 +63,9 @@ public class FinanceLedgerController {
                   AND (:search = '' OR fm.created_by ILIKE :searchPattern
                        OR fm.movement_type ILIKE :searchPattern
                        OR fm.source_type ILIKE :searchPattern
-                       OR CAST(fm.source_id AS text) ILIKE :searchPattern)
+                       OR CAST(fm.source_id AS text) ILIKE :searchPattern
+                       OR sale.sale_number ILIKE :searchPattern
+                       OR supplier.name ILIKE :searchPattern)
                   AND (:minAmount IS NULL OR fm.amount >= :minAmount)
                   AND (:maxAmount IS NULL OR fm.amount <= :maxAmount)
                 """;
