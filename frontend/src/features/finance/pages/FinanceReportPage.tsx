@@ -50,7 +50,7 @@ export function FinanceReportPage(){
  const year=period.from.slice(0,4),analytics=useQuery({queryKey:['reporting','analytics',year],queryFn:()=>reportingApi.analytics(year+'-01-01',String(Number(year)+1)+'-01-01'),enabled:allowed});
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){setError('Выберите корректный период не длиннее 93 дней.');return;}setError('');setPage(0);setPeriod({...draft});}
  if(!allowed)return <ForbiddenPage/>;
- return <div className="space-y-5 pb-10">
+ return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Финансовый отчёт" description="Прибыль, денежные потоки, склад и обязательства — отдельно, без двойного учёта"/>
   <FinanceTabs/>
   <form onSubmit={submit} className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
