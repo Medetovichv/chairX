@@ -8,6 +8,17 @@ function Editor() {
   return <button onClick={() => markDirty(true)}>Изменить</button>;
 }
 describe('QuickViewDrawer navigation', () => {
+  it('uses fullscreen mobile and split desktop layout styles', () => {
+    const { container, unmount } = render(<MemoryRouter>
+      <QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}}><Editor/></QuickViewDrawer>
+    </MemoryRouter>);
+    const drawer = container.querySelector('[data-quick-view]');
+    expect(drawer?.className).toContain('fixed inset-0');
+    expect(drawer?.className).toContain('lg:sticky');
+    expect(drawer?.getAttribute('aria-label')).toContain('Заказ');
+    expect(screen.getByRole('button', { name: 'Предыдущая запись' }).hasAttribute('disabled')).toBe(true);
+    unmount();
+  });
   it('closes on Escape when clean', () => {
     const close = vi.fn();
     const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={close}><Editor/></QuickViewDrawer></MemoryRouter>);
