@@ -150,6 +150,30 @@ def main():
                     page.screenshot(path=str(ART/f"04-mobile-{width}px.png"),full_page=True)
             page.set_viewport_size({"width":1440,"height":900})
 
+            # F15: integrated financial pages use the same authenticated
+            # real database and must remain accessible on desktop/mobile.
+            for route,title in (
+                    ("finance","Финансы"),
+                    ("finance/report","Финансовый отчёт"),
+                    ("finance/operations","Все операции"),
+                    ("finance/obligations","Закупки и обязательства"),
+                    ("finance/analytics","Аналитика")):
+                page.goto(BASE+"/"+route,wait_until="domcontentloaded")
+                page.get_by_role("heading",name=title,exact=True).wait_for(timeout=30000)
+                for width in (320,390,768,1440):
+                    page.set_viewport_size({"width":width,"height":844})
+                    page.wait_for_timeout(100)
+                    overflow=page.evaluate("""() => ({
+                        scroll: document.documentElement.scrollWidth,
+                        client: document.documentElement.clientWidth
+                    })""")
+                    assert overflow["scroll"]<=overflow["client"]+1, (
+                        f"{route}: horizontal page overflow at {width}px: {overflow}"
+                    )
+                    if route=="finance/operations" and width in (390,1440):
+                        page.screenshot(path=str(ART/f"f15-operations-{width}.png"),full_page=True)
+                page.set_viewport_size({"width":1440,"height":900})
+
             db(1,4,10100,4900,1)
             report=admin.must("GET",url,None,200)
             assert int(report["cash"]["expected"])==10100
