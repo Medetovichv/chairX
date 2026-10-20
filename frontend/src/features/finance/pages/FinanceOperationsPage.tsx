@@ -25,8 +25,8 @@ export function FinanceOperationsPage(){
   <PageHeader title="Все операции" description="Реальные денежные проводки; внутренние переводы не считаются выручкой"/>
   <FinanceTabs/>
   <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
-   <label className="text-sm">С <input aria-label="Операции с" className="block rounded-lg border p-2" type="date" value={period.from} onChange={e=>{setPeriod(p=>({...p,from:e.target.value}));setPage(0);}}/></label>
-   <label className="text-sm">По (исключительно) <input aria-label="Операции по" className="block rounded-lg border p-2" type="date" value={period.to} onChange={e=>{setPeriod(p=>({...p,to:e.target.value}));setPage(0);}}/></label>
+   <label className="text-sm">С <input aria-label="Операции с" className="block rounded-lg border p-2" type="date" value={period.from} onChange={e=>{setPeriod({...period,from:e.target.value});setPage(0);}}/></label>
+   <label className="text-sm">По (исключительно) <input aria-label="Операции по" className="block rounded-lg border p-2" type="date" value={period.to} onChange={e=>{setPeriod({...period,to:e.target.value});setPage(0);}}/></label>
    <label className="text-sm">Счёт <select aria-label="Счёт операций" className="block rounded-lg border p-2" value={account} onChange={e=>{setAccount(e.target.value);setPage(0);}}><option value="">Все</option><option value="CASH">Наличные</option><option value="BANK">Банк</option></select></label>
    <FinanceExportButton from={period.from} to={period.to} account={account}/>
   </div>
