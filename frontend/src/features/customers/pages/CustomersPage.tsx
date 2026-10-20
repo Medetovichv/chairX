@@ -23,6 +23,7 @@ export function CustomersPage() {
   const { hasPermission } = useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
+  const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
   const closeQuick = useCallback(() => setQuickParams(prev => {
     const next = new URLSearchParams(prev); next.delete('quick'); return next;
   }), [setQuickParams]);
@@ -80,6 +81,8 @@ export function CustomersPage() {
   const pageIndex = result && result.kind !== 'limited-search' ? result.data.page : page;
   const pageSize = result && result.kind !== 'limited-search' ? result.data.size : 20;
 
+  const visibleIds = (items ?? []).map(record => record.id);
+  const selectedIndex = visibleIds.indexOf(selected ?? '');
   return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-6 min-w-0 flex-1">
     <PageHeader title={creating?'Новый клиент':'Клиенты'}
       action={canCreate&&!creating ? <Button onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
@@ -105,5 +108,5 @@ export function CustomersPage() {
                   total={total} onPage={setPage} /> : null}
             </div>}
     </section>}
-  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]) : undefined}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
