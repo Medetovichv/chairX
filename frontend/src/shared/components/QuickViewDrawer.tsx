@@ -37,6 +37,13 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { if (!dirtyRef.current || window.confirm('Есть несохранённые изменения. Закрыть без сохранения?')) onClose(); }
+      if (event.key === 'Tab' && window.matchMedia?.('(max-width: 1023px)').matches) {
+        const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-quick-view] button:not([disabled]), [data-quick-view] a[href], [data-quick-view] input:not([disabled]), [data-quick-view] select:not([disabled]), [data-quick-view] textarea:not([disabled])')).filter(node => node.getClientRects().length > 0);
+        if (!nodes.length) return;
+        const first = nodes[0], last = nodes[nodes.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
     };
     const onUnload = (event: BeforeUnloadEvent) => { if (dirtyRef.current) { event.preventDefault(); event.returnValue = ''; } };
     window.addEventListener('beforeunload', onUnload);
@@ -47,7 +54,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       previouslyFocused.current?.focus();
     };
   }, [onClose]);
-  return <DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><aside aria-label={'Быстрый просмотр: ' + title}
+  return <DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><aside data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-2rem)] lg:w-[min(34vw,520px)] lg:min-w-[400px] lg:shrink-0 lg:rounded-2xl lg:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
