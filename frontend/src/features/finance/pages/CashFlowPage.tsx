@@ -2,6 +2,7 @@ import { useState,type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { financeApi,financeKeys } from '../api';
+import {useFinancePeriod} from '../useFinancePeriod';
 import { periodMonth,validPeriod,som,dateLabel } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -12,7 +13,8 @@ import { Input } from '../../../shared/ui/input';
 import { Button } from '../../../shared/ui/button';
 export function CashFlowPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
- const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth),[error,setError]=useState('');
+ const [period,setPeriod]=useFinancePeriod();
+ const [draft,setDraft]=useState(period),[error,setError]=useState('');
  const q=useQuery({queryKey:financeKeys.flowPeriod(period.from,period.to),
   queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){
