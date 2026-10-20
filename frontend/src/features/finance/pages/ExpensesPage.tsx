@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { financeApi,financeKeys } from '../api';
+import {useFinancePeriod} from '../useFinancePeriod';
 import { categories,periodMonth,validPeriod,bishkekToday,validLocalDate,
  positiveSom,validateExpense,som,dateLabel,optional } from '../validation';
 import type {ExpenseCategory,ExpenseInput,FinanceAccount} from '../types';
@@ -20,7 +21,8 @@ import { Button } from '../../../shared/ui/button';
 export function ExpensesPage(){
  const {hasPermission,user}=useAuth(),read=hasPermission('EXPENSES_READ'),create=hasPermission('EXPENSES_CREATE');
  const client=useQueryClient();
- const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth),[periodError,setPeriodError]=useState('');
+ const [period,setPeriod]=useFinancePeriod();
+ const [draft,setDraft]=useState(period),[periodError,setPeriodError]=useState('');
  const [category,setCategory]=useState<ExpenseCategory>('ADVERTISING'),[amount,setAmount]=useState('');
  const [account,setAccount]=useState<FinanceAccount>('CASH'),[date,setDate]=useState(bishkekToday);
  const [comment,setComment]=useState(''),[error,setError]=useState('');
