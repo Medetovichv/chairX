@@ -2,7 +2,8 @@ import {useState} from 'react';
 import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
-import {periodMonth,som} from '../validation';
+import {som} from '../validation';
+import {useFinancePeriod} from '../useFinancePeriod';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
@@ -13,7 +14,8 @@ import {FinanceExportButton} from '../components/FinanceExportButton';
 const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
 export function FinanceOperationsPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
- const [period,setPeriod]=useState(periodMonth),[page,setPage]=useState(0),[account,setAccount]=useState('');
+ const [period,setPeriod]=useFinancePeriod();
+ const [page,setPage]=useState(0),[account,setAccount]=useState('');
  const [selected,setSelected]=useState<string|null>(null);
  const report=useQuery({queryKey:['f15','ledger',period.from,period.to,page,account],
  queryFn:()=>reportingApi.ledger(period.from,period.to,page,account),enabled:allowed});
