@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class FinanceReturnReconciliationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired FinanceProfitabilityService profit;
+    @Autowired kg.chairx.finance.web.FinanceModelMarginsController margins;
 
     private record SaleFixture(UUID id,UUID item,UUID variant,UUID warehouse,UUID layer,UUID allocation) {}
 
@@ -129,6 +130,12 @@ class FinanceReturnReconciliationTest {
         assertThat(february.grossProfit()).isEqualByComparingTo("-400");
         assertThat(february.operatingProfit()).isEqualByComparingTo("-400");
         assertThat(february.netProfitAvailable()).isTrue();
+        var returnedMargin=margins.list(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"))
+                .stream().filter(m->m.variantId().equals(sale.variant())).findFirst().orElseThrow();
+        assertThat(returnedMargin.quantity()).isEqualTo(-1);
+        assertThat(returnedMargin.revenue()).isEqualByComparingTo("-1000");
+        assertThat(returnedMargin.knownFifoCost()).isEqualByComparingTo("-600");
+        assertThat(returnedMargin.grossProfit()).isEqualByComparingTo("-400");
     }
 
     @Test void missingReturnRestorationCannotProduceVerifiedProfit(){
@@ -152,6 +159,10 @@ class FinanceReturnReconciliationTest {
         assertThat(report.restoredFifoCost()).isEqualByComparingTo("0");
         assertThat(report.grossProfit()).isEqualByComparingTo("-200");
         assertThat(report.netProfitAvailable()).isTrue();
+        var affected=margins.list(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"))
+                .stream().filter(m->m.variantId().equals(sale.variant())).findFirst();
+        // The rebate has no item-level distribution. Do not fabricate a verified model margin.
+        assertThat(affected).isEmpty();
     }
     @Test void exchangedChairRecognizesOldReturnAndNewSaleOnlyOnce(){
         var original=sold("2024-01-15",1000,600);
