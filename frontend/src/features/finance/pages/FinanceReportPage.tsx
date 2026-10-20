@@ -15,6 +15,16 @@ import {Input} from '../../../shared/ui/input';
 import {Button} from '../../../shared/ui/button';
 
 const money=(v:string|number|null|undefined)=>v==null?'Недоступно':som(v);
+function previousPeriod(from:string,to:string){
+ const first=new Date(from+'T12:00:00Z');
+ const last=new Date(to+'T12:00:00Z');
+ const days=Math.round((last.getTime()-first.getTime())/86400000);
+ if(days<=0||days>93)return null;
+ const prevTo=new Date(first);const prevFrom=new Date(first);
+ prevFrom.setUTCDate(prevFrom.getUTCDate()-days);
+ return {from:prevFrom.toISOString().slice(0,10),to:prevTo.toISOString().slice(0,10)};
+}
+
 const typeNames:Record<string,string>={
  SALE_PAYMENT:'Платёж клиента',PAYMENT_REVERSAL:'Отмена платежа',
  CUSTOMER_REFUND:'Возврат клиенту',PURCHASE_PAYMENT:'Оплата закупки',
@@ -29,6 +39,9 @@ export function FinanceReportPage(){
  const [draft,setDraft]=useState(period);
  const [error,setError]=useState(''),[page,setPage]=useState(0),[account,setAccount]=useState('');
  const pnl=useQuery({queryKey:['reporting','pnl',period.from,period.to],queryFn:()=>reportingApi.profitability(period.from,period.to),enabled:allowed});
+ const previous=previousPeriod(period.from,period.to);
+ const priorPnl=useQuery({queryKey:['reporting','prior-pnl',previous?.from,previous?.to],
+  queryFn:()=>reportingApi.profitability(previous!.from,previous!.to),enabled:allowed&&previous!==null});
  const flow=useQuery({queryKey:['reporting','flow',period.from,period.to],queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  const ledger=useQuery({queryKey:['reporting','ledger',period.from,period.to,page,account],queryFn:()=>reportingApi.ledger(period.from,period.to,page,account),enabled:allowed});
  const margins=useQuery({queryKey:['reporting','margins',period.from,period.to],queryFn:()=>reportingApi.margins(period.from,period.to),enabled:allowed});
@@ -57,6 +70,22 @@ export function FinanceReportPage(){
    {flow.isSuccess?<>{card('Поступления денег',money(flow.data.totalIn))}{card('Денежные выплаты',money(flow.data.totalOut))}</>:flow.isError?<ErrorState error={flow.error} onRetry={()=>void flow.refetch()}/>:<LoadingState label="Загружаем денежные потоки…"/>}
   </section>
   {pnl.isSuccess&&!pnl.data.netProfitAvailable&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">Прибыль не подтверждена. {pnl.data.caveat||'Требуется сверка FIFO или возвратов.'} Денежный поток не используется вместо прибыли.</p>}
+  <section aria-label="Сравнение периодов" className="rounded-2xl border bg-white p-4">
+    <h2 className="font-semibold">Сравнение с предыдущим равным периодом</h2>
+    {priorPnl.isSuccess&&pnl.isSuccess&&previous?<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="rounded-xl bg-slate-50 p-3">
+       <p className="text-xs text-slate-600">Текущий · {period.from} — {period.to}</p>
+       <p className="mt-2 text-sm">Выручка: <strong>{money(pnl.data.netRevenue)}</strong></p>
+       <p className="mt-1 text-sm">Прибыль: <strong>{pnl.data.netProfitAvailable?money(pnl.data.operatingProfit):'Недоступно'}</strong></p>
+      </div>
+      <div className="rounded-xl bg-slate-50 p-3">
+       <p className="text-xs text-slate-600">Предыдущий · {previous.from} — {previous.to}</p>
+       <p className="mt-2 text-sm">Выручка: <strong>{money(priorPnl.data.netRevenue)}</strong></p>
+       <p className="mt-1 text-sm">Прибыль: <strong>{priorPnl.data.netProfitAvailable?money(priorPnl.data.operatingProfit):'Недоступно'}</strong></p>
+      </div>
+     </div>:priorPnl.isError?<ErrorState error={priorPnl.error} onRetry={()=>void priorPnl.refetch()}/>:<LoadingState label="Загружаем предыдущий период…"/>}
+    <p className="mt-2 text-xs text-slate-500">Верхние границы периодов исключаются. Неподтверждённая прибыль никогда не подменяется денежным потоком.</p>
+  </section>
   <section className="rounded-2xl border bg-white p-4">
    <h2 className="mb-3 font-semibold">Отчёт о прибыли и убытках (P&L)</h2>
    {pnl.isSuccess?<div className="space-y-2 text-sm">{([
