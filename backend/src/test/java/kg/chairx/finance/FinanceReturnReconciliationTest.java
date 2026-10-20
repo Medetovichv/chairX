@@ -200,4 +200,26 @@ class FinanceReturnReconciliationTest {
         assertThat(february.netProfitAvailable()).isTrue();
     }
 
+    @Test void partialAndFinalCashPaymentsDoNotChangeRecognizedRevenueOrFifoProfit(){
+        var sale=sold("2024-01-15",1000,600);
+        for(int amount:new int[]{200,300}){
+            jdbc.update("""
+              INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
+              VALUES (?,?,?,'CASH','PAID','accountant',?)
+              """,UUID.randomUUID(),sale.id(),amount,Timestamp.valueOf("2024-01-16 12:00:00"));
+        }
+        var month=LocalDate.parse("2024-01-01");
+        var incompletePayment=profit.calculate(month,month.plusMonths(1));
+        assertThat(incompletePayment.grossRevenue()).isEqualByComparingTo("1000");
+        assertThat(incompletePayment.verifiedFifoCost()).isEqualByComparingTo("600");
+        assertThat(incompletePayment.grossProfit()).isEqualByComparingTo("400");
+        assertThat(incompletePayment.netProfitAvailable()).isTrue();
+        jdbc.update("""
+              INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
+              VALUES (?,?,500,'BANK','PAID','accountant',?)
+              """,UUID.randomUUID(),sale.id(),Timestamp.valueOf("2024-01-20 12:00:00"));
+        var fullyPaid=profit.calculate(month,month.plusMonths(1));
+        assertThat(fullyPaid).usingRecursiveComparison().isEqualTo(incompletePayment);
+    }
+
 }
