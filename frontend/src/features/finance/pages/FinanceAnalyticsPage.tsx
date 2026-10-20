@@ -33,7 +33,7 @@ export function FinanceAnalyticsPage(){
    </select></label>
   <section aria-label="Сравнение финансовых годов" className="min-w-0 rounded-2xl border bg-white p-4">
    <h2 className="font-semibold">Сравнение с {year-1} годом</h2>
-   <p className="mt-1 text-xs text-slate-500">Сравниваются одинаковые месяцы: для текущего года — только завершённые месяцы (январь–{monthsToCompare || "нет завершённых месяцев"}), для прошлых лет — весь год. Кассовый поток не является прибылью.</p>
+   <p className="mt-1 text-xs text-slate-500">Сравниваются одинаковые месяцы: для текущего года — только завершённые месяцы ({monthsToCompare>0?`январь–${String(monthsToCompare).padStart(2,"0")}`:"завершённых месяцев ещё нет"}), для прошлых лет — весь год. Кассовый поток не является прибылью.</p>
    {q.isSuccess&&previous.isSuccess?(()=>{const now=totals(comparable(q.data.months)),old=totals(comparable(previous.data.months));return <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">{([["Чистая выручка",now.revenue,old.revenue],["Чистый денежный поток",now.cash,old.cash]] as const).map(([label,current,prior])=><article key={label} className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm"><h3 className="font-medium">{label}</h3><p className="mt-2 break-words">{year}: <strong>{som(current)}</strong></p><p className="break-words text-slate-600">{year-1}: {som(prior)}</p><p className="mt-1 text-xs text-slate-600">Изменение: {difference(current,prior)}</p></article>)}</div>})():q.isError||previous.isError?<ErrorState error={q.error||previous.error} onRetry={()=>{void q.refetch();void previous.refetch();}}/>:<LoadingState label="Загружаем сравнение годов…"/>}
   </section>
   <section className="rounded-2xl border bg-white p-4">
