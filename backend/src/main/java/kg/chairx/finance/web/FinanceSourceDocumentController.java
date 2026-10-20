@@ -25,7 +25,22 @@ public class FinanceSourceDocumentController {
                 .noneMatch(a -> "EXPENSES_READ".equals(a.getAuthority()))) {
             throw new AccessDeniedException("Нет права читать расходы");
         }
+        if ("REFUND".equals(kind) && auth.getAuthorities().stream()
+                .noneMatch(a -> "REFUNDS_READ".equals(a.getAuthority()))) {
+            throw new AccessDeniedException("Нет права читать возвраты денег");
+        }
         SourceDocument doc=switch (kind) {
+            case "REFUND" -> jdbc.sql("""
+                SELECT amount,method,reason,reference,comment,refunded_by,refunded_at
+                FROM refunds WHERE id=:id
+                """).param("id",id).query((rs,n)->new SourceDocument(kind,id,"Возврат денег",
+                    values("Сумма, KGS",rs.getBigDecimal("amount").toPlainString(),
+                           "Способ",rs.getString("method"),
+                           "Причина",rs.getString("reason"),
+                           "Ссылка",rs.getString("reference"),
+                           "Комментарий",rs.getString("comment"),
+                           "Сотрудник",rs.getString("refunded_by"),
+                           "Создан",String.valueOf(rs.getTimestamp("refunded_at"))))).optional().orElse(null);
             case "EXPENSE" -> jdbc.sql("""
                 SELECT category, amount, payment_method, expense_date, comment, created_by
                 FROM expenses WHERE id=:id
