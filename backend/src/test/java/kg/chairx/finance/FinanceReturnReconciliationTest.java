@@ -239,4 +239,33 @@ class FinanceReturnReconciliationTest {
         assertThat(feb.operatingProfit()).isNull();
     }
 
+    @Test void refundSettledAfterReturnMonthDoesNotReduceRevenueTwice(){
+        var original=sold("2024-01-15",1000,600);
+        UUID returnId=returned(original,"2024-02-05",true);
+        jdbc.update("""
+            INSERT INTO refunds(id,sale_id,return_id,amount,method,reason,idempotency_key,
+                request_fingerprint,refunded_by,refunded_at)
+            VALUES (?,?,?,1000,'TRANSFER','Settlement later',?,?,'accountant',?)
+            """,UUID.randomUUID(),original.id(),returnId,UUID.randomUUID(),
+                "a".repeat(64),Timestamp.valueOf("2024-03-04 12:00:00"));
+        var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
+        var march=profit.calculate(LocalDate.parse("2024-03-01"),LocalDate.parse("2024-04-01"));
+        assertThat(february.returnedRevenue()).isEqualByComparingTo("1000");
+        assertThat(february.grossProfit()).isEqualByComparingTo("-400");
+        assertThat(march.returnedRevenue()).isEqualByComparingTo("0");
+        assertThat(march.refundOnlyDiscounts()).isEqualByComparingTo("0");
+        assertThat(march.operatingProfit()).isEqualByComparingTo("0");
+    }
+
+    @Test void partialFifoSaleAllocationDisablesProfitRatherThanAssumingZeroCost(){
+        var sale=sold("2024-01-15",1000,600,2);
+        jdbc.update("UPDATE inventory_cost_allocations SET quantity=1,allocated_cost=300 WHERE id=?",
+                sale.allocation());
+        var january=profit.calculate(LocalDate.parse("2024-01-01"),LocalDate.parse("2024-02-01"));
+        assertThat(january.grossRevenue()).isEqualByComparingTo("2000");
+        assertThat(january.completeCost()).isFalse();
+        assertThat(january.grossProfit()).isNull();
+        assertThat(january.operatingProfit()).isNull();
+    }
+
 }
