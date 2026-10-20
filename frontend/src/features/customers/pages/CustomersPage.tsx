@@ -108,5 +108,5 @@ export function CustomersPage() {
                   total={total} onPage={setPage} /> : null}
             </div>}
     </section>}
-  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]) : undefined}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
