@@ -78,8 +78,8 @@ export function FinanceOperationsPage(){
     {x.documentKind==='RETURN'&&x.documentId&&hasPermission('RETURNS_READ')&&
      <Link to={'/returns/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть возврат</Link>}
     {x.documentKind==='PURCHASE'&&x.documentId&&hasPermission('PURCHASE_READ')&&
-     <Link to={'/purchases/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть закупку</Link>}</td>
-    {sourceLink(x.documentKind,x.documentId,hasPermission)&&<Link to={sourceLink(x.documentKind,x.documentId,hasPermission)!} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть документ</Link>}
+     <Link to={'/purchases/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть закупку</Link>}
+    {sourceLink(x.documentKind,x.documentId,hasPermission)&&<Link to={sourceLink(x.documentKind,x.documentId,hasPermission)!} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть документ</Link>}</td>
         <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
    </tr>)}</tbody></table></div>
    <div className="divide-y md:hidden">{report.data.items.map(x=><button key={x.id} onClick={()=>setSelected(x.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
