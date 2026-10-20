@@ -68,4 +68,49 @@ public class FinanceLedgerController {
                  rs.getObject("source_id",UUID.class),rs.getString("created_by"))).list();
         return new Page(entries,count,page,size);
     }
+
+    /** Excel-friendly CSV of ALL rows matching server-side filters.
+     * Bounded export: never silently truncate a financial journal.
+     */
+    @GetMapping(value="/export",produces="text/csv;charset=UTF-8")
+    @PreAuthorize("hasAuthority('FINANCE_READ')")
+    public org.springframework.http.ResponseEntity<byte[]> export(
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required=false) String account,
+            @RequestParam(required=false) String movementType){
+        Page first=list(from,to,account,movementType,0,100);
+        if(first.total()>10000)
+            throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
+                "Export exceeds 10000 rows; select a shorter period");
+        StringBuilder csv=new StringBuilder("\\uFEFF")
+                .append("Дата;Бизнес-дата;Счёт;Тип;Источник;Сумма;Сотрудник\\r\\n");
+        int pages=(int)((first.total()+99)/100);
+        for(int p=0;p<pages;p++){
+            List<Line> items=p==0?first.items():list(from,to,account,movementType,p,100).items();
+            for(Line line:items){
+                csv.append(csv(line.postedAt().atZone(ZONE).toLocalDateTime().toString())).append(';')
+                   .append(csv(line.businessDate()==null?"":line.businessDate().toString())).append(';')
+                   .append(csv(line.account())).append(';')
+                   .append(csv(line.type())).append(';')
+                   .append(csv(line.sourceType())).append(';')
+                   .append(csv(line.amount().toPlainString())).append(';')
+                   .append(csv(line.createdBy())).append("\\r\\n");
+            }
+        }
+        byte[] bytes=csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return org.springframework.http.ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=chairx-finance-"+from+"-"+to+".csv")
+                .contentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"))
+                .body(bytes);
+    }
+    private static String csv(String raw){
+        String value=raw==null?"":raw;
+        // Excel will evaluate formulas even in quoted CSV fields.
+        if(!value.isEmpty() && "=+-@".indexOf(value.charAt(0))>=0)
+            value="'"+value;
+        return "\""+value.replace("\"","\"\"")+"\"";
+    }
 }
