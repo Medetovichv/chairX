@@ -9,7 +9,7 @@ export interface Profitability {
  operatingProfit:Money|null;caveat:string|null;
  sales:{saleId:string;saleNumber:string;recognizedRevenue:Money;fifoCost:Money;completeCost:boolean}[];
 }
-export interface LedgerLine {id:string;postedAt:string;businessDate:string;account:string;amount:Money;type:string;sourceType:string;sourceId:string|null;createdBy:string}
+export interface LedgerLine {id:string;postedAt:string;businessDate:string;account:string;amount:Money;type:string;sourceType:string;sourceId:string|null;createdBy:string;documentKind:string|null;documentId:string|null;documentLabel:string|null}
 export interface LedgerPage {items:LedgerLine[];total:number;page:number;size:number}
 export interface Margin {modelId:string;model:string;variantId:string;variation:string;quantity:number;revenue:Money;knownFifoCost:Money;costComplete:boolean;grossProfit:Money|null}
 export interface Valuation {totalCost:Money;quantity:number;models:{productId:string;model:string;quantity:number;cost:Money}[]}
