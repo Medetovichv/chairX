@@ -2,8 +2,9 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { financeApi,financeKeys } from '../api';
+import {useFinancePeriod} from '../useFinancePeriod';
 import { reportingApi } from '../reporting-api';
-import { som,periodMonth } from '../validation';
+import { som } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -12,7 +13,8 @@ import { ForbiddenPage } from '../../../pages/ForbiddenPage';
 import { Button } from '../../../shared/ui/button';
 export function FinanceOverviewPage(){
  const {hasPermission,user}=useAuth();
- const allowed=hasPermission('FINANCE_READ'),period=periodMonth();
+ const allowed=hasPermission('FINANCE_READ');
+ const [period]=useFinancePeriod();
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,enabled:allowed});
  const pnl=useQuery({queryKey:['f15','overview','pnl',period.from,period.to],
    queryFn:()=>reportingApi.profitability(period.from,period.to),enabled:allowed});
