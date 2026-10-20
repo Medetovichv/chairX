@@ -90,7 +90,7 @@ describe('F15 financial pages and permission boundaries',()=>{
    if(path.startsWith('/api/finance/ledger?'))return j({page:0,size:50,total:1,items:[{
     id:'a',postedAt:'2026-10-20T09:00:00Z',businessDate:'2026-10-20',
     account:'CASH',amount:'8500',type:'SALE_PAYMENT',sourceType:'PAYMENT',
-    sourceId:'source-1',createdBy:'cashier'
+    sourceId:'source-1',createdBy:'cashier',documentKind:'SALE',documentId:SALE,documentLabel:'CX-125'
    }]});
    throw Error('Unexpected '+path);
   }));
@@ -99,6 +99,7 @@ describe('F15 financial pages and permission boundaries',()=>{
   expect(within(region).getAllByText('Оплата продажи').length).toBeGreaterThan(0);
   await userEvent.setup().click(within(region).getAllByRole('button',{name:/Оплата продажи/})[0]!);
   expect(screen.getByRole('dialog',{name:'Детали финансовой операции'})).toBeInTheDocument();
+  expect(screen.queryByRole('link',{name:'Открыть заказ →'})).not.toBeInTheDocument();
  });
 });
 describe('Finance reporting RBAC and unavailable profit',()=>{
