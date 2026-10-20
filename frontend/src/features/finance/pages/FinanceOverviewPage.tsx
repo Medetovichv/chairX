@@ -25,7 +25,7 @@ export function FinanceOverviewPage(){
  const flow=useQuery({queryKey:financeKeys.flowPeriod(period.from,period.to),
    queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
- return <div className="space-y-6">
+ return <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
   <PageHeader title="Финансы" description="Фактические остатки и движение денег ChairX в кыргызских сомах."/>
   <FinanceTabs/>
   <section aria-label="Основные финансовые показатели" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
