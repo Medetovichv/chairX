@@ -33,6 +33,10 @@ class FinanceReturnReconciliationTest {
     private SaleFixture sold(String day,int price,int cost){return sold(day,price,cost,1);}
 
     private SaleFixture sold(String day,int price,int cost,int quantity){
+        return sold(day,price,cost,quantity,quantity);
+    }
+
+    private SaleFixture sold(String day,int price,int cost,int quantity,int allocatedQuantity){
         UUID product=UUID.randomUUID(),variant=UUID.randomUUID(),sale=UUID.randomUUID(),
              item=UUID.randomUUID(),stockIn=UUID.randomUUID(),stockOut=UUID.randomUUID(),
              layer=UUID.randomUUID(),allocation=UUID.randomUUID();
@@ -72,7 +76,9 @@ class FinanceReturnReconciliationTest {
         jdbc.update("""
             INSERT INTO inventory_cost_allocations(id,stock_movement_id,cost_layer_id,quantity,allocated_cost)
             VALUES (?,?,?,?,?)
-            """,allocation,stockOut,layer,quantity,cost);
+            """,allocation,stockOut,layer,allocatedQuantity,
+                BigDecimal.valueOf(cost).multiply(BigDecimal.valueOf(allocatedQuantity))
+                        .divide(BigDecimal.valueOf(quantity)));
         return new SaleFixture(sale,item,variant,home,layer,allocation);
     }
 
@@ -258,9 +264,9 @@ class FinanceReturnReconciliationTest {
     }
 
     @Test void partialFifoSaleAllocationDisablesProfitRatherThanAssumingZeroCost(){
-        var sale=sold("2024-01-15",1000,600,2);
-        jdbc.update("UPDATE inventory_cost_allocations SET quantity=1,allocated_cost=300 WHERE id=?",
-                sale.allocation());
+        // Insert a partial historical allocation at creation time: the stock
+        // ledger is append-only, so test fixtures must never mutate allocations.
+        sold("2024-01-15",1000,600,2,1);
         var january=profit.calculate(LocalDate.parse("2024-01-01"),LocalDate.parse("2024-02-01"));
         assertThat(january.grossRevenue()).isEqualByComparingTo("2000");
         assertThat(january.completeCost()).isFalse();
