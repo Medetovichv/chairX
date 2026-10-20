@@ -55,6 +55,13 @@ class FinanceLedgerIntegrationTest {
         .param("sort","id DROP TABLE finance_movements")
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
         .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/finance/expense-categories").param("from",day).param("to",tomorrow)
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.grandTotal").exists())
+        .andExpect(jsonPath("$.categories").isArray());
+    mvc.perform(get("/api/finance/expense-categories").param("from",day).param("to",tomorrow)
+        .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
+        .andExpect(status().isForbidden());
     mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
         .andExpect(status().isOk())
