@@ -18,7 +18,7 @@ export interface AnalyticsMonth {from:string;recognizedRevenue:Money;netRevenue:
 export interface Analytics {from:string;to:string;months:AnalyticsMonth[]}
 export const reportingApi={
  profitability:(from:string,to:string)=>apiClient.get<Profitability>('/api/finance/profitability?'+params(from,to)),
- ledger:(from:string,to:string,page:number,account:string,movementType='')=>apiClient.get<LedgerPage>('/api/finance/ledger?'+new URLSearchParams({from,to,page:String(page),size:'50',...(account?{account}:{}),...(movementType?{movementType}:{})})),
+ ledger:(from:string,to:string,page:number,account:string,movementType='',search='',minAmount='',maxAmount='',sort='newest')=>apiClient.get<LedgerPage>('/api/finance/ledger?'+new URLSearchParams({from,to,page:String(page),size:'50',sort,...(account?{account}:{}),...(movementType?{movementType}:{}),...(search?{search}:{}),...(minAmount?{minAmount}:{}),...(maxAmount?{maxAmount}:{})})),
  margins:(from:string,to:string)=>apiClient.get<Margin[]>('/api/finance/model-margins?'+params(from,to)),
  valuation:()=>apiClient.get<Valuation>('/api/finance/inventory-valuation'),
  obligations:()=>apiClient.get<Obligations>('/api/finance/purchase-obligations'),
