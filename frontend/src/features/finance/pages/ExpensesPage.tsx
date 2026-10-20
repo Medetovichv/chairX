@@ -4,7 +4,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { financeApi,financeKeys } from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
-import { categories,periodMonth,validPeriod,bishkekToday,validLocalDate,
+import { categories,validPeriod,bishkekToday,validLocalDate,
  positiveSom,validateExpense,som,dateLabel,optional } from '../validation';
 import type {ExpenseCategory,ExpenseInput,FinanceAccount} from '../types';
 import { GuardedPost } from '../components/GuardedPost';
