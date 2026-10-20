@@ -7,10 +7,12 @@ interface Props {
   detailUrl: string;
   onClose: () => void;
   children: ReactNode;
+  previous?: () => void;
+  next?: () => void;
 }
 
 /** Non-modal desktop split view; full-screen detail on mobile. */
-export function QuickViewDrawer({ title, detailUrl, onClose, children }: Props) {
+export function QuickViewDrawer({ title, detailUrl, onClose, children, previous, next }: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -33,6 +35,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children }: Props) 
         <ArrowLeft className="size-5 lg:hidden"/><X className="hidden size-5 lg:block"/>
       </button>
       <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">{title}</h2>
+      <div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={previous} className="rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={next} className="rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>
       <Link to={detailUrl} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
         <ExternalLink className="size-4" aria-hidden="true"/><span>Полная страница</span>
       </Link>
