@@ -53,6 +53,10 @@ public class FinanceLedgerController {
         String clause="""
                 FROM finance_movements fm
                 LEFT JOIN payments pay ON fm.source_type = 'PAYMENT' AND pay.id=fm.source_id
+                LEFT JOIN payments reversed_pay ON fm.source_type = 'PAYMENT_REVERSAL' AND reversed_pay.id=fm.source_id
+                LEFT JOIN sales reversed_sale ON reversed_sale.id=reversed_pay.sale_id
+                LEFT JOIN refunds refund ON fm.source_type = 'REFUND' AND refund.id=fm.source_id
+                LEFT JOIN returns refunded_return ON refunded_return.id=refund.return_id
                 LEFT JOIN sales sale ON sale.id=pay.sale_id
                 LEFT JOIN purchase_payments pp ON fm.source_type = 'PURCHASE_PAYMENT' AND pp.id=fm.source_id
                 LEFT JOIN purchases pur ON pur.id=pp.purchase_id
@@ -65,6 +69,7 @@ public class FinanceLedgerController {
                        OR fm.source_type ILIKE :searchPattern
                        OR CAST(fm.source_id AS text) ILIKE :searchPattern
                        OR sale.sale_number ILIKE :searchPattern
+                       OR reversed_sale.sale_number ILIKE :searchPattern
                        OR supplier.name ILIKE :searchPattern)
                   AND (:minAmount IS NULL OR fm.amount >= :minAmount)
                   AND (:maxAmount IS NULL OR fm.amount <= :maxAmount)
@@ -81,9 +86,12 @@ public class FinanceLedgerController {
         var entries=jdbc.sql("""
              SELECT fm.id,fm.created_at,fm.business_date,fm.account_code,fm.amount,
                     fm.movement_type,fm.source_type,fm.source_id,fm.created_by,
-                    CASE WHEN sale.id IS NOT NULL THEN 'SALE' WHEN pur.id IS NOT NULL THEN 'PURCHASE' ELSE NULL END AS document_kind,
-                    COALESCE(sale.id,pur.id) AS document_id,
-                    CASE WHEN sale.id IS NOT NULL THEN sale.sale_number WHEN pur.id IS NOT NULL THEN supplier.name ELSE NULL END AS document_label
+                    CASE WHEN sale.id IS NOT NULL OR reversed_sale.id IS NOT NULL THEN 'SALE' 
+                         WHEN pur.id IS NOT NULL THEN 'PURCHASE'
+                         WHEN refunded_return.id IS NOT NULL THEN 'RETURN'
+                         WHEN refund.id IS NOT NULL THEN 'SALE' ELSE NULL END AS document_kind,
+                    COALESCE(sale.id,reversed_sale.id,pur.id,refunded_return.id,refund.sale_id) AS document_id,
+                    CASE WHEN sale.id IS NOT NULL THEN sale.sale_number WHEN reversed_sale.id IS NOT NULL THEN reversed_sale.sale_number WHEN pur.id IS NOT NULL THEN supplier.name WHEN refunded_return.id IS NOT NULL THEN 'Возврат по продаже' WHEN refund.id IS NOT NULL THEN 'Возврат денег по продаже' ELSE NULL END AS document_label
              """+clause+" ORDER BY "+order+" LIMIT :limit OFFSET :offset")
              .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
              .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)
