@@ -47,6 +47,7 @@ export function FinanceOverviewPage(){
     <p className="text-xs text-slate-600">Cash Flow — движение денег, а не выручка или прибыль.</p>
   </section>
   <div className="flex flex-wrap gap-2">
+   <Button asChild><Link to="/finance/report">Открыть финансовую аналитику →</Link></Button>
    {hasPermission('EXPENSES_READ')&&<Button variant="outline" asChild><Link to="/finance/expenses">Расходы</Link></Button>}
    <Button variant="outline" asChild><Link to="/finance/cash-flow">Движение денег</Link></Button>
    {hasPermission('FINANCE_TRANSFER')&&<Button asChild><Link to="/finance/transfers">Перевести CASH / BANK</Link></Button>}

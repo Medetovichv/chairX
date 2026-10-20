@@ -12,6 +12,7 @@ import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { SaleFinancialSection } from '../features/finance/components/SaleFinancialSection';
 import { ExpensesPage } from '../features/finance/pages/ExpensesPage';
 import { FinanceOverviewPage } from '../features/finance/pages/FinanceOverviewPage';
+import { FinanceReportPage } from '../features/finance/pages/FinanceReportPage';
 import { ExchangeSettlementForm } from '../features/finance/components/ExchangeSettlementForm';
 import { readFinancePending } from '../features/finance/pending';
 import {
@@ -68,6 +69,42 @@ beforeEach(()=>{
 });
 afterEach(()=>{
  authSession.clear();sessionStorage.clear();vi.restoreAllMocks();vi.unstubAllGlobals();
+});
+describe('Finance reporting RBAC and unavailable profit',()=>{
+ it('does not render profitability without FINANCE_READ',()=>{
+  access.permissions=[];
+  wrapper(<FinanceReportPage/>);
+  expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
+ });
+ it('shows unavailable profit instead of cash-based fake profit',async()=>{
+  access.permissions=['FINANCE_READ'];
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path.includes('/api/finance/profitability?'))return j({
+     from:'2026-10-01',to:'2026-11-01',grossRevenue:'10000',
+     verifiedFifoCost:'0',recognizedAccruals:'500',otherOperatingExpenses:'0',
+     returnedRevenue:'0',refundOnlyDiscounts:'0',restoredFifoCost:'0',
+     netRevenue:'10000',completeCost:false,netProfitAvailable:false,
+     grossProfit:null,operatingProfit:null,sales:[],caveat:'Не подтверждён FIFO'
+   });
+   if(path.includes('/api/finance/cash-flow?'))return j({
+    totalIn:'10000',totalOut:'4000',netCashFlow:'6000',
+    payments:'10000',paymentCorrections:'0',refunds:'0',exchangePayments:'0',
+    exchangeRefunds:'0',operatingExpenses:'1000',purchasePayments:'3000'
+   });
+   if(path.includes('/api/finance/ledger?'))return j({items:[],total:0,page:0,size:50});
+   if(path.includes('/api/finance/model-margins?'))return j([]);
+   if(path.endsWith('/api/finance/inventory-valuation'))return j({totalCost:'0',quantity:0,models:[]});
+   if(path.endsWith('/api/finance/purchase-obligations'))return j({totalOutstanding:'0',totalPrepaid:'0',purchases:[]});
+   if(path.includes('/api/finance/analytics?'))return j({months:[],from:'2026-01-01',to:'2027-01-01'});
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<FinanceReportPage/>);
+  expect(await screen.findByRole('alert')).toHaveTextContent('Не подтверждён FIFO');
+  expect(screen.getByText('Чистая выручка')).toBeInTheDocument();
+  expect(screen.getByRole('table',{name:'Журнал всех операций'})).toBeInTheDocument();
+  expect(screen.getAllByText('Недоступно').length).toBeGreaterThan(0);
+ });
 });
 describe('F10 exact money validation, mappings and dates',()=>{
  it('maps all payment channels to backend methods and CASH/BANK accounts',()=>{
