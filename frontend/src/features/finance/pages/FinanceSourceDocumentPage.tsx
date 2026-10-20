@@ -7,11 +7,11 @@ import {LoadingState} from '../../../shared/components/LoadingState';
 import {ErrorState} from '../../../shared/components/ErrorState';
 import {ForbiddenPage} from '../../../pages/ForbiddenPage';
 type SourceDocument={kind:string;id:string;title:string;fields:Record<string,string>};
-const supported=new Set(['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE']);
+const supported=new Set(['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE','REFUND']);
 export function FinanceSourceDocumentPage(){
  const {kind='',documentId=''}=useParams();
  const {hasPermission}=useAuth();
- const allowed=hasPermission('FINANCE_READ')&&(kind!=='EXPENSE'||hasPermission('EXPENSES_READ'));
+ const allowed=hasPermission('FINANCE_READ')&&(kind!=='EXPENSE'||hasPermission('EXPENSES_READ'))&&(kind!=='REFUND'||hasPermission('REFUNDS_READ'));
  const valid=supported.has(kind)&&/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(documentId);
  const q=useQuery({queryKey:['f15','source-document',kind,documentId],
   queryFn:()=>apiClient.get<SourceDocument>('/api/finance/source-documents/'+encodeURIComponent(kind)+'/'+encodeURIComponent(documentId)),
