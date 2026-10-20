@@ -84,8 +84,8 @@ public class FinanceLedgerController {
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
                 "Export exceeds 10000 rows; select a shorter period");
-        StringBuilder csv=new StringBuilder("\\uFEFF")
-                .append("Дата;Бизнес-дата;Счёт;Тип;Источник;Сумма;Сотрудник\\r\\n");
+        StringBuilder csv=new StringBuilder("\uFEFF")
+                .append("Дата;Бизнес-дата;Счёт;Тип;Источник;Сумма;Сотрудник\r\n");
         int pages=(int)((first.total()+99)/100);
         for(int p=0;p<pages;p++){
             List<Line> items=p==0?first.items():list(from,to,account,movementType,p,100).items();
@@ -96,7 +96,7 @@ public class FinanceLedgerController {
                    .append(csv(line.type())).append(';')
                    .append(csv(line.sourceType())).append(';')
                    .append(csv(line.amount().toPlainString())).append(';')
-                   .append(csv(line.createdBy())).append("\\r\\n");
+                   .append(csv(line.createdBy())).append("\r\n");
             }
         }
         byte[] bytes=csv.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
