@@ -6,6 +6,7 @@ import {reportingApi} from '../reporting-api';
 import {som} from '../validation';
 import {useFinancePeriod} from '../useFinancePeriod';
 import {FinanceTabs} from '../components/FinanceTabs';
+import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
 import {ErrorState} from '../../../shared/components/ErrorState';
@@ -39,6 +40,7 @@ export function FinanceOperationsPage(){
  return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Все операции" description="Реальные денежные проводки; внутренние переводы не считаются выручкой"/>
   <FinanceTabs/>
+  <FinanceQuickPeriods onChoose={next=>{setPeriod(next);setPage(0);setSelected(null);}}/>
   <div className="flex flex-wrap items-end gap-3 rounded-2xl border bg-white p-4">
    <label className="text-sm">С <input aria-label="Операции с" className="block rounded-lg border p-2" type="date" value={period.from} onChange={e=>{setPeriod({...period,from:e.target.value});setPage(0);}}/></label>
    <label className="text-sm">По (исключительно) <input aria-label="Операции по" className="block rounded-lg border p-2" type="date" value={period.to} onChange={e=>{setPeriod({...period,to:e.target.value});setPage(0);}}/></label>
