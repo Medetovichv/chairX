@@ -10,8 +10,10 @@ import java.util.*;
 
 /**
  * Read-only recognized sales and FIFO exposure, independent of cash postings.
- * Revenue recognition follows fulfillment independently of when cash arrives. Returns/exchanges
- * are deliberately excluded from net profit until compensation can be reconciled.
+ * Revenue recognition follows fulfillment/delivery independently of cash receipt.
+ * Prior-period returns reverse original sale value and FIFO on the physical return
+ * date. Linked cash refunds and exchange credits are settlements, not duplicate
+ * revenue reversals. Unverifiable legacy refunds or missing FIFO suppress profit.
  */
 @Service
 @Transactional(readOnly=true)
