@@ -1,6 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useAuth } from '../../features/auth/AuthProvider';
+import { CustomerForm } from '../../features/customers/components/CustomerForm';
+import { DeliveryActions } from '../../features/deliveries/components/DeliveryActions';
+import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
 import { salesApi, salesKeys } from '../../features/sales/api';
@@ -49,6 +53,9 @@ export function SaleQuickView({ id }: { id: string }) {
 }
 export function CustomerQuickView({ id }: { id: string }) {
   const { hasPermission } = useAuth();
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [notice, setNotice] = useState('');
   const customer = useQuery({ queryKey: customerKeys.detail(id), queryFn: () => customersApi.get(id) });
   const history = useQuery({ queryKey: customerKeys.history(id, 0), queryFn: () => customersApi.history(id, 0),
     enabled: hasPermission('SALES_READ') });
@@ -56,6 +63,20 @@ export function CustomerQuickView({ id }: { id: string }) {
   if (customer.isError) return <ErrorState error={customer.error} onRetry={() => void customer.refetch()}/>;
   const c = customer.data;
   return <div className="space-y-5">
+    {notice && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-800">{notice}</p>}
+    {hasPermission('CUSTOMERS_MANAGE') && !editing && <button type="button" className="rounded-xl border px-4 py-2 font-medium" onClick={() => setEditing(true)}>Редактировать клиента</button>}
+    {editing && <CustomerForm key={c.updatedAt} initial={c} onCancel={() => setEditing(false)} onSave={async input => {
+      const fresh = await customersApi.get(id);
+      if (fresh.updatedAt !== c.updatedAt) {
+        queryClient.setQueryData(customerKeys.detail(id), fresh);
+        throw new Error('Контакт изменён другим сотрудником. Проверьте данные заново.');
+      }
+      const updated = await customersApi.update(id, input);
+      queryClient.setQueryData(customerKeys.detail(id), updated);
+      await queryClient.invalidateQueries({ queryKey: customerKeys.lists });
+      setEditing(false);
+      setNotice('Клиент обновлён.');
+    }}/ >}
     <Section>
       <Field label="Имя" value={c.fullName}/>
       <Field label="Телефон" value={c.phone}/>
@@ -78,6 +99,8 @@ export function CustomerQuickView({ id }: { id: string }) {
   </div>;
 }
 export function DeliveryQuickView({ id }: { id: string }) {
+  const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
   const delivery = useQuery({ queryKey: deliveryKeys.detail(id), queryFn: () => deliveryApi.get(id) });
   if (delivery.isPending) return <LoadingState label="Загружаем доставку…"/>;
   if (delivery.isError) return <ErrorState error={delivery.error} onRetry={() => void delivery.refetch()}/>;
@@ -96,8 +119,19 @@ export function DeliveryQuickView({ id }: { id: string }) {
       <Field label="Комментарий" value={d.comment}/>
       <Field label="Причина неудачи" value={d.failureReason}/>
     </Section>
-    <Link to={'/sales/' + encodeURIComponent(d.saleId)} className="inline-block text-sm font-medium text-blue-700 underline">
-      Открыть связанную продажу
-    </Link>
+    {hasPermission('SALES_READ') && <Link to={'/sales/' + encodeURIComponent(d.saleId)} className="inline-block text-sm font-medium text-blue-700 underline">Открыть связанную продажу</Link>}
+    <DeliveryActions key={d.id} delivery={d} onChanged={async updated => {
+      queryClient.setQueryData(deliveryKeys.detail(id), updated);
+      queryClient.setQueryData(deliveryKeys.bySale(updated.saleId), updated);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: deliveryKeys.lists }),
+        queryClient.invalidateQueries({ queryKey: salesKeys.lists }),
+        queryClient.invalidateQueries({ queryKey: salesKeys.kanban }),
+        queryClient.invalidateQueries({ queryKey: salesKeys.detail(updated.saleId) }),
+        queryClient.invalidateQueries({ queryKey: inventoryKeys.overviewPrefix }),
+        queryClient.invalidateQueries({ queryKey: inventoryKeys.balancePrefix }),
+        queryClient.invalidateQueries({ queryKey: inventoryKeys.movementsPrefix }),
+      ]);
+    }}/>
   </div>;
 }
