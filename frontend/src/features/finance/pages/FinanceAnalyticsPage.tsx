@@ -17,7 +17,7 @@ export function FinanceAnalyticsPage(){
  const categories=useQuery({queryKey:['f15','expense-categories',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.expenseCategories(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const q=useQuery({queryKey:['f15','analytics',year],queryFn:()=>reportingApi.analytics(from,to),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
- return <div className="space-y-5 pb-10">
+ return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Аналитика" description="Динамика выручки, экономической прибыли и кассовых потоков по месяцам"/>
   <FinanceTabs/>
   <label className="inline-flex items-center gap-3 rounded-xl border bg-white p-3 text-sm">Год
