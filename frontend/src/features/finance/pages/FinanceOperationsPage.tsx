@@ -16,9 +16,10 @@ export function FinanceOperationsPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
  const [period,setPeriod]=useFinancePeriod();
  const [page,setPage]=useState(0),[account,setAccount]=useState(''),[movementType,setMovementType]=useState('');
+ const [search,setSearch]=useState(''),[minAmount,setMinAmount]=useState(''),[maxAmount,setMaxAmount]=useState(''),[sort,setSort]=useState('newest');
  const [selected,setSelected]=useState<string|null>(null);
- const report=useQuery({queryKey:['f15','ledger',period.from,period.to,page,account,movementType],
- queryFn:()=>reportingApi.ledger(period.from,period.to,page,account,movementType),enabled:allowed});
+ const report=useQuery({queryKey:['f15','ledger',period.from,period.to,page,account,movementType,search,minAmount,maxAmount,sort],
+ queryFn:()=>reportingApi.ledger(period.from,period.to,page,account,movementType,search,minAmount,maxAmount,sort),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
  const line=report.data?.items.find(item=>item.id===selected);
  return <div className="space-y-5 pb-10">
@@ -37,7 +38,21 @@ export function FinanceOperationsPage(){
      <option value="CUSTOMER_REFUND">Возврат клиенту</option>
      <option value="TRANSFER">Внутренний перевод</option>
     </select></label>
-   <FinanceExportButton from={period.from} to={period.to} account={account} movementType={movementType}/>
+   <label className="text-sm">Поиск
+    <input aria-label="Поиск финансовых операций" maxLength={100} className="block min-h-10 w-full rounded-lg border p-2" placeholder="Тип, сотрудник, источник" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/>
+   </label>
+   <label className="text-sm">Сумма от
+    <input aria-label="Минимальная сумма" type="number" step="0.01" className="block w-32 rounded-lg border p-2" value={minAmount} onChange={e=>{setMinAmount(e.target.value);setPage(0);}}/>
+   </label>
+   <label className="text-sm">Сумма до
+    <input aria-label="Максимальная сумма" type="number" step="0.01" className="block w-32 rounded-lg border p-2" value={maxAmount} onChange={e=>{setMaxAmount(e.target.value);setPage(0);}}/>
+   </label>
+   <label className="text-sm">Сортировать
+    <select aria-label="Сортировка операций" className="block rounded-lg border p-2" value={sort} onChange={e=>{setSort(e.target.value);setPage(0);}}>
+     <option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option><option value="amountAsc">По сумме ↑</option><option value="amountDesc">По сумме ↓</option>
+    </select>
+   </label>
+   <FinanceExportButton from={period.from} to={period.to} account={account} movementType={movementType} search={search} minAmount={minAmount} maxAmount={maxAmount} sort={sort}/>
   </div>
   {report.isPending?<LoadingState label="Загружаем проводки…"/>:report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
   <section aria-label="Журнал денежных операций" className="overflow-hidden rounded-2xl border bg-white">
