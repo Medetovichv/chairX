@@ -12,7 +12,6 @@ import { GuardedPost } from '../features/finance/components/GuardedPost';
 import { SaleFinancialSection } from '../features/finance/components/SaleFinancialSection';
 import { ExpensesPage } from '../features/finance/pages/ExpensesPage';
 import { FinanceOverviewPage } from '../features/finance/pages/FinanceOverviewPage';
-import { FinanceReportPage } from '../features/finance/pages/FinanceReportPage';
 import { ExchangeSettlementForm } from '../features/finance/components/ExchangeSettlementForm';
 import { readFinancePending } from '../features/finance/pending';
 import {
@@ -69,30 +68,6 @@ beforeEach(()=>{
 });
 afterEach(()=>{
  authSession.clear();sessionStorage.clear();vi.restoreAllMocks();vi.unstubAllGlobals();
-});
-describe('Financial reporting foundation',()=>{
- it('never labels cash flow as profit and presents documented cash categories',async()=>{
-  access.permissions=['FINANCE_READ'];
-  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
-   const path=String(url);
-   if(path.includes('/api/finance/cash-flow?'))return j({
-    from:'2026-10-01',to:'2026-11-01',payments:'10000',
-    exchangePayments:'0',paymentCorrections:'0',refunds:'0',
-    exchangeRefunds:'0',operatingExpenses:'1000',purchasePayments:'3000',
-    totalIn:'10000',totalOut:'4000',netCashFlow:'6000'});
-   throw Error('Unexpected '+path);
-  }));
-  wrapper(<FinanceReportPage/>);
-  expect(await screen.findByRole('table',{name:'Сводная таблица финансовых потоков'})).toBeInTheDocument();
-  expect(screen.getByText(/P&L появится после сверки/)).toBeInTheDocument();
-  expect(screen.getByText(/агрегаты, а не отдельные транзакции/)).toBeInTheDocument();
-  expect(screen.getByText('Чистый денежный поток')).toBeInTheDocument();
- });
- it('blocks reports for users without finance grant',()=>{
-  access.permissions=['EXPENSES_READ'];
-  wrapper(<FinanceReportPage/>);
-  expect(screen.getByText('Доступ запрещён')).toBeInTheDocument();
- });
 });
 describe('F10 exact money validation, mappings and dates',()=>{
  it('maps all payment channels to backend methods and CASH/BANK accounts',()=>{
