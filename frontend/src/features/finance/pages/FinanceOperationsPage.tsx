@@ -62,9 +62,9 @@ export function FinanceOperationsPage(){
     <td className="p-3">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})}</td>
     <td className="p-3">{labels[x.type]||x.type.replaceAll('_',' ')}</td>
     <td className="p-3">{x.account==='CASH'?'Наличные':'Банк'}</td><td className="p-3">{x.documentLabel||x.sourceType.replaceAll('_',' ')}{x.documentKind==='SALE'&&x.documentId&&hasPermission('SALES_READ')&&
-     <Link to={'/sales/'+encodeURIComponent(x.documentId)} className="ml-2 text-blue-700 underline">Открыть заказ</Link>}
+     <Link to={'/sales/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть заказ</Link>}
     {x.documentKind==='PURCHASE'&&x.documentId&&hasPermission('PURCHASE_READ')&&
-     <Link to={'/purchases/'+encodeURIComponent(x.documentId)} className="ml-2 text-blue-700 underline">Открыть закупку</Link>}</td>
+     <Link to={'/purchases/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть закупку</Link>}</td>
     <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
    </tr>)}</tbody></table></div>
    <div className="divide-y md:hidden">{report.data.items.map(x=><button key={x.id} onClick={()=>setSelected(x.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
