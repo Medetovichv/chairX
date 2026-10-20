@@ -5,7 +5,7 @@ import { cn } from '../lib/cn';
 export function PageTabs({ tabs }: { tabs: readonly RouteMeta[] }) {
   if (tabs.length === 0) return null;
   return (
-    <nav aria-label="Вкладки раздела" className="flex gap-1 overflow-x-auto border-b border-slate-200" >
+    <nav aria-label="Вкладки раздела" className="flex w-full min-w-0 max-w-full gap-1 overflow-x-auto border-b border-slate-200" >
       {tabs.map((tab) => (
         <NavLink key={tab.path} to={tab.path} end
           className={({ isActive }) => cn(
