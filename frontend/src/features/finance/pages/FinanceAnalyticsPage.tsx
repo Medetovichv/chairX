@@ -14,6 +14,7 @@ export function FinanceAnalyticsPage(){
  const [year,setYear]=useState(new Date().getFullYear());
  const from=year+'-01-01',to=String(year+1)+'-01-01';
  const [expensePeriod]=useFinancePeriod();
+ const turnover=useQuery({queryKey:['f15','turnover',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.inventoryTurnover(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const categories=useQuery({queryKey:['f15','expense-categories',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.expenseCategories(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const q=useQuery({queryKey:['f15','analytics',year],queryFn:()=>reportingApi.analytics(from,to),enabled:allowed});
  const previous=useQuery({queryKey:['f15','analytics',year-1],queryFn:()=>reportingApi.analytics((year-1)+'-01-01',year+'-01-01'),enabled:allowed});
@@ -31,6 +32,15 @@ export function FinanceAnalyticsPage(){
    <select aria-label="Год аналитики" className="rounded-lg border p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>
     {[year-2,year-1,year,year+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=><option key={x} value={x}>{x}</option>)}
    </select></label>
+  <section aria-label="Оборачиваемость запасов" className="min-w-0 rounded-2xl border bg-white p-4">
+   <h2 className="font-semibold">Оборачиваемость склада · {expensePeriod.from} — {expensePeriod.to}</h2>
+   <p className="mt-1 text-xs text-slate-500">FIFO-себестоимость реализованных товаров за вычетом восстановленной стоимости возвратов, разделённая на среднюю стоимость запасов на границах периода.</p>
+   {turnover.isPending?<LoadingState label="Рассчитываем оборачиваемость…"/>:turnover.isError?<ErrorState error={turnover.error} onRetry={()=>void turnover.refetch()}/>:
+    <div className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+     {([['На начало',som(turnover.data.openingCost)],['На конец',som(turnover.data.closingCost)],['Средний остаток',som(turnover.data.averageCost)],['Обороты',turnover.data.available&&turnover.data.turns!=null?Number(turnover.data.turns).toLocaleString('ru-RU',{maximumFractionDigits:2})+' ×':'Недоступно']] as const).map(([label,value])=><div key={label} className="min-w-0 rounded-xl bg-slate-50 p-3"><p className="text-slate-500">{label}</p><strong className="mt-1 block break-words">{value}</strong></div>)}
+    </div>}
+   {turnover.isSuccess&&!turnover.data.available&&<p className="mt-2 text-xs text-amber-700">Средний остаток равен нулю либо исходные FIFO-суммы требуют сверки. Коэффициент не рассчитывается.</p>}
+  </section>
   <section aria-label="Сравнение финансовых годов" className="min-w-0 rounded-2xl border bg-white p-4">
    <h2 className="font-semibold">Сравнение с {year-1} годом</h2>
    <p className="mt-1 text-xs text-slate-500">Сравниваются одинаковые месяцы: для текущего года — только завершённые месяцы ({monthsToCompare>0?`январь–${String(monthsToCompare).padStart(2,"0")}`:"завершённых месяцев ещё нет"}), для прошлых лет — весь год. Кассовый поток не является прибылью.</p>
