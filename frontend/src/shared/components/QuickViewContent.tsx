@@ -13,15 +13,16 @@ import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
 import { salesApi, salesKeys } from '../../features/sales/api';
 import { ErrorState } from './ErrorState';
 import { LoadingState } from './LoadingState';
-import { useQuickViewDirty } from './QuickViewDrawer';
+import { useQuickViewDirty, useQuickViewCanLeave } from './QuickViewDrawer';
 
 type Tab = 'overview' | 'actions' | 'history';
 function Tabs({ value, onChange }: { value: Tab; onChange: (tab: Tab) => void }) {
+  const canLeave = useQuickViewCanLeave();
   return <div role="tablist" aria-label="Разделы карточки" className="flex gap-2 border-b border-slate-200 pb-2">
     {([['overview', 'Обзор'], ['actions', 'Действия'], ['history', 'История']] as const).map(([key, label]) =>
       <button type="button" role="tab" aria-selected={value === key} key={key}
         className={'rounded-xl px-3 py-2 text-sm font-medium ' + (value === key ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700')}
-        onClick={() => onChange(key)}>{label}</button>)}
+        onClick={() => { if (value !== key && canLeave()) onChange(key); }}>{label}</button>)}
   </div>;
 }
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
