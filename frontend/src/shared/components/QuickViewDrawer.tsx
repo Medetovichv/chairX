@@ -21,7 +21,13 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
   const [dirty, setDirty] = useState(false);
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
-  const allowLeave = () => !dirtyRef.current || window.confirm('Есть несохранённые изменения. Продолжить без сохранения?');
+  const allowLeave = () => {
+    if (!dirtyRef.current) return true;
+    if (!window.confirm('Есть несохранённые изменения. Продолжить без сохранения?')) return false;
+    dirtyRef.current = false;
+    setDirty(false);
+    return true;
+  };
   const guardedClose = () => { if (allowLeave()) { setDirty(false); onClose(); } };
   const guardedMove = (action?: () => void) => { if (action && allowLeave()) { setDirty(false); action(); } };
   const closeRef = useRef<HTMLButtonElement>(null);
