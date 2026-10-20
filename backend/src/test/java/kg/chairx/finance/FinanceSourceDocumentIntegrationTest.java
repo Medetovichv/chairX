@@ -37,7 +37,7 @@ class FinanceSourceDocumentIntegrationTest {
         new org.springframework.security.core.authority.SimpleGrantedAuthority("EXPENSES_READ"))))
      .andExpect(status().isOk())
      .andExpect(jsonPath("$.id").value(id.toString()))
-     .andExpect(jsonPath("$.fields").isMap())
+     .andExpect(jsonPath("$.fields").isMap());
   mvc.perform(get(url).with(user("finance").authorities(
         new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
      .andExpect(status().isForbidden());
