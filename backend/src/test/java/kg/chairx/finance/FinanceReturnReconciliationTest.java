@@ -162,7 +162,9 @@ class FinanceReturnReconciliationTest {
         var affected=margins.list(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"))
                 .stream().filter(m->m.variantId().equals(sale.variant())).findFirst();
         // The rebate has no item-level distribution. Do not fabricate a verified model margin.
-        assertThat(affected).isEmpty();
+        assertThat(affected).isPresent();
+        assertThat(affected.orElseThrow().costComplete()).isFalse();
+        assertThat(affected.orElseThrow().grossProfit()).isNull();
     }
     @Test void exchangedChairRecognizesOldReturnAndNewSaleOnlyOnce(){
         var original=sold("2024-01-15",1000,600);
