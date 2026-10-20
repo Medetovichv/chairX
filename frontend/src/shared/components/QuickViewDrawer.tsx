@@ -21,6 +21,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
   dirtyRef.current = dirty;
   const allowLeave = () => !dirtyRef.current || window.confirm('Есть несохранённые изменения. Продолжить без сохранения?');
   const guardedClose = () => { if (allowLeave()) { setDirty(false); onClose(); } };
+  const guardedMove = (action?: () => void) => { if (action && allowLeave()) { setDirty(false); action(); } };
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -46,7 +47,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
         <ArrowLeft className="size-5 lg:hidden"/><X className="hidden size-5 lg:block"/>
       </button>
       <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">{title}</h2>
-      <div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={() => { if (allowLeave()) { setDirty(false); previous?.(); } }} className="rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={() => { if (allowLeave()) { setDirty(false); next?.(); } }} className="rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>
+      <div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={() => guardedMove(previous)} className="rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={() => guardedMove(next)} className="rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>
       <Link to={detailUrl} onClick={event => { if (!allowLeave()) event.preventDefault(); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
         <ExternalLink className="size-4" aria-hidden="true"/><span>Полная страница</span>
       </Link>
