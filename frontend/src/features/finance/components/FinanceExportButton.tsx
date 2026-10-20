@@ -1,12 +1,12 @@
 import {useState} from 'react';
 import {authSession} from '../../auth/session';
 import {Button} from '../../../shared/ui/button';
-export function FinanceExportButton({from,to,account}:{from:string;to:string;account:string}){
+export function FinanceExportButton({from,to,account,movementType=''}:{from:string;to:string;account:string;movementType?:string}){
  const [error,setError]=useState(''),[loading,setLoading]=useState(false);
  async function download(){
   setLoading(true);setError('');
   try{
-   const query=new URLSearchParams({from,to,...(account?{account}:{})});
+   const query=new URLSearchParams({from,to,...(account?{account}:{}),...(movementType?{movementType}:{})});
    const response=await authSession.fetchTracked('/api/finance/ledger/export?'+query.toString(),{
     method:'GET',headers:authSession.requiredAuthHeaders(),credentials:'same-origin',redirect:'error'
    });
