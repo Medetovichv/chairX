@@ -70,7 +70,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       </button>
       <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">{title}</h2>
       <div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={() => guardedMove(previous)} className="rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={() => guardedMove(next)} className="rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>
-      <Link to={detailUrl} aria-label="Открыть полную страницу" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+      <Link to={detailUrl} aria-label="Полная страница" className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
         <ExternalLink className="size-4" aria-hidden="true"/><span className="hidden sm:inline">Полная страница</span>
       </Link>
     </header>
