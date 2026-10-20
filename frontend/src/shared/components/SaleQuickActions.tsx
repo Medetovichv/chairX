@@ -58,6 +58,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       sent=true;
       const result=action==='confirm'?await salesApi.confirm(sale.id):
         action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancel(sale.id);
+      sent=false; // A successful API response is authoritative: cache invalidation is not a second mutation.
       if(!clearSaleAction(user.id, sale.id)) {
         setInvalid(true);
         setError('Операция выполнена, но запись восстановления не удалось очистить. Действия заблокированы.');
@@ -105,8 +106,8 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     </div>}
     <div className="flex flex-wrap gap-2">
       {canConfirm&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('confirm')}>Подтвердить заказ</button>}
-      {canFulfill&&<button type="button" disabled={busy||!!unknown} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('fulfill')}>Завершить выдачу</button>}
-      {canCancel&&<button type="button" disabled={busy||!!unknown} className="rounded-xl border px-4 py-2" onClick={()=>setIntent('cancel')}>Отменить заказ</button>}
+      {canFulfill&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('fulfill')}>Завершить выдачу</button>}
+      {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setIntent('cancel')}>Отменить заказ</button>}
     </div>
     <ConfirmDialog open={!!intent} onOpenChange={open=>{if(!open)setIntent(null);}}
       title={intent==='confirm'?'Подтвердить заказ?':intent==='fulfill'?'Выдать товар?':'Отменить заказ?'}
