@@ -42,6 +42,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   async function execute(action:Action) {
     if(busyRef.current||unknown||invalid)return;
     busyRef.current=true;setBusy(true);setError('');
+    let sent=false;
     try {
       const current=await salesApi.get(sale.id);
       if(snapshot(current)!==snapshot(sale)) {
@@ -54,6 +55,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
         setError('Не удалось сохранить запись операции. Запрос не отправлен.');
         return;
       }
+      sent=true;
       const result=action==='confirm'?await salesApi.confirm(sale.id):
         action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancel(sale.id);
       if(!clearSaleAction(user.id, sale.id)) {
@@ -64,8 +66,8 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       setNotice('Операция подтверждена сервером.');
     } catch(cause) {
       setError(userFacingApiError(cause));
-      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||
-        cause.status===undefined||cause.status===409||cause.status>=500) {
+      if(sent && (!(cause instanceof ApiClientError)||cause.kind!=='http'||
+        cause.status===undefined||cause.status===409||cause.status>=500)) {
         setUnknown(action);
       } else if(user?.id && !clearSaleAction(user.id,sale.id)) {
         setInvalid(true);
