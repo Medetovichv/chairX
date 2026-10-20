@@ -13,6 +13,13 @@ import {ForbiddenPage} from '../../../pages/ForbiddenPage';
 import {Button} from '../../../shared/ui/button';
 import {FinanceExportButton} from '../components/FinanceExportButton';
 const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
+// Section fallback is deliberately not described as a document deep link.
+function relatedSection(line: {type:string;sourceType:string},hasPermission:(permission:string)=>boolean){
+ if(line.type==='EXPENSE' && hasPermission('EXPENSES_READ'))return {to:'/finance/expenses',label:'Перейти к расходам'};
+ if(line.type==='TRANSFER' && hasPermission('FINANCE_READ'))return {to:'/finance/transfers',label:'Перейти к переводам'};
+ if(line.type==='CUSTOMER_REFUND' && hasPermission('RETURNS_READ'))return {to:'/returns',label:'Перейти к возвратам'};
+ return null;
+}
 export function FinanceOperationsPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
  const [period,setPeriod]=useFinancePeriod();
@@ -85,9 +92,10 @@ export function FinanceOperationsPage(){
      <Link to={'/sales/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть заказ →</Link>}
     {line.documentKind==='PURCHASE'&&line.documentId&&hasPermission('PURCHASE_READ')&&
      <Link to={'/purchases/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть закупку →</Link>}
+    {!line.documentId&&relatedSection(line,hasPermission)&&<Link to={relatedSection(line,hasPermission)!.to} className="block text-blue-700 underline">{relatedSection(line,hasPermission)!.label} →</Link>}
     <div><dt className="text-slate-500">Сумма</dt><dd className="font-bold">{som(line.amount)}</dd></div>
    </dl>
-   <p className="mt-3 text-xs text-slate-500">Переход к исходным продаже или закупке доступен при соответствующих правах; остальные виды проводок показываются только для чтения.</p>
+   <p className="mt-3 text-xs text-slate-500">Для продажи и закупки доступен переход к документу при соответствующих правах. Для других операций предусмотрен переход к разделу, но не к конкретной записи.</p>
   </section>}
  </div>;
 }
