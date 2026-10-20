@@ -15,8 +15,9 @@ import {FinanceExportButton} from '../components/FinanceExportButton';
 const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
 // Section fallback is deliberately not described as a document deep link.
 function sourceLink(kind:string|null,id:string|null,hasPermission:(permission:string)=>boolean){
- if(!id || !kind || !['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE'].includes(kind))return null;
+ if(!id || !kind || !['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE','REFUND'].includes(kind))return null;
  if(kind==='EXPENSE'&&!hasPermission('EXPENSES_READ'))return null;
+ if(kind==='REFUND'&&!hasPermission('REFUNDS_READ'))return null;
  return '/finance/documents/'+encodeURIComponent(kind)+'/'+encodeURIComponent(id);
 }
 function relatedSection(line: {type:string;sourceType:string},hasPermission:(permission:string)=>boolean){
