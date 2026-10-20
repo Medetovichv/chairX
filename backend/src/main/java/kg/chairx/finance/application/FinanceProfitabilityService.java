@@ -105,7 +105,7 @@ public class FinanceProfitabilityService {
         // A return/refund made before fulfillment cannot safely adjust
         // recognized sales; do not publish a misleading final profit.
         boolean available=allValued && !adjustments.unrecognizedAdjustments();
-        BigDecimal gross=allValued?netRevenue.subtract(fifo)
+        BigDecimal gross=available?netRevenue.subtract(fifo)
                 .add(adjustments.restoredFifoCost()):null;
         BigDecimal operating=available?gross.subtract(expenses).subtract(nonAccrualExpenses):null;
         return new Profitability(from,to,revenue,fifo,expenses,nonAccrualExpenses,
@@ -113,6 +113,6 @@ public class FinanceProfitabilityService {
                 adjustments.restoredFifoCost(),netRevenue,allValued,
                 available,gross,operating,rows,
                 available?"Revenue and FIFO reflect historical returns, refunds and allocated expenses":
-                "Financial result unavailable: incomplete FIFO restoration, missing cost allocations or adjustments before fulfillment");
+                "Financial result unavailable: incomplete FIFO, missing restoration, or ambiguous refund attribution");
     }
 }
