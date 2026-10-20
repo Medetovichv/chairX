@@ -29,6 +29,26 @@ describe('QuickViewDrawer navigation', () => {
     confirm.mockRestore();
     unmount();
   });
+  it('blocks full-page navigation while edits are not discarded', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { unmount } = render(<MemoryRouter initialEntries={['/sales']}>
+      <QuickViewDrawer title="Заказ" detailUrl="/sales/detail" onClose={() => {}}><Editor/></QuickViewDrawer>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    fireEvent.click(screen.getByRole('link', { name: /Полная страница/ }));
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Назад к списку' })).toBeTruthy();
+    confirm.mockRestore();
+    unmount();
+  });
+  it('warns on browser unload with unsaved edits', () => {
+    const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}}><Editor/></QuickViewDrawer></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    const event = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    unmount();
+  });
   it('allows moving to adjacent records after approval', () => {
     const next = vi.fn();
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
