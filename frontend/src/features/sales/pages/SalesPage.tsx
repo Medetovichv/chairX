@@ -43,6 +43,7 @@ export function SalesPage() {
   const { hasPermission } = useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
+  const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
   const closeQuick = useCallback(() => setQuickParams(prev => {
     const next = new URLSearchParams(prev); next.delete('quick'); return next;
   }), [setQuickParams]);
@@ -102,6 +103,8 @@ export function SalesPage() {
     return <ForbiddenPage />;
   }
 
+  const visibleIds = (listing.data?.items ?? []).map(record => record.id);
+  const selectedIndex = visibleIds.indexOf(selected ?? '');
   return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-5 sm:space-y-6 min-w-0 flex-1">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
       action={create ? <Button asChild className="bg-blue-600 hover:bg-blue-700">
@@ -191,5 +194,5 @@ export function SalesPage() {
           total={listing.data.total} label="продаж"
           onPage={p => setFilters(old => ({ ...old, page: p }))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]) : undefined}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
