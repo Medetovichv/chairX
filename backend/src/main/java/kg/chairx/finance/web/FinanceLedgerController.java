@@ -30,11 +30,18 @@ public class FinanceLedgerController {
                      @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,
                      @RequestParam(required=false) String account,
                      @RequestParam(required=false) String movementType,
+                     @RequestParam(required=false) String search,
+                     @RequestParam(required=false) BigDecimal minAmount,
+                     @RequestParam(required=false) BigDecimal maxAmount,
+                     @RequestParam(defaultValue="newest") String sort,
                      @RequestParam(defaultValue="0") int page,
                      @RequestParam(defaultValue="50") int size){
         if(from==null||to==null||!from.isBefore(to)
                 ||java.time.temporal.ChronoUnit.DAYS.between(from,to)>366
-                ||page<0||size<1||size>100||page>10000)
+                ||page<0||size<1||size>100||page>10000
+                ||(search!=null&&search.length()>100)
+                ||(minAmount!=null&&maxAmount!=null&&minAmount.compareTo(maxAmount)>0)
+                ||!Set.of("newest","oldest","amountAsc","amountDesc").contains(sort))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid ledger pagination or period");
         if(account!=null&&!Set.of("CASH","BANK").contains(account))
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Invalid finance account");
@@ -47,17 +54,30 @@ public class FinanceLedgerController {
                 WHERE created_at>=:from AND created_at<:to
                   AND (:account = '' OR account_code=:account)
                   AND (:kind = '' OR movement_type=:kind)
+                  AND (:search = '' OR created_by ILIKE :searchPattern
+                       OR movement_type ILIKE :searchPattern
+                       OR source_type ILIKE :searchPattern
+                       OR source_id::text ILIKE :searchPattern)
+                  AND (:minAmount IS NULL OR amount >= :minAmount)
+                  AND (:maxAmount IS NULL OR amount <= :maxAmount)
                 """;
+        String order=switch(sort){case "oldest"->"created_at ASC,id ASC";case "amountAsc"->"amount ASC,id ASC";case "amountDesc"->"amount DESC,id DESC";default->"created_at DESC,id DESC";};
+        String q=search==null?"":search.strip();
+        String pattern="%"+q.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
         var base=jdbc.sql("SELECT COUNT(*) "+clause)
                 .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
-                .param("account",account==null?"":account).param("kind",movementType==null?"":movementType);
+                .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)
+                .param("search",q).param("searchPattern",pattern)
+                .param("minAmount",minAmount,java.sql.Types.NUMERIC).param("maxAmount",maxAmount,java.sql.Types.NUMERIC);
         long count=base.query(Long.class).single();
         var entries=jdbc.sql("""
              SELECT id,created_at,business_date,account_code,amount,
                     movement_type,source_type,source_id,created_by
-             """+clause+" ORDER BY created_at DESC,id DESC LIMIT :limit OFFSET :offset")
+             """+clause+" ORDER BY "+order+" LIMIT :limit OFFSET :offset")
              .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
              .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)
+             .param("search",q).param("searchPattern",pattern)
+             .param("minAmount",minAmount,java.sql.Types.NUMERIC).param("maxAmount",maxAmount,java.sql.Types.NUMERIC)
              .param("limit",size).param("offset",page*size)
              .query((rs,row)->new Line(
                  rs.getObject("id",UUID.class),
@@ -78,8 +98,12 @@ public class FinanceLedgerController {
             @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(required=false) String account,
-            @RequestParam(required=false) String movementType){
-        Page first=list(from,to,account,movementType,0,100);
+            @RequestParam(required=false) String movementType,
+            @RequestParam(required=false) String search,
+            @RequestParam(required=false) BigDecimal minAmount,
+            @RequestParam(required=false) BigDecimal maxAmount,
+            @RequestParam(defaultValue="newest") String sort){
+        Page first=list(from,to,account,movementType,search,minAmount,maxAmount,sort,0,100);
         if(first.total()>10000)
             throw new org.springframework.web.server.ResponseStatusException(
                 org.springframework.http.HttpStatus.UNPROCESSABLE_ENTITY,
@@ -88,7 +112,7 @@ public class FinanceLedgerController {
                 .append("Дата;Бизнес-дата;Счёт;Тип;Источник;Сумма;Сотрудник\r\n");
         int pages=(int)((first.total()+99)/100);
         for(int p=0;p<pages;p++){
-            List<Line> items=p==0?first.items():list(from,to,account,movementType,p,100).items();
+            List<Line> items=p==0?first.items():list(from,to,account,movementType,search,minAmount,maxAmount,sort,p,100).items();
             for(Line line:items){
                 csv.append(csv(line.postedAt().atZone(ZONE).toLocalDateTime().toString())).append(';')
                    .append(csv(line.businessDate()==null?"":line.businessDate().toString())).append(';')
