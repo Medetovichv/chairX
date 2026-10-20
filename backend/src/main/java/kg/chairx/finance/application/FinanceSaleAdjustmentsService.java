@@ -71,6 +71,9 @@ public class FinanceSaleAdjustmentsService {
         }
         var refunds=jdbc.sql("""
             SELECT rf.amount,rf.refunded_at,
+                   EXISTS (SELECT 1 FROM returns prior
+                           WHERE prior.sale_id=rf.sale_id AND prior.created_at<=rf.refunded_at)
+                      AS potential_unlinked_return,
                    s.status AS sale_status,s.fulfillment_type,d.status AS delivery_status,
                    (CASE WHEN s.fulfillment_type='SELF_PICKUP'
                       THEN s.fulfilled_at ELSE d.delivered_at END) AS recognized_at
@@ -83,10 +86,16 @@ public class FinanceSaleAdjustmentsService {
                   rs.getString("sale_status"),rs.getString("fulfillment_type"),
                   rs.getString("delivery_status"),
                   rs.getTimestamp("recognized_at")==null?null:rs.getTimestamp("recognized_at").toInstant(),
-                  rs.getTimestamp("refunded_at").toInstant())).list();
+                  rs.getTimestamp("refunded_at").toInstant(),
+                  rs.getBoolean("potential_unlinked_return"))).list();
         BigDecimal discounts=BigDecimal.ZERO;
         for(var line:refunds){
-            if(!line.originalRecognized()){unrecognized=true;continue;}
+            if(!line.originalRecognized() || line.potentialUnlinkedReturn()){
+                // Refund without return_id after a physical return could be its
+                // settlement; the schema cannot prove otherwise. Never subtract
+                // revenue twice. Flag it for manual attribution.
+                unrecognized=true;continue;
+            }
             discounts=discounts.add(line.amount());
         }
         return new Adjustments(negativeSales,restoredCost,discounts,valued,
@@ -106,7 +115,8 @@ public class FinanceSaleAdjustmentsService {
         }
     }
     private record RefundLine(BigDecimal amount,String status,String fulfillment,
-            String delivery,java.time.Instant recognizedAt,java.time.Instant eventAt){
+            String delivery,java.time.Instant recognizedAt,java.time.Instant eventAt,
+            boolean potentialUnlinkedReturn){
         boolean originalRecognized(){
             return recognized(status,fulfillment,delivery,recognizedAt,eventAt);
         }
