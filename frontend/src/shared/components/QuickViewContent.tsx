@@ -7,6 +7,7 @@ import { DeliveryActions } from '../../features/deliveries/components/DeliveryAc
 import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryTimeline';
 import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
 import { SaleForm } from '../../features/sales/components/SaleForm';
+import { SaleQuickActions } from './SaleQuickActions';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
@@ -85,7 +86,7 @@ export function SaleQuickView({ id }: { id: string }) {
           throw cause;
         }
       }}/></div>}
-      <p className="text-sm text-slate-600">Для изменения товара, выдачи, оплаты или отмены используйте полную карточку: она проверяет актуальность данных перед необратимой операцией.</p>
+      {!editing && <SaleQuickActions sale={sale}/>}
       <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-white" to={'/sales/' + encodeURIComponent(id)}>Открыть действия продажи</Link>
       <SaleCommentsPanel saleId={id}/>
     </div>}
