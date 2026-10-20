@@ -1,6 +1,9 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, ExternalLink, X } from 'lucide-react';
+
+const DirtyContext = createContext<(dirty: boolean) => void>(() => {});
+export const useQuickViewDirty = () => useContext(DirtyContext);
 
 interface Props {
   title: string;
@@ -13,24 +16,31 @@ interface Props {
 
 /** Non-modal desktop split view; full-screen detail on mobile. */
 export function QuickViewDrawer({ title, detailUrl, onClose, children, previous, next }: Props) {
+  const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  dirtyRef.current = dirty;
+  const guardedClose = () => { if (!dirtyRef.current || window.confirm('Есть несохранённые изменения. Закрыть без сохранения?')) onClose(); };
   const closeRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
     previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') { if (!dirtyRef.current || window.confirm('Есть несохранённые изменения. Закрыть без сохранения?')) onClose(); }
     };
+    const onUnload = (event: BeforeUnloadEvent) => { if (dirtyRef.current) { event.preventDefault(); event.returnValue = ''; } };
+    window.addEventListener('beforeunload', onUnload);
     window.addEventListener('keydown', onKey);
     return () => {
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('beforeunload', onUnload);
       previouslyFocused.current?.focus();
     };
   }, [onClose]);
-  return <aside aria-label={'Быстрый просмотр: ' + title}
+  return <DirtyContext.Provider value={setDirty}><aside aria-label={'Быстрый просмотр: ' + title}
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-2rem)] lg:w-[min(34vw,520px)] lg:min-w-[400px] lg:shrink-0 lg:rounded-2xl lg:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
-      <button ref={closeRef} type="button" onClick={onClose} aria-label="Назад к списку"
+      <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
         className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100">
         <ArrowLeft className="size-5 lg:hidden"/><X className="hidden size-5 lg:block"/>
       </button>
@@ -43,5 +53,5 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
       {children}
     </div>
-  </aside>;
+  </aside></DirtyContext.Provider>;
 }
