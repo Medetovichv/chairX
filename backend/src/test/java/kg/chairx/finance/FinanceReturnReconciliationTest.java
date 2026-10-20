@@ -29,7 +29,9 @@ class FinanceReturnReconciliationTest {
 
     private record SaleFixture(UUID id,UUID item,UUID variant,UUID warehouse,UUID layer,UUID allocation) {}
 
-    private SaleFixture sold(String day,int price,int cost){
+    private SaleFixture sold(String day,int price,int cost){return sold(day,price,cost,1);}
+
+    private SaleFixture sold(String day,int price,int cost,int quantity){
         UUID product=UUID.randomUUID(),variant=UUID.randomUUID(),sale=UUID.randomUUID(),
              item=UUID.randomUUID(),stockIn=UUID.randomUUID(),stockOut=UUID.randomUUID(),
              layer=UUID.randomUUID(),allocation=UUID.randomUUID();
@@ -44,36 +46,40 @@ class FinanceReturnReconciliationTest {
                 Timestamp.valueOf(day+" 09:00:00"),Timestamp.valueOf(day+" 10:00:00"));
         jdbc.update("""
             INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
-            VALUES (?,?,?,?,1,?)
-            """,item,sale,variant,home,price);
+            VALUES (?,?,?,?,?,?)
+            """,item,sale,variant,home,quantity,price);
         jdbc.update("""
             INSERT INTO inventory_balances(warehouse_id,product_variant_id,on_hand,reserved,blocked)
-            VALUES (?,?,1,0,0)
-            """,home,variant);
+            VALUES (?,?,?,0,0)
+            """,home,variant,quantity);
         jdbc.update("""
             INSERT INTO stock_movements(id,operation_id,warehouse_id,product_variant_id,movement_type,
               quantity,source_type,source_id,actor,occurred_at)
-            VALUES (?,?,?,?,'PURCHASE_IN',1,'PURCHASE_RECEIPT',?,'accountant',?)
+            VALUES (?,?,?,?,'PURCHASE_IN',?,'PURCHASE_RECEIPT',?,'accountant',?)
             """,
-            stockIn,UUID.randomUUID(),home,variant,UUID.randomUUID(),Timestamp.valueOf(day+" 08:00:00"));
+            stockIn,UUID.randomUUID(),home,variant,quantity,UUID.randomUUID(),Timestamp.valueOf(day+" 08:00:00"));
         jdbc.update("""
             INSERT INTO inventory_cost_layers(id,warehouse_id,product_variant_id,source_movement_id,
                 quantity_received,quantity_remaining,total_cost,remaining_cost,received_at)
-            VALUES (?,?,?,?,1,0,?,0,?)
-            """,layer,home,variant,stockIn,cost,Timestamp.valueOf(day+" 08:00:00"));
+            VALUES (?,?,?,?,?,0,?,0,?)
+            """,layer,home,variant,stockIn,quantity,cost,Timestamp.valueOf(day+" 08:00:00"));
         jdbc.update("""
             INSERT INTO stock_movements(id,operation_id,warehouse_id,product_variant_id,movement_type,
               quantity,source_type,source_id,actor,occurred_at)
-            VALUES (?,?,? ,?,'SALE_OUT',1,'SALE_ITEM',?,'accountant',?)
-            """,stockOut,UUID.randomUUID(),home,variant,item,Timestamp.valueOf(day+" 10:00:00"));
+            VALUES (?,?,? ,?,'SALE_OUT',?,'SALE_ITEM',?,'accountant',?)
+            """,stockOut,UUID.randomUUID(),home,variant,quantity,item,Timestamp.valueOf(day+" 10:00:00"));
         jdbc.update("""
             INSERT INTO inventory_cost_allocations(id,stock_movement_id,cost_layer_id,quantity,allocated_cost)
-            VALUES (?,?,?,1,?)
-            """,allocation,stockOut,layer,cost);
+            VALUES (?,?,?,?,?)
+            """,allocation,stockOut,layer,quantity,cost);
         return new SaleFixture(sale,item,variant,home,layer,allocation);
     }
 
     private UUID returned(SaleFixture original,String day,boolean valued){
+        return returned(original,day,valued,600);
+    }
+
+    private UUID returned(SaleFixture original,String day,boolean valued,int restoredCost){
         UUID id=UUID.randomUUID(),ri=UUID.randomUUID(),movement=UUID.randomUUID();
         jdbc.update("""
             INSERT INTO returns(id,sale_id,warehouse_id,idempotency_key,request_fingerprint,
@@ -93,8 +99,8 @@ class FinanceReturnReconciliationTest {
         if(valued){
             jdbc.update("""
                 INSERT INTO inventory_cost_restorations(return_movement_id,original_allocation_id,quantity,amount)
-                VALUES (?,?,1,600)
-                """,movement,original.allocation());
+                VALUES (?,?,1,?)
+                """,movement,original.allocation(),restoredCost);
         }
         return id;
     }
@@ -165,6 +171,19 @@ class FinanceReturnReconciliationTest {
         assertThat(february.verifiedFifoCost()).isEqualByComparingTo("500");
         assertThat(february.restoredFifoCost()).isEqualByComparingTo("600");
         assertThat(february.grossProfit()).isEqualByComparingTo("-100");
+        assertThat(february.netProfitAvailable()).isTrue();
+    }
+
+    @Test void partialReturnReversesOnlyReturnedQuantityAndOriginalFifoShare(){
+        var original=sold("2024-01-15",1000,600,2);
+        returned(original,"2024-02-05",true,300);
+        var january=profit.calculate(LocalDate.parse("2024-01-01"),LocalDate.parse("2024-02-01"));
+        assertThat(january.grossRevenue()).isEqualByComparingTo("2000");
+        assertThat(january.verifiedFifoCost()).isEqualByComparingTo("600");
+        var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
+        assertThat(february.returnedRevenue()).isEqualByComparingTo("1000");
+        assertThat(february.restoredFifoCost()).isEqualByComparingTo("300");
+        assertThat(february.grossProfit()).isEqualByComparingTo("-700");
         assertThat(february.netProfitAvailable()).isTrue();
     }
 
