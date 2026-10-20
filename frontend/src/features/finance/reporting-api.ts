@@ -16,7 +16,9 @@ export interface Valuation {totalCost:Money;quantity:number;models:{productId:st
 export interface Obligations {totalOutstanding:Money;totalPrepaid:Money;purchases:{purchaseId:string;supplierName:string;createdAt:string;status:string;supplierTotal:Money;cargoTotal:Money;supplierPaid:Money;cargoPaid:Money;outstanding:Money;prepaid:Money}[]}
 export interface AnalyticsMonth {from:string;recognizedRevenue:Money;netRevenue:Money;returnedRevenue:Money;refundDiscounts:Money;fifoCost:Money;restoredFifoCost:Money;grossProfit:Money|null;operatingProfit:Money|null;profitVerified:boolean;accrualExpenses:Money;otherExpenses:Money;cashIn:Money;cashOut:Money;netCash:Money}
 export interface Analytics {from:string;to:string;months:AnalyticsMonth[]}
+export interface ExpenseCategorySummary {from:string;to:string;categories:{category:string;accrued:string;direct:string;total:string}[];grandTotal:string}
 export const reportingApi={
+ expenseCategories:(from:string,to:string)=>apiClient.get<ExpenseCategorySummary>('/api/finance/expense-categories?'+params(from,to)),
  profitability:(from:string,to:string)=>apiClient.get<Profitability>('/api/finance/profitability?'+params(from,to)),
  ledger:(from:string,to:string,page:number,account:string,movementType='',search='',minAmount='',maxAmount='',sort='newest')=>apiClient.get<LedgerPage>('/api/finance/ledger?'+new URLSearchParams({from,to,page:String(page),size:'50',sort,...(account?{account}:{}),...(movementType?{movementType}:{}),...(search?{search}:{}),...(minAmount?{minAmount}:{}),...(maxAmount?{maxAmount}:{})})),
  margins:(from:string,to:string)=>apiClient.get<Margin[]>('/api/finance/model-margins?'+params(from,to)),
