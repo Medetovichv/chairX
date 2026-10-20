@@ -1,3 +1,7 @@
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router';
+import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
+import { CustomerQuickView } from '../../../shared/components/QuickViewContent';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
@@ -17,6 +21,25 @@ import { CustomerTable } from '../components/CustomerTable';
 
 export function CustomersPage() {
   const { hasPermission } = useAuth();
+  const [quickParams, setQuickParams] = useSearchParams();
+  const selected = quickParams.get('quick');
+  const closeQuick = useCallback(() => setQuickParams(prev => {
+    const next = new URLSearchParams(prev); next.delete('quick'); return next;
+  }), [setQuickParams]);
+  const interceptDetail = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest('a[href]');
+    if (!link) return;
+    const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
+    if (!path.startsWith('/customers/')) return;
+    const id = path.slice('/customers/'.length);
+    if (!id || id.includes('/')) return;
+    event.preventDefault();
+    setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
+  };
+
   const canRead = hasPermission('CUSTOMERS_READ');
   const canCreate = hasPermission('CUSTOMERS_CREATE');
   const withSales = hasPermission('SALES_READ');
@@ -57,7 +80,7 @@ export function CustomersPage() {
   const pageIndex = result && result.kind !== 'limited-search' ? result.data.page : page;
   const pageSize = result && result.kind !== 'limited-search' ? result.data.size : 20;
 
-  return <div className="space-y-6">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-6 min-w-0 flex-1">
     <PageHeader title={creating?'Новый клиент':'Клиенты'}
       action={canCreate&&!creating ? <Button onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
     {creating && canCreate && <CustomerForm onSave={async (data) => { await create.mutateAsync(data); }}
@@ -82,5 +105,5 @@ export function CustomersPage() {
                   total={total} onPage={setPage} /> : null}
             </div>}
     </section>}
-  </div>;
+  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick}><CustomerQuickView id={selected}/></QuickViewDrawer>}</div>;
 }
