@@ -15,10 +15,10 @@ const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',P
 export function FinanceOperationsPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
  const [period,setPeriod]=useFinancePeriod();
- const [page,setPage]=useState(0),[account,setAccount]=useState('');
+ const [page,setPage]=useState(0),[account,setAccount]=useState(''),[movementType,setMovementType]=useState('');
  const [selected,setSelected]=useState<string|null>(null);
- const report=useQuery({queryKey:['f15','ledger',period.from,period.to,page,account],
- queryFn:()=>reportingApi.ledger(period.from,period.to,page,account),enabled:allowed});
+ const report=useQuery({queryKey:['f15','ledger',period.from,period.to,page,account,movementType],
+ queryFn:()=>reportingApi.ledger(period.from,period.to,page,account,movementType),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
  const line=report.data?.items.find(item=>item.id===selected);
  return <div className="space-y-5 pb-10">
@@ -28,7 +28,16 @@ export function FinanceOperationsPage(){
    <label className="text-sm">С <input aria-label="Операции с" className="block rounded-lg border p-2" type="date" value={period.from} onChange={e=>{setPeriod({...period,from:e.target.value});setPage(0);}}/></label>
    <label className="text-sm">По (исключительно) <input aria-label="Операции по" className="block rounded-lg border p-2" type="date" value={period.to} onChange={e=>{setPeriod({...period,to:e.target.value});setPage(0);}}/></label>
    <label className="text-sm">Счёт <select aria-label="Счёт операций" className="block rounded-lg border p-2" value={account} onChange={e=>{setAccount(e.target.value);setPage(0);}}><option value="">Все</option><option value="CASH">Наличные</option><option value="BANK">Банк</option></select></label>
-   <FinanceExportButton from={period.from} to={period.to} account={account}/>
+   <label className="text-sm">Тип операции
+    <select aria-label="Тип финансовой операции" className="block rounded-lg border p-2" value={movementType} onChange={e=>{setMovementType(e.target.value);setPage(0);}}>
+     <option value="">Все типы</option>
+     <option value="SALE_PAYMENT">Оплата продажи</option>
+     <option value="PURCHASE_PAYMENT">Оплата закупки</option>
+     <option value="EXPENSE">Расход</option>
+     <option value="CUSTOMER_REFUND">Возврат клиенту</option>
+     <option value="TRANSFER">Внутренний перевод</option>
+    </select></label>
+   <FinanceExportButton from={period.from} to={period.to} account={account} movementType={movementType}/>
   </div>
   {report.isPending?<LoadingState label="Загружаем проводки…"/>:report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
   <section aria-label="Журнал денежных операций" className="overflow-hidden rounded-2xl border bg-white">
