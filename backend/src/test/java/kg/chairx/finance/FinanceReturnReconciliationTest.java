@@ -49,8 +49,8 @@ class FinanceReturnReconciliationTest {
         jdbc.update("""
             INSERT INTO stock_movements(id,operation_id,warehouse_id,product_variant_id,movement_type,
               quantity,source_type,source_id,actor,occurred_at)
-            VALUES (?,?,?,?,1::text::text::text,1,'PURCHASE_RECEIPT',?,'accountant',?)
-            """.replace("1::text::text::text","'PURCHASE_IN'"),
+            VALUES (?,?,?,?,'PURCHASE_IN',1,'PURCHASE_RECEIPT',?,'accountant',?)
+            """,
             stockIn,UUID.randomUUID(),home,variant,UUID.randomUUID(),Timestamp.valueOf(day+" 08:00:00"));
         jdbc.update("""
             INSERT INTO inventory_cost_layers(id,warehouse_id,product_variant_id,source_movement_id,
