@@ -151,7 +151,7 @@ class FinanceReturnReconciliationTest {
         jdbc.update("""
             INSERT INTO refunds(id,sale_id,amount,method,reason,idempotency_key,
                 request_fingerprint,refunded_by,refunded_at)
-            VALUES (?,?,200,'BANK','Price concession',?,?,'accountant',?)
+            VALUES (?,?,200,'TRANSFER','Price concession',?,?,'accountant',?)
             """,UUID.randomUUID(),sale.id(),UUID.randomUUID(),"a".repeat(64),
                 Timestamp.valueOf("2024-02-06 11:00:00"));
         var report=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
@@ -174,7 +174,7 @@ class FinanceReturnReconciliationTest {
             INSERT INTO exchanges(id,original_sale_id,new_sale_id,return_id,status,returned_value,
                 new_sale_total,credit_applied,additional_payment_due,refund_due,
                 idempotency_key,request_fingerprint,created_by,created_at)
-            VALUES (?,?,?,?,'COMPLETED',1000,800,800,0,200,?,?,'accountant',?)
+            VALUES (?,?,?,?,'PENDING_SETTLEMENT',1000,800,800,0,200,?,?,'accountant',?)
             """,UUID.randomUUID(),original.id(),replacement.id(),returned,
                UUID.randomUUID(),"a".repeat(64),Timestamp.valueOf("2024-02-10 11:00:00"));
         var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
@@ -202,22 +202,20 @@ class FinanceReturnReconciliationTest {
 
     @Test void partialAndFinalCashPaymentsDoNotChangeRecognizedRevenueOrFifoProfit(){
         var sale=sold("2024-01-15",1000,600);
-        for(int amount:new int[]{200,300}){
-            jdbc.update("""
+        UUID paymentId=UUID.randomUUID();
+        jdbc.update("""
               INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-              VALUES (?,?,?,'CASH','PAID','accountant',?)
-              """,UUID.randomUUID(),sale.id(),amount,Timestamp.valueOf("2024-01-16 12:00:00"));
-        }
+              VALUES (?,?,500,'CASH','PAID','accountant',?)
+              """,paymentId,sale.id(),Timestamp.valueOf("2024-01-16 12:00:00"));
         var month=LocalDate.parse("2024-01-01");
         var incompletePayment=profit.calculate(month,month.plusMonths(1));
         assertThat(incompletePayment.grossRevenue()).isEqualByComparingTo("1000");
         assertThat(incompletePayment.verifiedFifoCost()).isEqualByComparingTo("600");
         assertThat(incompletePayment.grossProfit()).isEqualByComparingTo("400");
         assertThat(incompletePayment.netProfitAvailable()).isTrue();
-        jdbc.update("""
-              INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-              VALUES (?,?,500,'BANK','PAID','accountant',?)
-              """,UUID.randomUUID(),sale.id(),Timestamp.valueOf("2024-01-20 12:00:00"));
+        // ChairX permits one active payment per sale. Simulate the now-fully
+        // settled state without violating its uniqueness invariant.
+        jdbc.update("UPDATE payments SET amount=1000 WHERE id=?",paymentId);
         var fullyPaid=profit.calculate(month,month.plusMonths(1));
         assertThat(fullyPaid).usingRecursiveComparison().isEqualTo(incompletePayment);
     }
