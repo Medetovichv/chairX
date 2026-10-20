@@ -14,6 +14,11 @@ import {Button} from '../../../shared/ui/button';
 import {FinanceExportButton} from '../components/FinanceExportButton';
 const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
 // Section fallback is deliberately not described as a document deep link.
+function sourceLink(kind:string|null,id:string|null,hasPermission:(permission:string)=>boolean){
+ if(!id || !kind || !['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE'].includes(kind))return null;
+ if(kind==='EXPENSE'&&!hasPermission('EXPENSES_READ'))return null;
+ return '/finance/documents/'+encodeURIComponent(kind)+'/'+encodeURIComponent(id);
+}
 function relatedSection(line: {type:string;sourceType:string},hasPermission:(permission:string)=>boolean){
  if(line.type==='EXPENSE' && hasPermission('EXPENSES_READ'))return {to:'/finance/expenses',label:'Перейти к расходам'};
  if(line.type==='TRANSFER' && hasPermission('FINANCE_READ'))return {to:'/finance/transfers',label:'Перейти к переводам'};
@@ -74,7 +79,8 @@ export function FinanceOperationsPage(){
      <Link to={'/returns/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть возврат</Link>}
     {x.documentKind==='PURCHASE'&&x.documentId&&hasPermission('PURCHASE_READ')&&
      <Link to={'/purchases/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть закупку</Link>}</td>
-    <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
+    {sourceLink(x.documentKind,x.documentId,hasPermission)&&<Link to={sourceLink(x.documentKind,x.documentId,hasPermission)!} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть документ</Link>}
+        <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
    </tr>)}</tbody></table></div>
    <div className="divide-y md:hidden">{report.data.items.map(x=><button key={x.id} onClick={()=>setSelected(x.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
     <span className="min-w-0"><strong className="block">{labels[x.type]||x.type.replaceAll('_',' ')}</strong><span className="text-xs text-slate-500">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})} · {x.account==='CASH'?'Наличные':'Банк'}</span></span>
@@ -96,10 +102,12 @@ export function FinanceOperationsPage(){
      <Link to={'/returns/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть возврат →</Link>}
     {line.documentKind==='PURCHASE'&&line.documentId&&hasPermission('PURCHASE_READ')&&
      <Link to={'/purchases/'+encodeURIComponent(line.documentId)} className="text-blue-700 underline">Открыть закупку →</Link>}
+    {sourceLink(line.documentKind,line.documentId,hasPermission)&&
+     <Link to={sourceLink(line.documentKind,line.documentId,hasPermission)!} className="text-blue-700 underline">Открыть первичный документ →</Link>}
     {!line.documentId&&relatedSection(line,hasPermission)&&<Link to={relatedSection(line,hasPermission)!.to} className="block text-blue-700 underline">{relatedSection(line,hasPermission)!.label} →</Link>}
     <div><dt className="text-slate-500">Сумма</dt><dd className="font-bold">{som(line.amount)}</dd></div>
    </dl>
-   <p className="mt-3 text-xs text-slate-500">Для продажи и закупки доступен переход к документу при соответствующих правах. Для других операций предусмотрен переход к разделу, но не к конкретной записи.</p>
+   <p className="mt-3 text-xs text-slate-500">Переход к документу проверяет права доступа. Если первичный документ отсутствует, доступна только навигация к соответствующему разделу.</p>
   </section>}
  </div>;
 }
