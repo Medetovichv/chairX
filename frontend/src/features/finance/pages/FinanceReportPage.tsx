@@ -5,7 +5,7 @@ import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
 import {financeApi} from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
-import {som,periodMonth,validPeriod} from '../validation';
+import {som,validPeriod} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
