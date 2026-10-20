@@ -156,6 +156,8 @@ def main():
                     ("finance","Финансы"),
                     ("finance/report","Финансовый отчёт"),
                     ("finance/operations","Все операции"),
+                    ("finance/cash-flow","Движение денег"),
+                    ("finance/expenses","Расходы"),
                     ("finance/obligations","Закупки и обязательства"),
                     ("finance/analytics","Аналитика")):
                 # SPA routing preserves the in-memory F02 authentication session.
@@ -182,6 +184,8 @@ def main():
                         raise AssertionError(
                             f"{route}: horizontal page overflow at {width}px: {overflow}; offenders: {offenders}"
                         )
+                    if route.startswith("finance/") and width in (320,390,768,1440):
+                        page.screenshot(path=str(ART/f"f15-{route.replace('/', '-')}-{width}.png"),full_page=True)
                     if route=="finance/operations" and width in (390,1440):
                         page.screenshot(path=str(ART/f"f15-operations-{width}.png"),full_page=True)
                 page.set_viewport_size({"width":1440,"height":900})
