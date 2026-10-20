@@ -4,6 +4,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
 import {financeApi} from '../api';
+import {useFinancePeriod} from '../useFinancePeriod';
 import {som,periodMonth,validPeriod} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {PageHeader} from '../../../shared/components/PageHeader';
@@ -24,7 +25,8 @@ const card=(name:string,value:string,caption?:string)=><article key={name} class
 </article>;
 export function FinanceReportPage(){
  const {hasPermission}=useAuth(),allowed=hasPermission('FINANCE_READ');
- const [draft,setDraft]=useState(periodMonth),[period,setPeriod]=useState(periodMonth);
+ const [period,setPeriod]=useFinancePeriod();
+ const [draft,setDraft]=useState(period);
  const [error,setError]=useState(''),[page,setPage]=useState(0),[account,setAccount]=useState('');
  const pnl=useQuery({queryKey:['reporting','pnl',period.from,period.to],queryFn:()=>reportingApi.profitability(period.from,period.to),enabled:allowed});
  const flow=useQuery({queryKey:['reporting','flow',period.from,period.to],queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
