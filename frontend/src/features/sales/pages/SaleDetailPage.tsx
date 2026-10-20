@@ -199,7 +199,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const canReadDelivery=hasPermission('DELIVERIES_READ');
   const relatedDelivery=useQuery({
     queryKey:deliveryKeys.bySale(sale.id),
-    queryFn:()=>deliveryApi.bySale(sale.id),
+    queryFn:()=>Promise.race([
+      deliveryApi.bySale(sale.id),
+      new Promise<never>((_,reject)=>window.setTimeout(
+        ()=>reject(new Error('Не удалось получить данные доставки за 10 секунд. Проверьте соединение и повторите запрос.')),10000)),
+    ]),
     enabled:requiresDelivery&&canReadDelivery,
     retry:false,
   });
@@ -351,6 +355,17 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     <Link to="/sales" className="inline-flex min-h-11 items-center font-semibold text-indigo-700">
       ← Все продажи</Link>
     <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)}/>
+    {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&matched?.paymentStatus!=='PAID'&&
+      <section aria-label="Незавершённая оплата продажи" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4">
+        <div className="space-y-1 text-sm text-amber-950">
+          <p className="font-bold">Оплата не подтверждена — заказ финансово не закрыт</p>
+          <p>Отгрузка, доставка и выдача не подтверждают получение денег. Сумма к оплате: <strong>{money(sale.total)}</strong>.</p>
+        </div>
+        {hasPermission('PAYMENTS_CREATE')?
+          <a className="inline-flex min-h-11 items-center rounded-xl bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
+            href="#sale-payment-section">Зарегистрировать оплату</a>:
+          <p className="text-sm text-amber-950">Для регистрации оплаты необходим доступ PAYMENTS_CREATE.</p>}
+      </section>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
@@ -376,6 +391,10 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     {requiresDelivery&&
       <section aria-label="Связанная доставка" className="space-y-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm">
         <h3 className="font-bold text-slate-900">Доставка заказа</h3>
+        {isConfirmed&&!relatedDelivery.data&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'))&&
+          <Link className="inline-block font-semibold text-blue-700 underline" to={'/deliveries/new?saleId='+encodeURIComponent(sale.id)}>
+            Оформить доставку по этому заказу
+          </Link>}
         {!canReadDelivery?<p>Для просмотра доставки требуется разрешение DELIVERIES_READ.</p>:
           relatedDelivery.isPending?<div className="space-y-3" role="status">
             <p>Проверяем связанную доставку…</p>
