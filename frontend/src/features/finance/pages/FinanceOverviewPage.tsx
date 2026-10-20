@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { financeApi,financeKeys } from '../api';
+import { reportingApi } from '../reporting-api';
 import { som,periodMonth } from '../validation';
 import { FinanceTabs } from '../components/FinanceTabs';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -13,12 +14,46 @@ export function FinanceOverviewPage(){
  const {hasPermission,user}=useAuth();
  const allowed=hasPermission('FINANCE_READ'),period=periodMonth();
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,enabled:allowed});
+ const pnl=useQuery({queryKey:['f15','overview','pnl',period.from,period.to],
+   queryFn:()=>reportingApi.profitability(period.from,period.to),enabled:allowed});
+ const ledger=useQuery({queryKey:['f15','overview','latest',period.from,period.to],
+   queryFn:()=>reportingApi.ledger(period.from,period.to,0,''),enabled:allowed});
+ const valuation=useQuery({queryKey:['f15','overview','valuation'],queryFn:reportingApi.valuation,enabled:allowed});
+ const obligations=useQuery({queryKey:['f15','overview','obligations'],queryFn:reportingApi.obligations,enabled:allowed});
  const flow=useQuery({queryKey:financeKeys.flowPeriod(period.from,period.to),
    queryFn:()=>financeApi.flow(period.from,period.to),enabled:allowed});
  if(!allowed)return <ForbiddenPage/>;
  return <div className="space-y-6">
   <PageHeader title="Финансы" description="Фактические остатки и движение денег ChairX в кыргызских сомах."/>
   <FinanceTabs/>
+  <section aria-label="Основные финансовые показатели" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    {pnl.isSuccess&&([
+     ['Чистая выручка',som(pnl.data.netRevenue)],
+     ['Себестоимость FIFO',som(pnl.data.verifiedFifoCost)],
+     ['Валовая прибыль',pnl.data.netProfitAvailable&&pnl.data.grossProfit!=null?som(pnl.data.grossProfit):'Недоступно'],
+     ['Операционная прибыль',pnl.data.netProfitAvailable&&pnl.data.operatingProfit!=null?som(pnl.data.operatingProfit):'Недоступно'],
+     ['Операционные расходы',som(pnl.data.otherOperatingExpenses)],
+     ['Начисленные расходы',som(pnl.data.recognizedAccruals)]
+    ] as const).map(([title,value])=><article key={title} className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+     <p className="text-xs text-slate-500">{title}</p><p className="mt-2 break-words text-xl font-bold tabular-nums">{value}</p>
+    </article>)}
+    {flow.isSuccess&&([
+     ['Поступления',som(flow.data.totalIn)],['Выплаты',som(flow.data.totalOut)]
+    ] as const).map(([title,value])=><article key={title} className="min-w-0 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+     <p className="text-xs text-slate-500">{title}</p><p className="mt-2 break-words text-xl font-bold tabular-nums">{value}</p></article>)}
+    {(pnl.isPending||flow.isPending)&&<LoadingState label="Загружаем основные показатели…"/>}
+    {(pnl.isError||flow.isError)&&<div role="alert" className="col-span-full rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">Часть финансовых показателей недоступна. <Button variant="outline" onClick={()=>{void pnl.refetch();void flow.refetch();}}>Повторить</Button></div>}
+  </section>
+  {pnl.isSuccess&&!pnl.data.netProfitAvailable&&<p role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">Расчёт прибыли требует сверки: {pnl.data.caveat||'Не все исходные данные подтверждены'}. Денежный поток не заменяет прибыль.</p>}
+  <div className="grid gap-4 lg:grid-cols-2">
+   <section className="rounded-2xl border bg-white p-4 shadow-sm"><div className="flex justify-between gap-3"><h2 className="font-bold">Текущие активы и обязательства</h2><Link to="/finance/obligations" className="text-sm text-blue-700">Подробнее →</Link></div>
+    <div className="mt-3 space-y-2 text-sm">{valuation.isSuccess&&<p>Стоимость склада FIFO: <strong>{som(valuation.data.totalCost)}</strong> · {valuation.data.quantity} кресел</p>}{obligations.isSuccess&&<><p>Долг поставщикам: <strong>{som(obligations.data.totalOutstanding)}</strong></p><p>Авансы: <strong>{som(obligations.data.totalPrepaid)}</strong></p></>}{(valuation.isError||obligations.isError)&&<p role="alert">Данные активов или обязательств временно недоступны.</p>}</div>
+    <p className="mt-3 text-xs text-slate-500">Показатели на текущий момент, а не на конец выбранного месяца.</p>
+   </section>
+   <section className="rounded-2xl border bg-white p-4 shadow-sm"><div className="flex justify-between gap-3"><h2 className="font-bold">Последние денежные операции</h2><Link to="/finance/operations" className="text-sm text-blue-700">Все операции →</Link></div>
+    {ledger.isSuccess?<div className="mt-2 divide-y">{ledger.data.items.slice(0,5).map(item=><div key={item.id} className="flex justify-between gap-2 py-2 text-sm"><span className="min-w-0 truncate">{item.type.replaceAll('_',' ')} · {new Date(item.postedAt).toLocaleDateString('ru-RU',{timeZone:'Asia/Bishkek'})}</span><strong>{som(item.amount)}</strong></div>)}{!ledger.data.items.length&&<p className="text-sm text-slate-500">Проводок пока нет.</p>}</div>:ledger.isError?<p role="alert" className="text-sm text-rose-700">Не удалось загрузить журнал.</p>:<LoadingState label="Загружаем последние операции…"/>}
+   </section>
+  </div>
   {accounts.isPending?<LoadingState label="Загружаем финансовые счета…"/>:
    accounts.isError?<ErrorState error={accounts.error} onRetry={()=>void accounts.refetch()}/>:
    <div className="grid gap-4 sm:grid-cols-2">
