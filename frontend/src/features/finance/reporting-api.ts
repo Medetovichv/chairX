@@ -13,7 +13,7 @@ export interface LedgerLine {id:string;postedAt:string;businessDate:string;accou
 export interface LedgerPage {items:LedgerLine[];total:number;page:number;size:number}
 export interface Margin {modelId:string;model:string;variantId:string;variation:string;quantity:number;revenue:Money;knownFifoCost:Money;costComplete:boolean;grossProfit:Money|null}
 export interface Valuation {totalCost:Money;quantity:number;models:{productId:string;model:string;quantity:number;cost:Money}[]}
-export interface Obligations {totalOutstanding:Money;totalPrepaid:Money;purchases:{purchaseId:string;status:string;supplierTotal:Money;cargoTotal:Money;supplierPaid:Money;cargoPaid:Money;outstanding:Money;prepaid:Money}[]}
+export interface Obligations {totalOutstanding:Money;totalPrepaid:Money;purchases:{purchaseId:string;supplierName:string;createdAt:string;status:string;supplierTotal:Money;cargoTotal:Money;supplierPaid:Money;cargoPaid:Money;outstanding:Money;prepaid:Money}[]}
 export interface AnalyticsMonth {from:string;recognizedRevenue:Money;netRevenue:Money;returnedRevenue:Money;refundDiscounts:Money;fifoCost:Money;restoredFifoCost:Money;grossProfit:Money|null;operatingProfit:Money|null;profitVerified:boolean;accrualExpenses:Money;otherExpenses:Money;cashIn:Money;cashOut:Money;netCash:Money}
 export interface Analytics {from:string;to:string;months:AnalyticsMonth[]}
 export const reportingApi={
