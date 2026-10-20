@@ -43,7 +43,7 @@ class FinanceReturnReconciliationTest {
             INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,fulfillment_type,
               status,created_by,created_at,fulfilled_by,fulfilled_at)
             VALUES (?,?,?,?,'SELF_PICKUP','FULFILLED','accountant',?, 'accountant',?)
-            """,sale,"MARGIN-"+sale.toString().substring(0,13),UUID.randomUUID(),"fixture",
+            """,sale,"MARGIN-"+sale.toString().substring(0,13),UUID.randomUUID(),"a".repeat(64),
                 Timestamp.valueOf(day+" 09:00:00"),Timestamp.valueOf(day+" 10:00:00"));
         jdbc.update("""
             INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
@@ -86,7 +86,7 @@ class FinanceReturnReconciliationTest {
             INSERT INTO returns(id,sale_id,warehouse_id,idempotency_key,request_fingerprint,
                 reason,created_by,created_at)
             VALUES (?,?,?,?,?,'Customer return','accountant',?)
-            """,id,original.id(),original.warehouse(),UUID.randomUUID(),"fixture",
+            """,id,original.id(),original.warehouse(),UUID.randomUUID(),"a".repeat(64),
              Timestamp.valueOf(day+" 12:00:00"));
         jdbc.update("""
             INSERT INTO return_items(id,return_id,sale_item_id,quantity,condition)
@@ -119,7 +119,7 @@ class FinanceReturnReconciliationTest {
             INSERT INTO refunds(id,sale_id,return_id,amount,method,reason,idempotency_key,
                 request_fingerprint,refunded_by,refunded_at)
             VALUES (?,?,?,1000,'CASH','Returned chair',?,?,'accountant',?)
-            """,UUID.randomUUID(),sale.id(),returnId,UUID.randomUUID(),"fixture",
+            """,UUID.randomUUID(),sale.id(),returnId,UUID.randomUUID(),"a".repeat(64),
                 Timestamp.valueOf("2024-02-06 11:00:00"));
         var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
         assertThat(february.grossRevenue()).isEqualByComparingTo("0");
@@ -152,7 +152,7 @@ class FinanceReturnReconciliationTest {
             INSERT INTO refunds(id,sale_id,amount,method,reason,idempotency_key,
                 request_fingerprint,refunded_by,refunded_at)
             VALUES (?,?,200,'BANK','Price concession',?,?,'accountant',?)
-            """,UUID.randomUUID(),sale.id(),UUID.randomUUID(),"fixture",
+            """,UUID.randomUUID(),sale.id(),UUID.randomUUID(),"a".repeat(64),
                 Timestamp.valueOf("2024-02-06 11:00:00"));
         var report=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
         assertThat(report.refundOnlyDiscounts()).isEqualByComparingTo("200");
@@ -176,7 +176,7 @@ class FinanceReturnReconciliationTest {
                 idempotency_key,request_fingerprint,created_by,created_at)
             VALUES (?,?,?,?,'COMPLETED',1000,800,800,0,200,?,?,'accountant',?)
             """,UUID.randomUUID(),original.id(),replacement.id(),returned,
-               UUID.randomUUID(),"fixture",Timestamp.valueOf("2024-02-10 11:00:00"));
+               UUID.randomUUID(),"a".repeat(64),Timestamp.valueOf("2024-02-10 11:00:00"));
         var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
         assertThat(february.grossRevenue()).isEqualByComparingTo("800");
         assertThat(february.returnedRevenue()).isEqualByComparingTo("1000");
