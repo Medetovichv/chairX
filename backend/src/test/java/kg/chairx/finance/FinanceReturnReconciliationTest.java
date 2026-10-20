@@ -222,4 +222,23 @@ class FinanceReturnReconciliationTest {
         assertThat(fullyPaid).usingRecursiveComparison().isEqualTo(incompletePayment);
     }
 
+    @Test void refundWithoutReturnLinkCannotDoubleReduceReturnedRevenue(){
+        var sale=sold("2024-01-15",1000,600);
+        returned(sale,"2024-02-05",true);
+        // Legacy refund is missing its returnId. The correlation is
+        // ambiguous, so the ledger stays queryable but profit unverified.
+        jdbc.update("""
+            INSERT INTO refunds(id,sale_id,amount,method,reason,idempotency_key,
+                request_fingerprint,refunded_by,refunded_at)
+            VALUES (?,?,1000,'CASH','Legacy refund',?,?,'accountant',?)
+            """,UUID.randomUUID(),sale.id(),UUID.randomUUID(),"a".repeat(64),
+                Timestamp.valueOf("2024-02-08 11:00:00"));
+        var feb=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
+        assertThat(feb.returnedRevenue()).isEqualByComparingTo("1000");
+        assertThat(feb.refundOnlyDiscounts()).isEqualByComparingTo("0");
+        assertThat(feb.netProfitAvailable()).isFalse();
+        assertThat(feb.grossProfit()).isNull();
+        assertThat(feb.operatingProfit()).isNull();
+    }
+
 }
