@@ -74,7 +74,12 @@ public class FinanceLedgerController {
                        OR CAST(fm.source_id AS text) ILIKE :searchPattern
                        OR sale.sale_number ILIKE :searchPattern
                        OR reversed_sale.sale_number ILIKE :searchPattern
-                       OR supplier.name ILIKE :searchPattern)
+                       OR supplier.name ILIKE :searchPattern
+                       OR expense.category ILIKE :searchPattern
+                       OR expense.comment ILIKE :searchPattern
+                       OR refund.reason ILIKE :searchPattern
+                       OR refund.reference ILIKE :searchPattern
+                       OR adjust_doc.reason ILIKE :searchPattern)
                   AND (:minAmount IS NULL OR fm.amount >= :minAmount)
                   AND (:maxAmount IS NULL OR fm.amount <= :maxAmount)
                 """;
