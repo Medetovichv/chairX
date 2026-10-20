@@ -24,7 +24,8 @@ public class FinanceAnalyticsController {
         this.pnl=pnl;this.cash=cash;
     }
     public record Month(LocalDate from,BigDecimal recognizedRevenue,
-            BigDecimal fifoCost,BigDecimal grossProfit,
+            BigDecimal netRevenue,BigDecimal returnedRevenue,BigDecimal refundDiscounts,
+            BigDecimal fifoCost,BigDecimal restoredFifoCost,BigDecimal grossProfit,
             BigDecimal operatingProfit,boolean profitVerified,
             BigDecimal accrualExpenses,BigDecimal otherExpenses,
             BigDecimal cashIn,BigDecimal cashOut,BigDecimal netCash) {}
@@ -48,7 +49,8 @@ public class FinanceAnalyticsController {
             var p=pnl.calculate(month,next);
             var c=cash.summary(month.atStartOfDay(ZONE).toInstant(),
                                next.atStartOfDay(ZONE).toInstant());
-            list.add(new Month(month,p.grossRevenue(),p.verifiedFifoCost(),p.grossProfit(),
+            list.add(new Month(month,p.grossRevenue(),p.netRevenue(),p.returnedRevenue(),
+                    p.refundOnlyDiscounts(),p.verifiedFifoCost(),p.restoredFifoCost(),p.grossProfit(),
                     p.operatingProfit(),p.netProfitAvailable(),p.recognizedAccruals(),
                     p.otherOperatingExpenses(),c.totalIn(),c.totalOut(),c.netCashFlow()));
         }
