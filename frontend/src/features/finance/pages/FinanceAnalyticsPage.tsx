@@ -16,6 +16,9 @@ export function FinanceAnalyticsPage(){
  const [expensePeriod]=useFinancePeriod();
  const categories=useQuery({queryKey:['f15','expense-categories',expensePeriod.from,expensePeriod.to],queryFn:()=>reportingApi.expenseCategories(expensePeriod.from,expensePeriod.to),enabled:allowed});
  const q=useQuery({queryKey:['f15','analytics',year],queryFn:()=>reportingApi.analytics(from,to),enabled:allowed});
+ const previous=useQuery({queryKey:['f15','analytics',year-1],queryFn:()=>reportingApi.analytics((year-1)+'-01-01',year+'-01-01'),enabled:allowed});
+ const totals=(months: {netRevenue:string|number;netCash:string|number}[])=>months.reduce((acc,m)=>({revenue:acc.revenue+Number(m.netRevenue),cash:acc.cash+Number(m.netCash)}),{revenue:0,cash:0});
+ const difference=(current:number,older:number)=>older===0?'Нет базы для %':((current-older)/Math.abs(older)*100).toFixed(1)+'%';
  if(!allowed)return <ForbiddenPage/>;
  return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
   <PageHeader title="Аналитика" description="Динамика выручки, экономической прибыли и кассовых потоков по месяцам"/>
@@ -24,6 +27,11 @@ export function FinanceAnalyticsPage(){
    <select aria-label="Год аналитики" className="rounded-lg border p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>
     {[year-2,year-1,year,year+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=><option key={x} value={x}>{x}</option>)}
    </select></label>
+  <section aria-label="Сравнение финансовых годов" className="min-w-0 rounded-2xl border bg-white p-4">
+   <h2 className="font-semibold">Сравнение с {year-1} годом</h2>
+   <p className="mt-1 text-xs text-slate-500">Календарные годы целиком; текущий год может быть неполным. Кассовый поток не является прибылью.</p>
+   {q.isSuccess&&previous.isSuccess?(()=>{const now=totals(q.data.months),old=totals(previous.data.months);return <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">{([["Чистая выручка",now.revenue,old.revenue],["Чистый денежный поток",now.cash,old.cash]] as const).map(([label,current,prior])=><article key={label} className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm"><h3 className="font-medium">{label}</h3><p className="mt-2 break-words">{year}: <strong>{som(current)}</strong></p><p className="break-words text-slate-600">{year-1}: {som(prior)}</p><p className="mt-1 text-xs text-slate-600">Изменение: {difference(current,prior)}</p></article>)}</div>})():q.isError||previous.isError?<ErrorState error={q.error||previous.error} onRetry={()=>{void q.refetch();void previous.refetch();}}/>:<LoadingState label="Загружаем сравнение годов…"/>}
+  </section>
   <section className="rounded-2xl border bg-white p-4">
    <h2 className="font-semibold">Структура расходов · {expensePeriod.from} — {expensePeriod.to}</h2>
    <p className="mt-1 text-xs text-slate-500">Начисления F14 и прямые расходы; выплаты по начислениям не учитываются повторно.</p>
