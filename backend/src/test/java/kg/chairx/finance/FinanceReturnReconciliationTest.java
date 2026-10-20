@@ -47,6 +47,10 @@ class FinanceReturnReconciliationTest {
             VALUES (?,?,?,?,1,?)
             """,item,sale,variant,home,price);
         jdbc.update("""
+            INSERT INTO inventory_balances(warehouse_id,product_variant_id,on_hand,reserved,blocked)
+            VALUES (?,?,1,0,0)
+            """,home,variant);
+        jdbc.update("""
             INSERT INTO stock_movements(id,operation_id,warehouse_id,product_variant_id,movement_type,
               quantity,source_type,source_id,actor,occurred_at)
             VALUES (?,?,?,?,'PURCHASE_IN',1,'PURCHASE_RECEIPT',?,'accountant',?)
