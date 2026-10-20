@@ -3,7 +3,7 @@ import {useFinancePeriod} from '../useFinancePeriod';
 import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
-import {som} from '../validation';
+import {som,categories as expenseLabels} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {PageHeader} from '../../../shared/components/PageHeader';
 import {LoadingState} from '../../../shared/components/LoadingState';
@@ -31,7 +31,7 @@ export function FinanceAnalyticsPage(){
     categories.isError?<ErrorState error={categories.error} onRetry={()=>void categories.refetch()}/>:
     <div className="mt-3 space-y-3">
      {categories.data.categories.map(c=><div key={c.category} className="text-sm">
-      <div className="flex justify-between gap-3"><strong>{c.category.replaceAll('_',' ')}</strong><strong>{som(c.total)}</strong></div>
+      <div className="flex justify-between gap-3"><strong>{expenseLabels.find(x=>x.value===c.category)?.label??c.category.replaceAll('_',' ')}</strong><strong>{som(c.total)}</strong></div>
       <div className="mt-1 h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-blue-600"
        style={{width:(()=>{
         const value=Number(c.total),grand=Number(categories.data.grandTotal);
