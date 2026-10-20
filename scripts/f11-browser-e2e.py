@@ -167,7 +167,7 @@ def main():
                     window.dispatchEvent(new PopStateEvent('popstate'));
                 }""",route)
                 page.get_by_role("heading",name=title,exact=True).wait_for(timeout=30000)
-                for width in (320,390,768,1440):
+                for width in (320,360,375,390,430,768,1440):
                     page.set_viewport_size({"width":width,"height":844})
                     page.wait_for_timeout(100)
                     overflow=page.evaluate("""() => ({
