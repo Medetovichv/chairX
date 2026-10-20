@@ -81,8 +81,20 @@ public class FinanceModelMarginsController {
                    AND sm.movement_type='RETURN_IN'
               ) rest ON TRUE
               WHERE r.created_at>=:from AND r.created_at<:to
+           ), refund_lines AS (
+              -- No item-level refund allocation exists. Preserve a row for the
+              -- affected variation but explicitly make its margin unverified.
+              SELECT DISTINCT si.product_variant_id AS variant_id,
+                     0::bigint AS qty,0::numeric AS recognized_value,
+                     0::numeric AS fifo_cost,FALSE AS valued
+              FROM refunds rf
+              JOIN sale_items si ON si.sale_id=rf.sale_id
+              WHERE rf.return_id IS NULL
+                AND rf.refunded_at>=:from AND rf.refunded_at<:to
            ), movements AS (
-              SELECT * FROM sale_lines UNION ALL SELECT * FROM returned_lines
+              SELECT * FROM sale_lines
+              UNION ALL SELECT * FROM returned_lines
+              UNION ALL SELECT * FROM refund_lines
            )
            SELECT p.id AS model_id,p.name AS model,v.id AS variant_id,v.name AS variation,
                   SUM(m.qty) AS units,
