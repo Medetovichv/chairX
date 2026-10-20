@@ -81,5 +81,5 @@ export function DeliveriesPage(){
         <PurchasePager page={q.data.page} size={q.data.size} total={q.data.total}
           label="доставок" onPage={page=>setFilters(f=>({...f,page}))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick}><DeliveryQuickView id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick}><DeliveryQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
