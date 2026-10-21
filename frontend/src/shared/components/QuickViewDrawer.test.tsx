@@ -60,6 +60,29 @@ describe('QuickViewDrawer navigation', () => {
     expect(event.defaultPrevented).toBe(true);
     unmount();
   });
+  it('protects Escape when edited and allows close after approval', () => {
+    const close = vi.fn();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={close}><Editor/></QuickViewDrawer></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(close).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(close).toHaveBeenCalledTimes(1);
+    confirm.mockRestore();
+    unmount();
+  });
+  it('provides reachable adjacent navigation controls for narrow screens', () => {
+    const { container, unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}} previous={() => {}} next={() => {}}><Editor/></QuickViewDrawer></MemoryRouter>);
+    for (const label of ['Предыдущая запись', 'Следующая запись']) {
+      const button = screen.getByRole('button', { name: label });
+      expect(button.className).toContain('min-h-11');
+      expect(button.className).toContain('min-w-11');
+    }
+    expect(container.querySelector('[data-quick-view]')).toBeTruthy();
+    unmount();
+  });
   it('allows moving to adjacent records after approval', () => {
     const next = vi.fn();
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
