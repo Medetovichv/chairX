@@ -23,7 +23,22 @@ function Tabs({ value, onChange }: { value: Tab; onChange: (tab: Tab) => void })
     {([['overview', 'Обзор'], ['actions', 'Действия'], ['history', 'История']] as const).map(([key, label]) =>
       <button type="button" role="tab" aria-selected={value === key} key={key}
         className={'rounded-xl px-3 py-2 text-sm font-medium ' + (value === key ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-700')}
-        onClick={() => { if (value !== key && canLeave()) onChange(key); }}>{label}</button>)}
+        onClick={() => { if (value !== key && canLeave()) onChange(key); }}
+        onKeyDown={event => {
+          const keys: Tab[] = ['overview', 'actions', 'history'];
+          const index = keys.indexOf(value);
+          const target = event.key === 'ArrowRight' ? keys[(index + 1) % keys.length] :
+            event.key === 'ArrowLeft' ? keys[(index + keys.length - 1) % keys.length] :
+            event.key === 'Home' ? keys[0] : event.key === 'End' ? keys[keys.length - 1] : undefined;
+          if (!target) return;
+          event.preventDefault();
+          if (target !== value && canLeave()) {
+            onChange(target);
+            const list = event.currentTarget.parentElement;
+            list?.querySelector<HTMLButtonElement>('[data-quick-tab="' + target + '"]')?.focus();
+          }
+        }}
+        tabIndex={value === key ? 0 : -1} data-quick-tab={key}>{label}</button>)}
   </div>;
 }
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
