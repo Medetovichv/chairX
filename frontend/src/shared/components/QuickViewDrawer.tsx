@@ -1,11 +1,28 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, UNSAFE_DataRouterContext, useBlocker } from 'react-router';
 import { ArrowLeft, ExternalLink, X } from 'lucide-react';
 
 const DirtyContext = createContext<(dirty: boolean) => void>(() => {});
 export const useQuickViewDirty = () => useContext(DirtyContext);
 const LeaveContext = createContext<() => boolean>(() => true);
 export const useQuickViewCanLeave = () => useContext(LeaveContext);
+
+/** Only mount the data-router blocker where RouterProvider is present (unit tests use MemoryRouter). */
+function HistoryGuard({ dirty, discard }: { dirty: boolean; discard: () => void }) {
+  const context = useContext(UNSAFE_DataRouterContext);
+  return context ? <ActiveHistoryGuard dirty={dirty} discard={discard}/> : null;
+}
+function ActiveHistoryGuard({ dirty, discard }: { dirty: boolean; discard: () => void }) {
+  const blocker = useBlocker(dirty);
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    if (window.confirm('Есть несохранённые изменения. Продолжить без сохранения?')) {
+      discard();
+      blocker.proceed();
+    } else blocker.reset();
+  }, [blocker, discard]);
+  return null;
+}
 
 interface Props {
   title: string;
@@ -61,7 +78,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     if (!(target instanceof Element) || !target.closest('a[href]')) return;
     if (!allowLeave()) { event.preventDefault(); event.stopPropagation(); }
   };
-  return <DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
+  return <DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-2rem)] lg:w-[min(34vw,520px)] lg:min-w-[400px] lg:shrink-0 lg:rounded-2xl lg:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
