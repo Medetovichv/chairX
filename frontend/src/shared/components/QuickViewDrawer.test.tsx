@@ -1,13 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, createMemoryRouter, RouterProvider, useNavigate, useLocation } from 'react-router';
 import { QuickViewDrawer, useQuickViewDirty } from './QuickViewDrawer';
 
 function Editor() {
   const markDirty = useQuickViewDirty();
   return <button onClick={() => markDirty(true)}>Изменить</button>;
 }
+function HistoryHarness() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  return <>
+    <output data-testid="route">{location.search}</output>
+    <button onClick={() => navigate(-1)}>Browser Back</button>
+    <QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => navigate('/sales')}><Editor/></QuickViewDrawer>
+  </>;
+}
 describe('QuickViewDrawer navigation', () => {
+  it('blocks Back until edits are discarded within a data router', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const router = createMemoryRouter([{ path: '/sales', element: <HistoryHarness/> }], {
+      initialEntries: ['/sales', '/sales?quick=id'], initialIndex: 1,
+    });
+    const { unmount } = render(<RouterProvider router={router}/>);
+    fireEvent.click(screen.getByRole('button', { name: 'Изменить' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Browser Back' }));
+    expect(await screen.findByTestId('route')).toHaveTextContent('?quick=id');
+    expect(confirm).toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Browser Back' }));
+    expect(await screen.findByTestId('route')).toHaveTextContent('');
+    confirm.mockRestore();
+    unmount();
+  });
   it('uses fullscreen mobile and split desktop layout styles', () => {
     const { container, unmount } = render(<MemoryRouter>
       <QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}}><Editor/></QuickViewDrawer>
