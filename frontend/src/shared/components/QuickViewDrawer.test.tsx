@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, createMemoryRouter, RouterProvider, useNavigate, useLocation } from 'react-router';
 import { QuickViewDrawer, useQuickViewDirty } from './QuickViewDrawer';
 
@@ -29,7 +29,7 @@ describe('QuickViewDrawer navigation', () => {
     expect(confirm).toHaveBeenCalled();
     confirm.mockReturnValue(true);
     fireEvent.click(screen.getByRole('button', { name: 'Browser Back' }));
-    expect(await screen.findByTestId('route')).toHaveTextContent('');
+    await waitFor(() => expect(screen.getByTestId('route').textContent).toBe(''));
     confirm.mockRestore();
     unmount();
   });
