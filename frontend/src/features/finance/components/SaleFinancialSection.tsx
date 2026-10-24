@@ -69,7 +69,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  }
  if(!relevant)return null;
  return <div className="space-y-5">
-  <section aria-label="Оплата заказа" className={card}>
+  <section id="sale-payment-section" aria-label="Оплата заказа" className={card}>
    <h3 className="text-lg font-bold">Оплата заказа</h3>
    <p className="text-sm">Заказ {sale.saleNumber}, сумма {som(sale.total)}. Клиент: {customerLabel}.</p>
    {paymentRead&&(payments.isPending?<LoadingState label="Загружаем платежи продажи…"/>:

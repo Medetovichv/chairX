@@ -50,7 +50,11 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   });
   const existing=useQuery({
     queryKey:deliveryKeys.bySale(saleId),
-    queryFn:()=>deliveryApi.bySale(saleId),
+    queryFn:()=>Promise.race([
+      deliveryApi.bySale(saleId),
+      new Promise<never>((_,reject)=>window.setTimeout(
+        ()=>reject(new Error('Проверка доставки не завершилась за 10 секунд. Повторите запрос.')),10000)),
+    ]),
     enabled:validUUID(saleId)&&hasPermission('DELIVERIES_READ'),
     retry:false,
   });
