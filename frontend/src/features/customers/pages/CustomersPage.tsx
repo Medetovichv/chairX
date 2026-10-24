@@ -1,3 +1,8 @@
+import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router';
+import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
+import { CustomerQuickView } from '../../../shared/components/QuickViewContent';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
@@ -16,15 +21,35 @@ import { CustomerSearch } from '../components/CustomerSearch';
 import { CustomerTable } from '../components/CustomerTable';
 
 export function CustomersPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
+  const [quickParams, setQuickParams] = useSearchParams();
+  const selected = quickParams.get('quick');
+  const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
+  const closeQuick = useCallback(() => setQuickParams(prev => {
+    const next = new URLSearchParams(prev); next.delete('quick'); return next;
+  }), [setQuickParams]);
+  const interceptDetail = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest('a[href]');
+    if (!link) return;
+    const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
+    if (!path.startsWith('/customers/')) return;
+    const id = path.slice('/customers/'.length);
+    if (!id || id.includes('/')) return;
+    event.preventDefault();
+    setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
+  };
+
   const canRead = hasPermission('CUSTOMERS_READ');
   const canCreate = hasPermission('CUSTOMERS_CREATE');
   const withSales = hasPermission('SALES_READ');
   const navigate = useNavigate();
   const client = useQueryClient();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = usePersistedListState('customer-search',user?.id,'');
   const [query, setQuery] = useState('');
-  const [page, setPage] = useState(0);
+  const [page, setPage] = usePersistedListState('customer-page',user?.id,0);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -57,7 +82,9 @@ export function CustomersPage() {
   const pageIndex = result && result.kind !== 'limited-search' ? result.data.page : page;
   const pageSize = result && result.kind !== 'limited-search' ? result.data.size : 20;
 
-  return <div className="space-y-6">
+  const visibleIds = (items ?? []).map(record => record.id);
+  const selectedIndex = visibleIds.indexOf(selected ?? '');
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-6 min-w-0 flex-1">
     <PageHeader title={creating?'Новый клиент':'Клиенты'}
       action={canCreate&&!creating ? <Button onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
     {creating && canCreate && <CustomerForm onSave={async (data) => { await create.mutateAsync(data); }}
@@ -82,5 +109,5 @@ export function CustomersPage() {
                   total={total} onPage={setPage} /> : null}
             </div>}
     </section>}
-  </div>;
+  </div>{selected && <QuickViewDrawer title={'Клиент'} detailUrl={'/customers/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><CustomerQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }

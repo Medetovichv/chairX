@@ -1,3 +1,8 @@
+import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router';
+import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
+import { SaleQuickView } from '../../../shared/components/QuickViewContent';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
@@ -36,16 +41,36 @@ function dayRange(days: number): { from: string; to: string } {
 }
 
 export function SalesPage() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
+  const [quickParams, setQuickParams] = useSearchParams();
+  const selected = quickParams.get('quick');
+  const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
+  const closeQuick = useCallback(() => setQuickParams(prev => {
+    const next = new URLSearchParams(prev); next.delete('quick'); return next;
+  }), [setQuickParams]);
+  const interceptDetail = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const link = target.closest('a[href]');
+    if (!link) return;
+    const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
+    if (!path.startsWith('/sales/')) return;
+    const id = path.slice('/sales/'.length);
+    if (!id || id.includes('/')) return;
+    event.preventDefault();
+    setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
+  };
+
   const read = hasPermission('SALES_READ');
   const create = hasPermission('SALES_CREATE');
   // Table is retained as the default for existing operational workflows.
   // Staff can switch to the visual Kanban without losing their filters.
-  const [view, setView] = useState<View>('table');
-  const [history,setHistory]=useState(false);
-  const [search, setSearch] = useState('');
+  const [view, setView] = usePersistedListState<View>('sales-view', user?.id, 'table');
+  const [history,setHistory]=usePersistedListState('sales-history',user?.id,false);
+  const [search, setSearch] = usePersistedListState('sales-search',user?.id,'');
   const [term, setTerm] = useState('');
-  const [filters, setFilters] = useState<SaleFilters>(empty);
+  const [filters, setFilters] = usePersistedListState<SaleFilters>('sales-filters',user?.id,empty);
   useEffect(() => {
     const timeout = setTimeout(() => setTerm(search.trim()), 350);
     return () => clearTimeout(timeout);
@@ -79,7 +104,9 @@ export function SalesPage() {
     return <ForbiddenPage />;
   }
 
-  return <div className="space-y-5 sm:space-y-6">
+  const visibleIds = (listing.data?.items ?? []).map(record => record.id);
+  const selectedIndex = visibleIds.indexOf(selected ?? '');
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-5 sm:space-y-6 min-w-0 flex-1">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
       action={create ? <Button asChild className="bg-blue-600 hover:bg-blue-700">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
@@ -168,5 +195,5 @@ export function SalesPage() {
           total={listing.data.total} label="продаж"
           onPage={p => setFilters(old => ({ ...old, page: p }))}/>
       </div>}
-  </div>;
+  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
 }
