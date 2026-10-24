@@ -8,9 +8,7 @@ if (!rootElement) throw new Error('Root element #root not found');
 
 createRoot(rootElement).render(
   <StrictMode>
-    <AppProviders>
-      <AppRouter />
-    </AppProviders>
+    <AppProviders />
   </StrictMode>,
 );
 
