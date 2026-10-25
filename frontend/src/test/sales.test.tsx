@@ -228,15 +228,18 @@ function mockBackend(options:{
       page:0,size:100,totalPages:1,totalElements:options.alternateWarehouse?2:1,
     });
     if(path==='/api/inventory/overview'&&method==='GET'){
-      const search=url.searchParams.get('search')??'';
-      return json({items:search.toUpperCase().includes('ERGO-BLK')?[{
-        productVariantId:BLACK_ID,model:'Ergo Comfort',variation:'Чёрный',
-        onHand:10,reserved:2,blocked:0,available:8,
-        warehouses:[{warehouseId:WH,warehouseCode:'HOME',onHand:10,
-          reserved:2,blocked:0,available:8}],
-      }]:[],page:0,size:20,total:search.toUpperCase().includes('ERGO-BLK')?1:0});
+      const search=(url.searchParams.get('search')??'').toUpperCase();
+      const rows=[
+        {productVariantId:BLACK_ID,model:'Ergo Comfort',variation:'Чёрный',sku:'ERGO-BLK',
+         onHand:10,reserved:2,blocked:0,available:8,
+         warehouses:[{warehouseId:WH,warehouseCode:'HOME',onHand:10,reserved:2,blocked:0,available:8}]},
+        {productVariantId:GREY_ID,model:'Ergo Comfort',variation:'Серый',sku:'ERGO-GREY',
+         onHand:10,reserved:0,blocked:0,available:10,
+         warehouses:[{warehouseId:WH,warehouseCode:'HOME',onHand:10,reserved:0,blocked:0,available:10}]}
+      ].filter(row=>(row.model+' '+row.variation+' '+row.sku).toUpperCase().includes(search));
+      return json({items:rows,page:0,size:20,total:rows.length});
     }
-    if(path==='/api/inventory/balances/'+OFFICE+'/'+BLACK_ID&&options.alternateWarehouse)
+        if(path==='/api/inventory/balances/'+OFFICE+'/'+BLACK_ID&&options.alternateWarehouse)
       return json({warehouseId:OFFICE,productVariantId:BLACK_ID,onHand:9,reserved:0,blocked:0,available:9});
     if(path==='/api/inventory/balances/'+OFFICE+'/'+GREY_ID&&options.alternateWarehouse)
       return json({warehouseId:OFFICE,productVariantId:GREY_ID,onHand:9,reserved:0,blocked:0,available:9});
