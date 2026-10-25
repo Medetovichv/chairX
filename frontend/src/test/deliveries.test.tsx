@@ -190,6 +190,14 @@ beforeEach(()=>{
 afterEach(()=>{authSession.clear();sessionStorage.clear();vi.restoreAllMocks();vi.unstubAllGlobals();});
 
 describe('F08 backend DTOs, filters and list',()=>{
+  it('navigates from list to creation without treating new as quick-view id',async()=>{
+    const api=mockBackend();
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('link',{name:'+ Оформить доставку'}));
+    expect(await screen.findByRole('form',{name:'Оформить доставку'})).toBeInTheDocument();
+    expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
+  });
+
   it('honors exactly five statuses and accurate Bishkek local date',()=>{
     expect(deliveryStatuses).toEqual(['READY','IN_TRANSIT','DELIVERED','FAILED','CANCELLED']);
     expect(bishkekToday(new Date('2026-10-10T21:30:00Z'))).toBe('2026-10-11');
