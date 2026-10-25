@@ -94,7 +94,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     }:undefined}>
     {({start,locked})=><form aria-label="Регистрация оплаты" className="space-y-3"
       onSubmit={e=>{e.preventDefault();
-       if(!canPay){setError('Продажа не подтверждена, уже оплачена, либо счёт не проверен. Если заказ создан обменом, обычная оплата запрещена backend.');return;}
+       if(!canPay){setError('Продажа не подтверждена, уже оплачена либо счёт не проверен.');return;}
        if(comment.trim().length>1000){setError('Слишком длинный комментарий.');return;}
        setError('');
        const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:null,comment:optional(comment),
@@ -121,7 +121,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {!canPayStatus&&<p className="text-sm text-amber-800">DRAFT и CANCELLED нельзя оплачивать.</p>}
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
-       <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Для новой продажи из обмена используется ExchangeSettlement.</p>
+       <p className="text-xs text-slate-500">Регистрируйте оплату только после фактического получения денег. Система проводит полную сумму автоматически.</p>
        <Button type="submit" disabled={locked||!canPay}>Зарегистрировать оплату</Button>
       </form>}
    </GuardedPost>}
