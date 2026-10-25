@@ -9,7 +9,7 @@ import { deliveryApi, deliveryKeys } from '../api';
 import { DeliveryForm } from '../components/DeliveryForm';
 import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../pending-create';
 import type { CreateDeliveryInput } from '../types';
-export function CreateDeliveryPage(){
+export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}){
   const {hasPermission,user}=useAuth();
   const allowed=hasPermission('DELIVERIES_READ')&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'));
   const [qs]=useSearchParams();
@@ -42,7 +42,8 @@ export function CreateDeliveryPage(){
         client.invalidateQueries({queryKey:deliveryKeys.lists}),
         client.invalidateQueries({queryKey:deliveryKeys.bySale(result.saleId)}),
       ]);
-      navigate('/deliveries/'+encodeURIComponent(result.id),{replace:true,
+      if(embedded && onCreated) onCreated(result.id);
+      else navigate('/deliveries/'+encodeURIComponent(result.id),{replace:true,
         state:{notice:'Доставка создана.'}});
     }catch(cause){
       setError(userFacingApiError(cause));
@@ -56,8 +57,8 @@ export function CreateDeliveryPage(){
   }
   if(!allowed)return <ForbiddenPage/>;
   return <div className="space-y-5">
-    <PageHeader title="Оформить доставку" description="Подтверждённая продажа с городской или региональной доставкой."/>
-    <Link className="font-semibold text-indigo-700 underline" to="/deliveries">← Все доставки</Link>
+    {!embedded&&<PageHeader title="Оформить доставку" description="Подтверждённая продажа с городской или региональной доставкой."/>}
+    {!embedded&&<Link className="font-semibold text-indigo-700 underline" to="/deliveries">← Все доставки</Link>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
     {(pending||invalid)&&<section aria-label="Неопределённое создание"
       className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
