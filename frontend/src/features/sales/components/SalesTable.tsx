@@ -28,6 +28,9 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             <td className="px-3 py-3">{s.quantity}</td>
             <td className="whitespace-nowrap px-3 py-3 font-semibold">{money(s.total)}</td>
             <td className="px-3 py-3"><SaleStatusBadge status={s.status}/>
+              {(s.returnedQuantity??0)>0&&<p className="mt-1 inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900" aria-label="Возврат по продаже">
+                {(s.returnedQuantity??0)>=s.quantity?'Возвращено полностью':'Частичный возврат'} · {s.returnedQuantity} шт.
+              </p>}
               {s.status==='FULFILLED'&&s.paymentStatus!=='PAID'&&
                 <p className="mt-1 text-xs font-semibold text-amber-800">Деньги не получены</p>}</td>
             <td className="px-3 py-3">{s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus==='UNPAID'?'Не оплачено':s.paymentStatus||'—'}</td>
