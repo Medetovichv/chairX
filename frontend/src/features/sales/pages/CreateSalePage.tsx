@@ -1,3 +1,4 @@
+import { useQuickViewDirty } from '../../../shared/components/QuickViewDrawer';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,6 +21,7 @@ function unresolved(error:unknown):boolean {
     error.status>=500 || error.status===409;
 }
 export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}) {
+  const markDirty=useQuickViewDirty();
   const {hasPermission,user}=useAuth();
   const allowed=hasPermission('SALES_CREATE');
   const canRead=hasPermission('SALES_READ');
@@ -63,7 +65,7 @@ export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onC
       await queryClient.invalidateQueries({queryKey:salesKeys.kanban});
       await queryClient.invalidateQueries({queryKey:saleStatisticsKeys.last30Days});
       await queryClient.invalidateQueries({queryKey:['dashboard']});
-      if(embedded && onCreated) onCreated(result.id);
+      if(embedded && onCreated) { markDirty(false); onCreated(result.id); }
       else if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,
         state:{notice:payload.deliveryDetails?'Продажа подтверждена, доставка создана.':'Черновик создан.'}});
       else setSuccess(result);
@@ -80,7 +82,7 @@ export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onC
     }finally{inFlight.current=false;setPosting(false);}
   }
   if(!allowed)return <ForbiddenPage/>;
-  return <div className="space-y-6">
+  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className="space-y-6">
     {!embedded&&<PageHeader title="Новая продажа" description="Создайте черновик или подтвердите продажу сразу с оформлением доставки."/>}
     {!embedded&&canRead&&<Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/sales">← Все продажи</Link>}
