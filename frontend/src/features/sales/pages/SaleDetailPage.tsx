@@ -8,6 +8,7 @@ import type { Warehouse } from '../../inventory/types';
 import { customersApi } from '../../customers/api';
 import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { DeliveryForm } from '../../deliveries/components/DeliveryForm';
+import { returnsApi,returnKeys } from '../../returns/api';
 import { DeliveryActions } from '../../deliveries/components/DeliveryActions';
 import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../../deliveries/pending-create';
 import type { CreateDeliveryInput } from '../../deliveries/types';
@@ -143,6 +144,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     queryKey:[...salesKeys.lists,'summary',sale.id,sale.saleNumber],
     queryFn:()=>salesApi.list({status:'',from:'',to:'',number:sale.saleNumber,page:0}),
     enabled:hasPermission('SALES_READ'),
+  });
+  const priorReturns=useQuery({
+    queryKey:returnKeys.history(sale.id),
+    queryFn:()=>returnsApi.history(sale.id),
+    enabled:hasPermission('RETURNS_READ')&&sale.status!=='DRAFT',
   });
   const authoritative=listed.data?.items.find(i=>i.id===sale.id);
   const matched=authoritative??(summary?.id===sale.id?summary:null);
@@ -351,6 +357,18 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     <Link to="/sales" className="inline-flex min-h-11 items-center font-semibold text-indigo-700">
       ← Все продажи</Link>
     <PageHeader title={'Продажа '+displaySaleNumber(sale.saleNumber)}/>
+    {hasPermission('RETURNS_READ')&&priorReturns.data&&priorReturns.data.length>0&&
+      <section aria-label="Возвраты по продаже" className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <p className="font-semibold">По этой продаже оформлен возврат</p>
+        <p className="text-sm text-slate-700">Исходная сумма и закрытые отчёты сохраняются. Денежный возврат отражается отдельно по дате выплаты.</p>
+        <ul className="mt-2 space-y-1">{priorReturns.data.map(r=>
+          <li key={r.id}><Link className="text-blue-700 underline" to={'/returns/'+encodeURIComponent(r.id)}>
+            Посмотреть возврат товара</Link></li>)}</ul>
+      </section>}
+    {sale.status==='FULFILLED'&&hasPermission('RETURNS_CREATE')&&
+      <Link className="inline-flex min-h-10 items-center text-blue-700 underline" to={'/returns/new?saleId='+encodeURIComponent(sale.id)}>
+        Оформить возврат по этой продаже
+      </Link>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
