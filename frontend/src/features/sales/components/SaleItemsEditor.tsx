@@ -74,7 +74,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
           Использовать рекомендованную
         </Button>
       </div>}
-      {/^\\d+$/.test(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
+      {/^\d+$/.test(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
         <p className="text-sm text-slate-500">Сумма позиции: {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}</p>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
