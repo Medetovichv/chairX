@@ -58,7 +58,7 @@ export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean
     }finally{once.current=false;setBusy(false);}
   }
   if(!allowed)return <ForbiddenPage/>;
-  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className="space-y-5">
+  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className={embedded ? "quick-create min-w-0 space-y-4" : "space-y-5"}>
     {!embedded&&<PageHeader title="Оформить доставку" description="Подтверждённая продажа с городской или региональной доставкой."/>}
     {!embedded&&<Link className="font-semibold text-indigo-700 underline" to="/deliveries">← Все доставки</Link>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}

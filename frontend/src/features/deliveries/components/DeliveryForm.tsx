@@ -76,7 +76,7 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
     if(error||!canCreate){setProblem(error||'Проверьте заказ и отсутствие существующей доставки.');return;}
     setProblem('');await onSubmit(payload);
   }
-  return <form aria-label="Оформить доставку" className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6"
+  return <form aria-label="Оформить доставку" className="min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 [.quick-create_&]:p-4"
     onSubmit={e=>void submit(e)}>
     <section className="space-y-3">
       <h3 className="font-semibold">Подтверждённый заказ с доставкой</h3>
@@ -141,7 +141,7 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
         <ErrorState title="Не удалось проверить существующую доставку"
           error={existing.error} onRetry={()=>void existing.refetch()}/>}
     </section>
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div className="grid min-w-0 gap-4 sm:grid-cols-2 [.quick-create_&]:!grid-cols-1 xl:[.quick-create_&]:!grid-cols-2">
       {([
         ['Имя получателя','recipientName',recipientName,setRecipientName,200],
         ['Телефон *','recipientPhone',recipientPhone,setRecipientPhone,50],
