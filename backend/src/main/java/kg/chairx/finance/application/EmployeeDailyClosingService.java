@@ -252,7 +252,7 @@ public class EmployeeDailyClosingService {
         var until=date.plusDays(1).atStartOfDay(DailyClosingAccessPolicy.BUSINESS_ZONE).toInstant().atOffset(ZoneOffset.UTC);
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
-                   COALESCE(detail.total,0) AS total,
+                   COALESCE(detail.total,0) + COALESCE(d.delivery_cost,0) AS total,
                    GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at) AS completed_at,
                    detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
                    COALESCE(d.address,c.address) AS address,
@@ -272,14 +272,14 @@ public class EmployeeDailyClosingService {
             ) detail ON TRUE
             JOIN LATERAL (
                 SELECT SUM(payment.amount) AS amount,
-                       MIN(payment.paid_at) FILTER (WHERE payment.running_total >= detail.total) AS paid_at
+                       MIN(payment.paid_at) FILTER (WHERE payment.running_total >= detail.total + COALESCE(d.delivery_cost,0)) AS paid_at
                 FROM (
                     SELECT amount, paid_at,
                            SUM(amount) OVER (ORDER BY paid_at, id) AS running_total
                     FROM payments
                     WHERE sale_id=s.id AND status='PAID'
                 ) payment
-                HAVING SUM(payment.amount) >= detail.total AND detail.total > 0
+                HAVING SUM(payment.amount) >= detail.total + COALESCE(d.delivery_cost,0) AND detail.total > 0
             ) p ON TRUE
             WHERE s.status='FULFILLED'
               AND (s.fulfillment_type='SELF_PICKUP'
