@@ -15,7 +15,6 @@ import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.persistence.SaleRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,7 +32,6 @@ import java.util.UUID;
 @Validated
 public class ExchangeService {
 
-    private final boolean legacyCreationEnabled;
     private final ExchangeRepository exchanges;
     private final RefundRepository refunds;
     private final ReturnRepository returns;
@@ -49,8 +47,7 @@ public class ExchangeService {
             SaleRepository saleRepository,
             SaleService sales,
             PaymentRepository payments,
-            PaymentBalanceService balances,
-            @Value("${chairx.legacy.exchange-creation-enabled:false}") boolean legacyCreationEnabled
+            PaymentBalanceService balances
     ) {
         this.exchanges = exchanges;
         this.refunds = refunds;
@@ -59,7 +56,6 @@ public class ExchangeService {
         this.sales = sales;
         this.payments = payments;
         this.balances = balances;
-        this.legacyCreationEnabled = legacyCreationEnabled;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -79,7 +75,7 @@ public class ExchangeService {
 
         // Default-deny new exchanges while retaining legacy history and
         // idempotent reconciliation for requests created before retirement.
-        if (!legacyCreationEnabled) {
+        if (true) {
             throw new ExchangeRuleViolationException(
                     "EXCHANGE_CREATION_RETIRED",
                     "Обмены отключены. Оформите возврат денег и отдельную продажу."
