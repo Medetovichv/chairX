@@ -177,6 +177,45 @@ class RefundApiTests {
     }
 
     @Test
+    void cashRefundPostsTodayWithoutChangingAlreadyClosedDay() throws Exception {
+        var sale = createPaidSale();
+        var yesterday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).minusDays(1);
+        UUID closingId = UUID.randomUUID();
+        BigDecimal cashBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+        jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES (?,?,'refund-test')",
+                closingId, java.sql.Date.valueOf(yesterday));
+        jdbc.update("""
+                INSERT INTO finance_daily_closing_accounts(closing_id,account_code,expected_balance,actual_balance)
+                SELECT ?,code,balance,balance FROM finance_accounts
+                """, closingId);
+        try {
+            var request = new CreateRefundRequest(
+                    sale.id(), null, new BigDecimal("2500"), RefundMethod.CASH,
+                    "Денежный возврат после закрытия прошлого дня", null, null, UUID.randomUUID());
+            mvc.perform(post("/api/refunds").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                    .content(mapper.writeValueAsString(request))).andExpect(status().isCreated());
+            BigDecimal cashAfter = jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
+            org.assertj.core.api.Assertions.assertThat(cashAfter)
+                    .isEqualByComparingTo(cashBefore.subtract(new BigDecimal("2500")));
+            BigDecimal historicalActual = jdbc.queryForObject("""
+                    SELECT actual_balance FROM finance_daily_closing_accounts
+                    WHERE closing_id=? AND account_code='CASH'
+                    """, BigDecimal.class, closingId);
+            org.assertj.core.api.Assertions.assertThat(historicalActual)
+                    .isEqualByComparingTo(cashBefore);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND amount=-2500
+                    """, Integer.class)).isGreaterThanOrEqualTo(1);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closingId);
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closingId);
+        }
+    }
+
+    @Test
     void createRefundReturns201AndLocation()
             throws Exception {
 
