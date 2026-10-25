@@ -1,3 +1,4 @@
+import { useQuickViewDirty } from '../../../shared/components/QuickViewDrawer';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import { DeliveryForm } from '../components/DeliveryForm';
 import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../pending-create';
 import type { CreateDeliveryInput } from '../types';
 export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}){
+  const markDirty=useQuickViewDirty();
   const {hasPermission,user}=useAuth();
   const allowed=hasPermission('DELIVERIES_READ')&&(hasPermission('DELIVERIES_CREATE')||hasPermission('DELIVERIES_MANAGE'));
   const [qs]=useSearchParams();
@@ -42,7 +44,7 @@ export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean
         client.invalidateQueries({queryKey:deliveryKeys.lists}),
         client.invalidateQueries({queryKey:deliveryKeys.bySale(result.saleId)}),
       ]);
-      if(embedded && onCreated) onCreated(result.id);
+      if(embedded && onCreated) { markDirty(false); onCreated(result.id); }
       else navigate('/deliveries/'+encodeURIComponent(result.id),{replace:true,
         state:{notice:'Доставка создана.'}});
     }catch(cause){
@@ -56,7 +58,7 @@ export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean
     }finally{once.current=false;setBusy(false);}
   }
   if(!allowed)return <ForbiddenPage/>;
-  return <div className="space-y-5">
+  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className="space-y-5">
     {!embedded&&<PageHeader title="Оформить доставку" description="Подтверждённая продажа с городской или региональной доставкой."/>}
     {!embedded&&<Link className="font-semibold text-indigo-700 underline" to="/deliveries">← Все доставки</Link>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
