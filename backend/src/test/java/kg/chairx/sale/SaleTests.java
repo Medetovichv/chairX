@@ -1072,6 +1072,8 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup for rollback test"));
+
         long movementsBefore = stockMovementCount();
         long auditBefore = saleAuditCount();
 
