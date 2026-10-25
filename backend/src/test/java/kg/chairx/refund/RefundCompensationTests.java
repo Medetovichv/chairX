@@ -297,7 +297,7 @@ class RefundCompensationTests {
 
         jdbc.execute("""
                 TRUNCATE TABLE sale_comments,
-                    inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, exchange_settlements, exchanges, refunds,
+                    inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, refunds,
                     return_items, returns, payments,
                     deliveries, sale_items, sales,
                     stock_movements, inventory_balances
