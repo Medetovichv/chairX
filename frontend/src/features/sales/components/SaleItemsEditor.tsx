@@ -24,8 +24,6 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     onChange(rows.map(r=>r.key===key?{...r,...update}:r));
   }
   return <section aria-label="Товары продажи" className="space-y-3">
-    {rows.length===0&&<Button type="button" variant="outline" disabled={disabled}
-      onClick={()=>onChange([{key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null}])}>Выбрать модель</Button>}
     {!inventoryRead&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
       Нет INVENTORY_READ: нельзя выбрать склад или проверить остаток для новых строк.
       При редактировании существующих строк выбранный склад сохраняется.
@@ -76,6 +74,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
           Использовать рекомендованную
         </Button>
       </div>}
+      {/^\\d+$/.test(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
+        <p className="text-sm text-slate-500">Сумма позиции: {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}</p>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
         onSwitch={id=>patch(row.key,{warehouseId:id})}/>
@@ -83,7 +83,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     <Button type="button" variant="outline" disabled={disabled||rows.length>=1000}
       onClick={()=>onChange([...rows,{
         key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null,
-      }])}>+ Добавить кресло</Button>
+      }])}>{rows.length===0?'Выбрать товар':'+ Добавить товар'}</Button>
   </section>;
 }
 let keySequence=0;
