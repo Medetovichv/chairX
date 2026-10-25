@@ -7,11 +7,11 @@ import { AppRouter } from '../app/router/AppRouter';
 import { createQueryClient } from '../shared/api/query';
 import { authSession } from '../features/auth/session';
 import { readPending } from '../features/returns/pending-operation';
-import { validateReturn,validateExchange,validateDefect } from '../features/returns/validation';
-import type { ReturnInput,ReturnResponse,Defect,ExchangeResponse } from '../features/returns/types';
+import { validateReturn,validateDefect } from '../features/returns/validation';
+import type { ReturnInput,ReturnResponse,Defect } from '../features/returns/types';
 
 const access=vi.hoisted(()=>({
- permissions:['RETURNS_READ','RETURNS_CREATE','EXCHANGES_READ','EXCHANGES_CREATE',
+ permissions:['RETURNS_READ','RETURNS_CREATE',
   'DEFECTS_READ','DEFECTS_MANAGE','DEFECTS_WRITE_OFF','SALES_READ','INVENTORY_READ'] as string[],
  roles:['CUSTOM_AFTERSALES'] as string[],
 }));
@@ -32,7 +32,6 @@ const VAR='44444444-4444-4444-8444-444444444444';
 const VAR2='55555555-5555-4555-8555-555555555555';
 const WH='66666666-6666-4666-8666-666666666666';
 const RET='77777777-7777-4777-8777-777777777777';
-const EX='88888888-8888-4888-8888-888888888888';
 const DEF='99999999-9999-4999-8999-999999999999';
 const DEF2='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab';
 const NOW='2026-10-10T08:00:00Z';
@@ -48,25 +47,19 @@ function defect(status:Defect['status']='OPEN'):Defect{
   quantity:1,status,description:'Не работает механизм наклона',
   resolutionNote:null,createdBy:'operator',createdAt:NOW,resolvedBy:null,resolvedAt:null};
 }
-function exchange(status:ExchangeResponse['status']='PENDING_SETTLEMENT'):ExchangeResponse{
- return {id:EX,originalSaleId:SALE,newSaleId:ITEM2,returnId:RET,status,
-  returnedValue:'8500.00',newSaleTotal:'9500.00',creditApplied:'8500.00',
-  additionalPaymentDue:'1000.00',refundDue:'0.00'};
-}
 interface Setup {
  returns?:ReturnResponse[];defects?:Defect[];
  fulfillment?:'SELF_PICKUP'|'CITY_DELIVERY';deliveryStatus?:string;
  afterReturnNetwork?:boolean;returnConflict?:boolean;
- afterExchangeNetwork?:boolean;afterDefectNetwork?:boolean;afterWriteOffNetwork?:boolean;
+ afterDefectNetwork?:boolean;afterWriteOffNetwork?:boolean;
 }
 function mockBackend(options:Setup={}){
  const returns=[...(options.returns??[])];
  const defects=[...(options.defects??[])];
- const exchanges:ExchangeResponse[]=[];
  const idempotent=new Map<string,ReturnResponse>();
- let afterReturn=!!options.afterReturnNetwork,afterExchange=!!options.afterExchangeNetwork;
+ let afterReturn=!!options.afterReturnNetwork;
  let afterDefect=!!options.afterDefectNetwork,afterWriteOff=!!options.afterWriteOffNetwork;
- const count={returnPOST:0,exchangePOST:0,defectPOST:0,writeOff:0,resolve:0,wait:0};
+ const count={returnPOST:0,defectPOST:0,writeOff:0,resolve:0,wait:0};
  const fetchMock=vi.fn(async (input:RequestInfo|URL,init?:RequestInit):Promise<Response>=>{
   const url=new URL(String(input),'http://chairx.test'),path=url.pathname,method=init?.method??'GET';
   if(path==='/api/returns'&&method==='GET'){
@@ -111,18 +104,6 @@ function mockBackend(options:Setup={}){
     id:WH,name:'Склад офис',code:'OFFICE',active:true,createdAt:NOW,updatedAt:NOW,
    }],
   });
-  if(path==='/api/exchanges'&&method==='POST'){
-   const body=JSON.parse(String(init?.body));
-   count.exchangePOST++;
-   if(!returns.some(r=>r.id===body.returnId))return json({code:'RETURN_NOT_FOUND',message:'',details:{}},409);
-   const result=exchange();
-   exchanges.push(result);
-   if(afterExchange){afterExchange=false;throw new TypeError('Lost response after create');}
-   return json(result,201);
-  }
-  const ex=/^\/api\/exchanges\/([^/]+)$/.exec(path);
-  if(ex&&method==='GET')return json(exchanges.find(x=>x.id===ex[1])??exchange());
-  if(path==='/api/exchanges/'+EX+'/settlements'&&method==='GET')return json([]);
   if(path==='/api/defects/receipt-origins'&&method==='GET'){
    const warehouseId=url.searchParams.get('warehouseId'),variantId=url.searchParams.get('variantId');
    const items=warehouseId===WH&&variantId===VAR?[{
@@ -187,7 +168,7 @@ function mockBackend(options:Setup={}){
   throw new Error('Unexpected '+method+' '+path);
  });
  vi.stubGlobal('fetch',fetchMock);
- return {count,returns,defects,exchanges,fetchMock};
+ return {count,returns,defects,fetchMock};
 }
 function renderAt(path='/returns'){
  return render(<QueryClientProvider client={createQueryClient()}>
@@ -198,7 +179,7 @@ const calls=(a:ReturnType<typeof mockBackend>,fragment:string)=>
  a.fetchMock.mock.calls.filter(([url])=>String(url).includes(fragment));
 beforeEach(()=>{
  sessionStorage.clear();
- access.permissions=['RETURNS_READ','RETURNS_CREATE','EXCHANGES_READ','EXCHANGES_CREATE',
+ access.permissions=['RETURNS_READ','RETURNS_CREATE',
   'DEFECTS_READ','DEFECTS_MANAGE','DEFECTS_WRITE_OFF','SALES_READ','INVENTORY_READ'];
  access.roles=['CUSTOM_AFTERSALES'];
  authSession.activate('Basic aftersales',{headerName:'X-CSRF-TOKEN',token:'csrf'});
@@ -213,12 +194,6 @@ describe('F09 backend contracts and validation',()=>{
   expect(validateReturn({...sample,items:[...sample.items,...sample.items]})).toMatch(/одну позицию/);
   expect(validateReturn({...sample,items:[]})).toMatch(/хотя бы одну/);
   expect(validateReturn({...sample,items:[{saleItemId:VAR,quantity:0,condition:'BLOCKED'}]})).toMatch(/количество/);
- });
- it('validates exchange against real item UUID and integer-som amounts',()=>{
-  const s={idempotencyKey:RET,returnId:RET,fulfillmentType:'SELF_PICKUP' as const,
-   items:[{productVariantId:VAR,warehouseId:WH,quantity:1,unitSalePrice:'9500'}]};
-  expect(validateExchange(s)).toBeNull();
-  expect(validateExchange({...s,items:[{...s.items[0]!,unitSalePrice:'9500.12'}]})).toMatch(/цену/);
  });
  it('requires a real variant and positive quantity for Defect',()=>{
   expect(validateDefect({warehouseId:WH,productVariantId:VAR,quantity:1,
@@ -436,18 +411,6 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(await screen.findByText(/Операция возврата заблокирована до сверки/)).toBeInTheDocument();
   expect(a.count.returnPOST).toBe(1);
  });
-});
-describe('F09 exchange and settlements boundaries',()=>{
- it('does not allow a new exchange from the retired entry',async()=>{
-  const a=mockBackend({returns:[returned()]});
-  renderAt('/returns/exchanges');
-  expect(screen.queryByRole('form',{name:'Создать обмен'})).not.toBeInTheDocument();
-  expect(a.count.exchangePOST).toBe(0);
- });
-
-
-
-
 });
 describe('F09 defect states, permissions and stock boundaries',()=>{
  it('shows real chair/warehouse labels and exact stock links in defect list',async()=>{
