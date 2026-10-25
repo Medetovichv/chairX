@@ -334,11 +334,8 @@ class SaleTests {
             assertThat(frozen.totals().value()).isEqualByComparingTo("8500");
             assertThat(frozen.lateCompletionCount()).isZero();
 
+            payments.create(new CreatePaymentRequest(pending.id(),PaymentMethod.CASH,null,"Тест поздней выдачи"));
             sales.fulfill(pending.id());
-            jdbc.update("""
-                INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-                VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
-                """,UUID.randomUUID(),pending.id());
             var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
             assertThat(later.items()).hasSize(1);
             assertThat(later.totals().value()).isEqualByComparingTo("8500");
