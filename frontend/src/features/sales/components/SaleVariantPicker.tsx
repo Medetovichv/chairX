@@ -41,7 +41,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
     queryFn:()=>inventoryApi.overview({warehouseId:null,model:'',variation:'',search:searchTerm,
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
-    enabled:open&&allowed&&canReadInventory,
+    enabled:open&&allowed&&canReadInventory&&searchTerm.length>=2,
   });
   async function chooseAvailable(id:string,warehouseId:string|undefined){
     if(picking)return;
