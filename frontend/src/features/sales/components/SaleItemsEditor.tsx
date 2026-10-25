@@ -4,7 +4,7 @@ import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { SaleVariantPicker } from './SaleVariantPicker';
-import { integerSom, money } from '../validation';
+import { countValid, integerSom, money } from '../validation';
 import type { Money } from '../types';
 import type { Warehouse } from '../../inventory/types';
 
@@ -74,7 +74,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
           Использовать рекомендованную
         </Button>
       </div>}
-      {/^\d+$/.test(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
+      {countValid(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
         <p className="text-sm text-slate-500">Сумма позиции: {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}</p>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
