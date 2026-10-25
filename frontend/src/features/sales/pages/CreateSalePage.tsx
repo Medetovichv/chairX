@@ -82,7 +82,7 @@ export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onC
     }finally{inFlight.current=false;setPosting(false);}
   }
   if(!allowed)return <ForbiddenPage/>;
-  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className="space-y-6">
+  return <div onChangeCapture={embedded ? () => markDirty(true) : undefined} className={embedded ? "quick-create min-w-0 space-y-4" : "space-y-6"}>
     {!embedded&&<PageHeader title="Новая продажа" description="Создайте черновик или подтвердите продажу сразу с оформлением доставки."/>}
     {!embedded&&canRead&&<Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/sales">← Все продажи</Link>}
