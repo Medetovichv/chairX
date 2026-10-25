@@ -456,9 +456,6 @@ describe('F09 exchange and settlements boundaries',()=>{
 
 
 });
-describe('FLOW-24 link-based exchange retrieval',()=>{
-
-});
 describe('FLOW-24 exchange human labels and permission gating',()=>{
  it('does not print exchange or related UUIDs when sale and return read permissions are absent',async()=>{
   access.permissions=['EXCHANGES_READ'];
