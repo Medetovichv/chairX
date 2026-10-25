@@ -1,3 +1,4 @@
+import { CreateSalePage } from './CreateSalePage';
 import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
@@ -57,7 +58,8 @@ export function SalesPage() {
     const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
     if (!path.startsWith('/sales/')) return;
     const id = path.slice('/sales/'.length);
-    if (!id || id === 'new' || id.includes('/')) return;
+    if (!id || id.includes('/')) return;
+    if (id === 'new' && !create) return;
     event.preventDefault();
     setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
   };
@@ -195,5 +197,5 @@ export function SalesPage() {
           total={listing.data.total} label="продаж"
           onPage={p => setFilters(old => ({ ...old, page: p }))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><SaleQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={selected === 'new' ? 'Новая продажа' : 'Продажа'} detailUrl={'/sales/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}>{selected === 'new' ? <CreateSalePage embedded onCreated={goQuick}/> : <SaleQuickView key={selected} id={selected}/>}</QuickViewDrawer>}</div>;
 }
