@@ -836,7 +836,8 @@ class SaleTests {
 
         long movementsBefore = stockMovementCount();
 
-        var fulfilled = payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(sale.id());
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));
+        var fulfilled = sales.fulfill(sale.id());
 
         assertThat(fulfilled.status())
                 .isEqualTo(SaleStatus.FULFILLED);
