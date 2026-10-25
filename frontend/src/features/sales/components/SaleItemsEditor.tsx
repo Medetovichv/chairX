@@ -45,7 +45,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
           productVariantId:v.id,recommended:v.recommendedSalePrice,
           warehouseId:row.warehouseId||preferredWarehouse||'',
         })}/>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-3 [.quick-create_&]:!grid-cols-1 xl:[.quick-create_&]:!grid-cols-2">
         <label className="space-y-1 text-sm font-semibold">Склад *
           <select aria-label={'Склад позиции '+(index+1)} value={row.warehouseId}
             disabled={disabled||!inventoryRead||warehouses.isPending||warehouses.isError}
