@@ -455,8 +455,13 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           Открыть учёт остатков</Link></div>}
       <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
     </section>
-    <section aria-label="События заказа" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
-      <h3 className="text-lg font-bold">История заказа</h3>
+    <details key={sale.id} role="region" aria-label="События заказа"
+      className="group rounded-2xl border border-slate-200 bg-white p-5">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 [&::-webkit-details-marker]:hidden">
+        <span>История заказа</span>
+        <span aria-hidden="true" className="text-slate-500 transition-transform group-open:rotate-180">⌄</span>
+      </summary>
+      <div className="mt-4 space-y-4">
       <p className="text-xs text-slate-500">Операции из защищённого системного аудита.
         Изменения отображаются с фактическим временем и автором.</p>
       {auditHistory.isPending?<LoadingState label="Загружаем историю продажи…"/>:
@@ -498,7 +503,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           </li>)}
         </ol>
       </div>}
-    </section>
+      </div>
+    </details>
     <SaleCommentsPanel saleId={sale.id}/>
       </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
