@@ -343,6 +343,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         }
 
         if (sale.status() == SaleStatus.CONFIRMED
+                && !exchangeSaleGuard.isExchangeSale(sale.id())
                 && payments.findActiveBySale(sale.id()).isEmpty()) {
             throw rule("PICKUP_PAYMENT_REQUIRED",
                     "Перед подтверждением выдачи необходимо получить полную оплату");
