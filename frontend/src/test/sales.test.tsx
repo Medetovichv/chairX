@@ -689,9 +689,9 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
     await screen.findByRole('heading',{name:'Продажа #42'});
-    await userEvent.setup().click(screen.getByRole('button',{name:'Завершить продажу'}));
+    await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить выдачу кресел'}));
     expect(api.count().fulfills).toBe(0);
-    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Завершить продажу'}));
+    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить выдачу'}));
     expect(await screen.findByText('Продажа выполнена.')).toBeInTheDocument();
     expect(api.count().fulfills).toBe(1);
     expect(api.rows[0]?.status).toBe('FULFILLED');
