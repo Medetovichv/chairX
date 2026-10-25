@@ -66,5 +66,8 @@ WHERE permission_code IN ('EXCHANGES_READ','EXCHANGES_CREATE','EXCHANGES_SETTLE'
 DELETE FROM security_permissions
 WHERE code IN ('EXCHANGES_READ','EXCHANGES_CREATE','EXCHANGES_SETTLE');
 
-DROP TABLE IF EXISTS exchange_settlements;
-DROP TABLE IF EXISTS exchanges;
+-- Keep empty compatibility tables temporarily: the test cleanup and internal
+-- sale/refund guards still query these tables. Removing them before those
+-- references are migrated breaks all integration tests and backend startup.
+DELETE FROM exchange_settlements;
+DELETE FROM exchanges;
