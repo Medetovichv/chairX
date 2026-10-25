@@ -72,7 +72,7 @@ export function ExchangeForm({initialReturnId,onSubmit,disabled=false}:{
   </label>
   {definitelyUnpaid&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">По исходной продаже нет активной оплаты. Сначала проведите оплату в карточке продажи; создание обмена сейчас недоступно.</p>}
   {original.data&&<div className="rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-slate-800"><p className="font-semibold">Перед обменом проверьте</p><ul className="mt-2 list-inside list-disc space-y-1"><li>Исходная продажа была оплачена.</li><li>По этому возврату ещё не возвращали деньги и не оформляли обмен.</li><li>Новые кресла есть на выбранном складе в нужном количестве.</li></ul><p className="mt-2 text-slate-600">Если одно из условий не выполнено, сервер отклонит обмен без изменения складских и денежных остатков.</p></div>}
-  <SaleItemsEditor rows={rows} onChange={setRows} disabled={disabled}/>
+  <SaleItemsEditor allowOutOfStock rows={rows} onChange={setRows} disabled={disabled}/>
   <p className="text-xs text-slate-500">
    После подтверждения создаётся новая связанная продажа. При денежной разнице расчёт оформляется отдельным безопасным действием.
   </p>

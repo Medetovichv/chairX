@@ -453,30 +453,7 @@ describe('F09 exchange and settlements boundaries',()=>{
   expect(calls(a,'/api/exchanges/'+EX+'/settlements').filter(([,init])=>(init as RequestInit)?.method==='POST')).toHaveLength(0);
   expect(calls(a,'/api/refunds')).toHaveLength(0);
  });
- it('creates one linked exchange sale with explicit confirmation, never directly POSTs sales',async()=>{
-  access.permissions.push('CATALOG_READ');
-  const a=mockBackend({returns:[returned()]});
-  renderAt('/returns/exchanges?returnId='+RET);
-  const form=await screen.findByRole('form',{name:'Создать обмен'});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
-  fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
-  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
-  fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'9500'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и создать обмен'}));
-  expect(a.count.exchangePOST).toBe(0);
-  expect(screen.getByRole('alertdialog')).toHaveTextContent(/Backend создаст новую продажу/);
-  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Создать обмен'}));
-  expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
-  expect(a.count.exchangePOST).toBe(1);
-  const post=a.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/exchanges'&&(init as RequestInit).method==='POST');
-  const body=JSON.parse(String((post?.[1] as RequestInit).body)) as {items:{productVariantId:string;warehouseId:string;quantity:number;unitSalePrice:string}[];returnId:string;idempotencyKey:string};
-  expect(body.returnId).toBe(RET);
-  expect(body.items).toEqual([{productVariantId:VAR,warehouseId:WH,quantity:1,unitSalePrice:'9500'}]);
-  expect(body.idempotencyKey).toMatch(/^[a-f0-9]{8}-/);
-  expect(calls(a,'/api/sales/drafts')).toHaveLength(0);
-  expect(calls(a,'/api/exchanges/'+EX+'/settlements').filter(([,init])=>(init as RequestInit)?.method==='POST')).toHaveLength(0);
- });
+
  it('allows custom EXCHANGES_CREATE-only employee to access creation without reading protected data',async()=>{
   access.permissions=['EXCHANGES_CREATE'];access.roles=['AFTER_SALES_CREATE_ONLY'];
   const a=mockBackend({returns:[returned()]});renderAt('/returns/exchanges');

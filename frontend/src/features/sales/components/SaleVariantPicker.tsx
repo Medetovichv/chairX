@@ -10,8 +10,8 @@ import { PurchasePager } from '../../purchases/components/PurchasePager';
 import { money } from '../validation';
 import type { ProductVariant } from '../../catalog/types';
 
-export function SaleVariantPicker({value,onSelect,disabled=false}:{
-  value:string;onSelect:(variant:ProductVariant,warehouseId?:string)=>void;disabled?:boolean;
+export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock=false}:{
+  value:string;onSelect:(variant:ProductVariant,warehouseId?:string)=>void;disabled?:boolean;allowOutOfStock?:boolean;
 }) {
   const {hasPermission}=useAuth();
   const allowed=hasPermission('CATALOG_READ');
@@ -30,10 +30,10 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
   const [modelId,setModelId]=useState('');
   const [variantPage,setVariantPage]=useState(0);
   const models=useQuery({queryKey:catalogKeys.products(modelPage),
-    queryFn:()=>catalogApi.listProducts(modelPage),enabled:open&&allowed});
+    queryFn:()=>catalogApi.listProducts(modelPage),enabled:open&&allowed&&allowOutOfStock});
   const variants=useQuery({queryKey:catalogKeys.variants(modelId,variantPage),
     queryFn:()=>catalogApi.listVariants(modelId,variantPage),
-    enabled:open&&allowed&&!!modelId});
+    enabled:open&&allowed&&allowOutOfStock&&!!modelId});
   const current=useQuery({queryKey:['catalog','variant',value],
     queryFn:()=>catalogApi.getVariant(value),enabled:allowed&&!!value});
   const stock=useQuery({
@@ -73,7 +73,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
       className="space-y-3 rounded-xl border border-slate-200 bg-white p-3">
       {selectionError&&<p role="alert" className="text-sm text-red-700">{selectionError}</p>}
 
-      {models.isPending?<LoadingState label="Модели…"/>:
+      {allowOutOfStock&&<div aria-label="Каталог для учёта брака">      {models.isPending?<LoadingState label="Модели…"/>:
         models.isError?<ErrorState error={models.error} onRetry={()=>void models.refetch()}/>:
         <div className="space-y-2">
           <label className="block space-y-1 text-sm font-semibold">Модель
@@ -102,8 +102,12 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
               total={variants.data?.totalElements??0} onPage={setVariantPage}/>
           </>}
       </div>}
-      {canReadInventory&&<details aria-label="Быстрый поиск кресел" className="space-y-2">
-        <summary className="cursor-pointer text-sm font-medium text-blue-700">Поиск по наличию</summary>
+</div>}
+      {!canReadInventory&&!allowOutOfStock&&<p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+        Для выбора товара по наличию требуется право INVENTORY_READ. Обратитесь к администратору.
+      </p>}
+      {canReadInventory&&<section aria-label="Быстрый поиск кресел" className="space-y-2">
+        <h4 className="text-sm font-medium text-blue-700">Поиск по наличию</h4>
         <label className="block space-y-1 text-sm font-semibold">Быстрый поиск по модели, цвету или SKU
           <input type="search" aria-label="Поиск по креслам в наличии"
             value={stockSearch} disabled={disabled||picking} maxLength={200}
@@ -111,12 +115,13 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
             placeholder="Например, Ergo, чёрный, ERGO-BLK"
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"/>
         </label>
-        {searchTerm.length>=2&&(stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
+        {(searchTerm.length<2?<p className="text-sm text-slate-600">Введите минимум 2 символа модели, цвета или SKU.</p>:
+          stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
           stock.isError?<ErrorState error={stock.error} onRetry={()=>void stock.refetch()}/>:
           <div className="space-y-2">
             {stock.data?.items.length===0&&<p className="text-sm text-slate-600">
               Кресла с доступным остатком не найдены. Попробуйте другой запрос.</p>}
-            {stock.data?.items.map(line=>{
+            {stock.data?.items.filter(line=>line.available>0&&line.warehouses.some(w=>w.available>0)).map(line=>{
               const best=line.warehouses.filter(w=>w.available>0)
                 .sort((a,b)=>b.available-a.available)[0];
               return <div key={line.productVariantId}
@@ -126,7 +131,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
                   <p className="text-xs text-slate-500">Доступно на всех складах: {line.available} шт.</p>
                 </div>
                 <Button type="button" size="sm" variant="outline" disabled={disabled||picking}
-                  onClick={()=>void chooseAvailable(line.productVariantId,best?.warehouseId)}>
+                  onClick={()=>void chooseAvailable(line.productVariantId,best!.warehouseId)}>
                   Добавить {line.model} — {line.variation}
                 </Button>
               </div>;
@@ -135,7 +140,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
               <PurchasePager page={stock.data.page} size={stock.data.size} total={stock.data.total}
                 label="доступных вариаций" onPage={setSearchPage}/>}
           </div>)}
-      </details>}
+      </section>}
     </section>}
   </div>;
 }

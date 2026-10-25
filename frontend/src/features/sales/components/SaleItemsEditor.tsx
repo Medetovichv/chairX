@@ -4,7 +4,7 @@ import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { SaleVariantPicker } from './SaleVariantPicker';
-import { integerSom, money } from '../validation';
+import { countValid, integerSom, money } from '../validation';
 import type { Money } from '../types';
 import type { Warehouse } from '../../inventory/types';
 
@@ -12,8 +12,8 @@ export interface SaleEditorRow {
   key: number; productVariantId: string; warehouseId: string;
   quantity: string; unitSalePrice: string; recommended: Money | null;
 }
-export function SaleItemsEditor({rows,onChange,disabled}:{
-  rows:SaleEditorRow[];onChange:(rows:SaleEditorRow[])=>void;disabled:boolean;
+export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
+  rows:SaleEditorRow[];onChange:(rows:SaleEditorRow[])=>void;disabled:boolean;allowOutOfStock?:boolean;
 }) {
   const {hasPermission}=useAuth();
   const inventoryRead=hasPermission('INVENTORY_READ');
@@ -24,8 +24,6 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     onChange(rows.map(r=>r.key===key?{...r,...update}:r));
   }
   return <section aria-label="Товары продажи" className="space-y-3">
-    {rows.length===0&&<Button type="button" variant="outline" disabled={disabled}
-      onClick={()=>onChange([{key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null}])}>Выбрать модель</Button>}
     {!inventoryRead&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
       Нет INVENTORY_READ: нельзя выбрать склад или проверить остаток для новых строк.
       При редактировании существующих строк выбранный склад сохраняется.
@@ -40,7 +38,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
         <Button type="button" variant="outline" size="sm" disabled={disabled}
           onClick={()=>onChange(rows.filter(r=>r.key!==row.key))}>Удалить позицию</Button>
       </div>
-      <SaleVariantPicker value={row.productVariantId} disabled={disabled}
+      <SaleVariantPicker allowOutOfStock={allowOutOfStock} value={row.productVariantId} disabled={disabled}
         onSelect={(v,preferredWarehouse)=>patch(row.key,{
           productVariantId:v.id,recommended:v.recommendedSalePrice,
           warehouseId:row.warehouseId||preferredWarehouse||'',
@@ -76,6 +74,8 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
           Использовать рекомендованную
         </Button>
       </div>}
+      {countValid(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
+        <p className="text-sm text-slate-500">Сумма позиции: {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}</p>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
         onSwitch={id=>patch(row.key,{warehouseId:id})}/>
@@ -83,7 +83,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
     <Button type="button" variant="outline" disabled={disabled||rows.length>=1000}
       onClick={()=>onChange([...rows,{
         key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null,
-      }])}>+ Добавить кресло</Button>
+      }])}>{rows.length===0?'Выбрать товар':'+ Добавить товар'}</Button>
   </section>;
 }
 let keySequence=0;
