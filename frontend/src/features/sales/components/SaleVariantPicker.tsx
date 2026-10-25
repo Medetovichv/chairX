@@ -115,7 +115,8 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
             placeholder="Например, Ergo, чёрный, ERGO-BLK"
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"/>
         </label>
-        {(stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
+        {(searchTerm.length<2?<p className="text-sm text-slate-600">Введите минимум 2 символа модели, цвета или SKU.</p>:
+          stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
           stock.isError?<ErrorState error={stock.error} onRetry={()=>void stock.refetch()}/>:
           <div className="space-y-2">
             {stock.data?.items.length===0&&<p className="text-sm text-slate-600">
