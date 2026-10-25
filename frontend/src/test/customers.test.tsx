@@ -137,6 +137,8 @@ function callsTo(calls: ReturnType<typeof vi.fn>, path: string) {
 }
 
 beforeEach(() => {
+  // Each scenario starts with a fresh tab; persisted F16 filters belong to the previous scenario otherwise.
+  for (const key of Object.keys(sessionStorage)) if (key.startsWith('chairx:f16:list:v1:')) sessionStorage.removeItem(key);
   access.roles = ['CUSTOM_CRM_OPERATOR'];
   access.permissions = ['CUSTOMERS_READ', 'CUSTOMERS_CREATE', 'CUSTOMERS_MANAGE', 'SALES_READ'];
   authSession.activate('Basic test-credentials', { headerName: 'X-CSRF-TOKEN', token: 'test-csrf' });
