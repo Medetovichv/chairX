@@ -172,7 +172,8 @@ class ReturnConcurrencyTests {
                 )
         );
 
-        sale = payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(sale.id());
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));
+        sale = sales.fulfill(sale.id());
 
         UUID saleId = sale.id();
         UUID saleItemId = sale.items().getFirst().id();
