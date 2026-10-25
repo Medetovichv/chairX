@@ -45,6 +45,11 @@ public class ExchangeSettlementService {
             String reference,
             String actor
     ) {
+        // Historical settlements remain readable. New writes are permanently retired.
+        if (true) {
+            throw rule("EXCHANGE_SETTLEMENT_RETIRED",
+                    "Расчёты старых обменов доступны только для просмотра");
+        }
         if (exchangeId == null || idempotencyKey == null) {
             throw invalid("Exchange ID and idempotency key are required");
         }
