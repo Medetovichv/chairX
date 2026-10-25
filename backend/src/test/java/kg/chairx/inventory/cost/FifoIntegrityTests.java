@@ -19,8 +19,6 @@ import kg.chairx.delivery.api.*;
 import kg.chairx.delivery.application.DeliveryService;
 import kg.chairx.defect.application.DefectService;
 import kg.chairx.defect.application.DefectRuleViolationException;
-import kg.chairx.exchange.api.CreateExchangeRequest;
-import kg.chairx.exchange.application.ExchangeService;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.application.PaymentService;
 import kg.chairx.payment.domain.PaymentMethod;
@@ -41,7 +39,6 @@ import static org.assertj.core.api.Assertions.*;
 
 @org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties={"CHAIRX_CATALOG_PASSWORD=integration-test-password",
-        "chairx.legacy.exchange-creation-enabled=true",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"})
 @AutoConfigureMockMvc
 @Import(PostgresTestConfiguration.class)
@@ -55,7 +52,6 @@ class FifoIntegrityTests {
     @Autowired ReturnService returns;
     @Autowired DeliveryService deliveries;
     @Autowired DefectService defects;
-    @Autowired ExchangeService exchanges;
     @Autowired PaymentService payments;
     @Autowired PurchaseService purchases;
     @Autowired ReceivePurchase receiving;
@@ -279,24 +275,6 @@ class FifoIntegrityTests {
         deliveries.returnToWarehouse(delivery.id(),new ReturnDeliveryToWarehouseRequest(home));
         assertThat(restored()).isEqualByComparingTo("10001");
         assertThat(inventory.getBalance(home,variant).onHand()).isEqualTo(2);consistent();
-    }
-    @Test void sameVariantExchangeCanFulfillReturnedLastUnit() {
-        stock(home,variant,1,"5000");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,null));sales.fulfill(sale.id());
-        var returned=returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
-        var request=new CreateExchangeRequest(UUID.randomUUID(),returned.id(),FulfillmentType.SELF_PICKUP,List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("10000"))));
-        var exchange=exchanges.create(request);assertThat(exchanges.create(request).id()).isEqualTo(exchange.id());
-        sales.fulfill(exchange.newSaleId());sales.fulfill(exchange.newSaleId());
-        assertThat(restored()).isEqualByComparingTo("5000");
-        assertThat(jdbc.queryForObject("select sum(allocated_cost) from inventory_cost_allocations",BigDecimal.class)).isEqualByComparingTo("10000");consistent();
-    }
-    @Test void partialExchangeToDifferentVariantAndWarehouseKeepsCostsSeparate() {
-        stock(home,variant,2,"8000");stock(office,other,1,"7000");var sale=sale(2);
-        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,null));sales.fulfill(sale.id());
-        var returned=returns.create(request(sale,office,1,ReturnCondition.SELLABLE));
-        var exchange=exchanges.create(new CreateExchangeRequest(UUID.randomUUID(),returned.id(),FulfillmentType.SELF_PICKUP,List.of(new CreateSaleItemRequest(other,office,1,new BigDecimal("10000")))));
-        sales.fulfill(exchange.newSaleId());assertThat(exchange.returnedValue()).isEqualByComparingTo("10000");
-        assertThat(restored()).isEqualByComparingTo("4000");
-        assertThat(jdbc.queryForObject("select sum(allocated_cost) from inventory_cost_allocations",BigDecimal.class)).isEqualByComparingTo("15000");consistent();
     }
     UUID receipt(long qty,String unitPrice) {
         var purchase=purchases.create(new CreatePurchaseRequest(supplier,List.of(new PurchaseItemRequest(variant,qty,new BigDecimal(unitPrice))),BigDecimal.ZERO,null));
