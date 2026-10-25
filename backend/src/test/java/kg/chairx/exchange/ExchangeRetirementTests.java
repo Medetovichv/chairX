@@ -2,6 +2,8 @@ package kg.chairx.exchange;
 
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.exchange.api.CreateExchangeRequest;
+import kg.chairx.sale.api.CreateSaleItemRequest;
+import java.math.BigDecimal;
 import kg.chairx.exchange.application.ExchangeRuleViolationException;
 import kg.chairx.exchange.application.ExchangeService;
 import kg.chairx.sale.domain.FulfillmentType;
@@ -30,7 +32,8 @@ class ExchangeRetirementTests {
     @Test
     void newExchangeIsRejectedBeforeAnyReturnOrSaleIsTouched() {
         var request = new CreateExchangeRequest(
-                UUID.randomUUID(), UUID.randomUUID(), FulfillmentType.SELF_PICKUP, List.of());
+                UUID.randomUUID(), UUID.randomUUID(), FulfillmentType.SELF_PICKUP, List.of(new CreateSaleItemRequest(
+                        UUID.randomUUID(), UUID.randomUUID(), 1, BigDecimal.valueOf(8500))));
         assertThatThrownBy(() -> exchanges.create(request))
                 .isInstanceOfSatisfying(ExchangeRuleViolationException.class, error ->
                         org.assertj.core.api.Assertions.assertThat(error.getCode())
