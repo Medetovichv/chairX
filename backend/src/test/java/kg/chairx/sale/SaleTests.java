@@ -318,6 +318,9 @@ class SaleTests {
                 kg.chairx.finance.application.DailyClosingSalesSnapshot.CompletedSale::saleId)
                 .containsExactly(done.id());
 
+        // The pending order was paid while the financial day was still open.
+        payments.create(new CreatePaymentRequest(pending.id(),PaymentMethod.CASH,null,"Paid before closing"));
+
         UUID closingId = UUID.randomUUID();
         jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'sale-test')",
                 closingId, java.sql.Date.valueOf(date));
@@ -334,7 +337,7 @@ class SaleTests {
             assertThat(frozen.totals().value()).isEqualByComparingTo("8500");
             assertThat(frozen.lateCompletionCount()).isZero();
 
-            payments.create(new CreatePaymentRequest(pending.id(),PaymentMethod.CASH,null,"Тест поздней выдачи"));
+            // Only the handover occurs after closing; no financial posting changes the closed day.
             sales.fulfill(pending.id());
             var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
             assertThat(later.items()).hasSize(1);
