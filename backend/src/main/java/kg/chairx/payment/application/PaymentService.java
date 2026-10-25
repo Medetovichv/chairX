@@ -101,6 +101,15 @@ public class PaymentService {
             );
         }
 
+        // A delivery sale must have a persisted delivery and its price before payment.
+        // Locking the sale serializes this decision with sale-related operations.
+        var linkedDelivery = deliveries.findBySaleId(sale.id());
+        if (sale.fulfillmentType() != kg.chairx.sale.domain.FulfillmentType.SELF_PICKUP
+                && linkedDelivery.isEmpty()) {
+            throw rule("DELIVERY_REQUIRED_BEFORE_PAYMENT",
+                    "Сначала оформите доставку, чтобы рассчитать полную сумму оплаты");
+        }
+
         // Return of a failed delivery also takes the Sale row lock.
         // This check therefore observes the serialized business outcome.
         if (deliveries.findBySaleId(sale.id())
@@ -131,7 +140,8 @@ public class PaymentService {
         Payment payment = new Payment(
                 UUID.randomUUID(),
                 sale.id(),
-                sale.total(),
+                sale.total().add(linkedDelivery.map(d -> d.deliveryCost())
+                        .orElse(java.math.BigDecimal.ZERO)),
                 request.method(),
                 PaymentStatus.PAID,
                 request.reference(),
