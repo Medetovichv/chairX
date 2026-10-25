@@ -74,6 +74,9 @@ export function ReturnDetailPage(){
      </article>;
    })}
   </section>
+  {hasPermission('SALES_CREATE')&&sale.data?.customerId&&
+    <Button asChild variant="outline"><Link to={'/sales/new?customerId='+encodeURIComponent(sale.data.customerId)}>
+      Новая продажа этому клиенту</Link></Button>}
   {hasPermission('REFUNDS_CREATE')&&<Button asChild variant="outline">
     <Link to={'/returns/'+encodeURIComponent(r.id)+'/refund'}>
       Вернуть деньги клиенту</Link>
