@@ -12,8 +12,8 @@ export interface SaleEditorRow {
   key: number; productVariantId: string; warehouseId: string;
   quantity: string; unitSalePrice: string; recommended: Money | null;
 }
-export function SaleItemsEditor({rows,onChange,disabled}:{
-  rows:SaleEditorRow[];onChange:(rows:SaleEditorRow[])=>void;disabled:boolean;
+export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
+  rows:SaleEditorRow[];onChange:(rows:SaleEditorRow[])=>void;disabled:boolean;allowOutOfStock?:boolean;
 }) {
   const {hasPermission}=useAuth();
   const inventoryRead=hasPermission('INVENTORY_READ');
@@ -38,7 +38,7 @@ export function SaleItemsEditor({rows,onChange,disabled}:{
         <Button type="button" variant="outline" size="sm" disabled={disabled}
           onClick={()=>onChange(rows.filter(r=>r.key!==row.key))}>Удалить позицию</Button>
       </div>
-      <SaleVariantPicker value={row.productVariantId} disabled={disabled}
+      <SaleVariantPicker allowOutOfStock={allowOutOfStock} value={row.productVariantId} disabled={disabled}
         onSelect={(v,preferredWarehouse)=>patch(row.key,{
           productVariantId:v.id,recommended:v.recommendedSalePrice,
           warehouseId:row.warehouseId||preferredWarehouse||'',
