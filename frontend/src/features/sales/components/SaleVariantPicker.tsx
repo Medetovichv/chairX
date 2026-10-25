@@ -116,7 +116,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
           <div className="space-y-2">
             {stock.data?.items.length===0&&<p className="text-sm text-slate-600">
               Кресла с доступным остатком не найдены. Попробуйте другой запрос.</p>}
-            {stock.data?.items.map(line=>{
+            {stock.data?.items.filter(line=>line.available>0&&line.warehouses.some(w=>w.available>0)).map(line=>{
               const best=line.warehouses.filter(w=>w.available>0)
                 .sort((a,b)=>b.available-a.available)[0];
               return <div key={line.productVariantId}
@@ -126,7 +126,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
                   <p className="text-xs text-slate-500">Доступно на всех складах: {line.available} шт.</p>
                 </div>
                 <Button type="button" size="sm" variant="outline" disabled={disabled||picking}
-                  onClick={()=>void chooseAvailable(line.productVariantId,best?.warehouseId)}>
+                  onClick={()=>void chooseAvailable(line.productVariantId,best!.warehouseId)}>
                   Добавить {line.model} — {line.variation}
                 </Button>
               </div>;
