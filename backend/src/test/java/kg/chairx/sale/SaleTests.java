@@ -1,5 +1,9 @@
 package kg.chairx.sale;
 
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import kg.chairx.PostgresTestConfiguration;
@@ -37,6 +41,7 @@ import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -46,6 +51,7 @@ class SaleTests {
 
     @Autowired
     SaleService sales;
+    @Autowired PaymentService payments;
 
     @Autowired
     InventoryService inventory;
@@ -302,7 +308,7 @@ class SaleTests {
         assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
                 .isEmpty();
 
-        sales.fulfill(done.id());
+        payments.create(new CreatePaymentRequest(done.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(done.id());
         // This report fixture explicitly models a PAID sale; an unpaid fulfilled
         // sale must never enter the cash closing snapshot.
         jdbc.update("""
@@ -830,7 +836,7 @@ class SaleTests {
 
         long movementsBefore = stockMovementCount();
 
-        var fulfilled = sales.fulfill(sale.id());
+        var fulfilled = payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(sale.id());
 
         assertThat(fulfilled.status())
                 .isEqualTo(SaleStatus.FULFILLED);
