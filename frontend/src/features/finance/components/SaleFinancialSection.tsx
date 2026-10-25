@@ -4,6 +4,7 @@ import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { salesKeys } from '../../sales/api';
 import { customersApi } from '../../customers/api';
+import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { financeApi,financeKeys } from '../api';
 import { GuardedPost } from './GuardedPost';
 import { ApiClientError } from '../../../shared/api/api-error';
@@ -40,6 +41,11 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
   enabled:refundRead});
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,
   enabled:financeRead&&(paymentCreate||paymentCancel||refundCreate)});
+ const requiresDelivery=sale.fulfillmentType==='CITY_DELIVERY'||sale.fulfillmentType==='REGION_DELIVERY';
+ const delivery=useQuery({queryKey:deliveryKeys.bySale(sale.id),queryFn:()=>deliveryApi.bySale(sale.id),enabled:requiresDelivery&&hasPermission('DELIVERIES_READ'),retry:false});
+ const deliveryVerified=!requiresDelivery||delivery.isSuccess;
+ const deliveryCost=delivery.data?.deliveryCost;
+ const orderTotal=deliveryCost===undefined?null:BigInt(sale.total)+BigInt(deliveryCost);
  const customer=useQuery({queryKey:['customers','customer',sale.customerId],
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
  const [channel,setChannel]=useState<PaymentChannel>('CASH'),[reference,setReference]=useState('');
@@ -53,7 +59,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const noActive=payments.isSuccess&&!activePayment&&(active.isSuccess===false&&pending(active.error));
  const account=accounts.data?.find(a=>a.code===accountFor(channel));
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
- const canPay=paymentCreate&&canPayStatus&&(!paymentRead||noActive)&&
+ const canPay=paymentCreate&&canPayStatus&&deliveryVerified&&(!paymentRead||noActive)&&
   (!financeRead||account?.initialized===true);
  const customerLabel=customer.data?.fullName||customer.data?.phone||'Клиент без имени';
  async function refresh(){
@@ -71,7 +77,12 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  return <div className="space-y-5">
   <section aria-label="Оплата заказа" className={card}>
    <h3 className="text-lg font-bold">Оплата заказа</h3>
-   <p className="text-sm">Заказ {sale.saleNumber}, сумма {som(sale.total)}. Клиент: {customerLabel}.</p>
+   <p className="text-sm">Заказ {sale.saleNumber}. Клиент: {customerLabel}.</p>
+   <div className="space-y-1 text-sm"><p>Товары: <strong>{som(sale.total)}</strong></p>
+     {requiresDelivery&&<p>Доставка: <strong>{deliveryCost===undefined?'Ожидается оформление':som(deliveryCost)}</strong></p>}
+     <p>Итого с доставкой: <strong>{!requiresDelivery?som(sale.total):orderTotal===null?'Пока не рассчитано':som(orderTotal.toString())}</strong></p>
+   </div>
+   {requiresDelivery&&!deliveryVerified&&<p role="status" className="text-sm text-amber-800">Сначала оформите доставку, чтобы рассчитать итог к оплате. Оплата пока недоступна.</p>}
    {paymentRead&&(payments.isPending?<LoadingState label="Загружаем платежи продажи…"/>:
     payments.isError?<ErrorState error={payments.error} onRetry={()=>void payments.refetch()}/>:
     <div className="space-y-2">{payments.data.length===0?
@@ -93,7 +104,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     }:undefined}>
     {({start,locked})=><form aria-label="Регистрация оплаты" className="space-y-3"
       onSubmit={e=>{e.preventDefault();
-       if(!canPay){setError('Продажа не подтверждена, уже оплачена, либо счёт не проверен. Если заказ создан обменом, обычная оплата запрещена backend.');return;}
+       if(!canPay){setError('Оплата пока недоступна: проверьте подтверждение продажи, оформление доставки, предыдущие платежи и счёт.');return;}
        if(reference.trim().length>200||comment.trim().length>1000){setError('Слишком длинный reference или комментарий.');return;}
        setError('');
        const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:optional(reference),comment:optional(comment),
