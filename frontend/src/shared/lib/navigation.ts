@@ -1,5 +1,5 @@
 import {
-  ArrowLeftRight, BadgeAlert, CalendarCheck2, ClipboardList, Handshake,
+  BadgeAlert, CalendarCheck2, ClipboardList, Handshake,
   House, Package, ReceiptText, RotateCcw, Settings2, ShoppingCart,
   Truck, Users, Warehouse, WalletCards, type LucideIcon,
 } from 'lucide-react';
