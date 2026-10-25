@@ -73,6 +73,15 @@ public class ExchangeService {
             return replay(existing, fingerprint);
         }
 
+        // Default-deny new exchanges while retaining legacy history and
+        // idempotent reconciliation for requests created before retirement.
+        if (!Boolean.getBoolean("chairx.legacy.exchangeCreationEnabled")) {
+            throw new ExchangeRuleViolationException(
+                    "EXCHANGE_CREATION_RETIRED",
+                    "Обмены отключены. Оформите возврат денег и отдельную продажу."
+            );
+        }
+
         // 2. Получаем возврат товара.
         var saleReturn = returns.find(request.returnId())
                 .orElseThrow(() -> new ExchangeRuleViolationException(
