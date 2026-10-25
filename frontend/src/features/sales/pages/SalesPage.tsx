@@ -57,7 +57,7 @@ export function SalesPage() {
     const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
     if (!path.startsWith('/sales/')) return;
     const id = path.slice('/sales/'.length);
-    if (!id || id.includes('/')) return;
+    if (!id || id === 'new' || id.includes('/')) return;
     event.preventDefault();
     setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
   };
