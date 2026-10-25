@@ -196,7 +196,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      <label className="block space-y-1 text-sm font-semibold">Комментарий
       <textarea aria-label="Комментарий Refund" value={refundComment} maxLength={1000} disabled={locked}
        onChange={e=>setRefundComment(e.target.value)} className="w-full rounded-xl border p-2"/></label>
-     <p className="text-xs text-slate-600">Сумма доступной компенсации определяется backend по исходной цене продажи, не по каталогу. Refund и Exchange одного Return несовместимы.</p>
+     <p className="text-xs text-slate-600">Сумма доступной компенсации определяется backend по исходной цене продажи, не по каталогу. Исторические обмены доступны только для просмотра; для новых случаев оформляйте возврат денег и отдельную продажу.</p>
      {error&&<p role="alert" className="text-red-700">{error}</p>}
      <Button type="submit" disabled={locked||!positiveSom(refundAmount)||!!refundReturn&&!validUUID(refundReturn)}>
       Подтвердить денежный возврат</Button>
