@@ -438,13 +438,13 @@ describe('F09 list, detail and returns lifecycle',()=>{
  });
 });
 describe('F09 exchange and settlements boundaries',()=>{
- it('shows honest create/known-ID exchange screen but never calls GET /api/exchanges collection',async()=>{
+ it('does not allow a new exchange from the retired entry',async()=>{
   const a=mockBackend({returns:[returned()]});
   renderAt('/returns/exchanges');
-  expect(await screen.findByRole('heading',{name:'Обмены',level:2})).toBeInTheDocument();
-  expect(screen.getByText(/Поиск по всем обменам пока недоступен/)).toBeInTheDocument();
-  expect(calls(a,'/api/exchanges').filter(([url])=>String(url)==='/api/exchanges')).toHaveLength(0);
+  expect(screen.queryByRole('form',{name:'Создать обмен'})).not.toBeInTheDocument();
+  expect(a.count.exchangePOST).toBe(0);
  });
+
  it('shows backend amounts and read-only settlements with no settlement POST',async()=>{
   const a=mockBackend({returns:[returned()]});renderAt('/returns/exchanges/'+EX);
   expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
@@ -454,24 +454,7 @@ describe('F09 exchange and settlements boundaries',()=>{
   expect(calls(a,'/api/refunds')).toHaveLength(0);
  });
 
- it('allows custom EXCHANGES_CREATE-only employee to access creation without reading protected data',async()=>{
-  access.permissions=['EXCHANGES_CREATE'];access.roles=['AFTER_SALES_CREATE_ONLY'];
-  const a=mockBackend({returns:[returned()]});renderAt('/returns/exchanges');
-  expect(await screen.findByRole('form',{name:'Создать обмен'})).toBeInTheDocument();
-  expect(screen.queryByRole('searchbox',{name:'Поиск обмена по UUID'})).not.toBeInTheDocument();
-  expect(calls(a,'/api/returns')).toHaveLength(0);
-  expect(calls(a,'/api/exchanges')).toHaveLength(0);
- });
-});
-describe('FLOW-24 link-based exchange retrieval',()=>{
- it('accepts a saved exchange link without asking for a UUID input',async()=>{
-  mockBackend();renderAt('/returns/exchanges');
-  const input=await screen.findByRole('textbox',{name:'Ссылка на обмен'});
-  expect(screen.queryByText('UUID существующего обмена')).not.toBeInTheDocument();
-  fireEvent.change(input,{target:{value:'https://chairx.example/returns/exchanges/'+EX}});
-  await userEvent.setup().click(screen.getByRole('button',{name:'Открыть обмен'}));
-  expect(await screen.findByRole('heading',{name:'Карточка обмена'})).toBeInTheDocument();
- });
+
 });
 describe('FLOW-24 exchange human labels and permission gating',()=>{
  it('does not print exchange or related UUIDs when sale and return read permissions are absent',async()=>{

@@ -213,7 +213,6 @@ describe('F02.1 RBAC and legacy paths', () => {
   it.each([
     ['/suppliers', 'Поставщики'],
     ['/expenses', 'Расходы'],
-    ['/exchanges', 'Обмены'],
     ['/defects', 'Брак'],
   ])('redirects legacy %s to its authorized nested route', (path, heading) => {
     renderAt(path);

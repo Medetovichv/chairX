@@ -53,7 +53,8 @@ public class SaleRepository {
                             ELSE 'PAID' END AS payment_status,
                        d.status AS delivery_status, d.planned_delivery_date,
                        COALESCE(NULLIF(d.recipient_phone,''),NULLIF(c.whatsapp_phone,''),NULLIF(c.phone,'')) AS customer_phone,
-                       COALESCE(NULLIF(d.address,''),NULLIF(c.address,'')) AS delivery_address
+                       COALESCE(NULLIF(d.address,''),NULLIF(c.address,'')) AS delivery_address,
+                       COALESCE(returned.returned_quantity,0) AS returned_quantity
                 FROM sales s
                 LEFT JOIN customers c ON c.id = s.customer_id
                 LEFT JOIN LATERAL (
@@ -66,6 +67,11 @@ public class SaleRepository {
                    JOIN products p ON p.id = v.product_id
                    WHERE si.sale_id = s.id
                 ) details ON TRUE
+                LEFT JOIN LATERAL (
+                    SELECT COALESCE(SUM(ri.quantity),0) AS returned_quantity
+                    FROM returns ret JOIN return_items ri ON ri.return_id=ret.id
+                    WHERE ret.sale_id=s.id
+                ) returned ON TRUE
                 LEFT JOIN payments paid ON paid.sale_id = s.id AND paid.status = 'PAID'
                 LEFT JOIN deliveries d ON d.sale_id = s.id
                 WHERE (CAST(:status AS varchar) IS NULL OR s.status = :status)
@@ -105,7 +111,8 @@ public class SaleRepository {
                         rs.getString("delivery_status") == null ? null :
                                 kg.chairx.delivery.domain.DeliveryStatus.valueOf(rs.getString("delivery_status")),
                         rs.getObject("planned_delivery_date", java.time.LocalDate.class),
-                        rs.getString("customer_phone"),rs.getString("delivery_address")))
+                        rs.getString("customer_phone"),rs.getString("delivery_address"),
+                        rs.getLong("returned_quantity")))
                 .list();
     }
 
