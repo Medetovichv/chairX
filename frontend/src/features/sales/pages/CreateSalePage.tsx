@@ -19,7 +19,7 @@ function unresolved(error:unknown):boolean {
     error.kind!=='http' || error.status===undefined ||
     error.status>=500 || error.status===409;
 }
-export function CreateSalePage() {
+export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}) {
   const {hasPermission,user}=useAuth();
   const allowed=hasPermission('SALES_CREATE');
   const canRead=hasPermission('SALES_READ');
@@ -63,7 +63,8 @@ export function CreateSalePage() {
       await queryClient.invalidateQueries({queryKey:salesKeys.kanban});
       await queryClient.invalidateQueries({queryKey:saleStatisticsKeys.last30Days});
       await queryClient.invalidateQueries({queryKey:['dashboard']});
-      if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,
+      if(embedded && onCreated) onCreated(result.id);
+      else if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,
         state:{notice:payload.deliveryDetails?'Продажа подтверждена, доставка создана.':'Черновик создан.'}});
       else setSuccess(result);
     }catch(error){
@@ -80,8 +81,8 @@ export function CreateSalePage() {
   }
   if(!allowed)return <ForbiddenPage/>;
   return <div className="space-y-6">
-    <PageHeader title="Новая продажа" description="Создайте черновик или подтвердите продажу сразу с оформлением доставки."/>
-    {canRead&&<Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
+    {!embedded&&<PageHeader title="Новая продажа" description="Создайте черновик или подтвердите продажу сразу с оформлением доставки."/>}
+    {!embedded&&canRead&&<Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700"
       to="/sales">← Все продажи</Link>}
     {success&&<div role="status" className="space-y-2 rounded-xl bg-emerald-50 p-5">
       <h3 className="font-bold">{success.status==='CONFIRMED'?'Продажа и доставка оформлены':'Черновик создан'}</h3>
