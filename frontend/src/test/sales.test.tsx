@@ -414,17 +414,16 @@ describe('F07 creation and idempotent drafts',()=>{
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
       {target:{value:'SELF_PICKUP'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
-        fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:MODEL_ID}});
-    await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+        fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),{target:{value:'ERGO'}});
+    await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Чёрный/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
     fireEvent.change(within(form).getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'2'}});
     // Recommended price must remain unset until explicitly selected.
     expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить товар'}));
-        const models=within(form).getByRole('combobox',{name:'Модель кресла'});
-    fireEvent.change(models,{target:{value:MODEL_ID}});
-    await userEvent.setup().click(await within(form).findByRole('button',{name:/Серый.*ERGO-GREY/}));
+        fireEvent.change(within(form).getAllByRole('searchbox',{name:'Поиск по креслам в наличии'}).at(-1)!,{target:{value:'ERGO'}});
+    await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Серый/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 2'}),{target:{value:WH}});
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 2'}),{target:{value:'8100'}});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Сохранить черновик'}));
@@ -479,9 +478,8 @@ describe('F07 creation and idempotent drafts',()=>{
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
     await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
-        fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
-      {target:{value:MODEL_ID}});
-    await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+        fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),{target:{value:'ERGO'}});
+    await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Чёрный/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),
       {target:{value:WH}});
     const alternative=await within(form).findByRole('button',{name:'Использовать Офис · 9 шт.'});
