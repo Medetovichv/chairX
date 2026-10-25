@@ -538,7 +538,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     renderAt('/sales/'+SALE_ID);
     expect(await screen.findByRole('heading',{name:'Оплата заказа'})).toBeInTheDocument();
     expect(await screen.findByRole('form',{name:'Регистрация оплаты'})).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Зарегистрировать оплату'})).toBeInTheDocument();
     expect(screen.queryByText('Доступ запрещён')).not.toBeInTheDocument();
   });
 
