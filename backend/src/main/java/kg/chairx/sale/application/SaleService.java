@@ -1,7 +1,6 @@
 package kg.chairx.sale.application;
 
 import jakarta.validation.Valid;
-import kg.chairx.exchange.application.ExchangeSaleGuard;
 import kg.chairx.audit.AuditService;
 import kg.chairx.customer.application.CustomerService;
 import kg.chairx.inventory.application.InventoryService;
@@ -65,7 +64,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     private final InventoryService inventory;
     private final AuditService audit;
     private final SaleRequestFingerprint fingerprint;
-    private final ExchangeSaleGuard exchangeSaleGuard;
     private final InventoryCostPostingService costPosting;
 
     public SaleService(
@@ -77,7 +75,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
             InventoryService inventory,
             AuditService audit,
             SaleRequestFingerprint fingerprint,
-            ExchangeSaleGuard exchangeSaleGuard,
             InventoryCostPostingService costPosting
     ) {
         this.repository = repository;
@@ -88,7 +85,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         this.inventory = inventory;
         this.audit = audit;
         this.fingerprint = fingerprint;
-        this.exchangeSaleGuard = exchangeSaleGuard;
         this.costPosting = costPosting;
     }
 
@@ -343,7 +339,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         }
 
         if (sale.status() == SaleStatus.CONFIRMED
-                && !exchangeSaleGuard.isExchangeSale(sale.id())
                 && payments.findActiveBySale(sale.id()).isEmpty()) {
             throw rule("PICKUP_PAYMENT_REQUIRED",
                     "Перед подтверждением выдачи необходимо получить полную оплату");
@@ -440,7 +435,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                     "Перед отменой продажи необходимо урегулировать активную оплату"
             );
         }
-        exchangeSaleGuard.requireCancellationAllowed(sale.id());
 
         String actor = actor();
 
@@ -504,7 +498,6 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                     "Продажу нельзя выдать в текущем состоянии"
             );
         }
-        exchangeSaleGuard.requireFulfillmentAllowed(sale.id());
 
         String actor = actor();
 
