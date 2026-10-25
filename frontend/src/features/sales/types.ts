@@ -10,6 +10,7 @@ export interface SaleSummary {
   quantity: number; products: string | null; paymentStatus: string | null;
   deliveryStatus: string | null; plannedDeliveryDate: string | null;
   customerPhone?: string | null; deliveryAddress?: string | null;
+  returnedQuantity?: number;
 }
 export interface SalePageResponse { items: SaleSummary[]; page: number; size: number; total: number }
 export interface SaleItemResponse {
