@@ -292,10 +292,17 @@ class BackupUpgradeRehearsalTest {
             Snapshot after = capture(db, table, before.columns());
             migrated.put(table, after);
             if (ADDITIVE_SEED_TABLES.contains(table)) {
-                assertThat(after.rows()).as("Cannot delete " + table + " rows")
-                        .isGreaterThanOrEqualTo(before.rows());
+                // V1002 removes obsolete Exchange permissions and their grants.
+                // Every other pre-existing permission/grant must survive intact.
+                var retained = before.originalRows().stream()
+                        .filter(row -> !row.contains("EXCHANGES_READ")
+                                && !row.contains("EXCHANGES_CREATE")
+                                && !row.contains("EXCHANGES_SETTLE"))
+                        .toList();
                 assertThat(after.originalRows()).as("Old " + table + " grants mutated")
-                        .containsAll(before.originalRows());
+                        .containsAll(retained);
+                assertThat(after.rows()).as("Unexpected permission/grant removal: " + table)
+                        .isGreaterThanOrEqualTo(retained.size());
             } else {
                 assertThat(after.rows()).as("Row count changed: " + table)
                         .isEqualTo(before.rows());
