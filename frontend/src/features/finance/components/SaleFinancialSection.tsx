@@ -42,7 +42,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
   enabled:financeRead&&(paymentCreate||paymentCancel||refundCreate)});
  const customer=useQuery({queryKey:['customers','customer',sale.customerId],
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
- const [channel,setChannel]=useState<PaymentChannel>('CASH'),[reference,setReference]=useState('');
+ const [channel,setChannel]=useState<PaymentChannel>('CASH');
  const [comment,setComment]=useState(''),[refundAmount,setRefundAmount]=useState('');
  const [refundMethod,setRefundMethod]=useState<RefundMethod>('CASH'),[refundReturn,setRefundReturn]=useState(()=>{
   const supplied=query.get('returnId')??'';return validUUID(supplied)?supplied:'';
@@ -95,9 +95,9 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     {({start,locked})=><form aria-label="Регистрация оплаты" className="space-y-3"
       onSubmit={e=>{e.preventDefault();
        if(!canPay){setError('Продажа не подтверждена, уже оплачена, либо счёт не проверен. Если заказ создан обменом, обычная оплата запрещена backend.');return;}
-       if(reference.trim().length>200||comment.trim().length>1000){setError('Слишком длинный reference или комментарий.');return;}
+       if(comment.trim().length>1000){setError('Слишком длинный комментарий.');return;}
        setError('');
-       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:optional(reference),comment:optional(comment),
+       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:null,comment:optional(comment),
         localOperationId:crypto.randomUUID()};
        start(p,'Заказ '+sale.saleNumber+'. Клиент '+customerLabel+'. Полная сумма '+som(sale.total)+
          '. '+(salePaymentChannels.find(x=>x.value===channel)?.label??channel)+'. Зачисление: '+accountFor(channel)+
@@ -114,9 +114,6 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
        </p>}
-       <label className="block space-y-1 text-sm font-semibold">Номер перевода (необязательно)
-        <Input aria-label="Номер перевода" value={reference} maxLength={200} disabled={locked}
-         onChange={e=>setReference(e.target.value)}/></label>
        <label className="block space-y-1 text-sm font-semibold">Комментарий
         <textarea aria-label="Комментарий платежа" value={comment} maxLength={1000} disabled={locked}
          onChange={e=>setComment(e.target.value)} className="w-full rounded-xl border p-2"/></label>
