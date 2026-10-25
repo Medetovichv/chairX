@@ -390,6 +390,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
             <div><p>Статус доставки: <strong>{deliveryStatusNames[relatedDelivery.data.status]}</strong></p>
               <p className="mt-1 font-semibold">{relatedDelivery.data.address}</p>
               <p className="text-slate-600">{relatedDelivery.data.recipientPhone} · {relatedDelivery.data.recipientName||'Без имени'}</p>
+              <p className="mt-1 text-slate-700">Стоимость доставки: <strong>{money(relatedDelivery.data.deliveryCost)}</strong></p>
             </div>
             <Link className="font-semibold text-blue-700 underline-offset-2 hover:underline"
               to={'/deliveries/'+encodeURIComponent(relatedDelivery.data.id)}>Открыть доставку</Link>
