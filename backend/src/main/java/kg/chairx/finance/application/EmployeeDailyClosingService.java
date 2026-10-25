@@ -256,7 +256,7 @@ public class EmployeeDailyClosingService {
                    COALESCE(detail.total,0) + COALESCE(d.delivery_cost,0) AS total,
                    COALESCE(detail.total,0) AS goods_total,
                    COALESCE(d.delivery_cost,0) AS delivery_total,
-                   GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at) AS completed_at,
+                   CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN p.paid_at ELSE GREATEST(s.fulfilled_at,p.paid_at) END AS completed_at,
                    detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
                    COALESCE(d.address,c.address) AS address,
                    s.fulfillment_type,d.status AS delivery_status,'PAID' AS payment_status
@@ -284,14 +284,14 @@ public class EmployeeDailyClosingService {
                 ) payment
                 HAVING SUM(payment.amount) >= detail.total + COALESCE(d.delivery_cost,0) AND detail.total > 0
             ) p ON TRUE
-            WHERE s.status='FULFILLED'
+            WHERE (s.status='FULFILLED' OR (s.fulfillment_type='REGION_DELIVERY' AND s.status='CONFIRMED'))
               AND (s.fulfillment_type='SELF_PICKUP'
                    OR (s.fulfillment_type='CITY_DELIVERY' AND d.status IN ('IN_TRANSIT','DELIVERED'))
-                   OR (s.fulfillment_type='REGION_DELIVERY' AND d.status='DELIVERED'))
+                   OR (s.fulfillment_type='REGION_DELIVERY' AND d.status IN ('PREPARING','IN_TRANSIT','DELIVERED')))
               -- One sale belongs to one business day: the day both physical
               -- handover and full payment have been registered.
-              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)>=:fromDate
-              AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at)<:untilDate
+              AND CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN p.paid_at ELSE GREATEST(s.fulfilled_at,p.paid_at) END>=:fromDate
+              AND CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN p.paid_at ELSE GREATEST(s.fulfilled_at,p.paid_at) END<:untilDate
             ORDER BY completed_at,s.id
             """).param("fromDate",from).param("untilDate",until)
             .query((rs,i)->new SaleLine(rs.getObject("id",UUID.class),
