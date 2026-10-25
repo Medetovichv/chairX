@@ -1,6 +1,5 @@
 package kg.chairx.payment.application;
 
-import kg.chairx.exchange.infrastructure.ExchangeRepository;
 import kg.chairx.payment.domain.Payment;
 import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.refund.persistence.RefundRepository;
@@ -16,16 +15,13 @@ public class PaymentBalanceService {
 
     private final PaymentRepository payments;
     private final RefundRepository refunds;
-    private final ExchangeRepository exchanges;
 
     public PaymentBalanceService(
             PaymentRepository payments,
-            RefundRepository refunds,
-            ExchangeRepository exchanges
+            RefundRepository refunds
     ) {
         this.payments = payments;
         this.refunds = refunds;
-        this.exchanges = exchanges;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -37,12 +33,8 @@ public class PaymentBalanceService {
 
         BigDecimal refunded = refunds.refundedAmount(saleId);
 
-        BigDecimal consumed =
-                exchanges.consumedAmountByOriginalSale(saleId);
-
         BigDecimal remaining = payment.amount()
-                .subtract(refunded)
-                .subtract(consumed);
+                .subtract(refunded);
 
         if (remaining.signum() < 0) {
             throw new IllegalStateException(
