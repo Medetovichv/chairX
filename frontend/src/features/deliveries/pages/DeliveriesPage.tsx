@@ -37,7 +37,7 @@ export function DeliveriesPage(){
     const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
     if (!path.startsWith('/deliveries/')) return;
     const id = path.slice('/deliveries/'.length);
-    if (!id || id.includes('/')) return;
+    if (!id || id === 'new' || id.includes('/')) return;
     event.preventDefault();
     setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
   };

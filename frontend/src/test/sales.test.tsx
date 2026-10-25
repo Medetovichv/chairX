@@ -268,6 +268,14 @@ beforeEach(()=>{
 afterEach(()=>{authSession.clear();sessionStorage.clear();vi.unstubAllGlobals();});
 
 describe('F07 DTOs, validation and server sales list',()=>{
+  it('navigates from list to creation without treating new as quick-view id',async()=>{
+    const api=mockBackend();
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('link',{name:'Новая продажа'}));
+    expect(await screen.findByRole('form',{name:'Новый черновик продажи'})).toBeInTheDocument();
+    expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
