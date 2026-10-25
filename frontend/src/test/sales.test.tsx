@@ -273,6 +273,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     renderAt();
     await userEvent.setup().click(await screen.findByRole('link',{name:'Новая продажа'}));
     expect(await screen.findByRole('form',{name:'Новый черновик продажи'})).toBeInTheDocument();
+    expect(screen.getByRole('dialog',{name:'Быстрый просмотр: Новая продажа'})).toBeInTheDocument();
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 

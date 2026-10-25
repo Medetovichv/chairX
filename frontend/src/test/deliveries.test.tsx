@@ -195,6 +195,7 @@ describe('F08 backend DTOs, filters and list',()=>{
     renderAt();
     await userEvent.setup().click(await screen.findByRole('link',{name:'+ Оформить доставку'}));
     expect(await screen.findByRole('form',{name:'Оформить доставку'})).toBeInTheDocument();
+    expect(screen.getByRole('dialog',{name:'Быстрый просмотр: Новая доставка'})).toBeInTheDocument();
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 
