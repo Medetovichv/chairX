@@ -270,6 +270,9 @@ class DefectOriginTests {
         assertThat(receiptOrigins.list(warehouse, UUID.randomUUID(), null, 0, 20).items()).isEmpty();
         assertThat(receiptOrigins.list(warehouse, variant, UUID.randomUUID(), 0, 20).items()).isEmpty();
         assertThat(receiptOrigins.list(warehouse, variant, null, 1, 1).items()).isEmpty();
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        assertThat(receiptOrigins.list(warehouse, variant, null, 0, 20, today).items()).hasSize(1);
+        assertThat(receiptOrigins.list(warehouse, variant, null, 0, 20, today.minusDays(3)).items()).isEmpty();
         assertThat(DefectReceiptOriginsController.Origin.class.getRecordComponents())
                 .extracting(java.lang.reflect.RecordComponent::getName)
                 .doesNotContain("totalCost", "allocatedCargoCost", "purchaseUnitCost", "finalUnitCost");
