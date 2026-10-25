@@ -438,22 +438,22 @@ class PaymentTests {
     }
 
     @Test
-    void fulfilledSaleCanBePaid() {
+    void paidSaleCanBeFulfilled() {
         var sale = createSale(
                 1,
                 "8500"
         );
 
-        sales.fulfill(sale.id());
-
+        // A self-pickup must be paid before goods are handed over.
         var payment = payments.create(
                 new CreatePaymentRequest(
                         sale.id(),
                         PaymentMethod.TRANSFER,
                         null,
-                        "Оплата после выдачи"
+                        "Оплата перед выдачей"
                 )
         );
+        sales.fulfill(sale.id());
 
         assertThat(payment.status())
                 .isEqualTo(PaymentStatus.PAID);
