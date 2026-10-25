@@ -39,8 +39,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import kg.chairx.exchange.application.ExchangeNotFoundException;
-import kg.chairx.exchange.application.ExchangeRuleViolationException;
 import kg.chairx.expense.application.ExpenseValidationException;
 
 @RestControllerAdvice
@@ -242,30 +240,6 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                                 exception.getMessage()
                         )
                 );
-    }
-
-    @ExceptionHandler(ExchangeNotFoundException.class)
-    ResponseEntity<ApiError> exchangeNotFound(
-            ExchangeNotFoundException exception
-    ) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ApiError.of(
-                        "EXCHANGE_NOT_FOUND",
-                        exception.getMessage()
-                ));
-    }
-
-    @ExceptionHandler(ExchangeRuleViolationException.class)
-    ResponseEntity<ApiError> exchangeRuleViolation(
-            ExchangeRuleViolationException exception
-    ) {
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(ApiError.of(
-                        exception.getCode(),
-                        exception.getMessage()
-                ));
     }
 
     @ExceptionHandler(SaleRuleViolationException.class)
