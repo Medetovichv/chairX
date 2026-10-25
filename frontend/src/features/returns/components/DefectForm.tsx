@@ -84,7 +84,7 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
   <div className="grid gap-5 lg:grid-cols-2">
    <section aria-label="Шаг 1. Кресло" className="space-y-3 rounded-xl border border-slate-200 p-4">
     <h4 className="font-bold">1. Кресло и склад</h4>
-    {catalogRead&&<SaleVariantPicker value={variantId} disabled={blocked}
+    {catalogRead&&<SaleVariantPicker allowOutOfStock value={variantId} disabled={blocked}
       onSelect={variant=>{setVariantId(variant.id);resetReceipt();setError('');}}/>}
     {!catalogRead&&<p className="text-sm text-slate-600">Каталог недоступен для вашей роли.</p>}
     {catalogRead&&variantId&&<p className="text-sm">Выбрано: <ReturnChairLabel variantId={variantId}/></p>}
