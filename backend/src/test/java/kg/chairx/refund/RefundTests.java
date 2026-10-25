@@ -452,7 +452,7 @@ class RefundTests {
 
         createPayment(firstSale.id());
 
-        sales.fulfill(secondSale.id());
+        payments.create(new CreatePaymentRequest(secondSale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(secondSale.id());
 
         var secondReturn = createReturn(
                 secondSale.id(),

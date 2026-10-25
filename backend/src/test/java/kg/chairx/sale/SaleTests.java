@@ -1,5 +1,9 @@
 package kg.chairx.sale;
 
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import kg.chairx.PostgresTestConfiguration;
@@ -37,6 +41,7 @@ import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -46,6 +51,7 @@ class SaleTests {
 
     @Autowired
     SaleService sales;
+    @Autowired PaymentService payments;
 
     @Autowired
     InventoryService inventory;
@@ -302,13 +308,8 @@ class SaleTests {
         assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient,date))
                 .isEmpty();
 
-        sales.fulfill(done.id());
-        // This report fixture explicitly models a PAID sale; an unpaid fulfilled
-        // sale must never enter the cash closing snapshot.
-        jdbc.update("""
-            INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-            VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
-            """,UUID.randomUUID(),done.id());
+        payments.create(new CreatePaymentRequest(done.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(done.id());
+        // Payment was already recorded through PaymentService before handover.
         var before = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
         assertThat(before.closed()).isFalse();
         assertThat(before.preliminary()).isTrue();
@@ -316,6 +317,9 @@ class SaleTests {
         assertThat(before.items()).extracting(
                 kg.chairx.finance.application.DailyClosingSalesSnapshot.CompletedSale::saleId)
                 .containsExactly(done.id());
+
+        // The pending order was paid while the financial day was still open.
+        payments.create(new CreatePaymentRequest(pending.id(),PaymentMethod.CASH,null,"Paid before closing"));
 
         UUID closingId = UUID.randomUUID();
         jdbc.update("INSERT INTO finance_daily_closings(id,business_date,created_by) VALUES(?,?,'sale-test')",
@@ -333,11 +337,8 @@ class SaleTests {
             assertThat(frozen.totals().value()).isEqualByComparingTo("8500");
             assertThat(frozen.lateCompletionCount()).isZero();
 
+            // Only the handover occurs after closing; no financial posting changes the closed day.
             sales.fulfill(pending.id());
-            jdbc.update("""
-                INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-                VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
-                """,UUID.randomUUID(),pending.id());
             var later = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
             assertThat(later.items()).hasSize(1);
             assertThat(later.totals().value()).isEqualByComparingTo("8500");
@@ -830,6 +831,7 @@ class SaleTests {
 
         long movementsBefore = stockMovementCount();
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));
         var fulfilled = sales.fulfill(sale.id());
 
         assertThat(fulfilled.status())
@@ -900,6 +902,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         var fulfilled = sales.fulfill(sale.id());
 
         assertThat(fulfilled.status())
@@ -950,6 +953,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         var first = sales.fulfill(sale.id());
 
         long movementsAfterFirst =
@@ -987,6 +991,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         sales.fulfill(sale.id());
 
         assertThatThrownBy(
@@ -1066,6 +1071,8 @@ class SaleTests {
                         )
                 )
         );
+
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup for rollback test"));
 
         long movementsBefore = stockMovementCount();
         long auditBefore = saleAuditCount();

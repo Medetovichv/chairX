@@ -12,6 +12,9 @@ import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.sale.domain.FulfillmentType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +35,7 @@ import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -47,6 +51,9 @@ class ReturnTests {
 
     @Autowired
     SaleService sales;
+
+    @Autowired
+    PaymentService payments;
 
     @Autowired
     InventoryService inventory;
@@ -1053,6 +1060,7 @@ class ReturnTests {
             CreateSaleItemRequest... items
     ) {
         var sale = createSale(items);
+        payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, "Тест: оплата перед выдачей"));
 
         return sales.fulfill(
                 sale.id()

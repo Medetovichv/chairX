@@ -112,7 +112,7 @@ class FifoIntegrityTests {
     }
     @Test void partialMultiLayerReturnsRestoreHistoricalCostsAndFinalRemainder() {
         stock(home,variant,2,"10000"); stock(home,variant,3,"18000");
-        var sale=sale(4); sales.fulfill(sale.id());
+        var sale=sale(4); payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         var first=returns.create(request(sale,office,3,ReturnCondition.SELLABLE));
         assertThat(restored()).isEqualByComparingTo("16000");
         assertThat(inventory.getBalance(office,variant).onHand()).isEqualTo(3);
@@ -135,7 +135,7 @@ class FifoIntegrityTests {
         var created = sale(3);
 
         // 3. Подтверждаем фактическую выдачу товара.
-        sales.fulfill(created.id());
+        payments.create(new CreatePaymentRequest(created.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(created.id());
 
         // 4. На складе должно остаться семь кресел.
         assertThat(inventory.getBalance(home, variant).onHand())
@@ -217,25 +217,25 @@ class FifoIntegrityTests {
     }
 
     @Test void fullReturnRestoresAllCostAndLastUnitCanBeSoldAgain() {
-        stock(home,variant,1,"5000.01"); var sale=sale(1);sales.fulfill(sale.id());
+        stock(home,variant,1,"5000.01"); var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         var request=request(sale,home,1,ReturnCondition.SELLABLE);
         var result=returns.create(request);
         assertThat(returns.create(request)).isEqualTo(result);
         assertThat(restored()).isEqualByComparingTo("5000.01");
         assertThat(count("stock_movements")).isEqualTo(3);
-        var resale=sale(1);sales.fulfill(resale.id());
+        var resale=sale(1);payments.create(new CreatePaymentRequest(resale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(resale.id());
         assertThat(jdbc.queryForObject("select sum(allocated_cost) from inventory_cost_allocations",BigDecimal.class)).isEqualByComparingTo("10000.02");
         consistent();
     }
     @Test void blockedReturnRetainsValueButIsUnavailable() {
-        stock(home,variant,1,"50");var sale=sale(1);sales.fulfill(sale.id());
+        stock(home,variant,1,"50");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         returns.create(request(sale,home,1,ReturnCondition.BLOCKED));
         assertThat(restored()).isEqualByComparingTo("50");
         assertThat(inventory.getBalance(home,variant).blocked()).isEqualTo(1);
         assertThat(inventory.getBalance(home,variant).available()).isZero();consistent();
     }
     @Test void partialReturnsConserveFractionalCosts() {
-        stock(home,variant,3,"0.01");var sale=sale(3);sales.fulfill(sale.id());
+        stock(home,variant,3,"0.01");var sale=sale(3);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
         assertThat(restored()).isEqualByComparingTo("0.00");
         returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
@@ -318,7 +318,7 @@ class FifoIntegrityTests {
         assertThat(jdbc.queryForObject("select quantity_remaining from inventory_cost_layers where total_cost=10000",Long.class)).isEqualTo(2);consistent();
     }
     @Test void exhaustedSpecifiedLayerCannotSilentlyUseAnotherAndUnblockRollsBack() {
-        var origin=receipt(1,"5000");var sale=sale(1);sales.fulfill(sale.id());receipt(2,"6000");
+        var origin=receipt(1,"5000");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());receipt(2,"6000");
         var defect=defects.open(home,variant,supplier,origin,1,"Брак","fifo-test");
         assertThatThrownBy(()->defects.writeOff(defect.id(),"Списано","fifo-test")).isInstanceOf(InventoryCostException.class);
         assertThat(inventory.getBalance(home,variant).blocked()).isEqualTo(1);
@@ -348,7 +348,7 @@ class FifoIntegrityTests {
         assertThat(count("inventory_unvalued_movements")).isEqualTo(1);
     }
     @Test void historicalUnvaluedReturnIsDetectedRatherThanInventingCost() {
-        stock(home,variant,2,"10000");var sale=sale(2);sales.fulfill(sale.id());
+        stock(home,variant,2,"10000");var sale=sale(2);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         UUID returnId=UUID.randomUUID(),item=UUID.randomUUID();
         jdbc.update("insert into returns(id,sale_id,warehouse_id,idempotency_key,request_fingerprint,reason,created_by,created_at) values (?,?,?,? ,?,'Legacy','fifo-test',now())",returnId,sale.id(),home,UUID.randomUUID(),"a".repeat(64));
         jdbc.update("insert into return_items(id,return_id,sale_item_id,quantity,condition) values (?,?,?,1,'SELLABLE')",item,returnId,sale.items().getFirst().id());
@@ -357,7 +357,7 @@ class FifoIntegrityTests {
         assertThat(restored()).isZero();assertThat(count("inventory_unvalued_movements")).isEqualTo(1);
     }
     @Test void failureAfterRestorationRowsRollsBackReturnStockCostAndAudit() {
-        stock(home,variant,1,"50");var sale=sale(1);sales.fulfill(sale.id());long audit=count("audit_entries");
+        stock(home,variant,1,"50");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());long audit=count("audit_entries");
         jdbc.execute("create function test_fail_cost_layer() returns trigger language plpgsql as $$ begin raise exception 'injected'; end; $$");
         jdbc.execute("create trigger test_fail_cost_layer before insert on inventory_cost_layers for each row execute function test_fail_cost_layer()");
         try {
@@ -368,7 +368,7 @@ class FifoIntegrityTests {
         } finally { jdbc.execute("drop trigger test_fail_cost_layer on inventory_cost_layers");jdbc.execute("drop function test_fail_cost_layer()"); }
     }
     @Test void historyAndLayerOriginsCannotBeRewritten() {
-        stock(home,variant,1,"50");var sale=sale(1);sales.fulfill(sale.id());returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
+        stock(home,variant,1,"50");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());returns.create(request(sale,home,1,ReturnCondition.SELLABLE));
         for(String sql:List.of("update inventory_cost_allocations set allocated_cost=0","delete from inventory_cost_restorations","update inventory_cost_layers set total_cost=total_cost+1","delete from inventory_cost_movements")) {
             assertThatThrownBy(()->jdbc.update(sql)).isInstanceOf(DataAccessException.class);
         }
@@ -381,7 +381,7 @@ class FifoIntegrityTests {
         assertThat(count("inventory_cost_allocations")).isEqualTo(1);consistent();
     }
     @Test void parallelDistinctReturnsCannotRestoreSameUnitTwice() throws Exception {
-        stock(home,variant,1,"55");var sale=sale(1);sales.fulfill(sale.id());
+        stock(home,variant,1,"55");var sale=sale(1);payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Fixture paid before pickup"));sales.fulfill(sale.id());
         Callable<Boolean> action=()->{try {returns.create(request(sale,home,1,ReturnCondition.SELLABLE));return true;}catch(kg.chairx.returning.application.ReturnRuleViolationException e){return false;}};
         assertThat(parallel(action,action)).containsExactlyInAnyOrder(true,false);
         assertThat(restored()).isEqualByComparingTo("55");consistent();

@@ -6,6 +6,9 @@ import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.sale.domain.FulfillmentType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties = {
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
@@ -57,6 +61,8 @@ class ReturnApiTests {
 
     @Autowired
     SaleService sales;
+    @Autowired
+    PaymentService payments;
 
     @Autowired
     InventoryService inventory;
@@ -850,6 +856,7 @@ class ReturnApiTests {
                 unitSalePrice
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, "Оплата перед выдачей"));
         return sales.fulfill(
                 sale.id()
         );

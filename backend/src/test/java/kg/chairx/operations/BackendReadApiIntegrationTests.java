@@ -1,5 +1,9 @@
 package kg.chairx.operations;
 
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
+
 import kg.chairx.PostgresTestConfiguration;
 import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.inventory.application.InventoryService;
@@ -28,6 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@org.junit.jupiter.api.extension.ExtendWith(kg.chairx.FundedFinanceExtension.class)
 @SpringBootTest(properties={
         "CHAIRX_CATALOG_PASSWORD=integration-test-password",
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"})
@@ -39,6 +44,7 @@ class BackendReadApiIntegrationTests {
     @Autowired tools.jackson.databind.json.JsonMapper mapper;
     @Autowired MockMvc mvc;
     @Autowired SaleService sales;
+    @Autowired PaymentService payments;
     @Autowired DeliveryService deliveries;
     @Autowired ReturnService returns;
     @Autowired InventoryService stock;
@@ -160,7 +166,7 @@ class BackendReadApiIntegrationTests {
                 FulfillmentType.SELF_PICKUP,
                 List.of(new CreateSaleItemRequest(
                         variant,warehouse,1,new BigDecimal("8500")))));
-        sales.fulfill(sale.id());
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(sale.id());
         var returned=returns.create(new CreateReturnRequest(
                 sale.id(),warehouse,UUID.randomUUID(),
                 List.of(new CreateReturnItemRequest(
