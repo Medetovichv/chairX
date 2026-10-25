@@ -35,6 +35,17 @@ class FinanceLedgerIntegrationTest {
                                    source_id,created_by,business_date,business_date_source)
      VALUES (?,'CASH',1234,'SALE_PAYMENT','PAYMENT',?,'ledger-test','2026-10-19','POSTING_DATE')
      """,id,source);
+  var expenseId=UUID.randomUUID();
+  var expenseMovementId=UUID.randomUUID();
+  jdbc.update("""
+      INSERT INTO expenses(id,category,amount,payment_method,expense_date,comment,created_by)
+      VALUES (?,'ADVERTISING',340,'CASH','2026-10-19','campaign-mkt-773','ledger-test')
+      """,expenseId);
+  jdbc.update("""
+      INSERT INTO finance_movements(id,account_code,amount,movement_type,source_type,
+                                    source_id,created_by,business_date,business_date_source)
+      VALUES (?,'CASH',-340,'EXPENSE','EXPENSE',?,'ledger-test','2026-10-19','POSTING_DATE')
+      """,expenseMovementId,expenseId);
   // Existing movement insert receives a database timestamp in this transaction.
   String day=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).toString();
   String tomorrow=java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).plusDays(1).toString();
@@ -62,6 +73,15 @@ class FinanceLedgerIntegrationTest {
     mvc.perform(get("/api/finance/expense-categories").param("from",day).param("to",tomorrow)
         .with(user("warehouse").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
         .andExpect(status().isForbidden());
+    mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
+        .param("search","campaign-mkt-773")
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.items[0].documentKind").value("EXPENSE"));
+    mvc.perform(get("/api/finance/ledger").param("from",day).param("to",tomorrow)
+        .param("search","ADVERTISING")
+        .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].documentKind").value("EXPENSE"));
     mvc.perform(get("/api/finance/ledger/export").param("from",day).param("to",tomorrow)
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
         .andExpect(status().isOk())
@@ -74,6 +94,10 @@ class FinanceLedgerIntegrationTest {
         .param("size","101")
         .with(user("reader").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
         .andExpect(status().is4xxClientError());
-  } finally {jdbc.update("DELETE FROM finance_movements WHERE id=?",id);}
+  } finally {
+   jdbc.update("DELETE FROM finance_movements WHERE id=?",expenseMovementId);
+   jdbc.update("DELETE FROM expenses WHERE id=?",expenseId);
+   jdbc.update("DELETE FROM finance_movements WHERE id=?",id);
+  }
  }
 }
