@@ -139,12 +139,17 @@ class BackendMvpWorkflowIntegrationTests {
                 UUID.randomUUID(),customer,FulfillmentType.CITY_DELIVERY,
                 List.of(new CreateSaleItemRequest(variant,home,2,new BigDecimal("8500")),
                         new CreateSaleItemRequest(variant,office,3,new BigDecimal("8500")))));
-        var payment=salePayments.create(new CreatePaymentRequest(
+        // Payment must not be recorded before the delivery charge has been persisted.
+        assertThatThrownBy(()->salePayments.create(new CreatePaymentRequest(
                 sale.id(),PaymentMethod.TRANSFER,"MBANK-20",null,
-                kg.chairx.payment.domain.PaymentChannel.MBANK));
+                kg.chairx.payment.domain.PaymentChannel.MBANK)))
+                .isInstanceOf(kg.chairx.payment.application.PaymentRuleViolationException.class);
         var delivery=deliveries.create(new CreateDeliveryRequest(
                 sale.id(),"Тестовый получатель","+996555111999","Бишкек, тестовая улица 1",
                 "Бишкек",new BigDecimal("0"),"Курьер",null,"Интеграционный сценарий"));
+        var payment=salePayments.create(new CreatePaymentRequest(
+                sale.id(),PaymentMethod.TRANSFER,"MBANK-20",null,
+                kg.chairx.payment.domain.PaymentChannel.MBANK));
         deliveries.dispatch(delivery.id());
         deliveries.markDelivered(delivery.id());
         assertThat(payment.amount()).isEqualByComparingTo("42500");
