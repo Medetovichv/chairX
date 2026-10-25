@@ -4,6 +4,7 @@ import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { salesKeys } from '../../sales/api';
 import { customersApi } from '../../customers/api';
+import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { financeApi,financeKeys } from '../api';
 import { GuardedPost } from './GuardedPost';
 import { ApiClientError } from '../../../shared/api/api-error';
@@ -18,6 +19,7 @@ import type {
  PaymentChannel,PaymentInput,PaymentResponse,RefundInput,RefundMethod
 } from '../types';
 import type { SaleResponse } from '../../sales/types';
+import { integerSom } from '../../sales/validation';
 type PaymentDraft=PaymentInput&{localOperationId:string};
 type CancelDraft={paymentId:string;reason:string;localOperationId:string};
 const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='http'&&error.status===404;
@@ -40,9 +42,16 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
   enabled:refundRead});
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,
   enabled:financeRead&&(paymentCreate||paymentCancel||refundCreate)});
+ const requiresDelivery=sale.fulfillmentType==='CITY_DELIVERY'||sale.fulfillmentType==='REGION_DELIVERY';
+ const delivery=useQuery({queryKey:deliveryKeys.bySale(sale.id),queryFn:()=>deliveryApi.bySale(sale.id),enabled:requiresDelivery&&hasPermission('DELIVERIES_READ'),retry:false});
+ const deliveryVerified=!requiresDelivery||delivery.isSuccess;
+ const deliveryCost=delivery.data?.deliveryCost;
+ const itemAmount=integerSom(sale.total);
+ const deliveryAmount=deliveryCost===undefined?null:integerSom(deliveryCost);
+ const orderTotal=itemAmount===null||deliveryAmount===null?null:BigInt(itemAmount)+BigInt(deliveryAmount);
  const customer=useQuery({queryKey:['customers','customer',sale.customerId],
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
- const [channel,setChannel]=useState<PaymentChannel>('CASH');
+ const [channel,setChannel]=useState<PaymentChannel>('CASH'),[reference,setReference]=useState('');
  const [comment,setComment]=useState(''),[refundAmount,setRefundAmount]=useState('');
  const [refundMethod,setRefundMethod]=useState<RefundMethod>('CASH'),[refundReturn,setRefundReturn]=useState(()=>{
   const supplied=query.get('returnId')??'';return validUUID(supplied)?supplied:'';
@@ -53,10 +62,9 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const noActive=payments.isSuccess&&!activePayment&&(active.isSuccess===false&&pending(active.error));
  const account=accounts.data?.find(a=>a.code===accountFor(channel));
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
- const canPay=paymentCreate&&canPayStatus&&(!paymentRead||noActive)&&
+ const canPay=paymentCreate&&canPayStatus&&deliveryVerified&&(!paymentRead||noActive)&&
   (!financeRead||account?.initialized===true);
- const customerLabel=customer.data?.fullName||customer.data?.whatsappPhone||customer.data?.phone||'Клиент без имени';
- const customerPhone=customer.data?.whatsappPhone||customer.data?.phone;
+ const customerLabel=customer.data?.fullName||customer.data?.phone||'Клиент без имени';
  async function refresh(){
   await Promise.all([
    client.invalidateQueries({queryKey:financeKeys.payments(sale.id)}),
@@ -72,7 +80,12 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  return <div className="space-y-5">
   <section aria-label="Оплата заказа" className={card}>
    <h3 className="text-lg font-bold">Оплата заказа</h3>
-   <p className="text-sm">Заказ {sale.saleNumber}, сумма {som(sale.total)}. Клиент: {customerLabel}{customerPhone&&customerPhone!==customerLabel?' · '+customerPhone:''}.</p>
+   <p className="text-sm">Заказ {sale.saleNumber}. Клиент: {customerLabel}.</p>
+   <div className="space-y-1 text-sm"><p>Товары: <strong>{som(sale.total)}</strong></p>
+     {requiresDelivery&&<p>Доставка: <strong>{deliveryCost===undefined?'Ожидается оформление':som(deliveryCost)}</strong></p>}
+     <p>Итого с доставкой: <strong>{!requiresDelivery?som(sale.total):orderTotal===null?'Пока не рассчитано':som(orderTotal.toString())}</strong></p>
+   </div>
+   {requiresDelivery&&!deliveryVerified&&<p role="status" className="text-sm text-amber-800">Сначала оформите доставку, чтобы рассчитать итог к оплате. Оплата пока недоступна.</p>}
    {paymentRead&&(payments.isPending?<LoadingState label="Загружаем платежи продажи…"/>:
     payments.isError?<ErrorState error={payments.error} onRetry={()=>void payments.refetch()}/>:
     <div className="space-y-2">{payments.data.length===0?
@@ -94,10 +107,10 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     }:undefined}>
     {({start,locked})=><form aria-label="Регистрация оплаты" className="space-y-3"
       onSubmit={e=>{e.preventDefault();
-       if(!canPay){setError('Продажа не подтверждена, уже оплачена либо счёт не проверен.');return;}
-       if(comment.trim().length>1000){setError('Слишком длинный комментарий.');return;}
+       if(!canPay){setError('Оплата пока недоступна: проверьте подтверждение продажи, оформление доставки, предыдущие платежи и счёт.');return;}
+       if(reference.trim().length>200||comment.trim().length>1000){setError('Слишком длинный reference или комментарий.');return;}
        setError('');
-       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:null,comment:optional(comment),
+       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:optional(reference),comment:optional(comment),
         localOperationId:crypto.randomUUID()};
        start(p,'Заказ '+sale.saleNumber+'. Клиент '+customerLabel+'. Полная сумма '+som(sale.total)+
          '. '+(salePaymentChannels.find(x=>x.value===channel)?.label??channel)+'. Зачисление: '+accountFor(channel)+
@@ -109,11 +122,14 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
           {salePaymentChannels.map(x=><option key={x.value} value={x.value}>{x.value==='BANK_TRANSFER'?'Перевод':x.label}</option>)}
         </select>
        </label>
-       <p className="text-sm">К оплате: <strong>{som(sale.total)}</strong></p>
+       <p className="text-sm">Метод: <strong>{methodFor(channel)}</strong> · Счёт: <strong>{accountFor(channel)}</strong> · Сумма: <strong>{som(sale.total)}</strong></p>
        {financeRead&&<p className="text-sm">
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
        </p>}
+       <label className="block space-y-1 text-sm font-semibold">Reference (при необходимости)
+        <Input aria-label="Reference платежа" value={reference} maxLength={200} disabled={locked}
+         onChange={e=>setReference(e.target.value)}/></label>
        <label className="block space-y-1 text-sm font-semibold">Комментарий
         <textarea aria-label="Комментарий платежа" value={comment} maxLength={1000} disabled={locked}
          onChange={e=>setComment(e.target.value)} className="w-full rounded-xl border p-2"/></label>
@@ -121,8 +137,8 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {!canPayStatus&&<p className="text-sm text-amber-800">DRAFT и CANCELLED нельзя оплачивать.</p>}
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
-       <p className="text-xs text-slate-500">Регистрируйте оплату только после фактического получения денег. Система проводит полную сумму автоматически.</p>
-       <Button type="submit" disabled={locked||!canPay}>Зарегистрировать оплату</Button>
+       <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Для новой продажи из обмена используется ExchangeSettlement.</p>
+       <Button type="submit" disabled={locked||!canPay}>Проверить и подтвердить оплату</Button>
       </form>}
    </GuardedPost>}
   </section>
