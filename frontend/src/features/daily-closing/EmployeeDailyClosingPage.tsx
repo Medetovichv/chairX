@@ -186,7 +186,7 @@ export function EmployeeDailyClosingPage(){
       <table aria-label="Оплаченные выданные товары дня" className="w-full text-left text-sm">
        <thead><tr className="border-b text-slate-600">
         <th className="p-2">Заказ</th><th className="p-2">Кресла</th><th className="p-2">Контакт и адрес</th>
-        <th className="p-2">Состояние</th><th className="p-2 text-right">Сумма</th>
+        <th className="p-2">Состояние</th><th className="p-2 text-right">Кресла</th><th className="p-2 text-right">Доставка</th><th className="p-2 text-right">Оплачено</th>
        </tr></thead>
        <tbody>{report.data.sales.filter(s=>(s.saleNumber+' '+(s.phone||'')+' '+(s.products||'')).toLowerCase().includes(saleSearch.trim().toLowerCase())).map(s=><tr className="border-b" key={s.saleId}>
         <td className="p-2"><Link className="font-semibold text-blue-700 underline" to={'/sales/'+encodeURIComponent(s.saleId)}>{s.saleNumber}</Link></td>
@@ -196,6 +196,8 @@ export function EmployeeDailyClosingPage(){
         <td className="p-2"><span className="font-semibold text-emerald-700">Оплачено</span>
          <p className="text-xs text-slate-600">{s.deliveryStatus==='IN_TRANSIT'?'В пути':
           s.deliveryStatus==='DELIVERED'?'Доставлено':'Выдано'}</p></td>
+        <td className="p-2 text-right">{money(s.goodsTotal)}</td>
+        <td className="p-2 text-right">{money(s.deliveryTotal)}</td>
         <td className="p-2 text-right font-semibold">{money(s.total)}</td>
        </tr>)}</tbody>
       </table>

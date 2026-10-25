@@ -70,6 +70,9 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const total=validPrices?rows.reduce((sum,row)=>
     sum+BigInt(row.quantity)*BigInt(row.unitSalePrice),0n):null;
   const quantity=rows.reduce((sum,row)=>sum+(countValid(row.quantity)?Number(row.quantity):0),0);
+  const deliveryAmount=withDelivery&&/^\d{1,17}$/.test(deliveryCost.trim())?BigInt(deliveryCost.trim()):null;
+  const grandTotal=total===null||withDelivery&&deliveryAmount===null?null:
+    total+(deliveryAmount??0n);
 
   return <form aria-label={initial?'Редактирование черновика':'Новый черновик продажи'}
     className="space-y-5" onSubmit={e=>void submit(e)}>
@@ -133,7 +136,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
                   disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
-              <p className="text-xs text-slate-600 sm:col-span-2">Стоимость доставки сохраняется отдельно в карточке доставки и не прибавляется автоматически к сумме кресел или оплате. Плановая дата по умолчанию сегодня по Бишкеку; при необходимости выберите другую дату.</p>
+              <p className="text-xs text-slate-600 sm:col-span-2">Доставка учитывается в предварительном итоге заказа; окончательная сумма фиксируется при оплате после оформления доставки. Плановая дата по умолчанию сегодня по Бишкеку; при необходимости выберите другую дату.</p>
             </div>}
           </div>}
           <label className="block space-y-2 text-sm font-semibold">Комментарий
@@ -154,9 +157,13 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
             <dd className="font-semibold">{quantity} шт.</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Получение</dt>
             <dd className="text-right font-semibold">{type?fulfillmentNames[type]:'Не указано'}</dd></div>
+          {withDelivery&&<div className="flex justify-between gap-3">
+            <dt className="text-slate-500">Стоимость доставки</dt>
+            <dd className="font-semibold">{deliveryAmount===null?'Проверьте сумму':money(deliveryAmount.toString())}</dd>
+          </div>}
           <div className="flex justify-between gap-3 border-t border-slate-200 pt-3 text-base">
             <dt className="font-bold">Предварительный итог</dt>
-            <dd className="font-extrabold text-blue-700">{total===null?'Проверьте цены':money(total.toString())}</dd>
+            <dd className="font-extrabold text-blue-700">{grandTotal===null?'Проверьте цены и доставку':money(grandTotal.toString())}</dd>
           </div>
         </dl>
         <p className="text-xs leading-relaxed text-slate-500">

@@ -350,11 +350,11 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   }));
   wrapper(<SaleFinancialSection sale={sale}/>);
   const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
-  await waitFor(()=>expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeEnabled());
+  await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
   expect(within(form).getAllByRole('option').map(o => o.textContent)).toEqual(['Наличные', 'Перевод']);
   fireEvent.change(within(form).getByRole('combobox',{name:'Канал клиентской оплаты'}),
    {target:{value:'BANK_TRANSFER'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Зарегистрировать оплату'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'}));
   expect(screen.getByRole('alertdialog')).toHaveTextContent(/8.*500 сом/);
   await userEvent.setup().click(within(screen.getByRole('alertdialog'))
    .getByRole('button',{name:'Подтвердить оплату'}));
@@ -366,7 +366,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   access.permissions=['PAYMENTS_CREATE'];
   const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
   wrapper(<SaleFinancialSection sale={{...sale,status:'DRAFT'}}/>);
-  expect(screen.getByRole('button',{name:'Зарегистрировать оплату'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
   expect(fetchMock).not.toHaveBeenCalled();
  });
  it('Refund creation from a physical Return works without SALES_READ and never fetches protected Sales API',async()=>{
