@@ -549,6 +549,10 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       .toHaveAttribute('href','/catalog/'+MODEL_ID);
     expect(screen.getByText('Склад:',{exact:false}).parentElement).toHaveTextContent('Дом');
     const history=screen.getByRole('region',{name:'События заказа'});
+    expect(history).not.toHaveAttribute('open');
+    const disclosure=within(history).getByText('История заказа');
+    disclosure.click();
+    expect(history).toHaveAttribute('open');
     expect(within(history).getByText('Черновик создан')).toBeInTheDocument();
     expect(within(history).getByText('Продажа выполнена')).toBeInTheDocument();
     expect(within(history).getByText('Сотрудник: warehouse-operator')).toBeInTheDocument();
