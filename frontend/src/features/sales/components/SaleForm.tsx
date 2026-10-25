@@ -73,19 +73,19 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
 
   return <form aria-label={initial?'Редактирование черновика':'Новый черновик продажи'}
     className="space-y-5" onSubmit={e=>void submit(e)}>
-    <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-slate-600">
+    <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-slate-600 [.quick-create_&]:hidden">
       <span>1. Клиент</span><span aria-hidden="true">→</span>
       <span>2. Товары</span><span aria-hidden="true">→</span>
       <span>3. Получение</span><span aria-hidden="true">→</span>
       <span>4. Проверка</span>
     </div>
-    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)]">
+    <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)] [.quick-create_&]:!grid-cols-1">
       <div className="min-w-0 space-y-5">
-        <section aria-label="Этап 1. Клиент" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <section aria-label="Этап 1. Клиент" className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="text-lg font-bold text-slate-950">1. Клиент</h3>
           <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
         </section>
-        <section aria-label="Этап 2. Товары" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+        <section aria-label="Этап 2. Товары" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="mb-4 text-lg font-bold text-slate-950">2. Выбор кресел</h3>
           <SaleItemsEditor rows={rows} onChange={setRows} disabled={saving||blocked}/>
           {(!hasPermission('CATALOG_READ')||!hasPermission('INVENTORY_READ'))&&
@@ -107,7 +107,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           </label>
           {!initial&&type&&type!=='SELF_PICKUP'&&<div className="space-y-3 rounded-xl border border-blue-100 bg-blue-50 p-4">
             {canInlineDelivery?<p className="text-sm font-semibold text-blue-950">Доставка по заказу — заполните адрес и контакты. При сохранении продажа и доставка создаются вместе.</p>:<p className="text-sm text-amber-900">Для создания доставки необходимы разрешения подтверждения продажи и оформления доставки. Обратитесь к администратору.</p>}
-            {canInlineDelivery&&withDelivery&&<div className="grid gap-3 sm:grid-cols-2">
+            {canInlineDelivery&&withDelivery&&<div className="grid gap-3 sm:grid-cols-2 [.quick-create_&]:grid-cols-1">
               <label className="space-y-1 text-sm font-semibold">Получатель
                 <input aria-label="Получатель при создании продажи" maxLength={200} value={recipientName}
                   disabled={saving||blocked} onChange={e=>setRecipientName(e.target.value)}
@@ -143,7 +143,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           </label>
         </section>
       </div>
-      <aside aria-label="Этап 4. Итог заказа" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:bottom-0 [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-lg">
         <h3 className="text-lg font-bold text-slate-950">4. Итог заказа</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Клиент</dt>
