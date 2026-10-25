@@ -55,7 +55,8 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
  const canPay=paymentCreate&&canPayStatus&&(!paymentRead||noActive)&&
   (!financeRead||account?.initialized===true);
- const customerLabel=customer.data?.fullName||customer.data?.phone||'Клиент без имени';
+ const customerLabel=customer.data?.fullName||customer.data?.whatsappPhone||customer.data?.phone||'Клиент без имени';
+ const customerPhone=customer.data?.whatsappPhone||customer.data?.phone;
  async function refresh(){
   await Promise.all([
    client.invalidateQueries({queryKey:financeKeys.payments(sale.id)}),
@@ -71,7 +72,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  return <div className="space-y-5">
   <section aria-label="Оплата заказа" className={card}>
    <h3 className="text-lg font-bold">Оплата заказа</h3>
-   <p className="text-sm">Заказ {sale.saleNumber}, сумма {som(sale.total)}. Клиент: {customerLabel}.</p>
+   <p className="text-sm">Заказ {sale.saleNumber}, сумма {som(sale.total)}. Клиент: {customerLabel}{customerPhone&&customerPhone!==customerLabel?' · '+customerPhone:''}.</p>
    {paymentRead&&(payments.isPending?<LoadingState label="Загружаем платежи продажи…"/>:
     payments.isError?<ErrorState error={payments.error} onRetry={()=>void payments.refetch()}/>:
     <div className="space-y-2">{payments.data.length===0?
@@ -108,13 +109,13 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
           {salePaymentChannels.map(x=><option key={x.value} value={x.value}>{x.value==='BANK_TRANSFER'?'Перевод':x.label}</option>)}
         </select>
        </label>
-       <p className="text-sm">Метод: <strong>{methodFor(channel)}</strong> · Счёт: <strong>{accountFor(channel)}</strong> · Сумма: <strong>{som(sale.total)}</strong></p>
+       <p className="text-sm">К оплате: <strong>{som(sale.total)}</strong></p>
        {financeRead&&<p className="text-sm">
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
        </p>}
-       <label className="block space-y-1 text-sm font-semibold">Reference (при необходимости)
-        <Input aria-label="Reference платежа" value={reference} maxLength={200} disabled={locked}
+       <label className="block space-y-1 text-sm font-semibold">Номер перевода (необязательно)
+        <Input aria-label="Номер перевода" value={reference} maxLength={200} disabled={locked}
          onChange={e=>setReference(e.target.value)}/></label>
        <label className="block space-y-1 text-sm font-semibold">Комментарий
         <textarea aria-label="Комментарий платежа" value={comment} maxLength={1000} disabled={locked}
@@ -124,7 +125,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
        <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Для новой продажи из обмена используется ExchangeSettlement.</p>
-       <Button type="submit" disabled={locked||!canPay}>Проверить и подтвердить оплату</Button>
+       <Button type="submit" disabled={locked||!canPay}>Зарегистрировать оплату</Button>
       </form>}
    </GuardedPost>}
   </section>
