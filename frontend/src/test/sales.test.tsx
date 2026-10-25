@@ -413,7 +413,7 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(within(form).getAllByText(/996555123456/).length).toBeGreaterThan(0);
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
       {target:{value:'SELF_PICKUP'}});
-    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
         fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
@@ -421,7 +421,7 @@ describe('F07 creation and idempotent drafts',()=>{
     // Recommended price must remain unset until explicitly selected.
     expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
-    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
         const models=within(form).getByRole('combobox',{name:'Модель кресла'});
     fireEvent.change(models,{target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Серый.*ERGO-GREY/}));
@@ -462,7 +462,7 @@ describe('F07 creation and idempotent drafts',()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
-    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
         await userEvent.setup().click(within(form).getByText('Поиск по наличию'));
     fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),
       {target:{value:'ERGO-BLK'}});
@@ -478,7 +478,7 @@ describe('F07 creation and idempotent drafts',()=>{
     mockBackend({sales:[],alternateWarehouse:true});
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
-    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
         fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
       {target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
