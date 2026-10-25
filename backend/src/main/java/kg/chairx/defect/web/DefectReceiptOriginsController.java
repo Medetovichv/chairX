@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,15 +40,21 @@ public class DefectReceiptOriginsController {
         WHERE pr.warehouse_id = :warehouseId AND pi.product_variant_id = :variantId
         """;
 
+    public Page list(UUID warehouseId, UUID variantId, UUID supplierId, int page, int size) {
+        return list(warehouseId, variantId, supplierId, page, size, null);
+    }
+
     @GetMapping
     public Page list(@RequestParam UUID warehouseId, @RequestParam UUID variantId,
                      @RequestParam(required = false) UUID supplierId,
                      @RequestParam(defaultValue = "0") @Min(0) int page,
-                     @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+                     @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+                     @RequestParam(required = false) LocalDate postedOn) {
         if (page < 0 || size < 1 || size > 100) {
             throw new InvalidQueryException("Некорректные параметры поиска поступлений");
         }
-        String filter = FROM + (supplierId == null ? "" : " AND p.supplier_id = :supplierId");
+        String filter = FROM + (supplierId == null ? "" : " AND p.supplier_id = :supplierId")
+                + (postedOn == null ? "" : " AND pr.posted_at >= :postedFrom AND pr.posted_at < :postedUntil");
         var list = jdbc.sql("""
                 SELECT ri.id, p.id AS purchase_id, p.supplier_id, pr.posted_at,
                        ri.quantity, product.name AS model, pv.name AS variant,
@@ -59,6 +67,13 @@ public class DefectReceiptOriginsController {
         if (supplierId != null) {
             list.param("supplierId", supplierId);
             count.param("supplierId", supplierId);
+        }
+        if (postedOn != null) {
+            ZoneId bishkek = ZoneId.of("Asia/Bishkek");
+            Instant from = postedOn.atStartOfDay(bishkek).toInstant();
+            Instant until = postedOn.plusDays(1).atStartOfDay(bishkek).toInstant();
+            list.param("postedFrom", java.sql.Timestamp.from(from)).param("postedUntil", java.sql.Timestamp.from(until));
+            count.param("postedFrom", java.sql.Timestamp.from(from)).param("postedUntil", java.sql.Timestamp.from(until));
         }
         List<Origin> items = list.query((rs, row) -> new Origin(
                 rs.getObject("id", UUID.class), rs.getObject("purchase_id", UUID.class),
