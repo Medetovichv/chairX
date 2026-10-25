@@ -623,7 +623,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   expect(calls(a,'/api/defects/receipt-origins')).toHaveLength(1);
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
   expect((await within(form).findByRole('combobox',{name:'Позиция поступления'})) as HTMLSelectElement).toHaveValue('');
-  fireEvent.change(within(form).getByRole('textbox',{name:'Фильтр даты поступления'}),{target:{value:'2026-10-10'}});
+  fireEvent.change(within(form).getByLabelText('Фильтр даты поступления'),{target:{value:'2026-10-10'}});
   await waitFor(()=>expect(calls(a,'/api/defects/receipt-origins').some(([url])=>
     new URL(String(url),'http://chairx.test').searchParams.get('postedOn')==='2026-10-10')).toBe(true));
   expect((within(form).getByRole('combobox',{name:'Позиция поступления'}) as HTMLSelectElement).value).toBe('');
