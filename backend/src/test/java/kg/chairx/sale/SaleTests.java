@@ -309,12 +309,7 @@ class SaleTests {
                 .isEmpty();
 
         payments.create(new CreatePaymentRequest(done.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(done.id());
-        // This report fixture explicitly models a PAID sale; an unpaid fulfilled
-        // sale must never enter the cash closing snapshot.
-        jdbc.update("""
-            INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
-            VALUES (?,?,8500,'CASH','PAID','sale-test',clock_timestamp())
-            """,UUID.randomUUID(),done.id());
+        // Payment was already recorded through PaymentService before handover.
         var before = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(jdbcClient,date);
         assertThat(before.closed()).isFalse();
         assertThat(before.preliminary()).isTrue();
@@ -907,6 +902,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         var fulfilled = sales.fulfill(sale.id());
 
         assertThat(fulfilled.status())
@@ -957,6 +953,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         var first = sales.fulfill(sale.id());
 
         long movementsAfterFirst =
@@ -994,6 +991,7 @@ class SaleTests {
                 )
         );
 
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Paid pickup fixture"));
         sales.fulfill(sale.id());
 
         assertThatThrownBy(
