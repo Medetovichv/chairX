@@ -102,8 +102,8 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
               total={variants.data?.totalElements??0} onPage={setVariantPage}/>
           </>}
       </div>}
-      {canReadInventory&&<details aria-label="Быстрый поиск кресел" className="space-y-2">
-        <summary className="cursor-pointer text-sm font-medium text-blue-700">Поиск по наличию</summary>
+      {canReadInventory&&<section aria-label="Быстрый поиск кресел" className="space-y-2">
+        <h4 className="text-sm font-medium text-blue-700">Поиск по наличию</h4>
         <label className="block space-y-1 text-sm font-semibold">Быстрый поиск по модели, цвету или SKU
           <input type="search" aria-label="Поиск по креслам в наличии"
             value={stockSearch} disabled={disabled||picking} maxLength={200}
@@ -135,7 +135,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
               <PurchasePager page={stock.data.page} size={stock.data.size} total={stock.data.total}
                 label="доступных вариаций" onPage={setSearchPage}/>}
           </div>)}
-      </details>}
+      </section>}
     </section>}
   </div>;
 }
