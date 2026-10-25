@@ -19,6 +19,7 @@ import type {
  PaymentChannel,PaymentInput,PaymentResponse,RefundInput,RefundMethod
 } from '../types';
 import type { SaleResponse } from '../../sales/types';
+import { integerSom } from '../../sales/validation';
 type PaymentDraft=PaymentInput&{localOperationId:string};
 type CancelDraft={paymentId:string;reason:string;localOperationId:string};
 const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='http'&&error.status===404;
@@ -45,7 +46,9 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const delivery=useQuery({queryKey:deliveryKeys.bySale(sale.id),queryFn:()=>deliveryApi.bySale(sale.id),enabled:requiresDelivery&&hasPermission('DELIVERIES_READ'),retry:false});
  const deliveryVerified=!requiresDelivery||delivery.isSuccess;
  const deliveryCost=delivery.data?.deliveryCost;
- const orderTotal=deliveryCost===undefined?null:BigInt(sale.total)+BigInt(deliveryCost);
+ const itemAmount=integerSom(sale.total);
+ const deliveryAmount=deliveryCost===undefined?null:integerSom(deliveryCost);
+ const orderTotal=itemAmount===null||deliveryAmount===null?null:BigInt(itemAmount)+BigInt(deliveryAmount);
  const customer=useQuery({queryKey:['customers','customer',sale.customerId],
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
  const [channel,setChannel]=useState<PaymentChannel>('CASH'),[reference,setReference]=useState('');
