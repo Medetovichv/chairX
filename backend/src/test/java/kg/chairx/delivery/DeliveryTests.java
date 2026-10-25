@@ -1184,7 +1184,7 @@ class DeliveryTests {
     void selfPickupCanUseRegularReturnAfterFulfillment() {
         var sale = createSale(FulfillmentType.SELF_PICKUP,
                 item(firstVariant, home, 1, "8500"));
-        sales.fulfill(sale.id());
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,"Тест: оплата перед самовывозом"));sales.fulfill(sale.id());
         var result = returns.create(regularReturn(sale.id(), sale.items().getFirst().id(), 1));
         assertThat(result.items()).hasSize(1);
         assertThat(inventory.getBalance(home, firstVariant).onHand()).isEqualTo(20);

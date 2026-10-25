@@ -541,7 +541,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
         <Button disabled={busy} onClick={()=>setAction('confirm')}>Подтвердить заказ</Button>}
       {canFulfill&&!unknownAction&&<Button disabled={busy}
-        onClick={()=>setAction('fulfill')}>Завершить продажу</Button>}
+        onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
       {canCancel&&!unknownAction&&<Button disabled={busy}
         variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
     </div>
@@ -562,7 +562,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     </div>
     <ConfirmDialog open={!!action} onOpenChange={open=>{if(!open)setAction(null);}}
       title={action==='confirm'?'Подтвердить заказ?':
-        action==='fulfill'?'Завершить выдачу кресел?':'Отменить заказ?'}
+        action==='fulfill'?'Подтверждаете фактическую выдачу кресел клиенту?':'Отменить заказ?'}
       description={'Заказ '+sale.saleNumber+'. Клиент: '+customerLabel+'. '+sale.items.length+
         ' товарных позиций, общая сумма '+money(sale.total)+'. Способ получения: '+
         (sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:'не указан')+'. '+
@@ -571,7 +571,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         'Для подтверждённой продажи резерв будет освобождён, если сервер разрешит отмену.')}
       busy={busy} destructive={action==='cancel'}
       confirmLabel={action==='confirm'?'Подтвердить':
-        action==='fulfill'?'Завершить продажу':'Отменить заказ'}
+        action==='fulfill'?'Подтвердить выдачу':'Отменить заказ'}
       onConfirm={()=>{if(action)void execute(action);}}/>
   </div>;
 }
