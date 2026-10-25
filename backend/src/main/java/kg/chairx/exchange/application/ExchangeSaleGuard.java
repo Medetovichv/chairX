@@ -16,6 +16,10 @@ public class ExchangeSaleGuard {
         this.exchanges = exchanges;
     }
 
+    public boolean isExchangeSale(UUID saleId) {
+        return exchanges.existsByNewSale(saleId);
+    }
+
     public void requireFulfillmentAllowed(UUID saleId) {
         var exchange = exchanges.lockByNewSale(saleId);
 
