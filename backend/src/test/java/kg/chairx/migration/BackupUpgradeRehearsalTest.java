@@ -289,6 +289,16 @@ class BackupUpgradeRehearsalTest {
         for (var e : old.tables().entrySet()) {
             String table = e.getKey();
             Snapshot before = e.getValue();
+            if (table.equals("exchanges") || table.equals("exchange_settlements")) {
+                try (var statement = db.prepareStatement("SELECT to_regclass(?)")) {
+                    statement.setString(1, "public." + table);
+                    try (var result = statement.executeQuery()) {
+                        assertThat(result.next()).isTrue();
+                        assertThat(result.getString(1)).as("Legacy Exchange table remains: " + table).isNull();
+                    }
+                }
+                continue;
+            }
             Snapshot after = capture(db, table, before.columns());
             migrated.put(table, after);
             if (ADDITIVE_SEED_TABLES.contains(table)) {
