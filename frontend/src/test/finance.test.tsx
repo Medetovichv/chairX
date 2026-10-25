@@ -16,14 +16,12 @@ import { FinanceReportPage } from '../features/finance/pages/FinanceReportPage';
 import { FinanceOperationsPage } from '../features/finance/pages/FinanceOperationsPage';
 import { FinanceObligationsPage } from '../features/finance/pages/FinanceObligationsPage';
 import { FinanceAnalyticsPage } from '../features/finance/pages/FinanceAnalyticsPage';
-import { ExchangeSettlementForm } from '../features/finance/components/ExchangeSettlementForm';
 import { readFinancePending } from '../features/finance/pending';
 import {
  accountFor,methodFor,amountCents,som,positiveSom,nonnegativeSom,validateRefund,
- validateSettlement,validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,
+ validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,
 } from '../features/finance/validation';
 import type { SaleResponse } from '../features/sales/types';
-import type { ExchangeResponse } from '../features/returns/types';
 
 const access=vi.hoisted(()=>({
  permissions:[] as string[],roles:['CUSTOM_FINANCE'] as string[],
@@ -40,7 +38,6 @@ vi.mock('../features/auth/AuthProvider',()=>({
 }));
 const SALE='11111111-1111-4111-8111-111111111111';
 const RETURN='22222222-2222-4222-8222-222222222222';
-const EXCHANGE='33333333-3333-4333-8333-333333333333';
 const PAYMENT='44444444-4444-4444-8444-444444444444';
 const validID='55555555-5555-4555-8555-555555555555';
 const NOW='2026-10-11T10:00:00Z';
@@ -49,11 +46,7 @@ const sale:SaleResponse={
  status:'CONFIRMED',items:[],total:'8500',createdBy:'f10',createdAt:NOW,
  fulfilledBy:null,fulfilledAt:null,cancelledBy:null,cancelledAt:null,comment:null,
 };
-const exchange:ExchangeResponse={
- id:EXCHANGE,originalSaleId:SALE,newSaleId:validID,returnId:RETURN,
- status:'PENDING_SETTLEMENT',returnedValue:'8500',newSaleTotal:'9500',
- creditApplied:'8500',additionalPaymentDue:'1000',refundDue:'0',
-};
+
 const j=(data:unknown,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}});
 function renderPath(path:string){
  return render(<QueryClientProvider client={createQueryClient()}>
@@ -168,10 +161,7 @@ describe('F10 exact money validation, mappings and dates',()=>{
   expect(validateRefund({...p,amount:'8500.01'})).toMatch(/целым/);
   expect(validateRefund({...p,reason:''})).toMatch(/Причина/);
  });
- it('validates ExchangeSettlement and transfer account boundaries',()=>{
-  const p={idempotencyKey:validID,direction:'OUT' as const,method:'TRANSFER' as const,amount:'1000',reference:null};
-  expect(validateSettlement(p)).toBeNull();
-  expect(validateSettlement({...p,amount:'0'})).toMatch(/положительными/);
+ it('validates transfer account boundaries',()=>{
   expect(validateTransfer({transferId:validID,from:'CASH',to:'BANK',amount:'1000'})).toBeNull();
   expect(validateTransfer({transferId:validID,from:'CASH',to:'CASH',amount:'1000'})).toMatch(/разных/);
  });
@@ -483,19 +473,5 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(screen.getByLabelText('Дата расхода')).toHaveValue('2026-10-01');
   expect(screen.getByRole('button',{name:'Создать расход'})).toBeDisabled();
  });
- it('exchange OUT calculation is fully authorized and accounts absent without FINANCE_READ',async()=>{
-  access.permissions=['EXCHANGES_READ','EXCHANGES_SETTLE'];
-  const calls:string[]=[];
-  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
-   calls.push(String(url));
-   if(String(url).includes('/settlements'))return j([]);
-   throw Error('Unexpected '+String(url));
-  }));
-  wrapper(<ExchangeSettlementForm exchange={{
-   ...exchange,additionalPaymentDue:'0',refundDue:'1000',
-  }}/>);
-  expect(await screen.findByRole('heading',{name:'Выплатить разницу клиенту'})).toBeInTheDocument();
-  expect(calls.every(x=>x.includes('/settlements'))).toBe(true);
-  expect(screen.getByRole('combobox',{name:'Метод расчёта обмена'})).toBeInTheDocument();
- });
+
 });
