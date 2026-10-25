@@ -28,8 +28,6 @@ import { DeliveryDetailPage } from '../../features/deliveries/pages/DeliveryDeta
 import { ReturnsPage } from '../../features/returns/pages/ReturnsPage';
 import { CreateReturnPage } from '../../features/returns/pages/CreateReturnPage';
 import { ReturnDetailPage } from '../../features/returns/pages/ReturnDetailPage';
-import { ExchangesPage } from '../../features/returns/pages/ExchangesPage';
-import { ExchangeDetailPage } from '../../features/returns/pages/ExchangeDetailPage';
 import { DefectsPage } from '../../features/returns/pages/DefectsPage';
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
 import { FinanceOverviewPage } from '../../features/finance/pages/FinanceOverviewPage';
@@ -94,7 +92,6 @@ function DeliveryDetailGate() {
 function ReturnCreateGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_CREATE')?<CreateReturnPage/>:<ForbiddenPage/>;}
 function ReturnRefundGate(){const {hasPermission}=useAuth(),{returnId}=useParams();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<ReturnRefundPage key={returnId}/>:<ForbiddenPage/>;}
 function ReturnDetailGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_READ')?<ReturnDetailPage/>:<ForbiddenPage/>;}
-function ExchangeDetailGate(){const {hasPermission}=useAuth();return hasPermission('EXCHANGES_READ')?<ExchangeDetailPage/>:<ForbiddenPage/>;}
 function DefectDetailGate(){const {hasPermission}=useAuth();return hasPermission('DEFECTS_READ')?<DefectDetailPage/>:<ForbiddenPage/>;}
 
 function PurchaseDetailGate() {
@@ -125,8 +122,6 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/sales') return <SalesPage />;
   if (path === '/deliveries') return <DeliveriesPage />;
   if (path === '/returns') return <ReturnsPage />;
-  // EXCHANGES_CREATE can open creation without implying EXCHANGES_READ.
-  if (path === '/returns/exchanges') return <ExchangesPage />;
   if (path === '/returns/defects') return <DefectsPage />;
   if (path === '/finance') return <FinanceOverviewPage />;
   if (path === '/finance/expenses') return <ExpensesPage />;
@@ -173,7 +168,6 @@ export function AppRouter() {
           <Route path="finance/documents/:kind/:documentId" element={<FinanceSourceDocumentPage/>}/>
           <Route path="returns/new" element={<ReturnCreateGate/>}/>
           <Route path="returns/:returnId/refund" element={<ReturnRefundGate/>}/>
-          <Route path="returns/exchanges/:exchangeId" element={<ExchangeDetailGate/>}/>
           <Route path="returns/defects/:defectId" element={<DefectDetailGate/>}/>
           <Route path="returns/:returnId" element={<ReturnDetailGate/>}/>
           <Route path="sales/new" element={<SaleCreateGate />} />
