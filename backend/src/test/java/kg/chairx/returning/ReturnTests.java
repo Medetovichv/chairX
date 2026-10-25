@@ -12,6 +12,9 @@ import kg.chairx.returning.application.ReturnRuleViolationException;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.sale.domain.FulfillmentType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +50,9 @@ class ReturnTests {
 
     @Autowired
     SaleService sales;
+
+    @Autowired
+    PaymentService payments;
 
     @Autowired
     InventoryService inventory;
@@ -1053,6 +1059,7 @@ class ReturnTests {
             CreateSaleItemRequest... items
     ) {
         var sale = createSale(items);
+        payments.create(new CreatePaymentRequest(sale.id(), PaymentMethod.CASH, null, "Тест: оплата перед выдачей"));
 
         return sales.fulfill(
                 sale.id()
