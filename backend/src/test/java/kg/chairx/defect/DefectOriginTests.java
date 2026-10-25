@@ -11,6 +11,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -26,7 +31,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
         "spring.datasource.url=jdbc:postgresql://127.0.0.1:1/never_use_local"
 })
 @Import(PostgresTestConfiguration.class)
+@AutoConfigureMockMvc
 class DefectOriginTests {
+
+    @Autowired
+    MockMvc mvc;
 
     @Autowired
     DefectService defects;
@@ -252,6 +261,28 @@ class DefectOriginTests {
                 "delete from products where id=?",
                 product
         );
+    }
+
+    @Test
+    @WithMockUser(authorities = {"DEFECTS_MANAGE"})
+    void receiptLookupHttpExcludesCostAndAllowsOnlyDefectManager() throws Exception {
+        mvc.perform(get("/api/defects/receipt-origins")
+                        .param("warehouseId", warehouse.toString())
+                        .param("variantId", variant.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].id").value(receiptItem.toString()))
+                .andExpect(jsonPath("$.items[0].totalCost").doesNotExist())
+                .andExpect(jsonPath("$.items[0].purchaseUnitCost").doesNotExist())
+                .andExpect(jsonPath("$.items[0].allocatedCargoCost").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(authorities = {"DEFECTS_READ"})
+    void receiptLookupRejectsReadOnlyRole() throws Exception {
+        mvc.perform(get("/api/defects/receipt-origins")
+                        .param("warehouseId", warehouse.toString())
+                        .param("variantId", variant.toString()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
