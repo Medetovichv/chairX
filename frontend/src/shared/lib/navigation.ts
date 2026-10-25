@@ -56,7 +56,6 @@ export const childRoutes: readonly RouteMeta[] = [
 const returnCreate:RouteMeta={path:'/returns/new',label:'Оформить возврат',parent:'/returns',permissions:['RETURNS_CREATE']};
 const returnDetail:RouteMeta={path:'/returns/:returnId',label:'Карточка возврата',parent:'/returns',permissions:['RETURNS_READ']};
 const returnRefund:RouteMeta={path:'/returns/:returnId/refund',label:'Денежный возврат',parent:'/returns',permissions:['RETURNS_READ','REFUNDS_CREATE']};
-const exchangeDetail:RouteMeta={path:'/returns/exchanges/:exchangeId',label:'Карточка обмена',parent:'/returns',permissions:['EXCHANGES_READ']};
 const defectDetail:RouteMeta={path:'/returns/defects/:defectId',label:'Карточка брака',parent:'/returns/defects',permissions:['DEFECTS_READ']};
 const deliveryCreate: RouteMeta={path:'/deliveries/new',label:'Оформить доставку',parent:'/deliveries',permissions:['DELIVERIES_READ','DELIVERIES_MANAGE']};
 const deliveryDetail: RouteMeta={path:'/deliveries/:deliveryId',label:'Карточка доставки',parent:'/deliveries',permissions:['DELIVERIES_READ']};
@@ -74,14 +73,12 @@ export const navigationGroups = (['Обзор', 'Ежедневная работ
 export const legacyRedirects: Readonly<Record<string, string>> = {
   '/suppliers': '/purchases/suppliers',
   '/expenses': '/finance/expenses',
-  '/exchanges': '/returns/exchanges',
   '/defects': '/returns/defects',
 };
 
 export function routeFor(path: string): RouteMeta | undefined {
   if(path==='/returns/new')return returnCreate;
   if(/^\/returns\/[^/]+\/refund$/.test(path))return {...returnRefund,path};
-  if(/^\/returns\/exchanges\/[^/]+$/.test(path))return {...exchangeDetail,path};
   if(/^\/returns\/defects\/[^/]+$/.test(path))return {...defectDetail,path};
   if(/^\/returns\/[^/]+$/.test(path)&&!childRoutes.some(x=>x.path===path))return {...returnDetail,path};
   if(/^\/admin\/users\/[^/]+$/.test(path)) return {path,label:'Карточка сотрудника',parent:'/admin/users',permissions:['USERS_READ']};
@@ -136,4 +133,4 @@ export function routeLabel(pathname: string): string {
   return routeFor(pathname)?.label ?? 'Страница не найдена';
 }
 
-export const nestedRouteIcons = { suppliers: Handshake, expenses: ReceiptText, exchanges: ArrowLeftRight, defects: BadgeAlert };
+export const nestedRouteIcons = { suppliers: Handshake, expenses: ReceiptText, defects: BadgeAlert };
