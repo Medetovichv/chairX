@@ -105,9 +105,9 @@ public class PaymentService {
         // Locking the sale serializes this decision with sale-related operations.
         var linkedDelivery = deliveries.findBySaleId(sale.id());
         if (sale.fulfillmentType() != kg.chairx.sale.domain.FulfillmentType.SELF_PICKUP
-                && linkedDelivery.isEmpty()) {
+                && (linkedDelivery.isEmpty() || linkedDelivery.get().cancelled())) {
             throw rule("DELIVERY_REQUIRED_BEFORE_PAYMENT",
-                    "Сначала оформите доставку, чтобы рассчитать полную сумму оплаты");
+                    "Сначала оформите действующую доставку, чтобы рассчитать полную сумму оплаты");
         }
 
         // Return of a failed delivery also takes the Sale row lock.
