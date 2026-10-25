@@ -1,3 +1,4 @@
+import { CreateDeliveryPage } from './CreateDeliveryPage';
 import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
@@ -37,7 +38,8 @@ export function DeliveriesPage(){
     const path = new URL(link.getAttribute('href') || '', window.location.origin).pathname;
     if (!path.startsWith('/deliveries/')) return;
     const id = path.slice('/deliveries/'.length);
-    if (!id || id === 'new' || id.includes('/')) return;
+    if (!id || id.includes('/')) return;
+    if (id === 'new' && !manage) return;
     event.preventDefault();
     setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', decodeURIComponent(id)); return next; });
   };
@@ -85,5 +87,5 @@ export function DeliveriesPage(){
         <PurchasePager page={q.data.page} size={q.data.size} total={q.data.total}
           label="доставок" onPage={page=>setFilters(f=>({...f,page}))}/>
       </div>}
-  </div>{selected && <QuickViewDrawer title={'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}><DeliveryQuickView key={selected} id={selected}/></QuickViewDrawer>}</div>;
+  </div>{selected && <QuickViewDrawer title={selected === 'new' ? 'Новая доставка' : 'Доставка'} detailUrl={'/deliveries/' + encodeURIComponent(selected)} onClose={closeQuick} previous={selectedIndex > 0 ? () => goQuick(visibleIds[selectedIndex - 1]!) : undefined} next={selectedIndex >= 0 && selectedIndex < visibleIds.length - 1 ? () => goQuick(visibleIds[selectedIndex + 1]!) : undefined}>{selected === 'new' ? <CreateDeliveryPage embedded onCreated={goQuick}/> : <DeliveryQuickView key={selected} id={selected}/>}</QuickViewDrawer>}</div>;
 }
