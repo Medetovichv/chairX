@@ -421,7 +421,7 @@ describe('F07 creation and idempotent drafts',()=>{
     // Recommended price must remain unset until explicitly selected.
     expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
-    await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
+    await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить товар'}));
         const models=within(form).getByRole('combobox',{name:'Модель кресла'});
     fireEvent.change(models,{target:{value:MODEL_ID}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Серый.*ERGO-GREY/}));
