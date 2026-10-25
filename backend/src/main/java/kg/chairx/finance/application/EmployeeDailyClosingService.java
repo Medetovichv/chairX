@@ -287,7 +287,7 @@ public class EmployeeDailyClosingService {
             WHERE (s.status='FULFILLED' OR (s.fulfillment_type='REGION_DELIVERY' AND s.status='CONFIRMED'))
               AND (s.fulfillment_type='SELF_PICKUP'
                    OR (s.fulfillment_type='CITY_DELIVERY' AND d.status IN ('IN_TRANSIT','DELIVERED'))
-                   OR (s.fulfillment_type='REGION_DELIVERY' AND d.status IN ('PREPARING','IN_TRANSIT','DELIVERED')))
+                   OR (s.fulfillment_type='REGION_DELIVERY' AND d.status IN ('READY','IN_TRANSIT','DELIVERED')))
               -- One sale belongs to one business day: the day both physical
               -- handover and full payment have been registered.
               AND CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN p.paid_at ELSE GREATEST(s.fulfilled_at,p.paid_at) END>=:fromDate
