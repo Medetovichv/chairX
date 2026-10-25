@@ -137,7 +137,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {!canPayStatus&&<p className="text-sm text-amber-800">DRAFT и CANCELLED нельзя оплачивать.</p>}
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
-       <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Для новой продажи из обмена используется ExchangeSettlement.</p>
+       <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Возврат денег и новая продажа оформляются отдельными операциями.</p>
        <Button type="submit" disabled={locked||!canPay}>Проверить и подтвердить оплату</Button>
       </form>}
    </GuardedPost>}
