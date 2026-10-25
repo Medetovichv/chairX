@@ -460,7 +460,7 @@ describe('F09 exchange and settlements boundaries',()=>{
   const form=await screen.findByRole('form',{name:'Создать обмен'});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
-  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Чёрный/}));
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
   fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'9500'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и создать обмен'}));
@@ -614,7 +614,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
-  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Чёрный/}));
   const picker=await within(form).findByRole('combobox',{name:'Позиция поступления'});
   await waitFor(()=>expect(within(picker).getByText(/Ergo Comfort.*Склад офис/)).toBeInTheDocument());
   expect(picker).not.toHaveTextContent('bbbbbbbb-bbbb');
@@ -638,7 +638,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
     {target:{value:SALE}});
-  await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
+  await userEvent.setup().click(await within(form).findByRole('button',{name:/Добавить Ergo Comfort — Чёрный/}));
   fireEvent.change(within(form).getByRole('textbox',{name:'Описание брака'}),
    {target:{value:'Сломан механизм'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Зарегистрировать брак'}));
