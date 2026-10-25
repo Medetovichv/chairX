@@ -42,9 +42,10 @@ public class EmployeeDailyClosingService {
     public record SaleLine(UUID saleId, String saleNumber, long quantity,
                            BigDecimal total, Instant completedAt,
                            String products,String phone,String address,
-                           String fulfillment,String deliveryStatus,String paymentStatus) {
+                           String fulfillment,String deliveryStatus,String paymentStatus,
+                           BigDecimal goodsTotal,BigDecimal deliveryTotal) {
         public SaleLine(UUID id,String number,long quantity,BigDecimal total,Instant completedAt){
-            this(id,number,quantity,total,completedAt,null,null,null,null,null,null);
+            this(id,number,quantity,total,completedAt,null,null,null,null,null,null,total,BigDecimal.ZERO);
         }
     }
     public record ExpenseLine(UUID expenseId,String category,BigDecimal amount,
@@ -253,6 +254,8 @@ public class EmployeeDailyClosingService {
         return jdbc.sql("""
             SELECT s.id,s.sale_number,COALESCE(detail.quantity,0) AS quantity,
                    COALESCE(detail.total,0) + COALESCE(d.delivery_cost,0) AS total,
+                   COALESCE(detail.total,0) AS goods_total,
+                   COALESCE(d.delivery_cost,0) AS delivery_total,
                    GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN d.delivered_at ELSE s.fulfilled_at END,p.paid_at) AS completed_at,
                    detail.products,COALESCE(d.recipient_phone,c.whatsapp_phone,c.phone) AS phone,
                    COALESCE(d.address,c.address) AS address,
@@ -296,24 +299,30 @@ public class EmployeeDailyClosingService {
                     rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
                     rs.getString("products"),rs.getString("phone"),rs.getString("address"),
                     rs.getString("fulfillment_type"),rs.getString("delivery_status"),
-                    rs.getString("payment_status")))
+                    rs.getString("payment_status"),rs.getBigDecimal("goods_total"),
+                    rs.getBigDecimal("delivery_total")))
             .list();
     }
 
     private List<SaleLine> snapshot(UUID closingId) {
         return jdbc.sql("""
-            SELECT sale_id,sale_number,quantity,total,completed_at,
-                   products,contact_phone AS phone,delivery_address AS address,
-                   fulfillment AS fulfillment_type,delivery_status,payment_status
-            FROM employee_daily_closing_sales WHERE closing_id=:id
-            ORDER BY completed_at,sale_id
+            SELECT snap.sale_id,snap.sale_number,snap.quantity,snap.total,snap.completed_at,
+                   snap.total-COALESCE(d.delivery_cost,0) AS goods_total,
+                   COALESCE(d.delivery_cost,0) AS delivery_total,
+                   snap.products,snap.contact_phone AS phone,snap.delivery_address AS address,
+                   snap.fulfillment AS fulfillment_type,snap.delivery_status,snap.payment_status
+            FROM employee_daily_closing_sales snap
+            LEFT JOIN deliveries d ON d.sale_id=snap.sale_id
+            WHERE snap.closing_id=:id
+            ORDER BY snap.completed_at,snap.sale_id
             """).param("id",closingId)
             .query((rs,i)->new SaleLine(rs.getObject("sale_id",UUID.class),
                     rs.getString("sale_number"),rs.getLong("quantity"),
                     rs.getBigDecimal("total"),rs.getTimestamp("completed_at").toInstant(),
                     rs.getString("products"),rs.getString("phone"),rs.getString("address"),
                     rs.getString("fulfillment_type"),rs.getString("delivery_status"),
-                    rs.getString("payment_status")))
+                    rs.getString("payment_status"),rs.getBigDecimal("goods_total"),
+                    rs.getBigDecimal("delivery_total")))
             .list();
     }
 
