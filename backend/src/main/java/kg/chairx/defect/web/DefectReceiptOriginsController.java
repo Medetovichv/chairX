@@ -72,8 +72,8 @@ public class DefectReceiptOriginsController {
             ZoneId bishkek = ZoneId.of("Asia/Bishkek");
             Instant from = postedOn.atStartOfDay(bishkek).toInstant();
             Instant until = postedOn.plusDays(1).atStartOfDay(bishkek).toInstant();
-            list.param("postedFrom", from).param("postedUntil", until);
-            count.param("postedFrom", from).param("postedUntil", until);
+            list.param("postedFrom", java.sql.Timestamp.from(from)).param("postedUntil", java.sql.Timestamp.from(until));
+            count.param("postedFrom", java.sql.Timestamp.from(from)).param("postedUntil", java.sql.Timestamp.from(until));
         }
         List<Origin> items = list.query((rs, row) -> new Origin(
                 rs.getObject("id", UUID.class), rs.getObject("purchase_id", UUID.class),
