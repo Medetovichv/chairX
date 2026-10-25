@@ -455,7 +455,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           Открыть учёт остатков</Link></div>}
       <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
     </section>
-    <details key={sale.id} aria-label="События заказа"
+    <details key={sale.id} role="region" aria-label="События заказа"
       className="group rounded-2xl border border-slate-200 bg-white p-5">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-lg font-bold text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 [&::-webkit-details-marker]:hidden">
         <span>История заказа</span>
