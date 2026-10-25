@@ -41,7 +41,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
     queryFn:()=>inventoryApi.overview({warehouseId:null,model:'',variation:'',search:searchTerm,
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
-    enabled:open&&allowed&&canReadInventory&&searchTerm.length>=2,
+    enabled:open&&allowed&&canReadInventory,
   });
   async function chooseAvailable(id:string,warehouseId:string|undefined){
     if(picking)return;
@@ -111,7 +111,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false}:{
             placeholder="Например, Ergo, чёрный, ERGO-BLK"
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"/>
         </label>
-        {searchTerm.length>=2&&(stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
+        {(stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
           stock.isError?<ErrorState error={stock.error} onRetry={()=>void stock.refetch()}/>:
           <div className="space-y-2">
             {stock.data?.items.length===0&&<p className="text-sm text-slate-600">
