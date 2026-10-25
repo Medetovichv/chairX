@@ -19,6 +19,7 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
  const [supplierId,setSupplierId]=useState('');
  const [receiptItemId,setReceiptItemId]=useState('');
  const [receiptPage,setReceiptPage]=useState(0);
+ const [originDate,setOriginDate]=useState('');
  const [count,setCount]=useState('1'),[description,setDescription]=useState('');
  const [error,setError]=useState('');
  const [blocked,setBlocked]=useState(()=>readPending(user?.id,'defect').kind!=='missing');
@@ -26,9 +27,9 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
  const allowed=hasPermission('DEFECTS_MANAGE'),warehouseRead=hasPermission('INVENTORY_READ');
  const catalogRead=hasPermission('CATALOG_READ');
  const canChoose=warehouseRead&&catalogRead;
- const receipts=useQuery({queryKey:['defects','receipt-origins',warehouseId,variantId,supplierId,receiptPage],
+ const receipts=useQuery({queryKey:['defects','receipt-origins',warehouseId,variantId,supplierId,receiptPage,originDate],
    queryFn:()=>apiClient.get<{items:{id:string;postedAt:string;quantity:number;model:string;variant:string;warehouse:string;supplier:string}[];total:number}>(
-     '/api/defects/receipt-origins?'+new URLSearchParams({warehouseId,variantId,page:String(receiptPage),size:'20',...(supplierId?{supplierId}:{})}).toString()),
+     '/api/defects/receipt-origins?'+new URLSearchParams({warehouseId,variantId,page:String(receiptPage),size:'20',...(supplierId?{supplierId}:{}),...(originDate?{postedOn:originDate}:{})}).toString()),
    enabled:allowed&&canChoose&&!!warehouseId&&!!variantId});
  function resetReceipt(){setReceiptItemId('');setReceiptPage(0);}
  const warehouses=useQuery({queryKey:inventoryKeys.warehouses,queryFn:inventoryApi.warehouses,enabled:allowed&&warehouseRead});
@@ -40,6 +41,11 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
   const data:OpenDefectInput={warehouseId,productVariantId:variantId,
     supplierId:supplierRead&&supplierId.trim()?supplierId:null,purchaseReceiptItemId:receiptItemId||null,
     quantity:Number(count),description:description.trim()};
+  // Reject a stale receipt selection before any irreversible stock-blocking request.
+  if(receiptItemId && (receipts.isPending || receipts.isError ||
+    !receipts.data?.items.some(item=>item.id===receiptItemId))){
+    setReceiptItemId('');setError('Поступление больше не соответствует фильтрам. Выберите его заново.');return;
+  }
   const problem=validateDefect(data);
   if(problem||!positive(count)){setError(problem||'Количество некорректно.');return;}
   // POST /api/defects has no idempotencyKey: store a safe marker before POST.
@@ -119,6 +125,10 @@ export function DefectForm({onCreated}:{onCreated:()=>void}){
       <Button type="button" variant="outline" onClick={()=>void suppliers.refetch()}>Повторить</Button>
     </p>}
     {canChoose&&warehouseId&&variantId&&<div className="space-y-2">
+      <label className="block space-y-1 text-sm font-semibold">Дата поступления (необязательно)
+        <Input type="date" aria-label="Фильтр даты поступления" value={originDate} disabled={blocked}
+          onChange={e=>{setOriginDate(e.target.value);resetReceipt();}}/>
+      </label>
       <label className="block space-y-1 text-sm font-semibold">Поступление (необязательно)
        <select aria-label="Позиция поступления" value={receiptItemId} disabled={blocked||receipts.isPending||receipts.isError}
         onChange={e=>setReceiptItemId(e.target.value)}
