@@ -458,7 +458,7 @@ describe('F09 exchange and settlements boundaries',()=>{
   const a=mockBackend({returns:[returned()]});
   renderAt('/returns/exchanges?returnId='+RET);
   const form=await screen.findByRole('form',{name:'Создать обмен'});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'+ Добавить кресло'}));
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
   await userEvent.setup().click(await within(form).findByRole('button',{name:/Чёрный.*ERGO-BLK/}));
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
