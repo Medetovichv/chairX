@@ -49,6 +49,9 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             {displaySaleNumber(s.saleNumber)}</Link>
           <SaleStatusBadge status={s.status}/>
         </div>
+        {(s.returnedQuantity??0)>0&&<p className="inline-flex rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900" aria-label="Возврат по продаже">
+          {(s.returnedQuantity??0)>=s.quantity?'Возвращено полностью':'Частичный возврат'} · {s.returnedQuantity} шт.
+        </p>}
         <p>{s.customerName||'Без имени'} · {s.customerPhone||'Номер не указан'} · {saleDate(s.createdAt)}</p>
         {s.deliveryAddress&&<p className="break-words font-medium text-slate-800">Адрес: {s.deliveryAddress}</p>}
         <p className="break-words text-slate-600">{s.products||'Товары не указаны'}</p>
