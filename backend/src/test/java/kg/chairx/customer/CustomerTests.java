@@ -735,7 +735,7 @@ class CustomerTests {
         assertTestDatabase();
 
         jdbc.execute("""
-            truncate table sale_comments, exchange_settlements, exchanges, refunds, return_items, returns, payments, deliveries, sale_items, sales, customers
+            truncate table sale_comments,  refunds, return_items, returns, payments, deliveries, sale_items, sales, customers
             restart identity
             """);
     }
