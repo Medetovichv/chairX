@@ -181,8 +181,11 @@ export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
     </p>}
   </label>
   <label className="block space-y-1 text-sm font-semibold">Причина *
-   <textarea aria-label="Причина возврата" value={reason} maxLength={500} disabled={disabled} onChange={e=>setReason(e.target.value)}
-    className="w-full rounded-xl border p-3" rows={2}/>
+   <select aria-label="Причина возврата" value={reason} disabled={disabled} onChange={e=>setReason(e.target.value)}
+    className="min-h-11 w-full rounded-xl border bg-white p-3">
+    <option value="">Выберите причину</option>
+    {['Не понравился товар','Не соответствует ожиданиям','Не подошёл размер или удобство','Цвет или модель не подошли','Обнаружен недостаток','Ошибочный заказ','Другая причина'].map(value=><option key={value} value={value}>{value}</option>)}
+   </select>
   </label>
   <label className="block space-y-1 text-sm font-semibold">Комментарий
    <textarea aria-label="Комментарий возврата" value={comment} maxLength={1000} disabled={disabled} onChange={e=>setComment(e.target.value)}
