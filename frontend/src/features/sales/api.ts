@@ -45,5 +45,6 @@ export const salesApi = {
     apiClient.put<SaleResponse>('/api/sales/' + enc(id) + '/draft', input),
   confirm: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm'),
   fulfill: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill'),
-  cancel: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel'),
+  cancel: (id: string, input: {reason: 'CUSTOMER_CHANGED_MIND'|'PRODUCT_NOT_SUITABLE'|'PRICE_NOT_ACCEPTABLE'|'DUPLICATE_ORDER'|'DELIVERY_UNAVAILABLE'|'OTHER'; comment: string|null}) =>
+    apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel', input),
 };
