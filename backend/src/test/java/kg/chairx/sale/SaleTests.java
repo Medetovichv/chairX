@@ -185,6 +185,32 @@ class SaleTests {
     }
 
     @Test
+    void missingCancellationReasonMustNotChangeSaleStatus() {
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, null, List.of(), "Тест защиты"));
+        org.junit.jupiter.api.Assertions.assertThrows(jakarta.validation.ConstraintViolationException.class,
+                () -> sales.cancelWithReason(created.id(),
+                        new kg.chairx.sale.api.CancelSaleRequest(null, null)));
+        assertThat(sales.get(created.id()).status()).isEqualTo(SaleStatus.DRAFT);
+    }
+
+    @Test
+    void reasonAwareDraftCancellationPersistsReasonAndComment() {
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, null, List.of(), "Тест отмены"));
+        var cancelled = sales.cancelWithReason(created.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Покупатель изменил решение"));
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        var metadata = jdbc.queryForMap(
+                "select cancellation_reason, cancellation_comment from sales where id=?",
+                created.id());
+        assertThat(metadata.get("cancellation_reason")).isEqualTo("CUSTOMER_CHANGED_MIND");
+        assertThat(metadata.get("cancellation_comment")).isEqualTo("Покупатель изменил решение");
+    }
+
+    @Test
     void draftWithoutItemsDoesNotReserveStockAndCanBeCancelled() {
         long before = stockMovementCount();
         UUID key = UUID.randomUUID();
@@ -817,6 +843,56 @@ class SaleTests {
 
         assertThat(saleAuditCount())
                 .isEqualTo(2);
+    }
+
+    @Test
+    void paidConfirmedSaleCannotBeReasonCancelledOrReleaseStock() {
+        var sale = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 2, "8500")));
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, "Оплата для проверки отмены"));
+        var balanceBefore = inventory.getBalance(home, firstVariant).reserved();
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Оплаченный заказ")))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
+
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(balanceBefore);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(
+                kg.chairx.payment.domain.PaymentStatus.PAID);
+    }
+
+    @Test
+    void paidUnfulfilledSaleCanBeCancelledOnlyAfterFinancialReversal() {
+        var sale = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, "Оплата до отмены"));
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+
+        payments.cancel(payment.id(),
+                new kg.chairx.payment.api.CancelPaymentRequest("Отмена заказа клиентом"));
+        var cancelled = sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "После аннулирования оплаты"));
+
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(
+                kg.chairx.payment.domain.PaymentStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(jdbc.queryForObject(
+                "select cancellation_reason from sales where id=?",
+                String.class, sale.id())).isEqualTo("CUSTOMER_CHANGED_MIND");
     }
 
     @Test

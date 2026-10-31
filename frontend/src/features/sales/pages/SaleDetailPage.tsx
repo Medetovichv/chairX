@@ -25,6 +25,8 @@ import { salesApi, salesKeys } from '../api';
 import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
+import { netSaleTotal } from '../components/SalesTable';
+import { cancellationReasons, type CancellationReason } from '../cancellation-reasons';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { SaleCommentsPanel } from '../components/SaleCommentsPanel';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
@@ -160,6 +162,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [draftUncertain,setDraftUncertain]=useState(false);
   const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
+  const [cancelReason,setCancellationReason]=useState<CancellationReason | ''>('');
+  const [cancelComment,setCancelComment]=useState('');
   const [unknownAction,setUnknownAction]=useState<Action|null>(null);
   const [busy,setBusy]=useState(false);
   const running=useRef(false);
@@ -168,8 +172,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const canManageDraft=isDraft&&hasPermission('SALES_DRAFT_MANAGE');
   const canConfirm=canManageDraft&&!!sale.fulfillmentType&&sale.items.length>0;
   const canFulfill=isConfirmed&&sale.fulfillmentType==='SELF_PICKUP'&&hasPermission('SALES_UPDATE');
+  // An already-paid order requires a financial reversal, not a direct sale cancellation.
+  // The server remains authoritative and repeats this check under its sale lock.
   const canCancel=hasPermission('SALES_CANCEL')&&
-    (isDraft||isConfirmed&&sale.fulfillmentType==='SELF_PICKUP');
+    (isDraft||isConfirmed&&sale.fulfillmentType==='SELF_PICKUP'&&
+      listed.isSuccess&&matched?.paymentStatus==='UNPAID');
   // A Kanban drop is only a REQUEST to use this existing confirmation flow.
   // The server's current sale is loaded before mounting this component;
   // explicit confirmation still triggers the pre-POST stale-data check.
@@ -315,7 +322,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       }
       // A 200 is not assumed until the backend returns an authoritative SaleResponse.
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
-        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id));
+        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id,{reason:cancelReason as CancellationReason,comment:cancelComment.trim()||null}));
       await changed(next);
       setNotice(value==='confirm'?'Заказ подтверждён.':
         value==='fulfill'?'Продажа выполнена.':'Заказ отменён.');
@@ -528,14 +535,19 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
         <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-600">Сумма заказа</p>
+          <p className="text-sm font-semibold text-slate-600">Первоначальная сумма товаров</p>
           <p className="text-2xl font-extrabold text-slate-950">{money(sale.total)}</p>
+          {authoritative&&<div className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+            <p>Доставка: <strong>{sale.fulfillmentType==='SELF_PICKUP'?money(0):authoritative.deliveryCost===undefined?'Данные недоступны':money(authoritative.deliveryCost)}</strong></p>
+            <p>Возвращено: <strong>{authoritative.refundedAmount===undefined?'Данные недоступны':money(authoritative.refundedAmount)}</strong></p>
+            <p className="font-semibold">Итого после возвратов: {authoritative.refundedAmount===undefined||
+              (sale.fulfillmentType!=='SELF_PICKUP'&&authoritative.deliveryCost===undefined)
+              ?'Ожидаются финансовые данные':netSaleTotal(authoritative)===null?'Сумма требует проверки':money(netSaleTotal(authoritative)!)}</p>
+          </div>}
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
         </section>
-        <section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="font-bold">Действия</h3>
-    <div className="flex flex-col gap-2 [&_button]:w-full">
+        {(canManageDraft||canConfirm||canFulfill||canCancel)&&<div aria-label="Управление заказом" className="flex flex-wrap gap-2 [&_button]:min-h-10">
       {canManageDraft&&!unknownAction&&!draftUncertain&&
         <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
       {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
@@ -544,11 +556,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
       {canCancel&&!unknownAction&&<Button disabled={busy}
         variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
-    </div>
-
-          {!canManageDraft&&!canFulfill&&!canCancel&&
-            <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
-        </section>
+        </div>}
+        {hasPermission('SALES_CANCEL')&&matched?.paymentStatus==='PAID'&&sale.status==='CONFIRMED'&&
+          <p role="status" className="text-sm text-amber-800">Заказ оплачен. Прямая отмена недоступна: сначала оформите финансовое урегулирование платежа.</p>}
         {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
           <div role="status" className={paymentRequired?'rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950':'rounded-xl border border-slate-200 bg-white p-4 text-sm'}>
             <strong>{matched?.paymentStatus==='PAID'?'Оплата получена':
@@ -568,11 +578,28 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         (sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:'не указан')+'. '+
         (action==='confirm'?'Будет создан резерв складских остатков.':
         action==='fulfill'?'Будут списаны зарезервированные складские товары.':
-        'Для подтверждённой продажи резерв будет освобождён, если сервер разрешит отмену.')}
+        'Отмена доступна только до выдачи и при отсутствии активной оплаты. Для оплаченного заказа сначала урегулируйте платёж, а после выдачи оформите возврат товара и денег. Подтверждённый неоплаченный заказ освободит складской резерв.')}
+      confirmDisabled={action==='cancel'&&!cancelReason}
       busy={busy} destructive={action==='cancel'}
       confirmLabel={action==='confirm'?'Подтвердить':
         action==='fulfill'?'Подтвердить выдачу':'Отменить заказ'}
-      onConfirm={()=>{if(action)void execute(action);}}/>
+      onConfirm={()=>{if(action&&!(action==='cancel'&&!cancelReason))void execute(action);}}>
+      {action==='cancel'&&<div className="mt-4 space-y-3">
+        <label className="block text-sm font-semibold">Причина отмены *
+          <select aria-label="Причина отмены" required value={cancelReason}
+            onChange={event=>setCancellationReason(event.target.value as CancellationReason | '')}
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3">
+            <option value="">Выберите причину</option>
+            {cancellationReasons.map(([code,label])=><option key={code} value={code}>{label}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-semibold">Комментарий (необязательно)
+          <textarea aria-label="Комментарий отмены" maxLength={1000} value={cancelComment}
+            onChange={event=>setCancelComment(event.target.value)}
+            className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3"/>
+        </label>
+      </div>}
+      </ConfirmDialog>
   </div>;
 }
 export function SaleDetailPage() {

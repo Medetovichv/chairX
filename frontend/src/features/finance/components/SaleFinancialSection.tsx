@@ -92,7 +92,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      <p className="text-sm text-slate-600">Платежей пока нет.</p>:
      payments.data.map(p=><PaymentLine key={p.id} payment={p} onChanged={refresh}
       canCancel={paymentCancel} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
-   {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
+   {paymentCreate&&paymentRead&&payments.isSuccess&&!activePayment&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
     allowed={paymentCreate} title="Подтвердить полную оплату продажи?" label="Подтвердить оплату"
     operationKey={p=>p.localOperationId}
     meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId})}

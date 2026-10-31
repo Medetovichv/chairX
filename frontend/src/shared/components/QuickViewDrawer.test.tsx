@@ -40,6 +40,7 @@ describe('QuickViewDrawer navigation', () => {
     const drawer = container.querySelector('[data-quick-view]');
     expect(drawer?.className).toContain('fixed inset-0');
     expect(drawer?.className).toContain('lg:sticky');
+    expect(container.querySelector('[data-quick-view] header')?.className).toContain('sticky top-0');
     expect(drawer?.getAttribute('aria-label')).toContain('Заказ');
     expect(screen.getByRole('button', { name: 'Предыдущая запись' }).hasAttribute('disabled')).toBe(true);
     unmount();

@@ -1,4 +1,5 @@
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
+import type { ReactNode } from 'react';
 import { Button } from './button';
 
 interface ConfirmDialogProps {
@@ -7,6 +8,8 @@ interface ConfirmDialogProps {
   onConfirm: () => void;
   title: string;
   description: string;
+  children?: ReactNode;
+  confirmDisabled?: boolean;
   confirmLabel?: string;
   busy?: boolean;
   destructive?: boolean;
@@ -18,6 +21,8 @@ export function ConfirmDialog({
   onConfirm,
   title,
   description,
+  children,
+  confirmDisabled = false,
   confirmLabel = 'Подтвердить',
   busy = false,
   destructive = false,
@@ -33,6 +38,7 @@ export function ConfirmDialog({
           <AlertDialog.Description className="mt-2 text-sm leading-6 text-slate-600">
             {description}
           </AlertDialog.Description>
+          {children}
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <AlertDialog.Cancel asChild>
               <Button variant="outline" disabled={busy}>Отмена</Button>
@@ -40,7 +46,7 @@ export function ConfirmDialog({
             <AlertDialog.Action asChild>
               <Button
                 variant={destructive ? 'destructive' : 'default'}
-                disabled={busy}
+                disabled={busy || confirmDisabled}
                 onClick={onConfirm}
               >
                 {confirmLabel}

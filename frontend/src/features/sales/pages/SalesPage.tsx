@@ -24,7 +24,7 @@ import { saleStatuses, saleStatusNames } from '../validation';
 import { salesApi, salesKeys } from '../api';
 import type { SaleFilters, SaleStatus } from '../types';
 
-const empty: SaleFilters = { status: '', from: '', to: '', number: '', page: 0 };
+const empty: SaleFilters = { status: '', from: '', to: dayRange(1).to, number: '', page: 0 };
 type View = 'table' | 'kanban';
 
 /** Pure Bishkek calendar calculation: independent of browser timezone. */

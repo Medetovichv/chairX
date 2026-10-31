@@ -356,7 +356,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   access.permissions=['PAYMENTS_CREATE'];
   const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
   wrapper(<SaleFinancialSection sale={{...sale,status:'DRAFT'}}/>);
-  expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
+  expect(screen.queryByRole('button',{name:'Проверить и подтвердить оплату'})).toBeNull();
   expect(fetchMock).not.toHaveBeenCalled();
  });
  it('Refund creation from a physical Return works without SALES_READ and never fetches protected Sales API',async()=>{
