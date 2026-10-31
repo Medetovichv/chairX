@@ -9,7 +9,7 @@ import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsP
 import { SaleForm } from '../../features/sales/components/SaleForm';
 import { SaleQuickActions } from './SaleQuickActions';
 import { SalePaymentPanel } from './SalePaymentPanel';
-import { saleStatusNames, fulfillmentNames, money } from '../../features/sales/validation';
+import { saleStatusNames, fulfillmentNames, money, integerSom } from '../../features/sales/validation';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
@@ -73,7 +73,7 @@ export function SaleQuickView({ id }: { id: string }) {
       <Field label="Создан" value={new Date(sale.createdAt).toLocaleString('ru-RU')}/>
       <Field label="Стоимость товаров" value={money(sale.total)}/>
       {relatedDelivery.data&&<Field label="Доставка" value={money(relatedDelivery.data.deliveryCost)}/>}
-      {relatedDelivery.data&&<div className="border-b border-slate-100 py-3"><dt className="text-xs font-medium text-slate-500">К оплате с доставкой</dt><dd className="mt-1 text-lg font-bold text-blue-700">{money((Number(sale.total)+Number(relatedDelivery.data.deliveryCost)).toFixed(2))}</dd></div>}
+      {relatedDelivery.data&&integerSom(sale.total)!==null&&integerSom(relatedDelivery.data.deliveryCost)!==null&&<div className="border-b border-slate-100 py-3"><dt className="text-xs font-medium text-slate-500">К оплате с доставкой</dt><dd className="mt-1 text-lg font-bold text-blue-700">{money((BigInt(integerSom(sale.total)!)+BigInt(integerSom(relatedDelivery.data.deliveryCost)!)).toString())}</dd></div>}
       <Field label="Получение" value={sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:null}/>
     </Section>
     <section><h3 className="mb-2 font-semibold">Позиции заказа</h3>
