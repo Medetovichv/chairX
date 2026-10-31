@@ -468,7 +468,7 @@ describe('F07 creation and idempotent drafts',()=>{
         await userEvent.setup().click(within(form).getByText('Поиск по наличию'));
     fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск по креслам в наличии'}),
       {target:{value:'ERGO-BLK'}});
-    await userEvent.setup().click(await within(form).findByRole('button',{name:'Ergo Comfort · Чёрный'}));
+    await userEvent.setup().click(await within(form).findByRole('button',{name:/Ergo Comfort · Чёрный/}));
     expect(within(form).getByRole('combobox',{name:'Склад позиции 1'})).toHaveValue(WH);
     await waitFor(()=>expect(api.fetchMock.mock.calls.some(([raw])=>{
       const url=new URL(String(raw),'http://chairx.test');
