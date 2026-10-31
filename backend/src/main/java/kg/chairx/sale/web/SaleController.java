@@ -101,6 +101,14 @@ public class SaleController {
         return service.fulfill(id);
     }
 
+    @PostMapping("/{id}/cancel-paid")
+    public SaleResponse cancelPaid(
+            @PathVariable UUID id,
+            @Valid @RequestBody CancelSaleRequest request
+    ) {
+        return service.cancelPaidWithReason(id, request);
+    }
+
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(
             @PathVariable UUID id,
