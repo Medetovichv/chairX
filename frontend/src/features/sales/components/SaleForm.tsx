@@ -156,7 +156,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           </label>
         </section>
       </div>
-      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:bottom-0 [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-lg">
+      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:static [.quick-create_&]:bottom-auto [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-none">
         <h3 className="text-lg font-bold text-slate-950">4. Итог заказа</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Клиент</dt>
