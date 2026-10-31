@@ -846,6 +846,27 @@ class SaleTests {
     }
 
     @Test
+    void paidConfirmedSaleCannotBeReasonCancelledOrReleaseStock() {
+        var sale = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 2, "8500")));
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, "Оплата для проверки отмены"));
+        var balanceBefore = inventory.getBalance(home, firstVariant).reserved();
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Оплаченный заказ")))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
+
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(balanceBefore);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(
+                kg.chairx.payment.domain.PaymentStatus.PAID);
+    }
+
+    @Test
     void fulfillingSaleReleasesReservationAndCreatesSaleOut() {
         var sale = sales.create(
                 request(
