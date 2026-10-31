@@ -19,6 +19,19 @@ class CancelSaleRequestTest {
     }
 
     @Test
+    void onlySixApprovedReasonsAreExposed() {
+        assertArrayEquals(new String[]{
+                "CUSTOMER_CHANGED_MIND",
+                "PRODUCT_NOT_SUITABLE",
+                "PRICE_NOT_ACCEPTABLE",
+                "DUPLICATE_ORDER",
+                "DELIVERY_UNAVAILABLE",
+                "OTHER"
+        }, java.util.Arrays.stream(SaleCancellationReason.values())
+                .map(Enum::name).toArray(String[]::new));
+    }
+
+    @Test
     void commentCannotExceedOneThousandCharacters() {
         try (var factory = Validation.buildDefaultValidatorFactory()) {
             var validator = factory.getValidator();
