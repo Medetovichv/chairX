@@ -32,7 +32,8 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   const confirmed=sale.status==='CONFIRMED';
   const canConfirm=draft&&hasPermission('SALES_DRAFT_MANAGE')&&!!sale.fulfillmentType&&sale.items.length>0;
   const canFulfill=confirmed&&sale.fulfillmentType==='SELF_PICKUP'&&hasPermission('SALES_UPDATE');
-  const canCancel=hasPermission('SALES_CANCEL')&&(draft||(confirmed&&sale.fulfillmentType==='SELF_PICKUP'));
+  // Quick actions lack authoritative payment state; confirmed sales must use the detail view.
+  const canCancel=hasPermission('SALES_CANCEL')&&draft;
   async function update(result:SaleResponse) {
     queryClient.setQueryData(salesKeys.detail(sale.id),result);
     await Promise.all([
