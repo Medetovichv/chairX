@@ -2,6 +2,7 @@ import { apiClient } from '../../shared/api/client';
 import type { Customer, CustomerInput, CustomerListing, CustomerOverviewPage, CustomerPage, SalePage } from './types';
 
 export const CUSTOMER_PAGE_SIZE = 20;
+export interface CustomerAddress {id:string;customerId:string;address:string;cityRegion:string|null;createdAt:string}
 const idPath = (id: string) => encodeURIComponent(id);
 
 export const customerKeys = {
@@ -34,6 +35,9 @@ export const customersApi = {
   search: (query: string) =>
     apiClient.get<Customer[]>('/api/customers/search?query=' + encodeURIComponent(query)),
   get: (id: string) => apiClient.get<Customer>('/api/customers/' + idPath(id)),
+  addresses: (id:string) => apiClient.get<CustomerAddress[]>('/api/customers/'+idPath(id)+'/addresses'),
+  addAddress: (id:string,address:string,cityRegion:string|null) =>
+    apiClient.post<CustomerAddress>('/api/customers/'+idPath(id)+'/addresses',{address,cityRegion}),
   create: (input: CustomerInput) => apiClient.post<Customer>('/api/customers', input),
   update: (id: string, input: CustomerInput) =>
     apiClient.put<Customer>('/api/customers/' + idPath(id), input),
