@@ -30,7 +30,8 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
         setError('Оплата уже существует. Повторное создание заблокировано.');
         await payments.refetch();return;
       }
-      await apiClient.post('/api/payments',{saleId:sale.id,method,reference:null,comment:null,channel:null});
+      await apiClient.post(sale.fulfillmentType==='SELF_PICKUP'?'/api/payments/pickup-checkout':'/api/payments',
+        {saleId:sale.id,method,reference:null,comment:null,channel:null});
       setSubmitted(true);
       // A successful POST is authoritative; cache refresh errors must not
       // trigger another non-idempotent payment request.
