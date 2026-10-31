@@ -185,6 +185,16 @@ class SaleTests {
     }
 
     @Test
+    void missingCancellationReasonMustNotChangeSaleStatus() {
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, null, List.of(), "Тест защиты"));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                () -> sales.cancelWithReason(created.id(),
+                        new kg.chairx.sale.api.CancelSaleRequest(null, null)));
+        assertThat(sales.get(created.id()).status()).isEqualTo(SaleStatus.DRAFT);
+    }
+
+    @Test
     void reasonAwareDraftCancellationPersistsReasonAndComment() {
         var created = sales.createDraft(new CreateDraftSaleRequest(
                 UUID.randomUUID(), customer, null, List.of(), "Тест отмены"));
