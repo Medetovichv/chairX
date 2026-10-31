@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link,useParams } from 'react-router';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { returnsApi,returnKeys } from '../../returns/api';
 import { salesApi,salesKeys } from '../../sales/api';
+import { integerSom } from '../../sales/validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import { financeApi,financeKeys } from '../api';
 import { GuardedPost } from '../components/GuardedPost';
@@ -35,6 +36,21 @@ export function ReturnRefundPage(){
  const [reason,setReason]=useState(''),[reference,setReference]=useState('');
  const [comment,setComment]=useState(''),[error,setError]=useState('');
  const [confirmed,setConfirmed]=useState<RefundResponse|null>(null);
+ const initialized=useRef(false);
+ useEffect(()=>{
+   if(initialized.current||!q.data||!sale.data)return;
+   const amounts=q.data.items.map(item=>{
+     const original=sale.data!.items.find(x=>x.id===item.saleItemId);
+     const unit=original?integerSom(original.unitSalePrice):null;
+     return unit===null?null:BigInt(unit)*BigInt(item.quantity);
+   });
+   if(amounts.length&&amounts.every(value=>value!==null)) {
+     setAmount(amounts.reduce<bigint>((sum,value)=>sum+(value??0n),0n).toString());
+     setReason(q.data.reason);
+     initialized.current=true;
+   }
+ },[q.data,sale.data]);
+
  if(!allowed)return <ForbiddenPage/>;
  if(!validUUID(returnId))return <NotFoundPage/>;
  if(q.isPending)return <LoadingState label="Загружаем физический возврат…"/>;
@@ -85,6 +101,7 @@ export function ReturnRefundPage(){
     start(p,'Денежная компенсация '+som(p.amount)+' клиенту за физический возврат. Способ списания: '+(p.method==='CASH'?'наличные':'перевод')+
      '. Backend проверит активную оплату, стоимость исходных позиций, ранее проведённые компенсации и обмены.');
    }}>
+    <p className="text-sm text-slate-600">Сумма предварительно рассчитана из количества возвращённых кресел и исходных цен заказа. Перед подтверждением проверьте и при необходимости измените её.</p>
     <label className="block space-y-1 text-sm font-semibold">Сумма, целые сомы
      <Input aria-label="Сумма денежного возврата" value={amount} maxLength={17} inputMode="numeric"
       disabled={locked} onChange={e=>setAmount(e.target.value)}/></label>
