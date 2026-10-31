@@ -75,6 +75,7 @@ function mockBackend(options:{
   sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
   draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
   deny?:Record<string,number>; alternateWarehouse?:boolean;
+  paymentStatus?:SaleSummary['paymentStatus'];
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
@@ -129,7 +130,7 @@ function mockBackend(options:{
       const set=rows.filter(r=>(!status||r.status===status)&&
         (!number||r.saleNumber.toLowerCase().includes(number))&&
         (!from||r.createdAt.slice(0,10)>=from)&&(!to||r.createdAt.slice(0,10)<=to));
-      return json({items:set.slice(page*size,(page+1)*size).map(summary),page,size,total:set.length});
+      return json({items:set.slice(page*size,(page+1)*size).map(row=>({...summary(row),paymentStatus:options.paymentStatus??'UNPAID'})),page,size,total:set.length});
     }
     if(path==='/api/sales/drafts'&&method==='POST'){
       const req=JSON.parse(String(init?.body)) as CreateDraftInput;
@@ -741,6 +742,14 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     expect(within(controls).getByRole('button',{name:'Редактировать черновик'})).toBeInTheDocument();
     expect(within(controls).getByRole('button',{name:'Отменить заказ'})).toBeInTheDocument();
     expect(screen.queryByRole('region',{name:'Действия с заказом'})).not.toBeInTheDocument();
+  });
+  it('does not allow cancelling a confirmed paid sale',async()=>{
+    const api=mockBackend({sales:[sale('CONFIRMED')],paymentStatus:'PAID'});
+    renderAt('/sales/'+SALE_ID);
+    await screen.findByRole('heading',{name:'Продажа #42'});
+    expect(await screen.findByText(/Прямая отмена недоступна/)).toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Отменить заказ'})).not.toBeInTheDocument();
+    expect(api.count().cancels).toBe(0);
   });
   it('cancels DRAFT only with confirmation; cannot edit FULFILLED',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
