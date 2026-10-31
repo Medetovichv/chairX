@@ -255,6 +255,27 @@ public class SaleRepository {
         if (changed != 1) throw new IllegalStateException("Черновик изменён параллельно");
     }
 
+    /**
+     * Called only after the guarded cancellation succeeds, in the same transaction.
+     * A repeated request cannot replace the reason captured on the first cancellation.
+     */
+    public void recordCancellationReason(UUID saleId, String reason, String comment) {
+        int changed = jdbc.sql("""
+                UPDATE sales
+                   SET cancellation_reason = :reason,
+                       cancellation_comment = :comment
+                 WHERE id = :saleId AND status = 'CANCELLED'
+                   AND cancellation_reason IS NULL
+                """)
+                .param("saleId", saleId)
+                .param("reason", reason)
+                .param("comment", comment)
+                .update();
+        if (changed != 1) {
+            throw new IllegalStateException("Причина отмены не сохранена; операция отменена");
+        }
+    }
+
     public void cancelDraft(UUID saleId, String actor) {
         int changed = jdbc.sql("""
                 UPDATE sales SET status = 'CANCELLED', cancelled_by = :actor,
