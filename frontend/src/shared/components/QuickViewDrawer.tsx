@@ -59,6 +59,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     const node = scrollRef.current;
     if (!node) return;
     updateScrollState();
+    if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(updateScrollState);
     observer.observe(node);
     for (const child of node.children) observer.observe(child);
