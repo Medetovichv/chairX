@@ -21,7 +21,7 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
     enabled:hasPermission('PAYMENTS_READ')||hasPermission('PAYMENTS_CREATE')});
   const active=payments.data?.find(p=>p.status==='PAID');
   async function register() {
-    if(pending.current||unknown||active||submitted||sale.status!=='CONFIRMED')return;
+    if(pending.current||unknown||active||submitted||sale.status!=='CONFIRMED'&&sale.status!=='FULFILLED')return;
     pending.current=true;setBusy(true);setError('');
     try {
       // Re-read before a non-idempotent POST. A failed response may still have committed.
@@ -49,7 +49,7 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
     {active?<p className="font-semibold text-green-700">Оплачено: {money(active.amount)} · {active.method==='CASH'?'Наличные':'Перевод'}</p>:
       <p className="text-sm text-slate-600">Оплата не зарегистрирована</p>}
     {error&&<p role="alert" className="text-sm text-amber-800">{error}</p>}
-    {hasPermission('PAYMENTS_CREATE')&&!active&&sale.status==='CONFIRMED'&&
+    {hasPermission('PAYMENTS_CREATE')&&!active&&(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
       <div className="space-y-2">
         <label className="block text-sm font-medium">Способ оплаты
           <select value={method} onChange={e=>setMethod(e.target.value as 'CASH'|'TRANSFER')}
