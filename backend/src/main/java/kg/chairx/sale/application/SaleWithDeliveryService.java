@@ -23,15 +23,18 @@ import java.util.HexFormat;
 public class SaleWithDeliveryService {
     private final SaleService sales;
     private final DeliveryService deliveries;
+    private final kg.chairx.customer.application.CustomerAddressService addresses;
     private final JdbcClient jdbc;
     private final JsonMapper mapper;
 
     public SaleWithDeliveryService(SaleService sales,DeliveryService deliveries,
-            JdbcClient jdbc,JsonMapper mapper) {
+            JdbcClient jdbc,JsonMapper mapper,
+            kg.chairx.customer.application.CustomerAddressService addresses) {
         this.sales=sales;
         this.deliveries=deliveries;
         this.jdbc=jdbc;
         this.mapper=mapper;
+        this.addresses=addresses;
     }
 
     @Transactional
@@ -67,6 +70,12 @@ public class SaleWithDeliveryService {
                     d.recipientName(),d.recipientPhone(),d.address(),d.cityRegion(),
                     d.deliveryCost(),d.carrierName(),d.trackingNumber(),d.comment(),
                     d.plannedDeliveryDate()));
+        }
+        // Persist the destination only for a successfully created delivery.
+        // Replays and repeats are safe: CustomerAddressService deduplicates.
+        if (confirmed.customerId()!=null) {
+            var d=request.delivery();
+            addresses.add(confirmed.customerId(),new kg.chairx.customer.application.CustomerAddressService.AddressInput(d.address(),d.cityRegion()));
         }
         return confirmed;
     }
