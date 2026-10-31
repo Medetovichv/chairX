@@ -383,9 +383,11 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
             return SaleMapper.toResponse(sale);
         }
         SaleResponse after = cancel(saleId);
+        String comment = request.comment() == null ? null : request.comment().trim();
+        repository.recordCancellationReason(saleId, request.reason().name(), comment);
         audit.record("SALE", saleId, "CANCEL_REASON_RECORDED", null,
                 java.util.Map.of("reason", request.reason().name(),
-                        "comment", request.comment() == null ? "" : request.comment().trim()));
+                        "comment", comment == null ? "" : comment));
         return after;
     }
 
