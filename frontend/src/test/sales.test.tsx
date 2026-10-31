@@ -377,7 +377,7 @@ describe('F07 creation and idempotent drafts',()=>{
     mockBackend({sales:[]});
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
-    fireEvent.change(within(form).getByRole('textbox',{name:'Поиск клиента для продажи'}),
+    fireEvent.change(within(form).getByRole('searchbox',{name:'Поиск клиента для продажи'}),
       {target:{value:'+996700123456'}});
     fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
       {target:{value:'CITY_DELIVERY'}});
