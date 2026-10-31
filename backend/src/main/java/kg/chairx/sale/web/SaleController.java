@@ -2,6 +2,7 @@ package kg.chairx.sale.web;
 
 import jakarta.validation.Valid;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CancelSaleRequest;
 import kg.chairx.sale.api.SaleResponse;
 import kg.chairx.sale.api.SalePageResponse;
 import kg.chairx.sale.domain.SaleStatus;
@@ -102,8 +103,9 @@ public class SaleController {
 
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @Valid @RequestBody CancelSaleRequest request
     ) {
-        return service.cancel(id);
+        return service.cancelWithReason(id, request);
     }
 }
