@@ -23,6 +23,8 @@ import kg.chairx.sale.application.SaleNotFoundException;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.persistence.SaleRepository;
 import kg.chairx.payment.persistence.PaymentRepository;
+import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.warehouse.application.WarehouseService;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -59,6 +61,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     private final SaleRepository repository;
     private final PaymentRepository payments;
+    private final PaymentService paymentService;
     private final CustomerService customers;
     private final ProductVariantService variants;
     private final WarehouseService warehouses;
@@ -70,6 +73,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     public SaleService(
             SaleRepository repository,
             PaymentRepository payments,
+            PaymentService paymentService,
             CustomerService customers,
             ProductVariantService variants,
             WarehouseService warehouses,
@@ -80,6 +84,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     ) {
         this.repository = repository;
         this.payments = payments;
+        this.paymentService = paymentService;
         this.customers = customers;
         this.variants = variants;
         this.warehouses = warehouses;
@@ -370,6 +375,36 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
      * trail in the same transaction as the stock and status changes.
      * Paid/fulfilled sales remain guarded by cancelLocked().
      */
+    /**
+     * Atomically reverses a paid, unfulfilled self-pickup and then cancels the sale.
+     * The sale lock serializes this operation with payment creation.
+     * Physical handovers must use a return + refund instead.
+     */
+    @Transactional
+    public SaleResponse cancelPaidWithReason(UUID saleId, @Valid CancelSaleRequest request) {
+        if (request == null || request.reason() == null) {
+            throw new IllegalArgumentException("Необходимо выбрать причину отмены");
+        }
+        if (request.comment() != null && request.comment().length() > 1000) {
+            throw new IllegalArgumentException("Комментарий отмены не может быть длиннее 1000 символов");
+        }
+        Sale sale = lock(saleId);
+        if (sale.status() == SaleStatus.CANCELLED) {
+            return SaleMapper.toResponse(sale);
+        }
+        if (sale.status() != SaleStatus.CONFIRMED
+                || sale.fulfillmentType() != FulfillmentType.SELF_PICKUP) {
+            throw rule("PAID_CANCELLATION_NOT_ALLOWED",
+                    "Оплаченную доставку или выданный заказ необходимо урегулировать через соответствующий процесс");
+        }
+        var activePayment = payments.findActiveBySale(saleId)
+                .orElseThrow(() -> rule("SALE_NOT_PAID",
+                        "Активная оплата отсутствует — используйте обычную отмену"));
+        String paymentReason = "Отмена заказа: " + request.reason().name();
+        paymentService.cancel(activePayment.id(), new CancelPaymentRequest(paymentReason));
+        return cancelWithReason(saleId, request);
+    }
+
     @Transactional
     public SaleResponse cancelWithReason(UUID saleId, @Valid CancelSaleRequest request) {
         if (request == null || request.reason() == null) {
