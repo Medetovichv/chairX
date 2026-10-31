@@ -5,6 +5,7 @@ import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.payment.api.CreatePaymentRequest;
 import kg.chairx.payment.api.PaymentResponse;
 import kg.chairx.payment.application.PaymentService;
+import kg.chairx.payment.application.PickupCheckoutService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +18,11 @@ import java.util.UUID;
 public class PaymentController {
 
     private final PaymentService service;
+    private final PickupCheckoutService pickupCheckout;
 
-    public PaymentController(PaymentService service) {
+    public PaymentController(PaymentService service, PickupCheckoutService pickupCheckout) {
         this.service = service;
+        this.pickupCheckout = pickupCheckout;
     }
 
     @PostMapping
@@ -36,6 +39,11 @@ public class PaymentController {
                         )
                 )
                 .body(response);
+    }
+
+    @PostMapping("/pickup-checkout")
+    public PaymentResponse checkoutPickup(@Valid @RequestBody CreatePaymentRequest request) {
+        return pickupCheckout.checkout(request);
     }
 
     @GetMapping("/{id}")
