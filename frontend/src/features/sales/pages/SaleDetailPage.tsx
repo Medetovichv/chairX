@@ -535,9 +535,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           <p className="text-sm font-semibold text-slate-600">Первоначальная сумма товаров</p>
           <p className="text-2xl font-extrabold text-slate-950">{money(sale.total)}</p>
           {authoritative&&<div className="space-y-1 border-t border-slate-100 pt-3 text-sm">
-            <p>Доставка: <strong>{money(authoritative.deliveryCost??0)}</strong></p>
-            <p>Возвращено: <strong>{money(authoritative.refundedAmount??0)}</strong></p>
-            <p className="font-semibold">Итого после возвратов: {netSaleTotal(authoritative)===null?'Сумма требует проверки':money(netSaleTotal(authoritative)!)}</p>
+            <p>Доставка: <strong>{sale.fulfillmentType==='SELF_PICKUP'?money(0):authoritative.deliveryCost===undefined?'Данные недоступны':money(authoritative.deliveryCost)}</strong></p>
+            <p>Возвращено: <strong>{authoritative.refundedAmount===undefined?'Данные недоступны':money(authoritative.refundedAmount)}</strong></p>
+            <p className="font-semibold">Итого после возвратов: {authoritative.refundedAmount===undefined||
+              (sale.fulfillmentType!=='SELF_PICKUP'&&authoritative.deliveryCost===undefined)
+              ?'Ожидаются финансовые данные':netSaleTotal(authoritative)===null?'Сумма требует проверки':money(netSaleTotal(authoritative)!)}</p>
           </div>}
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
