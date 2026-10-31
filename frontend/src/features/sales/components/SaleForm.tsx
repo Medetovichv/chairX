@@ -37,8 +37,13 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     if(!deliveryPhoneEdited.current)
       setRecipientPhone(customer.data?.phone||customer.data?.whatsappPhone||'');
   },[customerId,customer.data]);
-  useEffect(()=>{deliveryPhoneEdited.current=false;},[customerId]);
+  useEffect(()=>{deliveryPhoneEdited.current=false;deliveryAddressEdited.current=false;},[customerId]);
+  useEffect(()=>{
+    if(!deliveryAddressEdited.current)setDeliveryAddress(customer.data?.address||'');
+    if(customer.data?.cityRegion)setDeliveryCity(existing=>existing||customer.data!.cityRegion||'');
+  },[customerId,customer.data]);
   const [deliveryAddress,setDeliveryAddress]=useState('');
+  const deliveryAddressEdited=useRef(false);
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
   const [plannedDeliveryDate,setPlannedDeliveryDate]=useState(bishkekToday);
@@ -131,7 +136,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
                 <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
-                  disabled={saving||blocked} onChange={e=>setDeliveryAddress(e.target.value)}
+                  disabled={saving||blocked} onChange={e=>{deliveryAddressEdited.current=true;setDeliveryAddress(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold">Город / регион
                 <input aria-label="Город доставки при создании продажи" maxLength={200} value={deliveryCity}
