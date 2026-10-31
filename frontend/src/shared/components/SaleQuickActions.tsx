@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { salesApi, salesKeys } from '../../features/sales/api';
+import { cancellationReasons, type CancellationReason } from '../../features/sales/cancellation-reasons';
 import { ApiClientError, userFacingApiError } from '../api/api-error';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { readSaleAction, saveSaleAction, clearSaleAction } from './pending-sale-action';
@@ -21,7 +22,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   const busyRef=useRef(false);
   const [busy,setBusy]=useState(false);
   const [intent,setIntent]=useState<Action|null>(null);
-  const [reason,setReason]=useState<''|'CUSTOMER_CHANGED_MIND'|'PRODUCT_NOT_SUITABLE'|'PRICE_NOT_ACCEPTABLE'|'DUPLICATE_ORDER'|'DELIVERY_UNAVAILABLE'|'OTHER'>('');
+  const [reason,setReason]=useState<CancellationReason | ''>('');
   const [comment,setComment]=useState('');
   const [stored]=useState(() => readSaleAction(user?.id, sale.id));
   const [unknown,setUnknown]=useState<Action|null>(stored.kind === 'pending' ? stored.action : null);
@@ -122,12 +123,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
           <select required aria-label="Причина отмены" value={reason} onChange={e=>setReason(e.target.value as typeof reason)}
             className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3">
             <option value="">Выберите причину</option>
-            <option value="CUSTOMER_CHANGED_MIND">Клиент передумал</option>
-            <option value="PRODUCT_NOT_SUITABLE">Товар не подошёл</option>
-            <option value="PRICE_NOT_ACCEPTABLE">Не устроила цена</option>
-            <option value="DUPLICATE_ORDER">Дублирующийся заказ</option>
-            <option value="DELIVERY_UNAVAILABLE">Не удалось организовать доставку</option>
-            <option value="OTHER">Другое</option>
+            {cancellationReasons.map(([code,label])=><option key={code} value={code}>{label}</option>)}
           </select>
         </label>
         <label className="block text-sm font-semibold">Комментарий (необязательно)
