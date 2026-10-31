@@ -113,7 +113,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       {children}
     </div>
     {canScrollDown && <button type="button" aria-label="Прокрутить панель вниз"
-      onClick={() => scrollRef.current?.scrollBy({ top: Math.max(320, scrollRef.current.clientHeight * 0.8), behavior: 'smooth' })}
+      onClick={() => { const node = scrollRef.current; if (node) node.scrollBy({ top: Math.max(320, node.clientHeight * 0.8), behavior: 'smooth' }); }}
       className="absolute bottom-4 right-5 z-20 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
       <ArrowDown aria-hidden="true" className="size-5"/>
     </button>}
