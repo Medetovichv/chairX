@@ -170,8 +170,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const canFulfill=isConfirmed&&sale.fulfillmentType==='SELF_PICKUP'&&hasPermission('SALES_UPDATE');
   // An already-paid order requires a financial reversal, not a direct sale cancellation.
   // The server remains authoritative and repeats this check under its sale lock.
-  const canCancel=hasPermission('SALES_CANCEL')&&matched?.paymentStatus!=='PAID'&&
-    (isDraft||isConfirmed&&sale.fulfillmentType==='SELF_PICKUP');
+  const canCancel=hasPermission('SALES_CANCEL')&&
+    (isDraft||isConfirmed&&sale.fulfillmentType==='SELF_PICKUP'&&
+      listed.isSuccess&&matched?.paymentStatus==='UNPAID');
   // A Kanban drop is only a REQUEST to use this existing confirmation flow.
   // The server's current sale is loaded before mounting this component;
   // explicit confirmation still triggers the pre-POST stale-data check.
