@@ -867,6 +867,35 @@ class SaleTests {
     }
 
     @Test
+    void paidUnfulfilledSaleCanBeCancelledOnlyAfterFinancialReversal() {
+        var sale = sales.create(request(UUID.randomUUID(), customer,
+                item(firstVariant, home, 1, "8500")));
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, "Оплата до отмены"));
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+
+        payments.cancel(payment.id(),
+                new kg.chairx.payment.api.CancelPaymentRequest("Отмена заказа клиентом"));
+        var cancelled = sales.cancelWithReason(sale.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "После аннулирования оплаты"));
+
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(
+                kg.chairx.payment.domain.PaymentStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+        assertThat(jdbc.queryForObject(
+                "select cancellation_reason from sales where id=?",
+                String.class, sale.id())).isEqualTo("CUSTOMER_CHANGED_MIND");
+    }
+
+    @Test
     void fulfillingSaleReleasesReservationAndCreatesSaleOut() {
         var sale = sales.create(
                 request(
