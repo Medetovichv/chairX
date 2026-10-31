@@ -375,6 +375,9 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         if (request == null || request.reason() == null) {
             throw new IllegalArgumentException("Необходимо выбрать причину отмены");
         }
+        if (request.comment() != null && request.comment().length() > 1000) {
+            throw new IllegalArgumentException("Комментарий отмены не может быть длиннее 1000 символов");
+        }
         Sale sale = lock(saleId);
         if (sale.status() == SaleStatus.CANCELLED) {
             return SaleMapper.toResponse(sale);
