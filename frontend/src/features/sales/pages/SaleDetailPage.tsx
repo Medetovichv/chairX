@@ -25,6 +25,7 @@ import { salesApi, salesKeys } from '../api';
 import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
+import { netSaleTotal } from '../components/SalesTable';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { SaleCommentsPanel } from '../components/SaleCommentsPanel';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
@@ -533,6 +534,11 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-sm font-semibold text-slate-600">Первоначальная сумма товаров</p>
           <p className="text-2xl font-extrabold text-slate-950">{money(sale.total)}</p>
+          {authoritative&&<div className="space-y-1 border-t border-slate-100 pt-3 text-sm">
+            <p>Доставка: <strong>{money(authoritative.deliveryCost??0)}</strong></p>
+            <p>Возвращено: <strong>{money(authoritative.refundedAmount??0)}</strong></p>
+            <p className="font-semibold">Итого после возвратов: {netSaleTotal(authoritative)===null?'Сумма требует проверки':money(netSaleTotal(authoritative)!)}</p>
+          </div>}
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
         </section>
