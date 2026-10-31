@@ -185,6 +185,22 @@ class SaleTests {
     }
 
     @Test
+    void reasonAwareDraftCancellationPersistsReasonAndComment() {
+        var created = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, null, List.of(), "Тест отмены"));
+        var cancelled = sales.cancelWithReason(created.id(),
+                new kg.chairx.sale.api.CancelSaleRequest(
+                        kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Покупатель изменил решение"));
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        var metadata = jdbc.queryForMap(
+                "select cancellation_reason, cancellation_comment from sales where id=?",
+                created.id());
+        assertThat(metadata.get("cancellation_reason")).isEqualTo("CUSTOMER_CHANGED_MIND");
+        assertThat(metadata.get("cancellation_comment")).isEqualTo("Покупатель изменил решение");
+    }
+
+    @Test
     void draftWithoutItemsDoesNotReserveStockAndCanBeCancelled() {
         long before = stockMovementCount();
         UUID key = UUID.randomUUID();
