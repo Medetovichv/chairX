@@ -551,6 +551,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           {!canManageDraft&&!canFulfill&&!canCancel&&
             <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
         </section>}
+        {hasPermission('SALES_CANCEL')&&matched?.paymentStatus==='PAID'&&sale.status==='CONFIRMED'&&
+          <p role="status" className="text-sm text-amber-800">Заказ оплачен. Прямая отмена недоступна: сначала оформите финансовое урегулирование платежа.</p>}
         {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
           <div role="status" className={paymentRequired?'rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950':'rounded-xl border border-slate-200 bg-white p-4 text-sm'}>
             <strong>{matched?.paymentStatus==='PAID'?'Оплата получена':
