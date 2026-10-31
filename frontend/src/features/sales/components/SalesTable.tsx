@@ -68,7 +68,7 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
         {integerSom(s.refundedAmount??0)!==null&&BigInt(integerSom(s.refundedAmount??0)!)>0n&&
           <p className="text-xs text-slate-600">Возвращено: −{money(s.refundedAmount!)}</p>}
         <p className="text-xs text-slate-600">Доставка: {money(s.deliveryCost??0)}</p>
-        <p>Статус оплаты: {s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus||'—'} · Статус доставки: {s.deliveryStatus==='DELIVERED'?'Доставлено':s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='READY'?'Готова к отправке':s.deliveryStatus||'—'}</p>
+        <p>Статус оплаты: {s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus==='UNPAID'?'Не оплачено':s.paymentStatus||'—'} · Статус доставки: {s.deliveryStatus==='DELIVERED'?'Доставлено':s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='READY'?'Готова к отправке':s.deliveryStatus||'—'}</p>
         {s.deliveryStatus&&<SaleDeliveryQuickActions saleId={s.id}/>}
         <p>{s.fulfillmentType?fulfillmentNames[s.fulfillmentType]:'Способ получения не указан'}
           {s.plannedDeliveryDate?' · План: '+s.plannedDeliveryDate:''}</p>
