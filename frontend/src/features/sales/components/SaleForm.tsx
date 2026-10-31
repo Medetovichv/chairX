@@ -30,6 +30,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const withDelivery=!initial&&type!==null&&type!=='SELF_PICKUP'&&canInlineDelivery;
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
+  const [searchedCustomerPhone,setSearchedCustomerPhone]=useState('');
   const deliveryPhoneEdited=useRef(false);
   const customer=useQuery({queryKey:customerId?customerKeys.detail(customerId):['customers','none'],
     queryFn:()=>customersApi.get(customerId!),enabled:!!customerId&&hasPermission('CUSTOMERS_READ')});
@@ -37,11 +38,14 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     // Reset manual overrides before applying data for a newly selected client.
     deliveryPhoneEdited.current=false;
     deliveryAddressEdited.current=false;
-    setRecipientPhone('');
+    setRecipientPhone(customerId ? '' : searchedCustomerPhone);
     setRecipientName('');
     setDeliveryAddress('');
     setDeliveryCity('');
   },[customerId]);
+  useEffect(()=>{
+    if(!customerId && !deliveryPhoneEdited.current && searchedCustomerPhone) setRecipientPhone(searchedCustomerPhone);
+  },[customerId,searchedCustomerPhone]);
   useEffect(()=>{
     if(!deliveryPhoneEdited.current && customer.data?.id===customerId) {
       setRecipientPhone(customer.data.phone||customer.data.whatsappPhone||'');
@@ -113,7 +117,9 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       <div className="min-w-0 space-y-5">
         <section aria-label="Этап 1. Клиент" className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="text-lg font-bold text-slate-950">1. Клиент</h3>
-          <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
+          <CustomerPicker value={customerId} onChange={setCustomerId}
+            onSearchChange={value=>{const normalized=value.trim();setSearchedCustomerPhone(/^\+?[0-9\s()-]{5,50}$/.test(normalized)?normalized:'');}}
+            disabled={saving||blocked}/>
         </section>
         <section aria-label="Этап 2. Товары" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="mb-4 text-lg font-bold text-slate-950">2. Выбор кресел</h3>
