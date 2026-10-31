@@ -535,9 +535,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
         </section>
-        {(canManageDraft||canConfirm||canFulfill||canCancel)&&<section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="font-bold">Действия</h3>
-    <div className="flex flex-col gap-2 [&_button]:w-full">
+        {(canManageDraft||canConfirm||canFulfill||canCancel)&&<div aria-label="Управление заказом" className="flex flex-wrap gap-2 [&_button]:min-h-10">
       {canManageDraft&&!unknownAction&&!draftUncertain&&
         <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
       {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
@@ -546,11 +544,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
       {canCancel&&!unknownAction&&<Button disabled={busy}
         variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
-    </div>
-
-          {!canManageDraft&&!canFulfill&&!canCancel&&
-            <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
-        </section>}
+        </div>}
         {hasPermission('SALES_CANCEL')&&matched?.paymentStatus==='PAID'&&sale.status==='CONFIRMED'&&
           <p role="status" className="text-sm text-amber-800">Заказ оплачен. Прямая отмена недоступна: сначала оформите финансовое урегулирование платежа.</p>}
         {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
