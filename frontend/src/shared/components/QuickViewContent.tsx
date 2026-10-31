@@ -58,6 +58,9 @@ export function SaleQuickView({ id }: { id: string }) {
   const markDirty = useQuickViewDirty();
   const [saveError, setSaveError] = useState('');
   const detail = useQuery({ queryKey: salesKeys.detail(id), queryFn: () => salesApi.get(id) });
+  const relatedDelivery = useQuery({queryKey:deliveryKeys.bySale(id), queryFn:()=>deliveryApi.bySale(id),
+    enabled:hasPermission('DELIVERIES_READ')&&detail.data?.fulfillmentType!== 'SELF_PICKUP'&&!!detail.data?.fulfillmentType,
+    retry:false});
   if (detail.isPending) return <LoadingState label="Загружаем продажу…"/>;
   if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()}/>;
   const sale = detail.data;
@@ -100,6 +103,17 @@ export function SaleQuickView({ id }: { id: string }) {
         }
       }}/></div>}
       {!editing && <SaleQuickActions sale={sale}/>}
+      {sale.fulfillmentType!=='SELF_PICKUP'&&relatedDelivery.data&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
+        <h3 className="font-semibold">Управление доставкой</h3>
+        <p className="text-sm text-slate-600">{relatedDelivery.data.address} · {relatedDelivery.data.recipientPhone}</p>
+        <DeliveryActions delivery={relatedDelivery.data} onChanged={async updated=>{
+          queryClient.setQueryData(deliveryKeys.detail(updated.id),updated);
+          queryClient.setQueryData(deliveryKeys.bySale(id),updated);
+          await Promise.all([queryClient.invalidateQueries({queryKey:deliveryKeys.lists}),
+            queryClient.invalidateQueries({queryKey:salesKeys.detail(id)}),
+            queryClient.invalidateQueries({queryKey:salesKeys.lists})]);
+        }}/>
+      </section>}
       <Link className="inline-flex rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium text-blue-800" to={'/sales/' + encodeURIComponent(id)}>Открыть полную страницу продажи и оплату</Link>
       <SaleCommentsPanel saleId={id}/>
     </div>
