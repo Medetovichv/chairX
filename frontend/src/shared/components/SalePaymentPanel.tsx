@@ -15,12 +15,13 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
   const [unknown,setUnknown]=useState(false);
   const [error,setError]=useState('');
   const pending=useRef(false);
+  const [submitted,setSubmitted]=useState(false);
   const payments=useQuery({queryKey:['payments','sale',sale.id],
     queryFn:()=>apiClient.get<Payment[]>('/api/payments/sale/'+encodeURIComponent(sale.id)),
     enabled:hasPermission('PAYMENTS_READ')||hasPermission('PAYMENTS_CREATE')});
   const active=payments.data?.find(p=>p.status==='PAID');
   async function register() {
-    if(pending.current||unknown||active||sale.status==='DRAFT')return;
+    if(pending.current||unknown||active||submitted||sale.status!=='CONFIRMED')return;
     pending.current=true;setBusy(true);setError('');
     try {
       // Re-read before a non-idempotent POST. A failed response may still have committed.
@@ -30,7 +31,10 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
         await payments.refetch();return;
       }
       await apiClient.post('/api/payments',{saleId:sale.id,method,reference:null,comment:null,channel:null});
-      await Promise.all([payments.refetch(),client.invalidateQueries({queryKey:salesKeys.detail(sale.id)}),
+      setSubmitted(true);
+      // A successful POST is authoritative; cache refresh errors must not
+      // trigger another non-idempotent payment request.
+      void Promise.allSettled([payments.refetch(),client.invalidateQueries({queryKey:salesKeys.detail(sale.id)}),
         client.invalidateQueries({queryKey:salesKeys.lists})]);
     } catch {
       setUnknown(true);
@@ -52,13 +56,17 @@ export function SalePaymentPanel({sale}:{sale:SaleResponse}) {
             <option value="CASH">Наличные</option><option value="TRANSFER">Перевод</option>
           </select>
         </label>
-        <button type="button" disabled={busy||unknown||payments.isPending||payments.isError}
+        <button type="button" disabled={busy||unknown||submitted||payments.isPending||payments.isError}
           onClick={()=>void register()} className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white disabled:opacity-50">
           {busy?'Сохраняем…':'Подтвердить получение оплаты'}
         </button>
       </div>}
     {unknown&&<button type="button" className="rounded-lg border px-3 py-2 text-sm"
-      onClick={async()=>{await payments.refetch();setError('Проверьте результат по списку оплат. Повторная запись заблокирована.');}}>
+      onClick={async()=>{try {const refreshed=await apiClient.get<Payment[]>('/api/payments/sale/'+encodeURIComponent(sale.id));
+        client.setQueryData(['payments','sale',sale.id],refreshed);
+        if(refreshed.some(p=>p.status==='PAID')) {setUnknown(false);setSubmitted(true);setError('Оплата подтверждена сервером.');}
+        else setError('Оплата не подтверждена. Повторная отправка заблокирована до ручной проверки.');
+      }catch {setError('Проверка не удалась. Повторная отправка заблокирована.');}}}>
       Проверить оплату
     </button>}
   </section>;
