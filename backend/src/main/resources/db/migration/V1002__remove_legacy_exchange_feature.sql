@@ -1,0 +1,72 @@
+-- All pre-launch Exchange records are test-only; remove the retired feature.
+-- Reverse only journal rows originally posted by legacy exchange settlements.
+-- Any account that cannot be reconciled non-negatively aborts this migration.
+WITH reversed AS (
+    SELECT account_code, COALESCE(SUM(amount), 0) AS amount
+    FROM finance_movements
+    WHERE source_type = 'EXCHANGE_SETTLEMENT'
+    GROUP BY account_code
+)
+UPDATE finance_accounts a
+SET balance = a.balance - reversed.amount
+FROM reversed
+WHERE a.code = reversed.account_code;
+
+DELETE FROM finance_movements
+WHERE source_type = 'EXCHANGE_SETTLEMENT';
+
+-- The original diagnostic view references the table being removed.
+CREATE OR REPLACE VIEW finance_document_posting_issues AS
+WITH expected AS (
+    SELECT 'PAYMENT'::varchar AS document_source,
+           p.id AS document_id,
+           (CASE WHEN p.method = 'CASH' THEN 'CASH' ELSE 'BANK' END)::varchar AS account_code,
+           'SALE_PAYMENT'::varchar AS movement_type,
+           'PAYMENT'::varchar AS movement_source,
+           p.amount AS expected_amount
+    FROM payments p WHERE p.amount > 0
+    UNION ALL
+    SELECT 'PAYMENT_REVERSAL', p.id,
+           CASE WHEN p.method = 'CASH' THEN 'CASH' ELSE 'BANK' END,
+           'PAYMENT_REVERSAL', 'PAYMENT_REVERSAL', -p.amount
+    FROM payments p WHERE p.status = 'CANCELLED' AND p.amount > 0
+    UNION ALL
+    SELECT 'REFUND', r.id,
+           CASE WHEN r.method = 'CASH' THEN 'CASH' ELSE 'BANK' END,
+           'CUSTOMER_REFUND', 'REFUND', -r.amount
+    FROM refunds r WHERE r.amount > 0
+    UNION ALL
+    SELECT 'EXPENSE', e.id, e.payment_method, 'EXPENSE', 'EXPENSE', -e.amount
+    FROM expenses e WHERE e.amount > 0
+    UNION ALL
+    SELECT 'PURCHASE_PAYMENT', pp.id, pp.account_code,
+           'PURCHASE_PAYMENT', 'PURCHASE_PAYMENT', -pp.amount
+    FROM purchase_payments pp WHERE pp.amount > 0
+)
+SELECT e.document_source, e.document_id, e.account_code,
+       e.movement_type, e.expected_amount,
+       COALESCE(j.posted_amount, 0)::numeric(19,2) AS posted_amount,
+       CASE WHEN j.entry_count IS NULL THEN 'MISSING'
+            ELSE 'AMOUNT_MISMATCH' END::varchar AS problem
+FROM expected e
+LEFT JOIN LATERAL (
+    SELECT SUM(m.amount) AS posted_amount, COUNT(*) AS entry_count
+    FROM finance_movements m
+    WHERE m.source_type = e.movement_source
+      AND m.source_id = e.document_id
+      AND m.account_code = e.account_code
+      AND m.movement_type = e.movement_type
+    HAVING COUNT(*) > 0
+) j ON TRUE
+WHERE j.entry_count IS NULL OR j.posted_amount <> e.expected_amount;
+
+-- Remove role grants before removing permission definitions.
+DELETE FROM security_role_permissions
+WHERE permission_code IN ('EXCHANGES_READ','EXCHANGES_CREATE','EXCHANGES_SETTLE');
+DELETE FROM security_permissions
+WHERE code IN ('EXCHANGES_READ','EXCHANGES_CREATE','EXCHANGES_SETTLE');
+
+-- Remove the legacy data and schemas completely. Restrict (no CASCADE)
+-- intentionally fails the migration if an unhandled dependent object remains.
+DROP TABLE exchange_settlements;
+DROP TABLE exchanges;

@@ -172,17 +172,10 @@ class FinanceReturnReconciliationTest {
         assertThat(affected.orElseThrow().costComplete()).isFalse();
         assertThat(affected.orElseThrow().grossProfit()).isNull();
     }
-    @Test void exchangedChairRecognizesOldReturnAndNewSaleOnlyOnce(){
+    @Test void returnedChairAndIndependentReplacementSaleRecognizedOnce(){
         var original=sold("2024-01-15",1000,600);
-        UUID returned=returned(original,"2024-02-05",true);
+        returned(original,"2024-02-05",true);
         var replacement=sold("2024-02-10",800,500);
-        jdbc.update("""
-            INSERT INTO exchanges(id,original_sale_id,new_sale_id,return_id,status,returned_value,
-                new_sale_total,credit_applied,additional_payment_due,refund_due,
-                idempotency_key,request_fingerprint,created_by,created_at)
-            VALUES (?,?,?,?,'PENDING_SETTLEMENT',1000,800,800,0,200,?,?,'accountant',?)
-            """,UUID.randomUUID(),original.id(),replacement.id(),returned,
-               UUID.randomUUID(),"a".repeat(64),Timestamp.valueOf("2024-02-10 11:00:00"));
         var february=profit.calculate(LocalDate.parse("2024-02-01"),LocalDate.parse("2024-03-01"));
         assertThat(february.grossRevenue()).isEqualByComparingTo("800");
         assertThat(february.returnedRevenue()).isEqualByComparingTo("1000");

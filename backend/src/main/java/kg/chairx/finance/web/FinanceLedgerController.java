@@ -56,7 +56,6 @@ public class FinanceLedgerController {
                 LEFT JOIN payments reversed_pay ON fm.source_type = 'PAYMENT_REVERSAL' AND reversed_pay.id=fm.source_id
                 LEFT JOIN sales reversed_sale ON reversed_sale.id=reversed_pay.sale_id
                 LEFT JOIN refunds refund ON fm.source_type = 'REFUND' AND refund.id=fm.source_id
-                LEFT JOIN exchange_settlements settlement ON fm.source_type = 'EXCHANGE_SETTLEMENT' AND settlement.id=fm.source_id
                 LEFT JOIN expenses expense ON fm.source_type = 'EXPENSE' AND expense.id=fm.source_id
                 LEFT JOIN finance_transfers transfer_doc ON fm.source_type = 'TRANSFER' AND transfer_doc.id=fm.source_id
                 LEFT JOIN finance_admin_adjustments adjust_doc ON fm.source_type = 'ADMIN_BALANCE_ADJUSTMENT' AND adjust_doc.id=fm.source_id
@@ -93,14 +92,13 @@ public class FinanceLedgerController {
                     CASE WHEN sale.id IS NOT NULL OR reversed_sale.id IS NOT NULL THEN 'SALE' 
                          WHEN pur.id IS NOT NULL THEN 'PURCHASE'
                          WHEN refund.id IS NOT NULL THEN 'REFUND'
-                         WHEN settlement.id IS NOT NULL THEN 'EXCHANGE'
                          WHEN expense.id IS NOT NULL THEN 'EXPENSE'
                          WHEN transfer_doc.id IS NOT NULL THEN 'TRANSFER'
                          WHEN adjust_doc.id IS NOT NULL THEN 'ADMIN_ADJUSTMENT'
                          WHEN fm.source_type='OPENING_BALANCE' THEN 'OPENING_BALANCE'
                          ELSE NULL END AS document_kind,
-                    COALESCE(sale.id,reversed_sale.id,pur.id,refund.id,settlement.exchange_id,expense.id,transfer_doc.id,adjust_doc.id,CASE WHEN fm.source_type='OPENING_BALANCE' THEN fm.source_id END) AS document_id,
-                    CASE WHEN sale.id IS NOT NULL THEN sale.sale_number WHEN reversed_sale.id IS NOT NULL THEN reversed_sale.sale_number WHEN pur.id IS NOT NULL THEN supplier.name WHEN refund.id IS NOT NULL THEN 'Возврат денег по продаже' WHEN settlement.id IS NOT NULL THEN 'Расчёт по обмену' WHEN expense.id IS NOT NULL THEN expense.category WHEN transfer_doc.id IS NOT NULL THEN 'Перевод между счетами' WHEN adjust_doc.id IS NOT NULL THEN 'Корректировка остатка' WHEN fm.source_type='OPENING_BALANCE' THEN 'Начальный остаток' ELSE NULL END AS document_label
+                    COALESCE(sale.id,reversed_sale.id,pur.id,refund.id,expense.id,transfer_doc.id,adjust_doc.id,CASE WHEN fm.source_type='OPENING_BALANCE' THEN fm.source_id END) AS document_id,
+                    CASE WHEN sale.id IS NOT NULL THEN sale.sale_number WHEN reversed_sale.id IS NOT NULL THEN reversed_sale.sale_number WHEN pur.id IS NOT NULL THEN supplier.name WHEN refund.id IS NOT NULL THEN 'Возврат денег по продаже' WHEN expense.id IS NOT NULL THEN expense.category WHEN transfer_doc.id IS NOT NULL THEN 'Перевод между счетами' WHEN adjust_doc.id IS NOT NULL THEN 'Корректировка остатка' WHEN fm.source_type='OPENING_BALANCE' THEN 'Начальный остаток' ELSE NULL END AS document_label
              """+clause+" ORDER BY "+order+" LIMIT :limit OFFSET :offset")
              .param("from",java.sql.Timestamp.from(start)).param("to",java.sql.Timestamp.from(end))
              .param("account",account==null?"":account).param("kind",movementType==null?"":movementType)

@@ -42,12 +42,6 @@ class CashFlowServiceTests {
         when(repository.refunds(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
 
-        when(repository.exchangePayments(FROM, TO))
-                .thenReturn(new BigDecimal("5000"));
-
-        when(repository.exchangeRefunds(FROM, TO))
-                .thenReturn(new BigDecimal("2000"));
-
         when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("30000"));
@@ -61,13 +55,13 @@ class CashFlowServiceTests {
                 .isEqualByComparingTo("30000");
 
         assertThat(result.totalIn())
-                .isEqualByComparingTo("205000");
+                .isEqualByComparingTo("200000");
 
         assertThat(result.totalOut())
-                .isEqualByComparingTo("47000");
+                .isEqualByComparingTo("45000");
 
         assertThat(result.netCashFlow())
-                .isEqualByComparingTo("158000");
+                .isEqualByComparingTo("155000");
     }
 
     @Test
@@ -75,8 +69,6 @@ class CashFlowServiceTests {
         when(repository.payments(FROM, TO)).thenReturn(new BigDecimal("20000"));
         when(repository.paymentCorrections(FROM, TO)).thenReturn(new BigDecimal("5000"));
         when(repository.refunds(FROM, TO)).thenReturn(new BigDecimal("3000"));
-        when(repository.exchangePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
-        when(repository.exchangeRefunds(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO)).thenReturn(new BigDecimal("2000"));
 
@@ -100,12 +92,6 @@ class CashFlowServiceTests {
         when(repository.refunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
-        when(repository.exchangePayments(FROM, TO))
-                .thenReturn(BigDecimal.ZERO);
-
-        when(repository.exchangeRefunds(FROM, TO))
-                .thenReturn(BigDecimal.ZERO);
-
         when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);
         when(repository.operatingExpenses(FROM, TO))
                 .thenReturn(new BigDecimal("15000"));
@@ -124,12 +110,6 @@ class CashFlowServiceTests {
                 .thenReturn(BigDecimal.ZERO);
 
         when(repository.refunds(FROM, TO))
-                .thenReturn(BigDecimal.ZERO);
-
-        when(repository.exchangePayments(FROM, TO))
-                .thenReturn(BigDecimal.ZERO);
-
-        when(repository.exchangeRefunds(FROM, TO))
                 .thenReturn(BigDecimal.ZERO);
 
         when(repository.purchasePayments(FROM, TO)).thenReturn(BigDecimal.ZERO);

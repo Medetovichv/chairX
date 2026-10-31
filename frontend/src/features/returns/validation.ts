@@ -1,5 +1,5 @@
 import type { Money } from '../sales/types';
-import type { ReturnInput,ExchangeInput,OpenDefectInput,DefectStatus } from './types';
+import type { ReturnInput,OpenDefectInput,DefectStatus } from './types';
 export const uuid=(s:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 export const positive=(s:string)=>/^[1-9]\d*$/.test(s)&&Number.isSafeInteger(Number(s));
 export const integerPrice=(s:string)=>/^(0|[1-9]\d{0,18})$/.test(s);
@@ -21,19 +21,6 @@ export function validateReturn(x:ReturnInput):string|null{
  }
  if(!x.reason.trim()||x.reason.length>500)return 'Причина обязательна (максимум 500 символов).';
  if((x.comment?.length??0)>1000)return 'Комментарий не более 1000 символов.';
- return null;
-}
-export function validateExchange(x:ExchangeInput):string|null{
- if(!uuid(x.idempotencyKey)||!uuid(x.returnId))return 'Выберите существующий возврат.';
- if(!['SELF_PICKUP','CITY_DELIVERY','REGION_DELIVERY'].includes(x.fulfillmentType))return 'Выберите способ получения.';
- if(!x.items.length)return 'Добавьте товар для обмена.';
- const set=new Set<string>();
- for(const i of x.items){
-  if(!uuid(i.productVariantId)||!uuid(i.warehouseId)||!Number.isSafeInteger(i.quantity)||i.quantity<1||!integerPrice(i.unitSalePrice))return 'Проверьте вариацию, склад, целое количество и цену в сомах.';
-  const key=i.productVariantId+':'+i.warehouseId;
-  if(set.has(key))return 'Объедините одинаковые вариации с одного склада.';
-  set.add(key);
- }
  return null;
 }
 export function validateDefect(x:OpenDefectInput):string|null{

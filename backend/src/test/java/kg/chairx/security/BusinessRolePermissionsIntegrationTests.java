@@ -85,7 +85,7 @@ class BusinessRolePermissionsIntegrationTests {
                 Long.class)).isEqualTo(1);
 
         for(String permission : new String[]{"PURCHASE_PAYMENTS_CREATE",
-                "REFUNDS_CREATE","PAYMENTS_CANCEL","EXCHANGES_SETTLE",
+                "REFUNDS_CREATE","PAYMENTS_CANCEL",
                 "DEFECTS_WRITE_OFF","FINANCE_CLOSE","FINANCE_TRANSFER",
                 "FINANCE_INITIALIZE","USERS_CREATE","ROLES_ASSIGN"}) {
             assertRolePermission(ADMIN,permission,true);

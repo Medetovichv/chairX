@@ -4,7 +4,6 @@ import kg.chairx.finance.application.FinancePostingService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import kg.chairx.audit.AuditService;
-import kg.chairx.exchange.infrastructure.ExchangeRepository;
 import kg.chairx.payment.application.PaymentBalanceService;
 import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.refund.api.CreateRefundRequest;
@@ -39,7 +38,6 @@ public class RefundService {
     private final PaymentBalanceService paymentBalanceService;
     private final ReturnRepository returns;
     private final SaleRepository sales;
-    private final ExchangeRepository exchanges;
     private final AuditService audit;
 
     public RefundService(
@@ -49,7 +47,6 @@ public class RefundService {
             PaymentBalanceService paymentBalanceService,
             ReturnRepository returns,
             SaleRepository sales,
-            ExchangeRepository exchanges,
             AuditService audit
     ) {
         this.finance = finance;
@@ -58,7 +55,6 @@ public class RefundService {
         this.paymentBalanceService = paymentBalanceService;
         this.returns = returns;
         this.sales = sales;
-        this.exchanges = exchanges;
         this.audit = audit;
     }
 
@@ -111,12 +107,6 @@ public class RefundService {
                 );
             }
 
-            if (exchanges.existsByReturn(request.returnId())) {
-                throw rule(
-                        "RETURN_ALREADY_EXCHANGED",
-                        "Этот возврат товара уже использован для обмена"
-                );
-            }
 
             // Calculate the maximum compensation from the original sale
             // prices, never the current catalog price or inventory cost.

@@ -9,8 +9,6 @@ public record CashFlowSummaryResponse(
         BigDecimal payments,
         BigDecimal paymentCorrections,
         BigDecimal refunds,
-        BigDecimal exchangePayments,
-        BigDecimal exchangeRefunds,
         BigDecimal operatingExpenses,
         BigDecimal purchasePayments,
         BigDecimal totalIn,

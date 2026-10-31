@@ -58,19 +58,15 @@ class CashFlowIntegrationTests {
     void calculatesAllFinancialOperationsFromJournal() {
         post("SALE_PAYMENT", "PAYMENT", "200000", "2026-10-10T12:00:00Z");
         post("CUSTOMER_REFUND", "REFUND", "-15000", "2026-10-12T12:00:00Z");
-        post("SALE_PAYMENT", "EXCHANGE_SETTLEMENT", "5000", "2026-10-15T12:00:00Z");
-        post("CUSTOMER_REFUND", "EXCHANGE_SETTLEMENT", "-2000", "2026-10-16T12:00:00Z");
         post("EXPENSE", "EXPENSE", "-30000", "2026-10-20T12:00:00Z");
 
         var result = service.summary(OCTOBER_START, NOVEMBER_START);
         assertThat(result.payments()).isEqualByComparingTo("200000");
         assertThat(result.refunds()).isEqualByComparingTo("15000");
-        assertThat(result.exchangePayments()).isEqualByComparingTo("5000");
-        assertThat(result.exchangeRefunds()).isEqualByComparingTo("2000");
         assertThat(result.operatingExpenses()).isEqualByComparingTo("30000");
-        assertThat(result.totalIn()).isEqualByComparingTo("205000");
-        assertThat(result.totalOut()).isEqualByComparingTo("47000");
-        assertThat(result.netCashFlow()).isEqualByComparingTo("158000");
+        assertThat(result.totalIn()).isEqualByComparingTo("200000");
+        assertThat(result.totalOut()).isEqualByComparingTo("45000");
+        assertThat(result.netCashFlow()).isEqualByComparingTo("155000");
     }
 
     @Test

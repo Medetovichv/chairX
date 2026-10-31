@@ -3,7 +3,6 @@ package kg.chairx.payment.application;
 import kg.chairx.finance.application.FinancePostingService;
 import jakarta.validation.Valid;
 import kg.chairx.audit.AuditService;
-import kg.chairx.exchange.infrastructure.ExchangeRepository;
 import kg.chairx.delivery.persistence.DeliveryRepository;
 import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.payment.api.CreatePaymentRequest;
@@ -37,7 +36,6 @@ public class PaymentService {
     private final SaleRepository sales;
     private final RefundRepository refunds;
     private final DeliveryRepository deliveries;
-    private final ExchangeRepository exchanges;
     private final AuditService audit;
 
     public PaymentService(
@@ -46,7 +44,6 @@ public class PaymentService {
             SaleRepository sales,
             RefundRepository refunds,
             DeliveryRepository deliveries,
-            ExchangeRepository exchanges,
             AuditService audit
     ) {
         this.finance = finance;
@@ -54,7 +51,6 @@ public class PaymentService {
         this.sales = sales;
         this.refunds = refunds;
         this.deliveries = deliveries;
-        this.exchanges = exchanges;
         this.audit = audit;
     }
 
@@ -65,25 +61,6 @@ public class PaymentService {
         // Блокируем продажу для синхронизации операций оплаты.
         Sale sale = sales.lock(request.saleId())
                 .orElseThrow(SaleNotFoundException::new);
-
-        /*
-         * Новая продажа, созданная через Exchange,
-         * уже имеет финансовый зачёт стоимости
-         * возвращённого товара.
-         *
-         * Доплата или возврат разницы должны проходить
-         * исключительно через ExchangeSettlementService.
-         *
-         * Обычная оплата полной стоимости запрещена.
-         */
-        if (exchanges.existsByNewSale(sale.id())) {
-            throw rule(
-                    "EXCHANGE_SALE_PAYMENT_FORBIDDEN",
-                    "Эта продажа создана через обмен. "
-                            + "Доплату необходимо зарегистрировать "
-                            + "через финансовые расчёты Exchange"
-            );
-        }
 
         if (sale.status() == SaleStatus.CANCELLED) {
             throw rule(
@@ -221,13 +198,7 @@ public class PaymentService {
             );
         }
 
-        if (exchanges.existsByOriginalSale(payment.saleId())) {
-            throw rule(
-                    "PAYMENT_HAS_EXCHANGES",
-                    "Нельзя аннулировать оплату, "
-                            + "использованную при обмене"
-            );
-        }
+
 
         PaymentResponse before =
                 PaymentMapper.toResponse(payment);

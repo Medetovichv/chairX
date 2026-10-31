@@ -80,8 +80,6 @@ class ProductPersistenceTests {
                         "returns",
                         "return_items",
                         "refunds",
-                        "exchanges",
-                        "exchange_settlements",
                         "expenses",
                         "finance_accounts",
                         "finance_movements",
