@@ -718,6 +718,15 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     expect(screen.getByRole('region', {name:'Связанная доставка'})).toBeInTheDocument();
     expect(api.count()).toMatchObject({fulfills:0,cancels:0});
   });
+  it('shows compact order controls without the redundant actions card',async()=>{
+    mockBackend({sales:[sale('DRAFT')]});
+    renderAt('/sales/'+SALE_ID);
+    await screen.findByRole('heading',{name:'Продажа #42'});
+    const controls=screen.getByLabelText('Управление заказом');
+    expect(within(controls).getByRole('button',{name:'Редактировать черновик'})).toBeInTheDocument();
+    expect(within(controls).getByRole('button',{name:'Отменить заказ'})).toBeInTheDocument();
+    expect(screen.queryByRole('region',{name:'Действия с заказом'})).not.toBeInTheDocument();
+  });
   it('cancels DRAFT only with confirmation; cannot edit FULFILLED',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
     renderAt('/sales/'+SALE_ID);
