@@ -372,6 +372,18 @@ describe('F07 DTOs, validation and server sales list',()=>{
   });
 });
 describe('F07 creation and idempotent drafts',()=>{
+  it('copies a newly typed customer phone into city-delivery phone without selecting a customer',async()=>{
+    mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Поиск клиента для продажи'}),
+      {target:{value:'+996700123456'}});
+    fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
+      {target:{value:'CITY_DELIVERY'}});
+    await waitFor(()=>expect(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'}))
+      .toHaveValue('+996700123456'));
+  });
+
   it('employee delivery mode shows address, phone and one sale comment without an extra checkbox',async()=>{
     granted.permissions.push('DELIVERIES_CREATE');
     mockBackend({sales:[]});
