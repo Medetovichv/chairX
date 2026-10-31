@@ -10,7 +10,9 @@ export function netSaleTotal(s:SaleSummary): string | null {
   const delivery=integerSom(s.deliveryCost??0);
   const refunded=integerSom(s.refundedAmount??0);
   if(goods===null||delivery===null||refunded===null)return null;
-  return (BigInt(goods)+BigInt(delivery)-BigInt(refunded)).toString();
+  const net=BigInt(goods)+BigInt(delivery)-BigInt(refunded);
+  // Inconsistent imported/refund records must not be displayed as a negative sale.
+  return net<0n?null:net.toString();
 }
 export function SalesTable({rows}: {rows:SaleSummary[]}) {
   return <section aria-label="Таблица продаж" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
