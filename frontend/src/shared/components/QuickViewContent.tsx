@@ -71,7 +71,9 @@ export function SaleQuickView({ id }: { id: string }) {
       <Field label="Заказ" value={sale.saleNumber}/>
       <Field label="Статус" value={saleStatusNames[sale.status]}/>
       <Field label="Создан" value={new Date(sale.createdAt).toLocaleString('ru-RU')}/>
-      <Field label="Сумма заказа" value={money(sale.total)}/>
+      <Field label="Стоимость товаров" value={money(sale.total)}/>
+      {relatedDelivery.data&&<Field label="Доставка" value={money(relatedDelivery.data.deliveryCost)}/>}
+      {relatedDelivery.data&&<div className="border-b border-slate-100 py-3"><dt className="text-xs font-medium text-slate-500">К оплате с доставкой</dt><dd className="mt-1 text-lg font-bold text-blue-700">{money((Number(sale.total)+Number(relatedDelivery.data.deliveryCost)).toFixed(2))}</dd></div>}
       <Field label="Получение" value={sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:null}/>
     </Section>
     <section><h3 className="mb-2 font-semibold">Позиции заказа</h3>
