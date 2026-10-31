@@ -23,6 +23,8 @@ describe('SalePaymentPanel duplicate-payment protection',()=>{
     view();
     expect(await screen.findByText(/Оплачено:/)).toBeTruthy();
     expect(screen.queryByRole('button',{name:'Подтвердить получение оплаты'})).toBeNull();
+    expect(screen.queryByRole('combobox',{name:'Способ оплаты'})).toBeNull();
+    expect(screen.queryByRole('textbox',{name:/референс|комментарий/i})).toBeNull();
     expect(api.post).not.toHaveBeenCalled();
   });
   it('registers once and disables the action after server success',async()=>{
