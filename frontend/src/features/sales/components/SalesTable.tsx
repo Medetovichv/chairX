@@ -1,16 +1,23 @@
 import { Link } from 'react-router';
 import { SaleStatusBadge } from './SaleStatusBadge';
 import { SaleDeliveryQuickActions } from './SaleDeliveryQuickActions';
-import { money, saleDate, fulfillmentNames } from '../validation';
+import { money, saleDate, fulfillmentNames, integerSom } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { SaleSummary } from '../types';
 
+function netSaleTotal(s:SaleSummary): string | null {
+  const goods=integerSom(s.total);
+  const delivery=integerSom(s.deliveryCost??0);
+  const refunded=integerSom(s.refundedAmount??0);
+  if(goods===null||delivery===null||refunded===null)return null;
+  return (BigInt(goods)+BigInt(delivery)-BigInt(refunded)).toString();
+}
 export function SalesTable({rows}: {rows:SaleSummary[]}) {
   return <section aria-label="Таблица продаж" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
     <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-slate-50">
-          <tr>{['Заказ','Дата','Клиент / WhatsApp','Адрес доставки','Товары','Шт.','Сумма','Статус продажи','Статус оплаты','Статус доставки'].map(h=>
+          <tr>{['Заказ','Дата','Клиент / WhatsApp','Адрес доставки','Товары','Шт.','Сумма после возвратов','Доставка','Статус продажи','Статус оплаты','Статус доставки'].map(h=>
             <th key={h} scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600">{h}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-100">{rows.map(s=>
@@ -26,7 +33,9 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             <td className="max-w-52 break-words px-3 py-3 text-slate-700">{s.deliveryAddress||'—'}</td>
             <td className="max-w-64 break-words px-3 py-3">{s.products||'—'}</td>
             <td className="px-3 py-3">{s.quantity}</td>
-            <td className="whitespace-nowrap px-3 py-3 font-semibold">{money(s.total)}</td>
+            <td className="whitespace-nowrap px-3 py-3 font-semibold">{netSaleTotal(s)===null?money(s.total):money(netSaleTotal(s)!)}
+              {integerSom(s.refundedAmount??0)!==null&&BigInt(integerSom(s.refundedAmount??0)!)>0n&&<div className="text-xs font-normal text-slate-600">Возвращено: −{money(s.refundedAmount!)}</div>}</td>
+            <td className="whitespace-nowrap px-3 py-3">{money(s.deliveryCost??0)}</td>
             <td className="px-3 py-3"><SaleStatusBadge status={s.status}/>
               {(s.returnedQuantity??0)>0&&<p className="mt-1 inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900" aria-label="Возврат по продаже">
                 {(s.returnedQuantity??0)>=s.quantity?'Возвращено полностью':'Частичный возврат'} · {s.returnedQuantity} шт.
