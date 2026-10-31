@@ -1,4 +1,6 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { customersApi, customerKeys } from '../../customers/api';
 import { useAuth } from '../../auth/AuthProvider';
 import { userFacingApiError } from '../../../shared/api/api-error';
 import { Button } from '../../../shared/ui/button';
@@ -28,6 +30,14 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const withDelivery=!initial&&type!==null&&type!=='SELF_PICKUP'&&canInlineDelivery;
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
+  const deliveryPhoneEdited=useRef(false);
+  const customer=useQuery({queryKey:customerId?customerKeys.detail(customerId):['customers','none'],
+    queryFn:()=>customersApi.get(customerId!),enabled:!!customerId&&hasPermission('CUSTOMERS_READ')});
+  useEffect(()=>{
+    if(!deliveryPhoneEdited.current)
+      setRecipientPhone(customer.data?.phone||customer.data?.whatsappPhone||'');
+  },[customerId,customer.data]);
+  useEffect(()=>{deliveryPhoneEdited.current=false;},[customerId]);
   const [deliveryAddress,setDeliveryAddress]=useState('');
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
@@ -117,7 +127,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold">Телефон *
                 <input aria-label="Телефон доставки при создании продажи" maxLength={50} value={recipientPhone}
-                  disabled={saving||blocked} onChange={e=>setRecipientPhone(e.target.value)}
+                  disabled={saving||blocked} onChange={e=>{deliveryPhoneEdited.current=true;setRecipientPhone(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
                 <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
