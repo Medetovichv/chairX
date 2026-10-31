@@ -18,8 +18,8 @@ function display(customer:Customer):string {
   return customer.fullName?.trim() || customer.phone || customer.whatsappPhone ||
     (customer.instagramUsername ? '@'+customer.instagramUsername : '') || 'Клиент без имени';
 }
-export function CustomerPicker({value,onChange,disabled=false}:{
-  value:string|null;onChange:(id:string|null)=>void;disabled?:boolean;
+export function CustomerPicker({value,onChange,onSearchChange,disabled=false}:{
+  value:string|null;onChange:(id:string|null)=>void;onSearchChange?:(value:string)=>void;disabled?:boolean;
 }) {
   const {hasPermission}=useAuth();
   const queryClient=useQueryClient();
@@ -91,7 +91,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       <label className="block space-y-2 text-sm font-semibold">Найти клиента
         <Input type="search" aria-label="Поиск клиента для продажи" value={search}
           disabled={disabled} maxLength={200} placeholder="Имя, телефон или WhatsApp (от 2 символов)"
-          onChange={e=>setSearch(e.target.value)} />
+          onChange={e=>{setSearch(e.target.value);onSearchChange?.(e.target.value);}} />
       </label>
       {current.isError&&value&&<ErrorState title="Не удалось загрузить выбранного клиента"
         error={current.error} onRetry={()=>void current.refetch()}/>}
