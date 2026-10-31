@@ -64,7 +64,10 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
         <p>{s.customerName||'Без имени'} · {s.customerPhone||'Номер не указан'} · {saleDate(s.createdAt)}</p>
         {s.deliveryAddress&&<p className="break-words font-medium text-slate-800">Адрес: {s.deliveryAddress}</p>}
         <p className="break-words text-slate-600">{s.products||'Товары не указаны'}</p>
-        <p>Шт.: {s.quantity} · <strong>{money(s.total)}</strong></p>
+        <p>Шт.: {s.quantity} · Итого после возвратов: <strong>{netSaleTotal(s)===null?'Сумма недоступна':money(netSaleTotal(s)!)}</strong></p>
+        {integerSom(s.refundedAmount??0)!==null&&BigInt(integerSom(s.refundedAmount??0)!)>0n&&
+          <p className="text-xs text-slate-600">Возвращено: −{money(s.refundedAmount!)}</p>}
+        <p className="text-xs text-slate-600">Доставка: {money(s.deliveryCost??0)}</p>
         <p>Статус оплаты: {s.paymentStatus==='PAID'?'Оплачено':s.paymentStatus==='PARTIAL'?'Частично оплачено':s.paymentStatus||'—'} · Статус доставки: {s.deliveryStatus==='DELIVERED'?'Доставлено':s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='READY'?'Готова к отправке':s.deliveryStatus||'—'}</p>
         {s.deliveryStatus&&<SaleDeliveryQuickActions saleId={s.id}/>}
         <p>{s.fulfillmentType?fulfillmentNames[s.fulfillmentType]:'Способ получения не указан'}
