@@ -26,21 +26,13 @@ import { saleStatisticsKeys } from '../statistics';
 import { SaleStatusBadge } from '../components/SaleStatusBadge';
 import { SaleForm } from '../components/SaleForm';
 import { netSaleTotal } from '../components/SalesTable';
+import { cancellationReasons, type CancellationReason } from '../cancellation-reasons';
 import { SaleFinancialSection } from '../../finance/components/SaleFinancialSection';
 import { SaleCommentsPanel } from '../components/SaleCommentsPanel';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 
-const cancelReasons = [
-  ['CUSTOMER_CHANGED_MIND','Клиент передумал'],
-  ['PRODUCT_NOT_SUITABLE','Товар не подошёл'],
-  ['PRICE_NOT_ACCEPTABLE','Не устроила цена'],
-  ['DUPLICATE_ORDER','Дублирующийся заказ'],
-  ['DELIVERY_UNAVAILABLE','Не удалось организовать доставку'],
-  ['OTHER','Другое'],
-] as const;
-type CancelReason = (typeof cancelReasons)[number][0];
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
   DRAFT_CREATED:'Черновик создан',
@@ -170,7 +162,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [draftUncertain,setDraftUncertain]=useState(false);
   const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
-  const [cancelReason,setCancelReason]=useState<CancelReason | ''>('');
+  const [cancelReason,setCancellationReason]=useState<CancellationReason | ''>('');
   const [cancelComment,setCancelComment]=useState('');
   const [unknownAction,setUnknownAction]=useState<Action|null>(null);
   const [busy,setBusy]=useState(false);
@@ -330,7 +322,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       }
       // A 200 is not assumed until the backend returns an authoritative SaleResponse.
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
-        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id,{reason:cancelReason as CancelReason,comment:cancelComment.trim()||null}));
+        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id,{reason:cancelReason as CancellationReason,comment:cancelComment.trim()||null}));
       await changed(next);
       setNotice(value==='confirm'?'Заказ подтверждён.':
         value==='fulfill'?'Продажа выполнена.':'Заказ отменён.');
@@ -595,10 +587,10 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       {action==='cancel'&&<div className="mt-4 space-y-3">
         <label className="block text-sm font-semibold">Причина отмены *
           <select aria-label="Причина отмены" required value={cancelReason}
-            onChange={event=>setCancelReason(event.target.value as CancelReason | '')}
+            onChange={event=>setCancellationReason(event.target.value as CancellationReason | '')}
             className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3">
             <option value="">Выберите причину</option>
-            {cancelReasons.map(([code,label])=><option key={code} value={code}>{label}</option>)}
+            {cancellationReasons.map(([code,label])=><option key={code} value={code}>{label}</option>)}
           </select>
         </label>
         <label className="block text-sm font-semibold">Комментарий (необязательно)
