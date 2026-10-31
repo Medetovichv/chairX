@@ -531,7 +531,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       </div>
       <aside aria-label="Итог и действия по заказу" className="min-w-0 space-y-4 self-start">
         <section aria-label="Итог продажи" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-600">Сумма заказа</p>
+          <p className="text-sm font-semibold text-slate-600">Первоначальная сумма товаров</p>
           <p className="text-2xl font-extrabold text-slate-950">{money(sale.total)}</p>
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
