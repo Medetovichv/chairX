@@ -31,6 +31,9 @@ class CustomerTests {
     CustomerService customers;
 
     @Autowired
+    kg.chairx.customer.application.CustomerAddressService addresses;
+
+    @Autowired
     JdbcTemplate jdbc;
 
     @BeforeEach
@@ -42,6 +45,22 @@ class CustomerTests {
     @AfterEach
     void cleanup() {
         reset();
+    }
+
+    @Test
+    void additionalAddressesRemainIndependentFromPrimaryAndDoNotDuplicate() {
+        var customer=customers.create(request("Азамат","0555123456",null,null,
+                null,"Дом, Ахунбаева 45","Бишкек",null));
+        var saved=addresses.add(customer.id(),
+                new kg.chairx.customer.application.CustomerAddressService.AddressInput(
+                        "Офис, Киевская 120","Бишкек"));
+        var again=addresses.add(customer.id(),
+                new kg.chairx.customer.application.CustomerAddressService.AddressInput(
+                        "Офис, Киевская 120","Бишкек"));
+        assertThat(again.id()).isEqualTo(saved.id());
+        assertThat(addresses.list(customer.id())).hasSize(1);
+        assertThat(customers.get(customer.id()).address()).isEqualTo("Дом, Ахунбаева 45");
+        assertThat(customers.get(customer.id()).cityRegion()).isEqualTo("Бишкек");
     }
 
     @Test
