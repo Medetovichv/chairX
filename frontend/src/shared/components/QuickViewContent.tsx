@@ -58,6 +58,8 @@ export function SaleQuickView({ id }: { id: string }) {
   const [editing, setEditing] = useState(false);
   const markDirty = useQuickViewDirty();
   const [saveError, setSaveError] = useState('');
+  const [addressNotice,setAddressNotice] = useState('');
+  const [savingAddress,setSavingAddress] = useState(false);
   const detail = useQuery({ queryKey: salesKeys.detail(id), queryFn: () => salesApi.get(id) });
   const relatedDelivery = useQuery({queryKey:deliveryKeys.bySale(id), queryFn:()=>deliveryApi.bySale(id),
     enabled:hasPermission('DELIVERIES_READ')&&detail.data?.fulfillmentType!== 'SELF_PICKUP'&&!!detail.data?.fulfillmentType,
@@ -105,6 +107,18 @@ export function SaleQuickView({ id }: { id: string }) {
           throw cause;
         }
       }}/></div>}
+      {sale.customerId&&relatedDelivery.data&&hasPermission('CUSTOMERS_MANAGE')&&<div className="space-y-2 rounded-xl border border-slate-200 p-3">
+        <p className="text-sm text-slate-600">Адрес доставки: {relatedDelivery.data.address}</p>
+        <button type="button" disabled={savingAddress} className="rounded-lg border border-blue-300 px-3 py-2 text-sm text-blue-700 disabled:opacity-50"
+          onClick={async()=>{setSavingAddress(true);setAddressNotice('');
+            try {await customersApi.addAddress(sale.customerId!,relatedDelivery.data!.address,relatedDelivery.data!.cityRegion);
+              await queryClient.invalidateQueries({queryKey:['customers','addresses',sale.customerId]});
+              setAddressNotice('Адрес сохранён в карточке клиента.');}
+            catch {setAddressNotice('Не удалось сохранить адрес. Доставка не изменена.');}
+            finally {setSavingAddress(false);}
+          }}>Сохранить адрес клиенту</button>
+        {addressNotice&&<p role="status" className="text-sm text-slate-700">{addressNotice}</p>}
+      </div>}
       {!editing && <SaleQuickActions sale={sale}/>}
       {!editing && <SalePaymentPanel sale={sale}/> }
       {sale.fulfillmentType!=='SELF_PICKUP'&&relatedDelivery.data&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
