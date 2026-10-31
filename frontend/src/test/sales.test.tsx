@@ -313,7 +313,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     renderAt();
     expect(await screen.findByText(/Всего продаж: 22/)).toBeInTheDocument();
     expect(screen.getAllByText('Не оплачено').length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/17\s?000,00 сом/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/17[\s\u00a0]?000(?:,00)? сом/).length).toBeGreaterThan(0);
     expect(screen.queryByText('Себестоимость')).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button',{name:'Следующая'}));
     expect(await screen.findByText(/Страница 2 из 2/)).toBeInTheDocument();
