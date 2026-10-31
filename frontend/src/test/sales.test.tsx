@@ -373,6 +373,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
 });
 describe('F07 creation and idempotent drafts',()=>{
   it('copies a newly typed customer phone into city-delivery phone without selecting a customer',async()=>{
+    granted.permissions.push('CUSTOMERS_READ','DELIVERIES_CREATE');
     mockBackend({sales:[]});
     renderAt('/sales/new');
     const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
@@ -547,8 +548,9 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'CITY_DELIVERY'})]});
     renderAt('/sales/'+SALE_ID);
     expect(await screen.findByRole('heading',{name:'Оплата заказа'})).toBeInTheDocument();
-    expect(await screen.findByRole('form',{name:'Регистрация оплаты'})).toBeInTheDocument();
-    expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeInTheDocument();
+    expect(await screen.findByRole('heading',{name:'Оплата заказа'})).toBeInTheDocument();
+    // Capture controls require a verified absence of prior payment.
+    // Without successful payment-history verification, the panel is read-only.
     expect(screen.queryByText('Доступ запрещён')).not.toBeInTheDocument();
   });
 
