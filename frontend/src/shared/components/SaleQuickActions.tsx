@@ -21,6 +21,8 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   const busyRef=useRef(false);
   const [busy,setBusy]=useState(false);
   const [intent,setIntent]=useState<Action|null>(null);
+  const [reason,setReason]=useState<''|'CUSTOMER_CHANGED_MIND'|'PRODUCT_NOT_SUITABLE'|'PRICE_NOT_ACCEPTABLE'|'DUPLICATE_ORDER'|'DELIVERY_UNAVAILABLE'|'OTHER'>('');
+  const [comment,setComment]=useState('');
   const [stored]=useState(() => readSaleAction(user?.id, sale.id));
   const [unknown,setUnknown]=useState<Action|null>(stored.kind === 'pending' ? stored.action : null);
   const [invalid,setInvalid]=useState(stored.kind === 'invalid');
@@ -40,7 +42,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     ]);
   }
   async function execute(action:Action) {
-    if(busyRef.current||unknown||invalid)return;
+    if(busyRef.current||unknown||invalid||(action==='cancel'&&!reason))return;
     busyRef.current=true;setBusy(true);setError('');
     let sent=false;
     try {
@@ -57,7 +59,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       }
       sent=true;
       const result=action==='confirm'?await salesApi.confirm(sale.id):
-        action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancel(sale.id);
+        action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancel(sale.id,{reason:reason as Exclude<typeof reason,''>,comment:comment.trim()||null});
       sent=false; // A successful API response is authoritative: cache invalidation is not a second mutation.
       if(!clearSaleAction(user.id, sale.id)) {
         setInvalid(true);
@@ -112,7 +114,26 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     <ConfirmDialog open={!!intent} onOpenChange={open=>{if(!open)setIntent(null);}}
       title={intent==='confirm'?'Подтвердить заказ?':intent==='fulfill'?'Выдать товар?':'Отменить заказ?'}
       description={'Заказ '+sale.saleNumber+', '+sale.items.length+' позиций, сумма '+sale.total+' сом. Проверьте данные: операция изменит складской учёт.'}
-      busy={busy} destructive={intent==='cancel'} confirmLabel="Подтвердить"
-      onConfirm={()=>{if(intent)void execute(intent);}}/>
+      busy={busy} destructive={intent==='cancel'} confirmDisabled={intent==='cancel'&&!reason} confirmLabel="Подтвердить"
+      onConfirm={()=>{if(intent)void execute(intent);}}>
+      {intent==='cancel'&&<div className="mt-4 space-y-3">
+        <label className="block text-sm font-semibold">Причина отмены *
+          <select required aria-label="Причина отмены" value={reason} onChange={e=>setReason(e.target.value as typeof reason)}
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3">
+            <option value="">Выберите причину</option>
+            <option value="CUSTOMER_CHANGED_MIND">Клиент передумал</option>
+            <option value="PRODUCT_NOT_SUITABLE">Товар не подошёл</option>
+            <option value="PRICE_NOT_ACCEPTABLE">Не устроила цена</option>
+            <option value="DUPLICATE_ORDER">Дублирующийся заказ</option>
+            <option value="DELIVERY_UNAVAILABLE">Не удалось организовать доставку</option>
+            <option value="OTHER">Другое</option>
+          </select>
+        </label>
+        <label className="block text-sm font-semibold">Комментарий (необязательно)
+          <textarea aria-label="Комментарий отмены" maxLength={1000} value={comment}
+            onChange={e=>setComment(e.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3"/>
+        </label>
+      </div>}
+    </ConfirmDialog>
   </section>;
 }
