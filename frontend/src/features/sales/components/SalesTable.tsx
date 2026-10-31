@@ -35,7 +35,7 @@ export function SalesTable({rows}: {rows:SaleSummary[]}) {
             <td className="max-w-52 break-words px-3 py-3 text-slate-700">{s.deliveryAddress||'—'}</td>
             <td className="max-w-64 break-words px-3 py-3">{s.products||'—'}</td>
             <td className="px-3 py-3">{s.quantity}</td>
-            <td className="whitespace-nowrap px-3 py-3 font-semibold">{netSaleTotal(s)===null?money(s.total):money(netSaleTotal(s)!)}
+            <td className="whitespace-nowrap px-3 py-3 font-semibold">{netSaleTotal(s)===null?'Сумма требует проверки':money(netSaleTotal(s)!)}
               {integerSom(s.refundedAmount??0)!==null&&BigInt(integerSom(s.refundedAmount??0)!)>0n&&<div className="text-xs font-normal text-slate-600">Возвращено: −{money(s.refundedAmount!)}</div>}</td>
             <td className="whitespace-nowrap px-3 py-3">{money(s.deliveryCost??0)}</td>
             <td className="px-3 py-3"><SaleStatusBadge status={s.status}/>
