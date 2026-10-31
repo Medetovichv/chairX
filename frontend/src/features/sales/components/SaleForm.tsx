@@ -46,6 +46,8 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const deliveryAddressEdited=useRef(false);
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
+  const savedAddresses=useQuery({queryKey:['customers','addresses',customerId],
+    queryFn:()=>customersApi.addresses(customerId!),enabled:!!customerId&&withDelivery&&hasPermission('CUSTOMERS_READ')});
   const [plannedDeliveryDate,setPlannedDeliveryDate]=useState(bishkekToday);
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
@@ -134,6 +136,16 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Телефон доставки при создании продажи" maxLength={50} value={recipientPhone}
                   disabled={saving||blocked} onChange={e=>{deliveryPhoneEdited.current=true;setRecipientPhone(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              {customerId&&savedAddresses.data&&savedAddresses.data.length>0&&<label className="space-y-1 text-sm font-semibold sm:col-span-2">
+                Сохранённые адреса клиента
+                <select aria-label="Выбрать сохранённый адрес" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"
+                  disabled={saving||blocked} defaultValue=""
+                  onChange={e=>{const selected=savedAddresses.data?.find(a=>a.id===e.target.value);
+                    if(selected){deliveryAddressEdited.current=true;setDeliveryAddress(selected.address);setDeliveryCity(selected.cityRegion??'');}}}>
+                  <option value="">Ввести новый адрес или выбрать ранее сохранённый</option>
+                  {savedAddresses.data.map(a=><option key={a.id} value={a.id}>{a.address}{a.cityRegion?' — '+a.cityRegion:''}</option>)}
+                </select>
+              </label>}
               <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
                 <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
                   disabled={saving||blocked} onChange={e=>{deliveryAddressEdited.current=true;setDeliveryAddress(e.target.value);}}
