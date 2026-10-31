@@ -34,12 +34,22 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const customer=useQuery({queryKey:customerId?customerKeys.detail(customerId):['customers','none'],
     queryFn:()=>customersApi.get(customerId!),enabled:!!customerId&&hasPermission('CUSTOMERS_READ')});
   useEffect(()=>{
-    if(!deliveryPhoneEdited.current)
-      setRecipientPhone(customer.data?.phone||customer.data?.whatsappPhone||'');
-  },[customerId,customer.data]);
-  useEffect(()=>{deliveryPhoneEdited.current=false;deliveryAddressEdited.current=false;},[customerId]);
+    // Reset manual overrides before applying data for a newly selected client.
+    deliveryPhoneEdited.current=false;
+    deliveryAddressEdited.current=false;
+    setRecipientPhone('');
+    setRecipientName('');
+    setDeliveryAddress('');
+    setDeliveryCity('');
+  },[customerId]);
   useEffect(()=>{
-    if(!deliveryAddressEdited.current)setDeliveryAddress(customer.data?.address||'');
+    if(!deliveryPhoneEdited.current && customer.data?.id===customerId) {
+      setRecipientPhone(customer.data.phone||customer.data.whatsappPhone||'');
+      setRecipientName(customer.data.fullName||'');
+    }
+  },[customerId,customer.data]);
+  useEffect(()=>{
+    if(!deliveryAddressEdited.current&&customer.data?.id===customerId)setDeliveryAddress(customer.data.address||'');
     if(customer.data?.cityRegion)setDeliveryCity(existing=>existing||customer.data!.cityRegion||'');
   },[customerId,customer.data]);
   const [deliveryAddress,setDeliveryAddress]=useState('');
