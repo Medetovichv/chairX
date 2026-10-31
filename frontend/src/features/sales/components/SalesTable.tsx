@@ -5,7 +5,7 @@ import { money, saleDate, fulfillmentNames, integerSom } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { SaleSummary } from '../types';
 
-function netSaleTotal(s:SaleSummary): string | null {
+export function netSaleTotal(s:SaleSummary): string | null {
   const goods=integerSom(s.total);
   const delivery=integerSom(s.deliveryCost??0);
   const refunded=integerSom(s.refundedAmount??0);
