@@ -16,8 +16,19 @@ public record SaleSummary(
         long quantity, String products, String paymentStatus,
         DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate,
         String customerPhone, String deliveryAddress,
-        long returnedQuantity
+        long returnedQuantity, BigDecimal deliveryCost, BigDecimal refundedAmount
 ) {
+    public SaleSummary(UUID id, String saleNumber, Instant createdAt,
+                       UUID customerId, String customerName, BigDecimal total,
+                       SaleStatus status, FulfillmentType fulfillmentType,
+                       long quantity, String products, String paymentStatus,
+                       DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate,
+                       String customerPhone, String deliveryAddress, long returnedQuantity) {
+        this(id,saleNumber,createdAt,customerId,customerName,total,status,fulfillmentType,
+                quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate,
+                customerPhone,deliveryAddress,returnedQuantity,BigDecimal.ZERO,BigDecimal.ZERO);
+    }
+
     public SaleSummary(UUID id, String saleNumber, Instant createdAt,
                        UUID customerId, String customerName, BigDecimal total,
                        SaleStatus status, FulfillmentType fulfillmentType,
@@ -26,7 +37,7 @@ public record SaleSummary(
                        String customerPhone, String deliveryAddress) {
         this(id,saleNumber,createdAt,customerId,customerName,total,status,fulfillmentType,
                 quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate,
-                customerPhone,deliveryAddress,0);
+                customerPhone,deliveryAddress,0,BigDecimal.ZERO,BigDecimal.ZERO);
     }
 
     public SaleSummary(UUID id, String saleNumber, Instant createdAt,
@@ -35,13 +46,13 @@ public record SaleSummary(
                        long quantity, String products, String paymentStatus,
                        DeliveryStatus deliveryStatus, LocalDate plannedDeliveryDate) {
         this(id,saleNumber,createdAt,customerId,customerName,total,status,fulfillmentType,
-                quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate,null,null,0);
+                quantity,products,paymentStatus,deliveryStatus,plannedDeliveryDate,null,null,0,BigDecimal.ZERO,BigDecimal.ZERO);
     }
 
     public SaleSummary(UUID id, String saleNumber, Instant createdAt,
                        UUID customerId, String customerName, BigDecimal total,
                        SaleStatus status, FulfillmentType fulfillmentType) {
         this(id, saleNumber, createdAt, customerId, customerName, total,
-                status, fulfillmentType, 0, null, null, null, null, null, null, 0);
+                status, fulfillmentType, 0, null, null, null, null, null, null, 0,BigDecimal.ZERO,BigDecimal.ZERO);
     }
 }
