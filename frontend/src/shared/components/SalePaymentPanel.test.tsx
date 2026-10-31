@@ -16,6 +16,12 @@ function view() {
   const queryClient=new QueryClient({defaultOptions:{queries:{retry:false}}});
   return render(<QueryClientProvider client={queryClient}><SalePaymentPanel sale={sale}/></QueryClientProvider>);
 }
+function viewFulfilled() {
+  const queryClient=new QueryClient({defaultOptions:{queries:{retry:false}}});
+  return render(<QueryClientProvider client={queryClient}>
+    <SalePaymentPanel sale={{...sale,status:'FULFILLED',fulfillmentType:'CITY_DELIVERY'} as SaleResponse}/>
+  </QueryClientProvider>);
+}
 describe('SalePaymentPanel duplicate-payment protection',()=>{
   beforeEach(()=>{api.get.mockReset();api.post.mockReset();});
   it('shows an existing payment without exposing a duplicate registration',async()=>{
@@ -37,6 +43,11 @@ describe('SalePaymentPanel duplicate-payment protection',()=>{
     await waitFor(()=>expect(button.hasAttribute('disabled')).toBe(true));
     await userEvent.setup().click(button);
     expect(api.post).toHaveBeenCalledTimes(1);
+  });
+  it('keeps payment registration visible after delivery was fulfilled but remains unpaid',async()=>{
+    api.get.mockResolvedValue([]);
+    viewFulfilled();
+    expect(await screen.findByRole('button',{name:'Подтвердить получение оплаты'})).toBeTruthy();
   });
   it('does not retry a payment automatically after the response is lost',async()=>{
     api.get.mockResolvedValue([]);
