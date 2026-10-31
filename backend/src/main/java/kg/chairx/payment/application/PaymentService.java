@@ -13,6 +13,8 @@ import kg.chairx.payment.domain.PaymentChannel;
 import kg.chairx.payment.persistence.PaymentRepository;
 import kg.chairx.refund.persistence.RefundRepository;
 import kg.chairx.sale.application.SaleNotFoundException;
+import kg.chairx.sale.application.SaleService;
+import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.Sale;
 import kg.chairx.sale.domain.SaleStatus;
 import kg.chairx.sale.persistence.SaleRepository;
@@ -37,6 +39,7 @@ public class PaymentService {
     private final RefundRepository refunds;
     private final DeliveryRepository deliveries;
     private final AuditService audit;
+    private final SaleService saleService;
 
     public PaymentService(
             FinancePostingService finance,
@@ -44,7 +47,8 @@ public class PaymentService {
             SaleRepository sales,
             RefundRepository refunds,
             DeliveryRepository deliveries,
-            AuditService audit
+            AuditService audit,
+            SaleService saleService
     ) {
         this.finance = finance;
         this.repository = repository;
@@ -52,6 +56,7 @@ public class PaymentService {
         this.refunds = refunds;
         this.deliveries = deliveries;
         this.audit = audit;
+        this.saleService = saleService;
     }
 
     @Transactional
@@ -146,6 +151,14 @@ public class PaymentService {
                 null,
                 result
         );
+
+        // For pickup, successful full payment and physical handover are one
+        // checkout transaction. SaleService posts FIFO stock-out and closes
+        // the sale inside the same transaction; any failure rolls back payment.
+        if (sale.fulfillmentType() == FulfillmentType.SELF_PICKUP
+                && sale.status() == SaleStatus.CONFIRMED) {
+            saleService.fulfill(sale.id());
+        }
 
         return result;
     }
