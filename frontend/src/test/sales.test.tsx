@@ -757,7 +757,11 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Отменить заказ'}));
     expect(api.count().cancels).toBe(0);
-    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Отменить заказ'}));
+    const dialog=screen.getByRole('alertdialog');
+    expect(within(dialog).getByRole('button',{name:'Отменить заказ'})).toBeDisabled();
+    await userEvent.setup().selectOptions(within(dialog).getByRole('combobox',{name:'Причина отмены'}),'CUSTOMER_CHANGED_MIND');
+    await userEvent.setup().type(within(dialog).getByRole('textbox',{name:'Комментарий отмены'}),'Клиент изменил решение');
+    await userEvent.setup().click(within(dialog).getByRole('button',{name:'Отменить заказ'}));
     expect(await screen.findByText('Заказ отменён.')).toBeInTheDocument();
     expect(api.count().cancels).toBe(1);
     expect(screen.queryByRole('button',{name:'Редактировать черновик'})).not.toBeInTheDocument();
