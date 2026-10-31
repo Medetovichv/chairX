@@ -8,6 +8,7 @@ import { authSession } from '../features/auth/session';
 import { createQueryClient } from '../shared/api/query';
 import { readPendingDraft } from '../features/sales/pending-draft';
 import { checkDraft, saleStatuses, salePriceValid } from '../features/sales/validation';
+import { netSaleTotal } from '../features/sales/components/SalesTable';
 import type { SaleResponse, SaleSummary, SaleStatus, CreateDraftInput } from '../features/sales/types';
 
 const granted=vi.hoisted(()=>({
@@ -56,6 +57,19 @@ function summary(s:SaleResponse):SaleSummary {
     products:s.items.length?'Ergo Comfort / Чёрный':'',
     paymentStatus:'UNPAID',deliveryStatus:null,plannedDeliveryDate:null};
 }
+describe('net sale amount after posted refunds',()=>{
+  it('subtracts partial refund from goods plus delivery while preserving original sale',()=>{
+    const original=summary(sale('FULFILLED'));
+    const result={...original,deliveryCost:'500.00',refundedAmount:'8500.00'};
+    expect(netSaleTotal(result)).toBe('9000');
+    expect(original.total).toBe('17000.00');
+  });
+  it('handles full refund and rejects invalid money values',()=>{
+    const original=summary(sale('FULFILLED'));
+    expect(netSaleTotal({...original,deliveryCost:'500.00',refundedAmount:'17500.00'})).toBe('0');
+    expect(netSaleTotal({...original,refundedAmount:'invalid'})).toBeNull();
+  });
+});
 function mockBackend(options:{
   sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
   draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
