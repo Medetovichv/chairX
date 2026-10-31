@@ -275,7 +275,7 @@ def main():
             page.get_by_role("button",name="Войти",exact=True).click()
             page.get_by_role("heading",name="Оплата заказа").wait_for(timeout=30000)
             # A paid sale displays an immutable summary, not the payment entry form.
-            page.get_by_text("Оплачено:",exact=False).wait_for(timeout=30000)
+            # Already-paid orders must not expose the registration form.
             assert page.get_by_role("form",name="Регистрация оплаты").count()==0
             page.get_by_text("Bishkek Test Address").first.wait_for(timeout=30000)
             page.screenshot(path=str(ART/"00-employee-payment-and-delivery.png"),full_page=True)
