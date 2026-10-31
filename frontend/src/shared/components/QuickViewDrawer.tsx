@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, UNSAFE_DataRouterContext, useBlocker } from 'react-router';
-import { ArrowLeft, ExternalLink, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ExternalLink, X } from 'lucide-react';
 
 const DirtyContext = createContext<(dirty: boolean) => void>(() => {});
 export const useQuickViewDirty = () => useContext(DirtyContext);
@@ -49,6 +49,21 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
   const guardedClose = () => { if (allowLeave()) { setDirty(false); onClose(); } };
   const guardedMove = (action?: () => void) => { if (action && allowLeave()) { setDirty(false); action(); } };
   const closeRef = useRef<HTMLButtonElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+  const updateScrollState = () => {
+    const node = scrollRef.current;
+    if (node) setCanScrollDown(node.scrollTop + node.clientHeight < node.scrollHeight - 24);
+  };
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return;
+    updateScrollState();
+    const observer = new ResizeObserver(updateScrollState);
+    observer.observe(node);
+    for (const child of node.children) observer.observe(child);
+    return () => observer.disconnect();
+  }, [children]);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
     previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -92,8 +107,14 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
         <ExternalLink className="size-4" aria-hidden="true"/><span className="hidden sm:inline">{creating ? "Открыть отдельно" : "Полная страница"}</span>
       </Link>
     </header>
-    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+    <div ref={scrollRef} data-quick-view-scroll onScroll={updateScrollState} tabIndex={0} aria-label="Прокручиваемое содержимое панели"
+      className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-auto scroll-smooth [scrollbar-gutter:stable] [touch-action:pan-y] p-4 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-5 sm:pb-20">
       {children}
     </div>
+    {canScrollDown && <button type="button" aria-label="Прокрутить панель вниз"
+      onClick={() => scrollRef.current?.scrollBy({ top: Math.max(320, scrollRef.current.clientHeight * 0.8), behavior: 'smooth' })}
+      className="absolute bottom-4 right-5 z-20 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
+      <ArrowDown aria-hidden="true" className="size-5"/>
+    </button>}
   </aside></LeaveContext.Provider></DirtyContext.Provider>;
 }
