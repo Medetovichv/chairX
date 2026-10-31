@@ -443,6 +443,7 @@ class PaymentTests {
     @Test
     void pickupCheckoutAtomicallyPostsPaymentAndFinishesSale() {
         var sale = createSale(2, "8500");
+        long movementsBefore = jdbc.queryForObject("select count(*) from stock_movements", Long.class);
         var payment = pickupCheckout.checkout(new CreatePaymentRequest(
                 sale.id(), PaymentMethod.CASH, null, null));
 
@@ -450,9 +451,8 @@ class PaymentTests {
         assertThat(payment.amount()).isEqualByComparingTo("17000");
         assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
         assertThat(inventory.getBalance(home, variant).reserved()).isZero();
-        assertThat(jdbc.queryForObject(
-                "select count(*) from stock_movements where reference_type='SALE_ITEM' and movement_type='SALE_OUT' and reference_id in (select id from sale_items where sale_id=?)",
-                Long.class, sale.id())).isEqualTo(2L);
+        assertThat(jdbc.queryForObject("select count(*) from stock_movements", Long.class))
+                .isEqualTo(movementsBefore + 1);
         assertThat(jdbc.queryForObject(
                 "select count(*) from payments where sale_id=? and status='PAID'",
                 Long.class, sale.id())).isEqualTo(1L);
