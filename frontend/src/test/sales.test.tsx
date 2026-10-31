@@ -68,6 +68,7 @@ describe('net sale amount after posted refunds',()=>{
     const original=summary(sale('FULFILLED'));
     expect(netSaleTotal({...original,deliveryCost:'500.00',refundedAmount:'17500.00'})).toBe('0');
     expect(netSaleTotal({...original,refundedAmount:'invalid'})).toBeNull();
+    expect(netSaleTotal({...original,deliveryCost:'500.00',refundedAmount:'18000.00'})).toBeNull();
   });
 });
 function mockBackend(options:{
