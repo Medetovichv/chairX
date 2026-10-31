@@ -456,6 +456,11 @@ class PaymentTests {
         assertThat(jdbc.queryForObject(
                 "select count(*) from payments where sale_id=? and status='PAID'",
                 Long.class, sale.id())).isEqualTo(1L);
+        assertThatThrownBy(() -> payments.cancel(payment.id(),
+                new CancelPaymentRequest("Ошибочная оплата после выдачи")))
+                .isInstanceOfSatisfying(PaymentRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("FULFILLED_PICKUP_REQUIRES_RETURN"));
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.PAID);
     }
 
     @Test
