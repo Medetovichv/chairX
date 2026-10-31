@@ -44,6 +44,20 @@ describe('QuickViewDrawer navigation', () => {
     expect(screen.getByRole('button', { name: 'Предыдущая запись' }).hasAttribute('disabled')).toBe(true);
     unmount();
   });
+  it('keeps the entire right panel as an independently scrollable keyboard-accessible region', () => {
+    const { container, unmount } = render(<MemoryRouter>
+      <QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}}>
+        <div style={{ height: 2000 }}>Длинная форма</div>
+      </QuickViewDrawer>
+    </MemoryRouter>);
+    const region = container.querySelector('[data-quick-view-scroll]');
+    expect(region).not.toBeNull();
+    expect(region?.className).toContain('overflow-y-auto');
+    expect(region?.className).toContain('overscroll-y-auto');
+    expect(region?.getAttribute('tabindex')).toBe('0');
+    expect(region?.className).toContain('scrollbar-gutter:stable');
+    unmount();
+  });
   it('closes on Escape when clean', () => {
     const close = vi.fn();
     const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={close}><Editor/></QuickViewDrawer></MemoryRouter>);
