@@ -533,7 +533,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
           <SaleStatusBadge status={sale.status}/>
           <p className="text-sm text-slate-600">Оплата: {paymentStatus}</p>
         </section>
-        <section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+        {(canManageDraft||canConfirm||canFulfill||canCancel)&&<section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="font-bold">Действия</h3>
     <div className="flex flex-col gap-2 [&_button]:w-full">
       {canManageDraft&&!unknownAction&&!draftUncertain&&
@@ -548,7 +548,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
 
           {!canManageDraft&&!canFulfill&&!canCancel&&
             <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
-        </section>
+        </section>}
         {(sale.status==='CONFIRMED'||sale.status==='FULFILLED')&&
           <div role="status" className={paymentRequired?'rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950':'rounded-xl border border-slate-200 bg-white p-4 text-sm'}>
             <strong>{matched?.paymentStatus==='PAID'?'Оплата получена':
