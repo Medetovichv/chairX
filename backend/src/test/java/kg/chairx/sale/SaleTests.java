@@ -185,6 +185,26 @@ class SaleTests {
     }
 
     @Test
+    void repeatedReasonCancellationCannotOverwriteOriginalMetadata() {
+        var draft = sales.createDraft(new CreateDraftSaleRequest(
+                UUID.randomUUID(), customer, null, List.of(), "Повторная отмена"));
+        sales.cancelWithReason(draft.id(), new kg.chairx.sale.api.CancelSaleRequest(
+                kg.chairx.sale.domain.SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                "Первоначальный комментарий"));
+        var first = sales.get(draft.id());
+        var again = sales.cancelWithReason(draft.id(), new kg.chairx.sale.api.CancelSaleRequest(
+                kg.chairx.sale.domain.SaleCancellationReason.OTHER,
+                "Нельзя перезаписать"));
+        assertThat(again.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(again.cancelledAt()).isEqualTo(first.cancelledAt());
+        var metadata = jdbc.queryForMap(
+                "select cancellation_reason, cancellation_comment from sales where id=?",
+                draft.id());
+        assertThat(metadata.get("cancellation_reason")).isEqualTo("CUSTOMER_CHANGED_MIND");
+        assertThat(metadata.get("cancellation_comment")).isEqualTo("Первоначальный комментарий");
+    }
+
+    @Test
     void missingCancellationReasonMustNotChangeSaleStatus() {
         var created = sales.createDraft(new CreateDraftSaleRequest(
                 UUID.randomUUID(), customer, null, List.of(), "Тест защиты"));
