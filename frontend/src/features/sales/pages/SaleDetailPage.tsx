@@ -32,6 +32,15 @@ import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../val
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 
+const cancelReasons = [
+  ['CUSTOMER_CHANGED_MIND','Клиент передумал'],
+  ['PRODUCT_NOT_SUITABLE','Товар не подошёл'],
+  ['PRICE_NOT_ACCEPTABLE','Не устроила цена'],
+  ['DUPLICATE_ORDER','Дублирующийся заказ'],
+  ['DELIVERY_UNAVAILABLE','Не удалось организовать доставку'],
+  ['OTHER','Другое'],
+] as const;
+type CancelReason = (typeof cancelReasons)[number][0];
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
   DRAFT_CREATED:'Черновик создан',
@@ -161,6 +170,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [draftUncertain,setDraftUncertain]=useState(false);
   const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
+  const [cancelReason,setCancelReason]=useState<CancelReason | ''>('');
+  const [cancelComment,setCancelComment]=useState('');
   const [unknownAction,setUnknownAction]=useState<Action|null>(null);
   const [busy,setBusy]=useState(false);
   const running=useRef(false);
@@ -319,7 +330,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       }
       // A 200 is not assumed until the backend returns an authoritative SaleResponse.
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
-        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id));
+        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id,{reason:cancelReason as CancelReason,comment:cancelComment.trim()||null}));
       await changed(next);
       setNotice(value==='confirm'?'Заказ подтверждён.':
         value==='fulfill'?'Продажа выполнена.':'Заказ отменён.');
@@ -576,10 +587,27 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         (action==='confirm'?'Будет создан резерв складских остатков.':
         action==='fulfill'?'Будут списаны зарезервированные складские товары.':
         'Отмена доступна только до выдачи и при отсутствии активной оплаты. Для оплаченного заказа сначала урегулируйте платёж, а после выдачи оформите возврат товара и денег. Подтверждённый неоплаченный заказ освободит складской резерв.')}
+      confirmDisabled={action==='cancel'&&!cancelReason}
       busy={busy} destructive={action==='cancel'}
       confirmLabel={action==='confirm'?'Подтвердить':
         action==='fulfill'?'Подтвердить выдачу':'Отменить заказ'}
-      onConfirm={()=>{if(action)void execute(action);}}/>
+      onConfirm={()=>{if(action&&!(action==='cancel'&&!cancelReason))void execute(action);}}>
+      {action==='cancel'&&<div className="mt-4 space-y-3">
+        <label className="block text-sm font-semibold">Причина отмены *
+          <select aria-label="Причина отмены" required value={cancelReason}
+            onChange={event=>setCancelReason(event.target.value as CancelReason | '')}
+            className="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3">
+            <option value="">Выберите причину</option>
+            {cancelReasons.map(([code,label])=><option key={code} value={code}>{label}</option>)}
+          </select>
+        </label>
+        <label className="block text-sm font-semibold">Комментарий (необязательно)
+          <textarea aria-label="Комментарий отмены" maxLength={1000} value={cancelComment}
+            onChange={event=>setCancelComment(event.target.value)}
+            className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 p-3"/>
+        </label>
+      </div>}
+      </ConfirmDialog>
   </div>;
 }
 export function SaleDetailPage() {
