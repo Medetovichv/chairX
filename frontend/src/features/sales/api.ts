@@ -1,3 +1,4 @@
+import type { CancellationReason } from './cancellation-reasons';
 import { apiClient } from '../../shared/api/client';
 import type { CreateDraftInput, DraftInput, SaleFilters, SalePageResponse, SaleResponse, SaleStatus, SaleHistoryPage, SaleCommentsPage, SaleComment, CreateSaleCommentInput } from './types';
 
@@ -45,6 +46,6 @@ export const salesApi = {
     apiClient.put<SaleResponse>('/api/sales/' + enc(id) + '/draft', input),
   confirm: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm'),
   fulfill: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill'),
-  cancel: (id: string, input: {reason: 'CUSTOMER_CHANGED_MIND'|'PRODUCT_NOT_SUITABLE'|'PRICE_NOT_ACCEPTABLE'|'DUPLICATE_ORDER'|'DELIVERY_UNAVAILABLE'|'OTHER'; comment: string|null}) =>
+  cancel: (id: string, input: {reason: CancellationReason; comment: string|null}) =>
     apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel', input),
 };
