@@ -1,8 +1,8 @@
 package kg.chairx.payment;
 
 import kg.chairx.PostgresTestConfiguration;
-import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
+import kg.chairx.inventory.cost.InventoryAdjustmentService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleService;
@@ -24,7 +24,6 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.startsWith;
@@ -60,6 +59,9 @@ class PaymentApiTests {
 
     @Autowired
     InventoryService inventory;
+
+    @Autowired
+    InventoryAdjustmentService adjustments;
 
     UUID home;
     UUID product;
@@ -123,17 +125,10 @@ class PaymentApiTests {
                 )
                 """, customer);
 
-        inventory.recordMovement(
-                new RecordStockMovement(
-                        UUID.randomUUID(),
-                        home,
-                        variant,
-                        ADJUSTMENT_IN,
-                        20,
-                        "PAYMENT_API_TEST_FIXTURE",
-                        UUID.randomUUID(),
-                        "payment-api-test"
-                )
+        adjustments.recordValuedAdjustmentIn(
+                UUID.randomUUID(), home, variant, 20,
+                BigDecimal.valueOf(5000).multiply(BigDecimal.valueOf(20)),
+                "payment-api-test"
         );
     }
 
@@ -318,82 +313,21 @@ class PaymentApiTests {
     }
 
     @Test
-    void cancelledPaymentAllowsNewPaymentAndKeepsHistory()
+    void fulfilledPickupPaymentRequiresReturnInsteadOfPaymentOnlyCancellation()
             throws Exception {
-
-        var sale = createSale(
-                1,
-                "8500"
-        );
-
-        String firstPaymentId =
-                createPayment(
-                        sale.id(),
-                        "TRANSFER"
-                );
-
-        mvc.perform(
-                        post(
-                                "/api/payments/"
-                                        + firstPaymentId
-                                        + "/cancel"
-                        )
-                                .with(csrf())
-                                .contentType(
-                                        MediaType.APPLICATION_JSON
-                                )
-                                .content(
-                                        """
-                                        {
-                                          "reason": "Ошибочная регистрация оплаты"
-                                        }
-                                        """
-                                )
-                )
+        var sale = createSale(1, "8500");
+        String paymentId = createPayment(sale.id(), "TRANSFER");
+        mvc.perform(post("/api/payments/" + paymentId + "/cancel")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Ошибочная регистрация оплаты\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("FULFILLED_PICKUP_REQUIRES_RETURN"));
+        mvc.perform(get("/api/payments/sale/" + sale.id() + "/active"))
                 .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$.status")
-                                .value("CANCELLED")
-                )
-                .andExpect(
-                        jsonPath("$.cancellationReason")
-                                .value(
-                                        "Ошибочная регистрация оплаты"
-                                )
-                );
-
-        String secondPaymentId =
-                createPayment(
-                        sale.id(),
-                        "CASH"
-                );
-
-        mvc.perform(
-                        get(
-                                "/api/payments/sale/"
-                                        + sale.id()
-                        )
-                )
-                .andExpect(status().isOk())
-                .andExpect(
-                        jsonPath("$", hasSize(2))
-                )
-                .andExpect(
-                        jsonPath("$[0].id")
-                                .value(firstPaymentId)
-                )
-                .andExpect(
-                        jsonPath("$[0].status")
-                                .value("CANCELLED")
-                )
-                .andExpect(
-                        jsonPath("$[1].id")
-                                .value(secondPaymentId)
-                )
-                .andExpect(
-                        jsonPath("$[1].status")
-                                .value("PAID")
-                );
+                .andExpect(jsonPath("$.id").value(paymentId))
+                .andExpect(jsonPath("$.status").value("PAID"));
+        assertThat(sales.get(sale.id()).status().name()).isEqualTo("FULFILLED");
     }
 
     @Test

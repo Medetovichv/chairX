@@ -1,4 +1,6 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { customersApi, customerKeys } from '../../customers/api';
 import { useAuth } from '../../auth/AuthProvider';
 import { userFacingApiError } from '../../../shared/api/api-error';
 import { Button } from '../../../shared/ui/button';
@@ -28,9 +30,24 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const withDelivery=!initial&&type!==null&&type!=='SELF_PICKUP'&&canInlineDelivery;
   const [recipientName,setRecipientName]=useState('');
   const [recipientPhone,setRecipientPhone]=useState('');
+  const deliveryPhoneEdited=useRef(false);
+  const customer=useQuery({queryKey:customerId?customerKeys.detail(customerId):['customers','none'],
+    queryFn:()=>customersApi.get(customerId!),enabled:!!customerId&&hasPermission('CUSTOMERS_READ')});
+  useEffect(()=>{
+    if(!deliveryPhoneEdited.current)
+      setRecipientPhone(customer.data?.phone||customer.data?.whatsappPhone||'');
+  },[customerId,customer.data]);
+  useEffect(()=>{deliveryPhoneEdited.current=false;deliveryAddressEdited.current=false;},[customerId]);
+  useEffect(()=>{
+    if(!deliveryAddressEdited.current)setDeliveryAddress(customer.data?.address||'');
+    if(customer.data?.cityRegion)setDeliveryCity(existing=>existing||customer.data!.cityRegion||'');
+  },[customerId,customer.data]);
   const [deliveryAddress,setDeliveryAddress]=useState('');
+  const deliveryAddressEdited=useRef(false);
   const [deliveryCity,setDeliveryCity]=useState('');
   const [deliveryCost,setDeliveryCost]=useState('0');
+  const savedAddresses=useQuery({queryKey:['customers','addresses',customerId],
+    queryFn:()=>customersApi.addresses(customerId!),enabled:!!customerId&&withDelivery&&hasPermission('CUSTOMERS_READ')});
   const [plannedDeliveryDate,setPlannedDeliveryDate]=useState(bishkekToday);
   const [error,setError]=useState('');
   const [saving,setSaving]=useState(false);
@@ -117,11 +134,21 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold">Телефон *
                 <input aria-label="Телефон доставки при создании продажи" maxLength={50} value={recipientPhone}
-                  disabled={saving||blocked} onChange={e=>setRecipientPhone(e.target.value)}
+                  disabled={saving||blocked} onChange={e=>{deliveryPhoneEdited.current=true;setRecipientPhone(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
+              {customerId&&savedAddresses.data&&savedAddresses.data.length>0&&<label className="space-y-1 text-sm font-semibold sm:col-span-2">
+                Сохранённые адреса клиента
+                <select aria-label="Выбрать сохранённый адрес" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"
+                  disabled={saving||blocked} defaultValue=""
+                  onChange={e=>{const selected=savedAddresses.data?.find(a=>a.id===e.target.value);
+                    if(selected){deliveryAddressEdited.current=true;setDeliveryAddress(selected.address);setDeliveryCity(selected.cityRegion??'');}}}>
+                  <option value="">Ввести новый адрес или выбрать ранее сохранённый</option>
+                  {savedAddresses.data.map(a=><option key={a.id} value={a.id}>{a.address}{a.cityRegion?' — '+a.cityRegion:''}</option>)}
+                </select>
+              </label>}
               <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
                 <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
-                  disabled={saving||blocked} onChange={e=>setDeliveryAddress(e.target.value)}
+                  disabled={saving||blocked} onChange={e=>{deliveryAddressEdited.current=true;setDeliveryAddress(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
               <label className="space-y-1 text-sm font-semibold">Город / регион
                 <input aria-label="Город доставки при создании продажи" maxLength={200} value={deliveryCity}
@@ -146,7 +173,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           </label>
         </section>
       </div>
-      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:bottom-0 [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-lg">
+      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:static [.quick-create_&]:bottom-auto [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-none">
         <h3 className="text-lg font-bold text-slate-950">4. Итог заказа</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Клиент</dt>

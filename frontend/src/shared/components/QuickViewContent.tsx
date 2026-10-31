@@ -8,6 +8,8 @@ import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryT
 import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
 import { SaleForm } from '../../features/sales/components/SaleForm';
 import { SaleQuickActions } from './SaleQuickActions';
+import { SalePaymentPanel } from './SalePaymentPanel';
+import { saleStatusNames, fulfillmentNames, money, integerSom } from '../../features/sales/validation';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
@@ -51,35 +53,39 @@ function Section({ children }: { children: React.ReactNode }) {
   return <dl className="rounded-xl border border-slate-200 bg-white px-4">{children}</dl>;
 }
 export function SaleQuickView({ id }: { id: string }) {
-  const [tab, setTab] = useState<Tab>('overview');
   const { hasPermission } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const markDirty = useQuickViewDirty();
   const [saveError, setSaveError] = useState('');
+  const [addressNotice,setAddressNotice] = useState('');
+  const [savingAddress,setSavingAddress] = useState(false);
   const detail = useQuery({ queryKey: salesKeys.detail(id), queryFn: () => salesApi.get(id) });
-  const history = useQuery({ queryKey: salesKeys.history(id, 0), queryFn: () => salesApi.history(id, 0) });
+  const relatedDelivery = useQuery({queryKey:deliveryKeys.bySale(id), queryFn:()=>deliveryApi.bySale(id),
+    enabled:hasPermission('DELIVERIES_READ')&&detail.data?.fulfillmentType!== 'SELF_PICKUP'&&!!detail.data?.fulfillmentType,
+    retry:false});
   if (detail.isPending) return <LoadingState label="Загружаем продажу…"/>;
   if (detail.isError) return <ErrorState error={detail.error} onRetry={() => void detail.refetch()}/>;
   const sale = detail.data;
   return <div className="space-y-5">
-    <Tabs value={tab} onChange={setTab}/>
-    {tab === 'overview' && <><Section>
+    <h3 className="text-base font-bold">Информация и управление заказом</h3>
+    <Section>
       <Field label="Заказ" value={sale.saleNumber}/>
-      <Field label="Статус" value={sale.status}/>
+      <Field label="Статус" value={saleStatusNames[sale.status]}/>
       <Field label="Создан" value={new Date(sale.createdAt).toLocaleString('ru-RU')}/>
-      <Field label="Сумма, сом" value={sale.total}/>
-      <Field label="Тип получения" value={sale.fulfillmentType}/>
-      <Field label="Комментарий" value={sale.comment}/>
+      <Field label="Стоимость товаров" value={money(sale.total)}/>
+      {relatedDelivery.data&&<Field label="Доставка" value={money(relatedDelivery.data.deliveryCost)}/>}
+      {relatedDelivery.data&&integerSom(sale.total)!==null&&integerSom(relatedDelivery.data.deliveryCost)!==null&&<div className="border-b border-slate-100 py-3"><dt className="text-xs font-medium text-slate-500">К оплате с доставкой</dt><dd className="mt-1 text-lg font-bold text-blue-700">{money((BigInt(integerSom(sale.total)!)+BigInt(integerSom(relatedDelivery.data.deliveryCost)!)).toString())}</dd></div>}
+      <Field label="Получение" value={sale.fulfillmentType?fulfillmentNames[sale.fulfillmentType]:null}/>
     </Section>
     <section><h3 className="mb-2 font-semibold">Позиции заказа</h3>
       {sale.items.map((item, index) => <Section key={item.id}>
         <Field label={'Позиция ' + (index + 1)} value={item.quantity + ' шт.'}/>
-        <Field label="Цена за единицу, сом" value={item.unitSalePrice}/>
-        <Field label="Итого, сом" value={item.total}/>
+        <Field label="Цена за единицу" value={money(item.unitSalePrice)}/>
+        <Field label="Сумма позиции" value={money(item.total)}/>
       </Section>)}
-    </section></>}
-    {tab === 'actions' && <div className="space-y-3">
+    </section>
+    <div className="space-y-3">
       {saveError && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{saveError}</p>}
       {sale.status === 'DRAFT' && hasPermission('SALES_DRAFT_MANAGE') && !editing && <button type="button" className="rounded-xl bg-blue-600 px-4 py-3 text-white" onClick={() => setEditing(true)}>Редактировать черновик</button>}
       {editing && <div onChangeCapture={() => markDirty(true)}><SaleForm initial={sale} onCancel={() => { if (window.confirm('Отменить изменения черновика?')) { markDirty(false); setEditing(false); } }} onSave={async input => {
@@ -101,18 +107,35 @@ export function SaleQuickView({ id }: { id: string }) {
           throw cause;
         }
       }}/></div>}
+      {sale.customerId&&relatedDelivery.data&&hasPermission('CUSTOMERS_MANAGE')&&<div className="space-y-2 rounded-xl border border-slate-200 p-3">
+        <p className="text-sm text-slate-600">Адрес доставки: {relatedDelivery.data.address}</p>
+        <button type="button" disabled={savingAddress} className="rounded-lg border border-blue-300 px-3 py-2 text-sm text-blue-700 disabled:opacity-50"
+          onClick={async()=>{setSavingAddress(true);setAddressNotice('');
+            try {await customersApi.addAddress(sale.customerId!,relatedDelivery.data!.address,relatedDelivery.data!.cityRegion);
+              await queryClient.invalidateQueries({queryKey:['customers','addresses',sale.customerId]});
+              setAddressNotice('Адрес сохранён в карточке клиента.');}
+            catch {setAddressNotice('Не удалось сохранить адрес. Доставка не изменена.');}
+            finally {setSavingAddress(false);}
+          }}>Сохранить адрес клиенту</button>
+        {addressNotice&&<p role="status" className="text-sm text-slate-700">{addressNotice}</p>}
+      </div>}
       {!editing && <SaleQuickActions sale={sale}/>}
-      <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-white" to={'/sales/' + encodeURIComponent(id)}>Открыть действия продажи</Link>
+      {!editing && <SalePaymentPanel sale={sale}/> }
+      {sale.fulfillmentType!=='SELF_PICKUP'&&relatedDelivery.data&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
+        <h3 className="font-semibold">Управление доставкой</h3>
+        <p className="text-sm text-slate-600">{relatedDelivery.data.address} · {relatedDelivery.data.recipientPhone}</p>
+        <DeliveryActions delivery={relatedDelivery.data} onChanged={async updated=>{
+          queryClient.setQueryData(deliveryKeys.detail(updated.id),updated);
+          queryClient.setQueryData(deliveryKeys.bySale(id),updated);
+          await Promise.all([queryClient.invalidateQueries({queryKey:deliveryKeys.lists}),
+            queryClient.invalidateQueries({queryKey:salesKeys.detail(id)}),
+            queryClient.invalidateQueries({queryKey:salesKeys.lists})]);
+        }}/>
+      </section>}
+      <Link className="inline-flex rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium text-blue-800" to={'/sales/' + encodeURIComponent(id)}>Открыть полную страницу продажи и оплату</Link>
       <SaleCommentsPanel saleId={id}/>
-    </div>}
-    {tab === 'history' && <section><h3 className="mb-2 font-semibold">История</h3>
-      {history.isPending ? <LoadingState label="Загружаем историю…"/> :
-        history.isError ? <p role="status" className="text-sm text-slate-600">История недоступна.</p> :
-        history.data.items.length ? <ul className="space-y-2 text-sm">{history.data.items.map((event, index) =>
-          <li key={index} className="rounded-xl bg-slate-50 p-3">{event.action} · {event.actor} · {new Date(event.occurredAt).toLocaleString('ru-RU')}</li>)}</ul> :
-        <p className="text-sm text-slate-500">Событий нет.</p>}
-      <SaleCommentsPanel saleId={id}/>
-    </section>}
+    </div>
+
   </div>;
 }
 export function CustomerQuickView({ id }: { id: string }) {

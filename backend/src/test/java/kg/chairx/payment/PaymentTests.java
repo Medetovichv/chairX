@@ -49,7 +49,16 @@ class PaymentTests {
     PaymentService payments;
 
     @Autowired
+    kg.chairx.payment.application.PickupCheckoutService pickupCheckout;
+
+    @Autowired
     SaleService sales;
+
+    @Autowired
+    kg.chairx.sale.application.SaleWithDeliveryService saleWithDelivery;
+
+    @Autowired
+    kg.chairx.customer.application.CustomerAddressService customerAddresses;
 
     @Autowired
     InventoryService inventory;
@@ -435,6 +444,51 @@ class PaymentTests {
                         Integer.class
                 )
         ).isZero();
+    }
+
+    @Test
+    void quickDeliveryStoresAddressOnCustomerWithoutChangingPrimaryAndSupportsReplay() {
+        jdbc.update("update customers set address='Дом, Ахунбаева 45', city_region='Бишкек' where id=?",customer);
+        var idempotency=UUID.randomUUID();
+        var request=new kg.chairx.sale.api.CreateSaleWithDeliveryRequest(
+                new kg.chairx.sale.api.CreateDraftSaleRequest(
+                        idempotency,customer,FulfillmentType.CITY_DELIVERY,
+                        List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("8500"))),null),
+                new kg.chairx.sale.api.CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Азамат","+996555000000","Офис, Киевская 120","Бишкек",
+                        BigDecimal.valueOf(500),null,null,null,java.time.LocalDate.now()));
+        var first=saleWithDelivery.create(request);
+        var replay=saleWithDelivery.create(request);
+        assertThat(replay.id()).isEqualTo(first.id());
+        assertThat(customerAddresses.list(customer)).hasSize(1);
+        assertThat(customerAddresses.list(customer).get(0).address()).isEqualTo("Офис, Киевская 120");
+        assertThat(jdbc.queryForObject("select address from customers where id=?",String.class,customer))
+                .isEqualTo("Дом, Ахунбаева 45");
+        assertThat(jdbc.queryForObject("select count(*) from deliveries where sale_id=?",Long.class,first.id()))
+                .isEqualTo(1L);
+    }
+
+    @Test
+    void pickupCheckoutAtomicallyPostsPaymentAndFinishesSale() {
+        var sale = createSale(2, "8500");
+        long movementsBefore = jdbc.queryForObject("select count(*) from stock_movements", Long.class);
+        var payment = pickupCheckout.checkout(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null));
+
+        assertThat(payment.status()).isEqualTo(PaymentStatus.PAID);
+        assertThat(payment.amount()).isEqualByComparingTo("17000");
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+        assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from stock_movements", Long.class))
+                .isEqualTo(movementsBefore + 1);
+        assertThat(jdbc.queryForObject(
+                "select count(*) from payments where sale_id=? and status='PAID'",
+                Long.class, sale.id())).isEqualTo(1L);
+        assertThatThrownBy(() -> payments.cancel(payment.id(),
+                new CancelPaymentRequest("Ошибочная оплата после выдачи")))
+                .isInstanceOfSatisfying(PaymentRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("FULFILLED_PICKUP_REQUIRES_RETURN"));
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.PAID);
     }
 
     @Test
@@ -865,7 +919,7 @@ class PaymentTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table sale_comments,
+                truncate table customer_addresses, sale_comments,
                     inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, refunds,
                     return_items, returns, payments,
                     deliveries,

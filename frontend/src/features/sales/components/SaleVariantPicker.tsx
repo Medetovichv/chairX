@@ -41,7 +41,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
     queryFn:()=>inventoryApi.overview({warehouseId:null,model:'',variation:'',search:searchTerm,
       includeZero:false,onlyAvailable:true,page:searchPage,size:20}),
-    enabled:open&&allowed&&canReadInventory&&searchTerm.length>=2,
+    enabled:open&&allowed&&canReadInventory,
   });
   async function chooseAvailable(id:string,warehouseId:string|undefined){
     if(picking)return;
@@ -115,8 +115,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
             placeholder="Например, Ergo, чёрный, ERGO-BLK"
             className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"/>
         </label>
-        {(searchTerm.length<2?<p className="text-sm text-slate-600">Введите минимум 2 символа модели, цвета или SKU.</p>:
-          stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
+        {(stock.isPending?<LoadingState label="Ищем кресла в наличии…"/>:
           stock.isError?<ErrorState error={stock.error} onRetry={()=>void stock.refetch()}/>:
           <div className="space-y-2">
             {stock.data?.items.length===0&&<p className="text-sm text-slate-600">
@@ -124,17 +123,14 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
             {stock.data?.items.filter(line=>line.available>0&&line.warehouses.some(w=>w.available>0)).map(line=>{
               const best=line.warehouses.filter(w=>w.available>0)
                 .sort((a,b)=>b.available-a.available)[0];
-              return <div key={line.productVariantId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
-                <div>
-                  <p className="font-semibold">{line.model} · {line.variation}</p>
-                  <p className="text-xs text-slate-500">Доступно на всех складах: {line.available} шт.</p>
-                </div>
-                <Button type="button" size="sm" variant="outline" disabled={disabled||picking}
-                  onClick={()=>void chooseAvailable(line.productVariantId,best!.warehouseId)}>
-                  Добавить {line.model} — {line.variation}
-                </Button>
-              </div>;
+              return <button key={line.productVariantId} type="button"
+                disabled={disabled||picking}
+                onClick={()=>void chooseAvailable(line.productVariantId,best!.warehouseId)}
+                className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left text-sm transition-colors hover:border-blue-400 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">
+                <span><strong className="block">{line.model} · {line.variation}</strong>
+                  <span className="text-xs text-slate-500">Доступно: {line.available} шт.</span></span>
+                <span className="text-blue-700" aria-hidden="true">Выбрать</span>
+              </button>;
             })}
             {!!stock.data&&stock.data.total>stock.data.size&&
               <PurchasePager page={stock.data.page} size={stock.data.size} total={stock.data.total}

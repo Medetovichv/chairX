@@ -44,17 +44,19 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
           warehouseId:row.warehouseId||preferredWarehouse||'',
         })}/>
       <div className="grid min-w-0 gap-3 sm:grid-cols-3 [.quick-create_&]:!grid-cols-1 xl:[.quick-create_&]:!grid-cols-2">
-        <label className="space-y-1 text-sm font-semibold">Склад *
+        <label className="space-y-1 text-sm font-semibold">Склад <span className="text-red-600" aria-hidden="true">*</span>
           <select aria-label={'Склад позиции '+(index+1)} value={row.warehouseId}
             disabled={disabled||!inventoryRead||warehouses.isPending||warehouses.isError}
             onChange={e=>patch(row.key,{warehouseId:e.target.value})}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
+            aria-required="true"
+            className={"min-h-11 w-full rounded-xl border bg-white px-3 "+(row.warehouseId?"border-slate-200":"border-red-400")}>
             <option value="">Выберите склад</option>
             {!!row.warehouseId&&!warehouses.data?.some(w=>w.id===row.warehouseId)&&
               <option value={row.warehouseId}>Ранее выбранный склад недоступен</option>}
             {warehouses.data?.filter(w=>w.active||w.id===row.warehouseId).map(w=>
               <option key={w.id} value={w.id}>{w.name}{w.active?'':' (неактивен)'}</option>)}
           </select>
+          {!row.warehouseId&&<span className="block text-xs font-normal text-red-700">Выберите склад — обязательное поле</span>}
         </label>
         <label className="space-y-1 text-sm font-semibold">Количество *
           <Input aria-label={'Количество позиции '+(index+1)} inputMode="numeric"

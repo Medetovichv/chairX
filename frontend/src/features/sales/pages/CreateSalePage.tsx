@@ -1,4 +1,5 @@
 import { useQuickViewDirty } from '../../../shared/components/QuickViewDrawer';
+import { flushSync } from 'react-dom';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
@@ -65,7 +66,7 @@ export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onC
       await queryClient.invalidateQueries({queryKey:salesKeys.kanban});
       await queryClient.invalidateQueries({queryKey:saleStatisticsKeys.last30Days});
       await queryClient.invalidateQueries({queryKey:['dashboard']});
-      if(embedded && onCreated) { markDirty(false); onCreated(result.id); }
+      if(embedded && onCreated) { flushSync(()=>markDirty(false)); onCreated(result.id); }
       else if(canRead) navigate('/sales/'+encodeURIComponent(result.id), {replace:true,
         state:{notice:payload.deliveryDetails?'Продажа подтверждена, доставка создана.':'Черновик создан.'}});
       else setSuccess(result);

@@ -190,6 +190,17 @@ public class PaymentService {
             );
         }
 
+        // A fulfilled pickup has already removed physical stock and posted FIFO cost.
+        // Reversing only its payment would leave an unpaid completed sale.
+        // Use the return/refund workflow for a completed handover.
+        var paidSale = sales.find(payment.saleId())
+                .orElseThrow(SaleNotFoundException::new);
+        if (paidSale.fulfillmentType() == kg.chairx.sale.domain.FulfillmentType.SELF_PICKUP
+                && paidSale.status() == SaleStatus.FULFILLED) {
+            throw rule("FULFILLED_PICKUP_REQUIRES_RETURN",
+                    "Выданный самовывоз нельзя аннулировать как ошибочную оплату. Оформите возврат товара и денег.");
+        }
+
         if (refunds.existsBySale(payment.saleId())) {
             throw rule(
                     "PAYMENT_HAS_REFUNDS",

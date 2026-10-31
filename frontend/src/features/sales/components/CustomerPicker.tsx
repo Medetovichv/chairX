@@ -97,7 +97,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       {query.length>=2&&(results.isPending?<LoadingState label="Ищем клиентов…"/>:
         results.isError?<ErrorState error={results.error} onRetry={()=>void results.refetch()}/>:
         <div aria-label="Результаты поиска клиентов" className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
-          {(results.data?.length??0)===0&&<p className="p-3 text-sm text-slate-500">Клиенты не найдены</p>}
+          {(results.data?.length??0)===0&&<p className="p-3 text-sm text-slate-500">Клиент не найден</p>}
           {results.data?.map(customer=><div key={customer.id} className="flex flex-wrap justify-between gap-3 p-3 text-sm">
             <div className="min-w-0">
               <p className="font-semibold">{display(customer)}</p>
@@ -108,7 +108,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
               {customer.active?'Выбрать':'Неактивен'}
             </Button>
           </div>)}
-          <p className="p-3 text-xs text-slate-500">Поиск backend показывает максимум 20 совпадений. Уточните запрос.</p>
+
         </div>)}
     </>}
     {creating&&canCreate&&allowed&&createPortal(
