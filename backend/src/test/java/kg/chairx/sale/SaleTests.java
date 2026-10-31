@@ -188,7 +188,7 @@ class SaleTests {
     void missingCancellationReasonMustNotChangeSaleStatus() {
         var created = sales.createDraft(new CreateDraftSaleRequest(
                 UUID.randomUUID(), customer, null, List.of(), "Тест защиты"));
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+        org.junit.jupiter.api.Assertions.assertThrows(jakarta.validation.ConstraintViolationException.class,
                 () -> sales.cancelWithReason(created.id(),
                         new kg.chairx.sale.api.CancelSaleRequest(null, null)));
         assertThat(sales.get(created.id()).status()).isEqualTo(SaleStatus.DRAFT);
