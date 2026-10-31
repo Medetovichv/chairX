@@ -8,6 +8,7 @@ import kg.chairx.customer.api.CustomerPageResponse;
 import kg.chairx.customer.api.CustomerResponse;
 import kg.chairx.customer.api.UpdateCustomerRequest;
 import kg.chairx.customer.application.CustomerService;
+import kg.chairx.customer.application.CustomerAddressService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,9 +21,11 @@ import java.util.UUID;
 public class CustomerController {
 
     private final CustomerService service;
+    private final CustomerAddressService addresses;
 
-    public CustomerController(CustomerService service) {
+    public CustomerController(CustomerService service, CustomerAddressService addresses) {
         this.service = service;
+        this.addresses = addresses;
     }
 
     @PostMapping
@@ -74,6 +77,17 @@ public class CustomerController {
             @Valid @RequestBody UpdateCustomerRequest request
     ) {
         return service.update(id, request);
+    }
+
+    @GetMapping("/{id}/addresses")
+    public List<CustomerAddressService.Address> addresses(@PathVariable UUID id) {
+        return addresses.list(id);
+    }
+
+    @PostMapping("/{id}/addresses")
+    public CustomerAddressService.Address addAddress(@PathVariable UUID id,
+            @Valid @RequestBody CustomerAddressService.AddressInput input) {
+        return addresses.add(id,input);
     }
 
     @PostMapping("/{id}/activate")
