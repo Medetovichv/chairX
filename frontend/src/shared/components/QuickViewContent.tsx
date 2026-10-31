@@ -8,6 +8,7 @@ import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryT
 import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
 import { SaleForm } from '../../features/sales/components/SaleForm';
 import { SaleQuickActions } from './SaleQuickActions';
+import { SalePaymentPanel } from './SalePaymentPanel';
 import { saleStatusNames, fulfillmentNames, money } from '../../features/sales/validation';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
@@ -103,6 +104,7 @@ export function SaleQuickView({ id }: { id: string }) {
         }
       }}/></div>}
       {!editing && <SaleQuickActions sale={sale}/>}
+      {!editing && <SalePaymentPanel sale={sale}/> }
       {sale.fulfillmentType!=='SELF_PICKUP'&&relatedDelivery.data&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
         <h3 className="font-semibold">Управление доставкой</h3>
         <p className="text-sm text-slate-600">{relatedDelivery.data.address} · {relatedDelivery.data.recipientPhone}</p>
