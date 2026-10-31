@@ -4,6 +4,10 @@ import jakarta.validation.Valid;
 import kg.chairx.delivery.api.CreateDeliveryRequest;
 import kg.chairx.delivery.application.DeliveryService;
 import kg.chairx.sale.api.CreateSaleWithDeliveryRequest;
+import kg.chairx.sale.api.CreateDraftSaleRequest;
+import kg.chairx.customer.application.CustomerService;
+import kg.chairx.customer.api.CreateCustomerRequest;
+import java.util.UUID;
 import kg.chairx.sale.api.SaleResponse;
 import kg.chairx.sale.domain.FulfillmentType;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -22,6 +26,7 @@ import java.util.HexFormat;
 @Service
 public class SaleWithDeliveryService {
     private final SaleService sales;
+    private final CustomerService customers;
     private final DeliveryService deliveries;
     private final kg.chairx.customer.application.CustomerAddressService addresses;
     private final JdbcClient jdbc;
@@ -29,8 +34,10 @@ public class SaleWithDeliveryService {
 
     public SaleWithDeliveryService(SaleService sales,DeliveryService deliveries,
             JdbcClient jdbc,JsonMapper mapper,
-            kg.chairx.customer.application.CustomerAddressService addresses) {
+            kg.chairx.customer.application.CustomerAddressService addresses,
+            CustomerService customers) {
         this.sales=sales;
+        this.customers=customers;
         this.deliveries=deliveries;
         this.jdbc=jdbc;
         this.mapper=mapper;
@@ -58,9 +65,31 @@ public class SaleWithDeliveryService {
             throw new IllegalStateException("Ключ создания заказа уже использован с другими данными");
         }
 
-        // All calls participate in this transaction; failure of delivery rolls
-        // back confirmation and stock reservations as well as the draft.
-        var draft=sales.createDraft(request.sale());
+        // A delivery with contact details must also be linked to a customer.
+        // Keep the generated customer ID under the request idempotency key so
+        // replaying the same request cannot create a second customer.
+        CreateDraftSaleRequest saleRequest=request.sale();
+        if(saleRequest.customerId()==null) {
+            UUID generated=jdbc.sql("""
+                    SELECT generated_customer_id FROM sale_delivery_requests
+                    WHERE idempotency_key=:key FOR UPDATE
+                    """).param("key",key).query(UUID.class).optional().orElse(null);
+            if(generated==null) {
+                var delivery=request.delivery();
+                generated=customers.create(new CreateCustomerRequest(
+                        delivery.recipientName(),delivery.recipientPhone(),null,null,null,
+                        delivery.address(),delivery.cityRegion(),null)).id();
+                jdbc.sql("""
+                        UPDATE sale_delivery_requests SET generated_customer_id=:customer
+                        WHERE idempotency_key=:key
+                        """).param("customer",generated).param("key",key).update();
+            }
+            saleRequest=new CreateDraftSaleRequest(saleRequest.idempotencyKey(),
+                    generated,saleRequest.fulfillmentType(),saleRequest.items(),saleRequest.comment());
+        }
+
+        // All calls participate in one transaction, including customer creation.
+        var draft=sales.createDraft(saleRequest);
         var confirmed=sales.confirmDraft(draft.id());
         Boolean exists=jdbc.sql("SELECT EXISTS(SELECT 1 FROM deliveries WHERE sale_id=:id)")
                 .param("id",confirmed.id()).query(Boolean.class).single();

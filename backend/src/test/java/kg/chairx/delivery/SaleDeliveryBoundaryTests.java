@@ -5,6 +5,9 @@ import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CreateDraftSaleRequest;
+import kg.chairx.sale.api.CreateSaleWithDeliveryRequest;
+import kg.chairx.sale.application.SaleWithDeliveryService;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
@@ -38,6 +41,11 @@ class SaleDeliveryBoundaryTests {
     SaleService sales;
 
     @Autowired
+    SaleWithDeliveryService saleWithDelivery;
+
+    UUID generatedCustomer;
+
+    @Autowired
     InventoryService inventory;
 
     @Autowired
@@ -61,6 +69,7 @@ class SaleDeliveryBoundaryTests {
         assertTestDatabase();
         clearData();
 
+        generatedCustomer = null;
         home = jdbc.queryForObject(
                 "select id from warehouses where code='HOME'",
                 UUID.class
@@ -133,6 +142,7 @@ class SaleDeliveryBoundaryTests {
 
         clearData();
 
+        if (generatedCustomer != null) jdbc.update("delete from customers where id=?",generatedCustomer);
         jdbc.update(
                 "delete from customers where id=?",
                 customer
@@ -149,6 +159,27 @@ class SaleDeliveryBoundaryTests {
         );
 
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void deliveryOrderWithoutSelectedCustomerCreatesOneAndReusesItOnReplay() {
+        var key=UUID.randomUUID();
+        var sale=new CreateDraftSaleRequest(key,null,FulfillmentType.CITY_DELIVERY,
+                List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("8500"))),null);
+        var delivery=new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                "Новый покупатель","+996555123456","Тестовая 1","Бишкек",
+                BigDecimal.ZERO,null,null,null,null);
+        var request=new CreateSaleWithDeliveryRequest(sale,delivery);
+        var first=saleWithDelivery.create(request);
+        generatedCustomer=first.customerId();
+        assertThat(generatedCustomer).isNotNull();
+        assertThat(jdbc.queryForObject("select phone from customers where id=?",String.class,generatedCustomer))
+                .isEqualTo("+996555123456");
+        var second=saleWithDelivery.create(request);
+        assertThat(second.id()).isEqualTo(first.id());
+        assertThat(second.customerId()).isEqualTo(generatedCustomer);
+        assertThat(jdbc.queryForObject("select count(*) from customers where phone=?",Integer.class,
+                "+996555123456")).isEqualTo(1);
     }
 
     @Test
@@ -265,7 +296,7 @@ class SaleDeliveryBoundaryTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table sale_comments,
+                truncate table sale_delivery_requests, sale_comments,
                     inventory_transfer_cost_origins, inventory_transfers, inventory_cost_movements, inventory_cost_allocations, inventory_cost_restorations, inventory_cost_write_offs, inventory_cost_layers, refunds,
                     return_items, returns, payments,
                     deliveries,

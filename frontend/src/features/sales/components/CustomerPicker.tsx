@@ -38,12 +38,13 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       const created=await customersApi.create(data);
       queryClient.setQueryData(customerKeys.detail(created.id),created);
       queryClient.setQueryData(['customers','customer',created.id],created);
-      await queryClient.invalidateQueries({queryKey:customerKeys.lists});
+      // Selecting the created customer must never depend on refreshing the list.
       setSelected(created);
       onChange(created.id);
       setSearch('');
       setQuery('');
       setCreating(false);
+      void queryClient.invalidateQueries({queryKey:customerKeys.lists});
     } catch(error) {
       // Customer creation has no explicit idempotency key; never silently retry
       // when the request might already have created the record.
