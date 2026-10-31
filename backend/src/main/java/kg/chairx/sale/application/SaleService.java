@@ -8,6 +8,7 @@ import kg.chairx.inventory.api.ChangeReservedStock;
 import kg.chairx.inventory.api.RecordStockMovement;
 import kg.chairx.inventory.domain.StockMovementType;
 import kg.chairx.product.application.ProductVariantService;
+import kg.chairx.sale.api.CancelSaleRequest;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
 import kg.chairx.sale.application.SaleMapper;
@@ -362,6 +363,27 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         }
 
         return fulfillLocked(sale);
+    }
+
+    /**
+     * Reason-aware cancellation entrypoint. The reason is recorded in the audit
+     * trail in the same transaction as the stock and status changes.
+     * Paid/fulfilled sales remain guarded by cancelLocked().
+     */
+    @Transactional
+    public SaleResponse cancelWithReason(UUID saleId, @Valid CancelSaleRequest request) {
+        if (request == null || request.reason() == null) {
+            throw new IllegalArgumentException("Необходимо выбрать причину отмены");
+        }
+        Sale sale = lock(saleId);
+        if (sale.status() == SaleStatus.CANCELLED) {
+            return SaleMapper.toResponse(sale);
+        }
+        SaleResponse after = cancel(saleId);
+        audit.record("SALE", saleId, "CANCEL_REASON_RECORDED", null,
+                java.util.Map.of("reason", request.reason().name(),
+                        "comment", request.comment() == null ? "" : request.comment().trim()));
+        return after;
     }
 
     @Transactional
