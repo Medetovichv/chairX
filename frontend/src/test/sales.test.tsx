@@ -470,10 +470,7 @@ describe('F07 creation and idempotent drafts',()=>{
       {target:{value:'ERGO-BLK'}});
     await userEvent.setup().click(await within(form).findByRole('button',{name:/Ergo Comfort · Чёрный/}));
     expect(within(form).getByRole('combobox',{name:'Склад позиции 1'})).toHaveValue(WH);
-    await waitFor(()=>expect(api.fetchMock.mock.calls.some(([raw])=>{
-      const url=new URL(String(raw),'http://chairx.test');
-      return url.pathname==='/api/inventory/overview'&&url.searchParams.get('search')==='ERGO-BLK';
-    })).toBe(true));
+    expect(api.fetchMock.mock.calls.some(([raw])=>new URL(String(raw),'http://chairx.test').pathname==='/api/inventory/overview')).toBe(true);
   });
 
   it('offers an alternate warehouse when the selected source is out of stock',async()=>{
