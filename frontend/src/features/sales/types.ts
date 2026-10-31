@@ -11,6 +11,8 @@ export interface SaleSummary {
   deliveryStatus: string | null; plannedDeliveryDate: string | null;
   customerPhone?: string | null; deliveryAddress?: string | null;
   returnedQuantity?: number;
+  deliveryCost?: Money;
+  refundedAmount?: Money;
 }
 export interface SalePageResponse { items: SaleSummary[]; page: number; size: number; total: number }
 export interface SaleItemResponse {
