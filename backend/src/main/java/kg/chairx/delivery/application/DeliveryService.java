@@ -172,6 +172,12 @@ public class DeliveryService {
             DeliveryStatus status, LocalDate from, LocalDate to,
             LocalDate plannedFrom, LocalDate plannedTo, String cityRegion,
             int page, int size, boolean operational) {
+        return list(status,from,to,plannedFrom,plannedTo,cityRegion,page,size,operational,false,null);
+    }
+
+    public DeliveryPageResponse list(DeliveryStatus status,LocalDate from,LocalDate to,
+            LocalDate plannedFrom,LocalDate plannedTo,String cityRegion,int page,int size,
+            boolean operational,boolean pendingOnly,LocalDate deliveredOn) {
         if (page < 0 || size < 1 || size > 100
                 || (from != null && to != null && from.isAfter(to))
                 || (plannedFrom != null && plannedTo != null && plannedFrom.isAfter(plannedTo))) {
@@ -185,9 +191,9 @@ public class DeliveryService {
         var end = to == null ? null : to.plusDays(1).atStartOfDay(zone).toInstant();
         return new DeliveryPageResponse(
                 repository.list(status, begin, end, plannedFrom, plannedTo,
-                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip(), page, size, operational),
+                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip(), page, size, operational,pendingOnly,deliveredOn),
                 page, size, repository.count(status, begin, end, plannedFrom, plannedTo,
-                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip(), operational));
+                        cityRegion == null || cityRegion.isBlank() ? null : cityRegion.strip(), operational,pendingOnly,deliveredOn));
     }
 
     public DeliveryResponse get(

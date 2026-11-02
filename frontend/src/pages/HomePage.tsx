@@ -11,6 +11,10 @@ import { Button } from '../shared/ui/button';
 import { ErrorState } from '../shared/components/ErrorState';
 import { LoadingState } from '../shared/components/LoadingState';
 
+function previousDay(day: string): string {
+  const date = new Date(day + 'T12:00:00Z'); date.setUTCDate(date.getUTCDate() - 1);
+  return date.toISOString().slice(0,10);
+}
 function dayLabel(iso: string, includeYear = false): string {
   const date = new Date(iso + 'T12:00:00+06:00');
   return new Intl.DateTimeFormat('ru-RU', {
@@ -77,10 +81,10 @@ function Attention({ data, deliveryRight, inventoryRight }: {
   const alerts = [
     ...(deliveryRight && data.delayedDeliveries !== null && data.delayedDeliveries > 0
       ? [{ name: 'Просроченные доставки', count: data.delayedDeliveries,
-        desc: 'Плановая дата прошла; доставка не завершена', path: '/deliveries', icon: Truck }] : []),
+        desc: 'Плановая дата прошла; доставка не завершена', path: '/deliveries?operational=false&pendingOnly=true&plannedTo=' + previousDay(data.businessDate), icon: Truck }] : []),
     ...(inventoryRight && data.lowStockVariants !== null && data.lowStockVariants > 0
       ? [{ name: 'Мало товара', count: data.lowStockVariants,
-        desc: 'Вариации с доступным остатком 1–5 шт.', path: '/inventory', icon: Package }] : []),
+        desc: 'Вариации с доступным остатком 1–5 шт.', path: '/inventory?lowStock=true', icon: Package }] : []),
   ];
   return <section aria-label="Требует внимания" className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm">
     <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
@@ -169,15 +173,15 @@ export function HomePage() {
       <section aria-label="Показатели" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {sales && <Stat title="Заказов сегодня"
           value={data.ordersByDay.find(day=>day.day===data.businessDate)?.orders??0}
-          note="Создано сегодня" icon={ShoppingCart} path="/sales" />}
+          note="Создано сегодня" icon={ShoppingCart} path={'/sales?operational=false&from='+data.businessDate+'&to='+data.businessDate} />}
         {deliveries && data.pendingDeliveries !== null && <Stat title="Ожидают доставки"
-          value={data.pendingDeliveries} note="Готовы к отправке или в пути" icon={Truck} path="/deliveries" />}
+          value={data.pendingDeliveries} note="Готовы к отправке или в пути" icon={Truck} path="/deliveries?operational=false&pendingOnly=true" />}
         {deliveries && data.deliveredToday !== null && <Stat title="Доставлено сегодня"
-          value={data.deliveredToday} note="Завершены за текущий день" icon={Truck} path="/deliveries" />}
+          value={data.deliveredToday} note="Завершены за текущий день" icon={Truck} path={'/deliveries?operational=false&deliveredOn='+data.businessDate} />}
         {inventory && data.availableUnits !== null && <Stat title="Доступно на складах"
-          value={data.availableUnits} note="С учётом резерва и блокировок" icon={Package} path="/inventory" />}
+          value={data.availableUnits} note="С учётом резерва и блокировок" icon={Package} path="/inventory?availability=recorded" />}
         {sales && data.activeOrders !== null && <Stat title="В работе"
-          value={data.activeOrders} note="Черновики и подтверждённые" icon={Clock3} path="/sales" />}
+          value={data.activeOrders} note="Черновики и подтверждённые" icon={Clock3} path="/sales?operational=false&activeOnly=true" />}
       </section>
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(320px,1fr)]">
         {sales && <WeekChart days={data.ordersByDay} />}

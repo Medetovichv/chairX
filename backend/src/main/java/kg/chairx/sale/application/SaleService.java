@@ -96,14 +96,19 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
     public SalePageResponse list(int page,int size,SaleStatus status,
                                  LocalDate from,LocalDate to,String saleNumber,
                                  boolean operational) {
+        return list(page,size,status,from,to,saleNumber,operational,false);
+    }
+
+    public SalePageResponse list(int page,int size,SaleStatus status,LocalDate from,LocalDate to,
+                                 String saleNumber,boolean operational,boolean activeOnly) {
         if(page<0 || size<1 || size>100 || from!=null && to!=null && from.isAfter(to))
             throw new kg.chairx.common.web.InvalidQueryException("Некорректные параметры списка продаж");
         var begin=from==null?null:from.atStartOfDay(BUSINESS_ZONE).toInstant();
         var until=to==null?null:to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toInstant();
         String query=saleNumber==null||saleNumber.isBlank()?null:saleNumber.strip();
         Instant today=LocalDate.now(BUSINESS_ZONE).atStartOfDay(BUSINESS_ZONE).toInstant();
-        return new SalePageResponse(repository.listSummaries(status,begin,until,query,null,page,size,operational,today),
-                page,size,repository.countSummaries(status,begin,until,query,null,operational,today));
+        return new SalePageResponse(repository.listSummaries(status,begin,until,query,null,page,size,operational,today,activeOnly),
+                page,size,repository.countSummaries(status,begin,until,query,null,operational,today,activeOnly));
     }
 
     /** Customer-specific paginated history; customer data cannot leak from unrelated sales. */

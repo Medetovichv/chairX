@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeftRight, Search, PackageCheck, History, Settings2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
+import { useUrlListState } from '../../../shared/hooks/useUrlListState';
 import { useAuth } from '../../../features/auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -11,7 +12,7 @@ import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { inventoryApi, inventoryKeys } from '../api';
 import type { StockLine, Warehouse } from '../types';
-import { pages, warehouseStock } from '../lib';
+import { warehouseStock } from '../lib';
 import { InventoryPager } from '../components/InventoryPager';
 import { MovementHistory } from '../components/MovementHistory';
 import { TransferForm } from '../components/TransferForm';
@@ -103,43 +104,34 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, trans
 
 export function InventoryPage() {
   const { hasPermission } = useAuth();
-  const [searchParams] = useSearchParams();
-  const linkedWarehouseId = searchParams.get('warehouseId') ?? '';
-  const safeLinkedWarehouseId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(linkedWarehouseId)
-    ? linkedWarehouseId : null;
   const canTransfer = hasPermission('INVENTORY_READ') && hasPermission('INVENTORY_TRANSFER');
   const warehouses = useQuery({ queryKey: inventoryKeys.warehouses, queryFn: inventoryApi.warehouses });
   const summaries = useQuery({ queryKey: inventoryKeys.warehouseSummary,
     queryFn: inventoryApi.warehouseSummary, enabled: hasPermission('INVENTORY_READ'), staleTime: 30_000 });
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(safeLinkedWarehouseId);
-  const [globalInput, setGlobalInput] = useState('');
-  const [globalSearch, setGlobalSearch] = useState('');
-  const [modelInput, setModelInput] = useState('');
-  const [variationInput, setVariationInput] = useState('');
-  const [modelQuery, setModelQuery] = useState('');
-  const [variationQuery, setVariationQuery] = useState('');
-  const [availability, setAvailability] = useState<AvailabilityFilter>('all');
-  const [page, setPage] = useState(0);
-  const [selectedLine, setSelectedLine] = useState<StockLine | null>(null);
-  const [transferLine, setTransferLine] = useState<StockLine | null>(null);
+  const [url,setUrl]=useUrlListState({warehouseId:'',search:'',model:'',variation:'',availability:'all',page:0,lowStock:false},value=>({...value,
+    warehouseId:/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(value.warehouseId)?value.warehouseId:'',
+    availability:['all','available','recorded'].includes(value.availability)?value.availability:'all',
+  }));
+  const selectedWarehouseId=url.warehouseId || null;
+  const globalInput=url.search, modelInput=url.model, variationInput=url.variation;
+  const globalSearch=globalInput.trim(), modelQuery=modelInput.trim(), variationQuery=variationInput.trim();
+  const availability=url.availability as AvailabilityFilter, page=url.page;
+  const setSelectedWarehouseId=(warehouseId:string|null)=>setUrl(f=>({...f,warehouseId:warehouseId??'',page:0}));
+  const setGlobalInput=(search:string)=>setUrl(f=>({...f,search,page:0}));
+  const setModelInput=(model:string)=>setUrl(f=>({...f,model,page:0}));
+  const setVariationInput=(variation:string)=>setUrl(f=>({...f,variation,page:0}));
+  const setAvailability=(availability:AvailabilityFilter)=>setUrl(f=>({...f,availability,page:0}));
+  const setPage=(page:number)=>setUrl(f=>({...f,page}));
+  const scope=JSON.stringify(url);
+  const [selection,setSelection]=useState<{scope:string;line:StockLine}|null>(null);
+  const selectedLine=selection?.scope===scope?selection.line:null;
+  const setSelectedLine=(line:StockLine|null)=>setSelection(line?{scope,line}:null);
+  const [transferSelection,setTransferSelection]=useState<{scope:string;line:StockLine}|null>(null);
+  const transferLine=transferSelection?.scope===scope?transferSelection.line:null;
+  const setTransferLine=(line:StockLine|null)=>setTransferSelection(line?{scope,line}:null);
   const [notice, setNotice] = useState('');
-  useEffect(() => {
-    if (!warehouses.isSuccess) return;
-    if (!safeLinkedWarehouseId) return;
-    if (!warehouses.data.some(w=>w.id===safeLinkedWarehouseId)) {
-      setSelectedWarehouseId(null);return;
-    }
-    setSelectedWarehouseId(safeLinkedWarehouseId);
-    setPage(0);
-    setSelectedLine(null);
-  }, [safeLinkedWarehouseId, warehouses.isSuccess, warehouses.data]);
-  useEffect(() => {
-    const timer = setTimeout(() => { setGlobalSearch(globalInput.trim()); setModelQuery(modelInput.trim()); setVariationQuery(variationInput.trim()); }, 350);
-    return () => clearTimeout(timer);
-  }, [globalInput, modelInput, variationInput]);
-
   const filters = { warehouseId: selectedWarehouseId, model: modelQuery, variation: variationQuery, search: globalSearch,
-    includeZero: availability !== 'recorded', onlyAvailable: availability === 'available', page, size: 20 };
+    lowStock: url.lowStock, includeZero: availability !== 'recorded', onlyAvailable: availability === 'available', page, size: 20 };
   const overview = useQuery({
     queryKey: inventoryKeys.overview(filters),
     queryFn: () => inventoryApi.overview(filters),
@@ -147,14 +139,9 @@ export function InventoryPage() {
       (!selectedWarehouseId||warehouses.data.some(w=>w.id===selectedWarehouseId)),
   });
   const dataset = overview.data;
-  useEffect(() => {
-    if (dataset && page > 0 && page >= pages(dataset.total, dataset.size)) {
-      setPage(Math.max(0, pages(dataset.total, dataset.size) - 1));
-    }
-  }, [dataset, page]);
-
+  const unknownWarehouse=warehouses.isSuccess && !!selectedWarehouseId && !warehouses.data.some(w=>w.id===selectedWarehouseId);
   function newFilter() {
-    setPage(0); setSelectedLine(null);
+    setSelectedLine(null);
   }
   function showDetail(line: StockLine) {
     if (transferLine) return;
@@ -178,6 +165,8 @@ export function InventoryPage() {
         onRetry={() => void warehouses.refetch()} />
         : namedWarehouses.length === 0 ? <EmptyState title="Склады не найдены" description="Сначала создайте склады через администратора системы." />
           : <>
+            {url.lowStock && <p role="status">Доступный остаток вариации от 1 до 5 шт.
+              <Button variant="ghost" onClick={()=>setUrl(f=>({...f,lowStock:false,page:0}))}>Сбросить фильтр</Button></p>}
             <WarehouseOverviewCards warehouses={namedWarehouses} summaries={summaries.data}
               loading={summaries.isPending} failed={summaries.isError}
               selected={selectedWarehouseId} disabled={Boolean(transferLine)}
@@ -221,7 +210,8 @@ export function InventoryPage() {
               </div>
             </section>
             <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><PackageCheck className="size-5 text-blue-600" aria-hidden="true" />Остатки товаров</h3><p className="text-xs text-slate-500">Нажмите на строку для подробностей; фильтр «Все товары» включает нулевые остатки.</p></div>
-            {overview.isPending ? <LoadingState label="Загружаем складские остатки…" />
+            {unknownWarehouse ? <p role="alert">Склад не найден.
+              <Button variant="outline" onClick={()=>setSelectedWarehouseId(null)}>Все склады</Button></p> : overview.isPending ? <LoadingState label="Загружаем складские остатки…" />
               : overview.isError ? <ErrorState title="Не удалось загрузить остатки" error={overview.error}
                 onRetry={() => void overview.refetch()} />
                 : dataset && dataset.total === 0 ? <EmptyState title="Товары не найдены"

@@ -19,7 +19,7 @@ export const inventoryKeys = {
   warehouseSummary: ['inventory', 'warehouse-summary'] as const,
   overview: (f: InventoryFilters) =>
     ['inventory', 'overview', f.warehouseId, f.model, f.variation, f.search ?? '',
-      f.includeZero, f.onlyAvailable, f.page, f.size] as const,
+      f.includeZero, f.onlyAvailable, f.lowStock??false, f.page, f.size] as const,
   balancePrefix: ['inventory', 'balance'] as const,
   balance: (warehouseId: string, variantId: string) =>
     ['inventory', 'balance', warehouseId, variantId] as const,
@@ -55,7 +55,7 @@ export const inventoryApi = {
     apiClient.get<InventoryOverviewPage>('/api/inventory/overview?' + query({
       warehouseId: filters.warehouseId, model: filters.model, variation: filters.variation,
       search: filters.search ?? '',
-      includeZero: filters.includeZero, onlyAvailable: filters.onlyAvailable,
+      includeZero: filters.includeZero, onlyAvailable: filters.onlyAvailable, lowStock: filters.lowStock ?? false,
       page: filters.page, size: filters.size,
     })),
   balance: (warehouseId: string, variantId: string) =>

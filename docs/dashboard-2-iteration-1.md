@@ -16,3 +16,9 @@ Additional follow-up: prototype an operations-focused manager home, enhance char
 
 ## Verification
 This commit was authored via the GitHub connector without a checked-out build environment. **Lint, typecheck, tests, build and visual browser review have not been run for this branch.** PR should remain draft until those checks are completed.
+
+
+## Follow-up status (2026-11-02)
+The scope and unverified-check statements above describe the original visual-only commits.
+Iteration 2 implements and verifies filtered drilldowns; see [dashboard-2-drilldowns.md](dashboard-2-drilldowns.md)
+for the final query contracts, test results and remaining limits.

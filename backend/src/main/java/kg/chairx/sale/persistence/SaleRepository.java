@@ -44,6 +44,11 @@ public class SaleRepository {
             SaleStatus status, Instant from, Instant to, String number,
             UUID customerId, int page, int size, boolean operational, Instant today
     ) {
+        return listSummaries(status,from,to,number,customerId,page,size,operational,today,false);
+    }
+
+    public List<SaleSummary> listSummaries(SaleStatus status, Instant from, Instant to, String number,
+            UUID customerId, int page, int size, boolean operational, Instant today, boolean activeOnly) {
         return jdbc.sql("""
                 SELECT s.id, s.sale_number, s.created_at, s.customer_id,
                        c.full_name AS customer_name, s.status, s.fulfillment_type,
@@ -79,6 +84,7 @@ public class SaleRepository {
                   AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at < :toDate)
                   AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%' || :number || '%')
                   AND (CAST(:customer AS uuid) IS NULL OR s.customer_id = :customer)
+                  AND (:activeOnly=FALSE OR s.status IN ('DRAFT','CONFIRMED'))
                   AND (:operational=FALSE
                     OR (s.status IN ('DRAFT','CONFIRMED')
                       OR (s.status='FULFILLED' AND (
@@ -96,6 +102,7 @@ public class SaleRepository {
                 .param("toDate", to == null ? null : java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC), Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("number", number, Types.VARCHAR)
                 .param("customer", customerId, Types.OTHER)
+                .param("activeOnly",activeOnly)
                 .param("operational",operational)
                 .param("today",today==null?null:java.time.OffsetDateTime.ofInstant(today,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("size", size).param("offset", (long)page*size)
@@ -125,6 +132,11 @@ public class SaleRepository {
     }
     public long countSummaries(SaleStatus status,Instant from,Instant to,String number,
                                UUID customerId,boolean operational,Instant today) {
+        return countSummaries(status,from,to,number,customerId,operational,today,false);
+    }
+
+    public long countSummaries(SaleStatus status,Instant from,Instant to,String number,
+            UUID customerId,boolean operational,Instant today,boolean activeOnly) {
         return jdbc.sql("""
                 SELECT COUNT(*) FROM sales s
                 LEFT JOIN payments paid ON paid.sale_id=s.id AND paid.status='PAID'
@@ -134,6 +146,7 @@ public class SaleRepository {
                   AND (CAST(:toDate AS timestamptz) IS NULL OR s.created_at<:toDate)
                   AND (CAST(:number AS varchar) IS NULL OR s.sale_number ILIKE '%'||:number||'%')
                   AND (CAST(:customer AS uuid) IS NULL OR s.customer_id=:customer)
+                  AND (:activeOnly=FALSE OR s.status IN ('DRAFT','CONFIRMED'))
                   AND (:operational=FALSE
                     OR (s.status IN ('DRAFT','CONFIRMED')
                       OR (s.status='FULFILLED' AND (
@@ -149,6 +162,7 @@ public class SaleRepository {
                 .param("toDate",to==null?null:java.time.OffsetDateTime.ofInstant(to,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .param("number",number,Types.VARCHAR)
                 .param("customer",customerId,Types.OTHER)
+                .param("activeOnly",activeOnly)
                 .param("operational",operational)
                 .param("today",today==null?null:java.time.OffsetDateTime.ofInstant(today,java.time.ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
                 .query(Long.class).single();

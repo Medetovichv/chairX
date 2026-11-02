@@ -1,10 +1,10 @@
 import { CreateSalePage } from './CreateSalePage';
-import { usePersistedListState } from '../../../shared/hooks/usePersistedListState';
+import { useUrlListState } from '../../../shared/hooks/useUrlListState';
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router';
 import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
 import { SaleQuickView } from '../../../shared/components/QuickViewContent';
-import { useEffect, useState } from 'react';
+
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Clock3, LayoutGrid, List, Plus, Search, ShoppingCart } from 'lucide-react';
@@ -24,7 +24,7 @@ import { saleStatuses, saleStatusNames } from '../validation';
 import { salesApi, salesKeys } from '../api';
 import type { SaleFilters, SaleStatus } from '../types';
 
-const empty: SaleFilters = { status: '', from: '', to: '', number: '', page: 0 };
+const empty: SaleFilters = { status: '', from: '', to: '', number: '', page: 0, operational: true, activeOnly: false };
 type View = 'table' | 'kanban';
 
 /** Pure Bishkek calendar calculation: independent of browser timezone. */
@@ -42,7 +42,7 @@ function dayRange(days: number): { from: string; to: string } {
 }
 
 export function SalesPage() {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission } = useAuth();
   const [quickParams, setQuickParams] = useSearchParams();
   const selected = quickParams.get('quick');
   const goQuick = (id: string) => setQuickParams(prev => { const next = new URLSearchParams(prev); next.set('quick', id); return next; });
@@ -68,16 +68,15 @@ export function SalesPage() {
   const create = hasPermission('SALES_CREATE');
   // Table is retained as the default for existing operational workflows.
   // Staff can switch to the visual Kanban without losing their filters.
-  const [view, setView] = usePersistedListState<View>('sales-view', user?.id, 'table');
-  const [history,setHistory]=usePersistedListState('sales-history',user?.id,false);
-  const [search, setSearch] = usePersistedListState('sales-search',user?.id,'');
-  const [term, setTerm] = useState('');
-  const [filters, setFilters] = usePersistedListState<SaleFilters>('sales-filters',user?.id,empty);
-  useEffect(() => {
-    const timeout = setTimeout(() => setTerm(search.trim()), 350);
-    return () => clearTimeout(timeout);
-  }, [search]);
-  const filtered = { ...filters, number: term, operational:!history };
+  const [viewState, setViewState] = useUrlListState({ view: 'table' });
+  const view: View = viewState.view === 'kanban' ? 'kanban' : 'table';
+  const setView = (view: View) => setViewState({ view });
+  const [filters, setFilters] = useUrlListState(empty, value => ({ ...value,
+    status: saleStatuses.includes(value.status as SaleStatus) ? value.status : '',
+  }));
+  const history = !filters.operational;
+  const search = filters.number;
+  const filtered = filters;
   const valid = !(filters.from && filters.to && filters.from > filters.to);
 
   const drafts=useQuery({queryKey:['sales','metric','drafts'],
@@ -116,20 +115,22 @@ export function SalesPage() {
 
     {!history&&<section aria-label="Текущие показатели продаж" className="grid gap-3 sm:grid-cols-3">
       {([
-        {title:'Черновики в работе',value:drafts.data?.total,icon:ShoppingCart},
-        {title:'Ожидают выполнения',value:confirmed.data?.total,icon:Clock3},
-        {title:'Выданы сегодня или ещё не закрыты',value:completed.data?.total,icon:CheckCircle2},
-      ]).map(m=><article key={m.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        {title:'Черновики в работе',value:drafts.data?.total,icon:ShoppingCart,status:'DRAFT'},
+        {title:'Ожидают выполнения',value:confirmed.data?.total,icon:Clock3,status:'CONFIRMED'},
+        {title:'Выданы сегодня или ещё не закрыты',value:completed.data?.total,icon:CheckCircle2,status:'FULFILLED'},
+      ]).map(m=><Link to={'/sales?status='+m.status+'&operational=true'} key={m.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <m.icon className="mb-2 size-5 text-blue-600" aria-hidden="true"/>
         <p className="text-xs font-semibold text-slate-600">{m.title}</p>
         <p className="mt-1 text-3xl font-bold">{m.value===undefined?'—':m.value}</p>
-      </article>)}
+      </Link>)}
     </section>}
+    {filters.activeOnly && <p role="status">В работе: черновики и подтверждённые заказы.
+      <Button variant="ghost" onClick={() => setFilters(empty)}>Сбросить фильтры</Button></p>}
     <div className="flex flex-wrap gap-3">
       <Button aria-pressed={!history} variant={!history?'default':'outline'}
-        onClick={()=>{setHistory(false);setFilters(empty);}}>Актуальные заказы</Button>
+        onClick={()=>{setFilters(empty);}}>Актуальные заказы</Button>
       <Button aria-pressed={history} variant={history?'default':'outline'}
-        onClick={()=>{setHistory(true);setFilters({...empty,...dayRange(7)});}}>История продаж</Button>
+        onClick={()=>{setFilters({...empty,...dayRange(7),operational:false});}}>История продаж</Button>
     </div>
     <section aria-label="Фильтры продаж" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,7 +151,7 @@ export function SalesPage() {
           <span className="inline-flex items-center gap-2"><Search className="size-4" aria-hidden="true" />Поиск заказа</span>
           <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}
             placeholder="По номеру заказа, например CHX-..."
-            value={search} onChange={e => { setSearch(e.target.value); setFilters(old => ({ ...old, page: 0 })); }}/>
+            value={search} onChange={e => { change('number', e.target.value); }}/>
         </label>
         <label className="space-y-1 text-sm font-semibold text-slate-700">Статус
           <select aria-label="Фильтр статуса продажи" value={filters.status}
@@ -176,10 +177,8 @@ export function SalesPage() {
           { name: '30 дней', days: 30 },
         ].map(p => <Button key={p.days} type="button" variant="outline" size="sm"
           onClick={() => preset(p.days)}>{p.name}</Button>)}
-        <Button type="button" variant="ghost" size="sm" onClick={() => {
-          setSearch(''); setTerm(''); setFilters(empty);
-        }}>Сбросить фильтры</Button>
       </div>}
+      <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({...empty,operational:!history})}>Сбросить фильтры</Button>
       {view === 'kanban' && filters.status &&
         <p className="text-xs text-slate-500">Kanban всегда показывает все четыре статуса.
           Фильтр статуса применяется только к таблице.</p>}
