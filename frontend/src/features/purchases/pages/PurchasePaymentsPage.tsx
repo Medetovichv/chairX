@@ -7,7 +7,6 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
-import { Button } from '../../../shared/ui/button';
 import { purchaseApi, purchaseKeys } from '../api';
 import { formatDate, formatMoney } from '../validation';
 import { PurchaseTabs } from '../components/PurchaseTabs';
