@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
@@ -7,8 +7,6 @@ import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
-import { Input } from '../../../shared/ui/input';
-import { Button } from '../../../shared/ui/button';
 import { purchaseApi, purchaseKeys } from '../api';
 import { formatDate, formatMoney } from '../validation';
 import { PurchaseTabs } from '../components/PurchaseTabs';
@@ -24,18 +22,15 @@ export function PurchasePaymentsPage() {
   const [notice, setNotice] = useState('');
   const [params, setParams] = useSearchParams();
   const query = params.get('purchaseId') ?? '';
-  const [input, setInput] = useState(query);
-  useEffect(() => {
-    setInput(query);
-    setNotice('');
-  }, [query]);
+  const canReadPurchases = hasPermission('PURCHASE_READ');
+  const purchaseList = useQuery({
+    queryKey: [...purchaseKeys.overview({ status:'', supplierId:'', from:'', to:'', number:'', page:0 }), 'payment-picker'],
+    queryFn: () => purchaseApi.overview({ status:'', supplierId:'', from:'', to:'', number:'', page:0 }, true),
+    enabled: allowed && canReadPurchases && !validId(query),
+  });
   const purchaseId = validId(query) ? query : '';
   const summary = useQuery({ queryKey: purchaseKeys.payments(purchaseId),
     queryFn: () => purchaseApi.payments(purchaseId), enabled: allowed && !!purchaseId });
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    if (validId(input.trim())) setParams({ purchaseId: input.trim() });
-  }
   async function paymentPosted(payment: Payment) {
     setNotice('Оплата проведена: ' + payment.amount + ' сом, операция ' + payment.id + '.');
     await Promise.all([
@@ -50,18 +45,25 @@ export function PurchasePaymentsPage() {
     <PageHeader title="Оплаты" description="Просмотр задолженности и проведение выплат поставщику/за карго по конкретной закупке." />
     <PurchaseTabs />
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    <form onSubmit={submit} className="rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
-      <label className="block space-y-2 text-sm font-semibold">UUID закупки
-        <Input value={input} aria-label="UUID закупки для оплат" onChange={e=>setInput(e.target.value)}
-          placeholder="Вставьте UUID закупки" />
-      </label>
-      <Button type="submit" disabled={!validId(input.trim())} className="mt-3">Показать оплаты</Button>
-      {hasPermission('PURCHASE_READ') && <p className="mt-2 text-sm">
-        <Link to="/purchases" className="font-semibold text-indigo-700">Найти закупку в списке</Link>
-      </p>}
-    </form>
+    {!purchaseId && canReadPurchases && <section aria-label="Выбор закупки для оплаты"
+      className="space-y-3 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
+      <h3 className="text-base font-semibold">Выберите закупку</h3>
+      <p className="text-sm text-[#516977]">Показаны последние закупки. Остальные можно найти в общем списке.</p>
+      {purchaseList.isPending ? <LoadingState label="Загружаем закупки…" /> :
+        purchaseList.isError ? <ErrorState error={purchaseList.error} onRetry={() => void purchaseList.refetch()} /> :
+        !purchaseList.data?.items.length ? <p className="text-sm text-[#516977]">Закупки не найдены.</p> :
+        <div className="divide-y divide-[#e3e9ee]">
+          {purchaseList.data.items.map(p => <button key={p.id} type="button"
+            className="flex min-h-11 w-full flex-wrap items-center justify-between gap-2 px-2 py-3 text-left hover:bg-[#edf3f6] focus-visible:outline-2 focus-visible:outline-[#416c82]"
+            onClick={() => { setParams({ purchaseId:p.id }); setNotice(''); }}>
+            <span className="font-semibold text-[#182d38]">{p.supplierName} · {formatDate(p.createdAt)}</span>
+            <span className="text-sm tabular-nums text-[#416c82]">{formatMoney(p.totalCost)}</span>
+          </button>)}
+        </div>}
+      <Link to="/purchases" className="inline-flex min-h-11 items-center font-semibold text-[#416c82] underline-offset-4 hover:underline">Открыть все закупки</Link>
+    </section>}
     {!purchaseId ? <p className="text-sm text-slate-600">
-      Введите UUID конкретной закупки, чтобы посмотреть выплаты и провести новую операцию при наличии прав.
+      {canReadPurchases ? 'Выберите закупку из списка выше.' : 'Откройте оплаты по ссылке из доступной вам карточки закупки.'}
     </p> : summary.isPending ? <LoadingState label="Загружаем оплаты закупки…" /> :
       summary.isError ? <ErrorState error={summary.error} onRetry={() => void summary.refetch()} /> :
       summary.data ? <section aria-label="Оплаты выбранной закупки" className="space-y-4">

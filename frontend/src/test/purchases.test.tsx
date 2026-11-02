@@ -690,6 +690,16 @@ describe('F06 suppliers and read-only purchase payments',()=>{
     expect(screen.queryByRole('button',{name:'+ Добавить поставщика'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Изменить Шэньчжэнь'})).not.toBeInTheDocument();
   });
+  it('opens payments by a readable purchase choice without exposing UUID fields',async()=>{
+    const {calls}=mockApi();
+    renderAt('/purchases/payments');
+    expect(await screen.findByRole('region',{name:'Выбор закупки для оплаты'})).toBeInTheDocument();
+    expect(screen.queryByRole('textbox',{name:/UUID/})).not.toBeInTheDocument();
+    const picker=within(screen.getByRole('region',{name:'Выбор закупки для оплаты'}));
+    await userEvent.setup().click(await picker.findByRole('button',{name:/Шэньчжэнь/}));
+    expect(await screen.findByText(/Обязательства перед поставщиком/)).toBeInTheDocument();
+    expect(requests(calls,'/api/purchases/'+PID+'/payments')).toHaveLength(1);
+  });
   it('shows read-only payment summary by explicit purchase UUID and never posts payments',async()=>{
     const {calls}=mockApi();
     renderAt('/purchases/payments?purchaseId='+PID);
