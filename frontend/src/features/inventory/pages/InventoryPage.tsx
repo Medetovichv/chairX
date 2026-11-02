@@ -19,7 +19,7 @@ import { TransferForm } from '../components/TransferForm';
 import { WarehouseOverviewCards } from '../components/WarehouseOverviewCards';
 
 type AvailabilityFilter = 'all' | 'available' | 'recorded';
-const panelClass = 'overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs';
+const panelClass = 'overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white';
 
 function StockSummary({ line, warehouses, selectedWarehouseId }: {
   line: StockLine; warehouses: Warehouse[]; selectedWarehouseId: string | null;
@@ -30,11 +30,11 @@ function StockSummary({ line, warehouses, selectedWarehouseId }: {
   return <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 xl:grid-cols-4">
     {entries.map((w) => {
       const stock = warehouseStock(line, w.id);
-      return <div key={w.id} className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+      return <div key={w.id} className="rounded-xl border border-[#e2eaf0] bg-[#f3f8fa] p-3">
         <p className="font-semibold text-slate-700">{w.name}</p>
         <p className="mt-2 text-xs text-slate-500">Физический {stock?.onHand ?? 0} · Резерв {stock?.reserved ?? 0}</p>
         <p className="text-xs text-slate-500">Блокировано {stock?.blocked ?? 0}</p>
-        <p className="mt-1 text-base font-bold text-blue-700">Доступно: {stock?.available ?? 0}</p>
+        <p className="mt-1 text-base font-bold text-[#416c82]">Доступно: {stock?.available ?? 0}</p>
       </div>;
     })}
     <div className="rounded-xl border border-slate-200 p-3">
@@ -55,7 +55,7 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, trans
   return <div className={panelClass}>
     <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-220 text-left text-sm">
-        <thead className="bg-slate-50"><tr>
+        <thead className="bg-[#f2f6f8]"><tr>
           <th className="px-4 py-3">Модель</th><th className="px-4 py-3">Вариация</th>
           {tableWarehouses.map((w) => <th className="px-4 py-3" key={w.id}>{w.name}</th>)}
           <th className="px-4 py-3">{selectedWarehouseId ? 'На складе' : 'Всего'}</th>
@@ -63,15 +63,15 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, trans
           <th className="px-4 py-3">Доступно</th><th className="px-4 py-3">Действия</th>
         </tr></thead>
         <tbody className="divide-y divide-slate-100">
-          {lines.map((line) => <tr key={line.productVariantId} className="entity-clickable-row transition-colors hover:bg-blue-50">
-            <td className="px-4 py-4 font-semibold"><button type="button" disabled={transferOpen} className="entity-stretched-link font-semibold text-blue-700 hover:underline disabled:opacity-60" onClick={() => onSelect(line)}>{line.model}</button></td>
+          {lines.map((line) => <tr key={line.productVariantId} className="entity-clickable-row transition-colors hover:bg-[#f3f8fa]">
+            <td className="px-4 py-4 font-semibold"><button type="button" disabled={transferOpen} className="entity-stretched-link font-semibold text-[#416c82] hover:underline disabled:opacity-60" onClick={() => onSelect(line)}>{line.model}</button></td>
             <td className="px-4 py-4">{line.variation}</td>
             {tableWarehouses.map((w) =>
               <td className="px-4 py-4" key={w.id}>{warehouseStock(line, w.id)?.onHand ?? 0}</td>)}
             <td className="px-4 py-4 font-semibold">{line.onHand}</td>
             <td className="px-4 py-4">{line.reserved}</td>
             <td className="px-4 py-4">{line.blocked}</td>
-            <td className="px-4 py-4 font-bold text-indigo-700">{line.available}</td>
+            <td className="px-4 py-4 font-bold text-[#416c82]">{line.available}</td>
             <td className="px-4 py-4">
               <div className="flex flex-wrap gap-2">
                 {canTransfer && <Button className="entity-row-action" size="sm" variant="outline" disabled={transferOpen} onClick={() => onTransfer(line)}><ArrowLeftRight className="size-4" aria-hidden="true" />Переместить</Button>}
@@ -82,14 +82,14 @@ function StockTable({ lines, warehouses, selectedWarehouseId, canTransfer, trans
       </table>
     </div>
     <div className="divide-y divide-slate-100 md:hidden">
-      {lines.map((line) => <article key={line.productVariantId} className="entity-clickable-row space-y-3 p-4 transition-colors hover:bg-blue-50">
-        <div><h4 className="font-bold text-slate-900"><button type="button" disabled={transferOpen} className="entity-stretched-link text-blue-700 hover:underline" onClick={() => onSelect(line)}>{line.model}</button></h4>
+      {lines.map((line) => <article key={line.productVariantId} className="entity-clickable-row space-y-3 p-4 transition-colors hover:bg-[#f3f8fa]">
+        <div><h4 className="font-bold text-slate-900"><button type="button" disabled={transferOpen} className="entity-stretched-link text-[#416c82] hover:underline" onClick={() => onSelect(line)}>{line.model}</button></h4>
           <p className="text-sm text-slate-600">{line.variation}</p></div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           <span>На складе: <strong>{line.onHand}</strong></span>
           <span>Резерв: <strong>{line.reserved}</strong></span>
           <span>Блокировано: <strong>{line.blocked}</strong></span>
-          <span>Доступно: <strong className="text-indigo-700">{line.available}</strong></span>
+          <span>Доступно: <strong className="text-[#416c82]">{line.available}</strong></span>
         </div>
         {!selectedWarehouseId && <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
           {warehouses.map((w) => <span key={w.id}>{w.name}: {warehouseStock(line, w.id)?.onHand ?? 0}</span>)}
@@ -153,7 +153,7 @@ export function InventoryPage() {
     setTransferLine(line); setSelectedLine(line); setNotice('');
   }
   const namedWarehouses = warehouses.data ?? [];
-  return <div className="space-y-6">
+  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title="Склады" description="Реальные складские остатки, резервы и перемещения офисных кресел." />
     <nav aria-label="Операции склада" className="flex flex-wrap gap-2">
       <Button asChild variant="outline"><Link to="/inventory/transfers"><History className="size-4" aria-hidden="true" />История перемещений</Link></Button>
@@ -171,9 +171,9 @@ export function InventoryPage() {
               loading={summaries.isPending} failed={summaries.isError}
               selected={selectedWarehouseId} disabled={Boolean(transferLine)}
               onSelect={(id) => { setSelectedWarehouseId(id); newFilter(); }} />
-            <section aria-label="Фильтры складской сводки" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <section aria-label="Фильтры складской сводки" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
               <label className="mb-3 block space-y-1 text-sm font-semibold">
-                <span className="inline-flex items-center gap-2"><Search className="size-4 text-blue-600" aria-hidden="true" />Быстрый поиск по модели, вариации или артикулу (SKU)</span>
+                <span className="inline-flex items-center gap-2"><Search className="size-4 text-[#416c82]" aria-hidden="true" />Быстрый поиск по модели, вариации или артикулу (SKU)</span>
                 <Input type="search" aria-label="Поиск товара по модели, вариации или SKU"
                   maxLength={200} value={globalInput} disabled={Boolean(transferLine)}
                   onChange={e=>{setGlobalInput(e.target.value);newFilter();}}
@@ -181,7 +181,7 @@ export function InventoryPage() {
               </label>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="space-y-2 text-sm font-semibold">Склад
-                  <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-slate-200 px-3"
+                  <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]"
                     value={selectedWarehouseId ?? ''} disabled={Boolean(transferLine)} onChange={(event) => {
                       setSelectedWarehouseId(event.target.value || null); newFilter();
                     }}>
@@ -191,7 +191,7 @@ export function InventoryPage() {
                     </option>)}
                   </select>
                 </label>
-                <label className="space-y-2 text-sm font-semibold"><span className="inline-flex items-center gap-1"><Search className="size-4 text-blue-600" aria-hidden="true" />Поиск модели</span>
+                <label className="space-y-2 text-sm font-semibold"><span className="inline-flex items-center gap-1"><Search className="size-4 text-[#416c82]" aria-hidden="true" />Поиск модели</span>
                   <Input aria-label="Поиск модели" type="search" value={modelInput} maxLength={200} disabled={Boolean(transferLine)}
                     onChange={(event) => { setModelInput(event.target.value); newFilter(); }}
                     placeholder="Например, Ergo" />
@@ -206,10 +206,10 @@ export function InventoryPage() {
                 {([
                   ['all', 'Все товары'], ['available', 'Только доступные'], ['recorded', 'С остатком или резервом'],
                 ] as const).map(([value, label]) => <Button key={value} variant={availability === value ? 'default' : 'outline'}
-                  aria-pressed={availability === value} disabled={Boolean(transferLine)} onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
+                  className={availability === value ? 'rounded-full bg-[#182d38] text-white hover:bg-[#305063]' : 'rounded-full border-[#dce6eb] text-[#516977] hover:bg-[#edf3f6]'} aria-pressed={availability === value} disabled={Boolean(transferLine)} onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
               </div>
             </section>
-            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><PackageCheck className="size-5 text-blue-600" aria-hidden="true" />Остатки товаров</h3><p className="text-xs text-slate-500">Нажмите на строку для подробностей; фильтр «Все товары» включает нулевые остатки.</p></div>
+            <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-lg font-bold text-slate-900"><PackageCheck className="size-5 text-[#416c82]" aria-hidden="true" />Остатки товаров</h3><p className="text-xs text-slate-500">Нажмите на строку для подробностей; фильтр «Все товары» включает нулевые остатки.</p></div>
             {unknownWarehouse ? <p role="alert">Склад не найден.
               <Button variant="outline" onClick={()=>setSelectedWarehouseId(null)}>Все склады</Button></p> : overview.isPending ? <LoadingState label="Загружаем складские остатки…" />
               : overview.isError ? <ErrorState title="Не удалось загрузить остатки" error={overview.error}
@@ -224,7 +224,7 @@ export function InventoryPage() {
                       size={dataset.size} onPage={(p) => { if (transferLine) return; setPage(p); setSelectedLine(null); }} /></div>
                   </div> : null}
             {selectedLine && <>
-              <section aria-label="Карточка складской позиции" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+              <section aria-label="Карточка складской позиции" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><h3 className="text-lg font-bold">{selectedLine.model} / {selectedLine.variation}</h3>
                     <p className="text-xs text-slate-500">Физические остатки, резерв, блокировка и история движения</p></div>
