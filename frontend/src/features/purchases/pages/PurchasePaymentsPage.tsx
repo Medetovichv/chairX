@@ -27,7 +27,7 @@ export function PurchasePaymentsPage() {
   const purchaseList = useQuery({
     queryKey: [...purchaseKeys.overview({ status:'', supplierId:'', from:'', to:'', number:'', page:0 }), 'payment-picker'],
     queryFn: () => purchaseApi.overview({ status:'', supplierId:'', from:'', to:'', number:'', page:0 }, true),
-    enabled: allowed && canReadPurchases && !query,
+    enabled: allowed && canReadPurchases && !validId(query),
   });
   const purchaseId = validId(query) ? query : '';
   const summary = useQuery({ queryKey: purchaseKeys.payments(purchaseId),
