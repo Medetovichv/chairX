@@ -31,7 +31,7 @@ export function DefectsPage(){
     <DefectForm onCreated={()=>{setCreating(false);void q.refetch();}}/>
    </div>}
   {read&&!creating&&<label className="block space-y-1 text-sm font-semibold">Статус дефекта
-   <select aria-label="Фильтр статуса брака" className="min-h-11 w-full rounded-xl border bg-white p-2"
+   <select aria-label="Фильтр статуса брака" className="min-h-11 w-full rounded-[20px] border border-[#e3e9ee] bg-white p-2"
     value={status} onChange={e=>{setStatus(e.target.value as DefectStatus|'');setPage(0);}}>
     <option value="">Все</option>
     {defectStatuses.map(s=><option key={s} value={s}>{defectLabels[s]}</option>)}
@@ -42,22 +42,22 @@ export function DefectsPage(){
    q.isError?<ErrorState error={q.error} onRetry={()=>void q.refetch()}/>:
    !q.data.items.length?<EmptyState title="Дефектов не найдено" description="Попробуйте другой статус или зарегистрируйте дефект."/>:
    <section aria-label="Список дефектов" className="space-y-3">
-    <div className="hidden overflow-x-auto rounded-xl border bg-white lg:block">
+    <div className="hidden overflow-x-auto rounded-[20px] border border-[#e3e9ee] bg-white lg:block">
       <table className="w-full text-left text-sm"><thead><tr>{['Вариация','Склад','Кол-во','Статус','Описание','Дата','Сотрудник',''].map(h=><th key={h} className="p-3">{h}</th>)}</tr></thead>
         <tbody>{q.data.items.map(d=><tr key={d.id} className="border-t">
         <td className="p-3"><ReturnChairLabel variantId={d.productVariantId}/></td>
         <td className="p-3"><DefectWarehouseLabel warehouseId={d.warehouseId}/></td>
         <td className="p-3">{d.quantity}</td><td className="p-3">{defectLabels[d.status]}</td>
         <td className="p-3">{d.description}</td><td className="p-3">{dateLabel(d.createdAt)}</td>
-        <td className="p-3">{d.createdBy}</td><td className="p-3"><Link className="font-semibold text-indigo-700 underline" to={'/returns/defects/'+d.id}>Открыть</Link></td>
+        <td className="p-3">{d.createdBy}</td><td className="p-3"><Link className="font-semibold text-[#416c82] underline" to={'/returns/defects/'+d.id}>Открыть</Link></td>
        </tr>)}</tbody></table>
     </div>
-    <div className="space-y-3 lg:hidden">{q.data.items.map(d=><article key={d.id} className="space-y-2 rounded-xl border bg-white p-4 text-sm">
+    <div className="space-y-3 lg:hidden">{q.data.items.map(d=><article key={d.id} className="space-y-2 rounded-[20px] border border-[#e3e9ee] bg-white p-4 text-sm">
       <p>Кресло: <ReturnChairLabel variantId={d.productVariantId}/></p>
       <p>Склад: <DefectWarehouseLabel warehouseId={d.warehouseId}/></p>
       <p>{d.quantity} шт. · {defectLabels[d.status]}</p>
       <p>{d.description}</p><p>{dateLabel(d.createdAt)} · {d.createdBy}</p>
-      <Link className="font-semibold text-indigo-700 underline" to={'/returns/defects/'+d.id}>Открыть</Link>
+      <Link className="font-semibold text-[#416c82] underline" to={'/returns/defects/'+d.id}>Открыть</Link>
     </article>)}</div>
     <PurchasePager page={q.data.page} size={q.data.size} total={q.data.total} label="дефектов" onPage={setPage}/>
    </section>)}

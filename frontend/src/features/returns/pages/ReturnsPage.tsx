@@ -38,20 +38,20 @@ export function ReturnsPage() {
   const saleLabel=(r:ReturnSummary)=>{
     const label=r.saleNumber?displaySaleNumber(r.saleNumber):'Номер заказа недоступен';
     return salesRead?<Link to={'/sales/'+encodeURIComponent(r.saleId)}
-      className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+      className="font-semibold text-[#416c82] underline-offset-2 hover:underline">
       {label}</Link>:<strong>{label}</strong>;
   };
   const returnLink=(r:ReturnSummary)=><Link to={'/returns/'+encodeURIComponent(r.id)}
-    className="font-semibold text-blue-700 underline-offset-2 hover:underline">
+    className="font-semibold text-[#416c82] underline-offset-2 hover:underline">
     Открыть возврат</Link>;
   if(!read||(q.error instanceof ApiClientError&&q.error.status===403))return <ForbiddenPage/>;
-  return <div className="space-y-5">
+  return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title="Возвраты"
       action={create?<Button asChild><Link to="/returns/new">+ Оформить возврат</Link></Button>:undefined}/>
     <ReturnsTabs/>
     <form aria-label="Фильтр возвратов"
       onSubmit={e=>{e.preventDefault();setFilter(typed.trim());setPage(0);}}
-      className="flex flex-wrap items-end gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+      className="flex flex-wrap items-end gap-3 rounded-[20px] border border-[#e3e9ee] bg-white p-4">
       <label className="min-w-48 flex-1 space-y-2 text-sm font-semibold">Номер заказа
         <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}
           placeholder="Например, #1258 или CHX-101" value={typed}
@@ -66,9 +66,9 @@ export function ReturnsPage() {
       !q.data.items.length?<EmptyState title="Возвратов не найдено"
         description="Попробуйте другой номер заказа или сбросьте фильтр."/>:
       <section aria-label="Список возвратов" className="space-y-3">
-        <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 bg-white lg:block">
+        <div className="hidden overflow-x-auto rounded-[20px] border border-[#e3e9ee] bg-white lg:block">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-[#f2f6f8] text-[#516977]">
               <tr>{['Возврат','Продажа','Склад возврата','Дата','Причина','Сотрудник'].map(label=>
                 <th key={label} className="p-4 font-semibold">{label}</th>)}</tr>
             </thead>
@@ -83,7 +83,7 @@ export function ReturnsPage() {
           </table>
         </div>
         <div className="space-y-3 lg:hidden">{q.data.items.map(r=><article key={r.id}
-          className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+          className="space-y-3 rounded-[20px] border border-[#e3e9ee] bg-white p-4 text-sm">
           <div className="flex items-center justify-between gap-3">
             <strong className="text-slate-950">Возврат · {dateLabel(r.createdAt)}</strong>
             {returnLink(r)}
