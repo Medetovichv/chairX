@@ -119,7 +119,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     const fetchMock = mockBackend();
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
 
     expect(screen.getByText('Тестовый сотрудник')).toBeInTheDocument();
     expect(screen.getByText('Сотрудник')).toBeInTheDocument();
@@ -208,7 +208,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend({ ...profile, roles: [role], permissions });
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     for (const name of shown) expect(within(nav).getByRole('link', { name })).toBeInTheDocument();
     for (const name of hidden) expect(within(nav).queryByRole('link', { name })).not.toBeInTheDocument();
@@ -218,7 +218,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend();
     renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     vi.stubGlobal('fetch', vi.fn(async () => json({ code: 'AUTHENTICATION_REQUIRED', details: {} }, 401)));
     await expect(apiClient.get('/api/sales')).rejects.toMatchObject({ status: 401 });
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Вход для сотрудников' })).toBeInTheDocument());
@@ -236,7 +236,7 @@ describe('F02 sign-in, protected routes and session isolation', () => {
     mockBackend();
     const { queryClient } = renderApp();
     await enterCredentials();
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument());
     queryClient.setQueryData(['customers'], { confidential: true });
     expect(queryClient.getQueryData(['customers'])).toBeDefined();
 
