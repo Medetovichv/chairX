@@ -156,7 +156,7 @@ describe('dashboard drilldowns and browser history', () => {
       );
       expect(screen.getByLabelText('URL')).toHaveTextContent(url);
       fireEvent.click(screen.getByText('Back'));
-      expect(await screen.findByText('Добро пожаловать, коллега!')).toBeInTheDocument();
+      expect(await screen.findByText('Рабочий обзор')).toBeInTheDocument();
       fireEvent.click(screen.getByText('Forward'));
       await waitFor(() => expect(screen.getByLabelText('URL')).toHaveTextContent(url));
     },
