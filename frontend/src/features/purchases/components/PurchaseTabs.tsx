@@ -12,8 +12,8 @@ export function PurchaseTabs() {
   return <nav aria-label="Разделы закупок" className="flex flex-wrap gap-2">
     {tabs.filter(t=>hasPermission(t.permission)).map(t=><Link key={t.path} to={t.path}
       aria-current={pathname===t.path?'page':undefined}
-      className={'inline-flex min-h-10 items-center rounded-xl px-4 text-sm font-semibold ' +
-        (pathname===t.path?'bg-indigo-600 text-white':'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50')}>
+      className={'inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#416c82] ' +
+        (pathname===t.path?'bg-[#182d38] text-white':'border border-[#dce6eb] bg-white text-[#516977] hover:bg-[#edf3f6]')}>
       {t.label}</Link>)}
   </nav>;
 }
