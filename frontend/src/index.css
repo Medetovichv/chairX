@@ -6,7 +6,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   color: #0f172a;
-  background: #f5f9fe;
+  background: #e9eef0;
 }
 
 * { box-sizing: border-box; }
@@ -14,18 +14,18 @@ html { min-width: 320px; }
 body { min-width: 320px; margin: 0; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
-::selection { background: #bfdbfe; color: #172554; }
+::selection { background: #c7dce7; color: #182d38; }
 
 /* A native anchor, not a synthetic onClick row: opening in a new tab,
    keyboard focus and screen-reader navigation continue to work. */
 .entity-clickable-row { position: relative; }
-.entity-clickable-row:hover { background-color: #eff6ff; }
+.entity-clickable-row:hover { background-color: #f3f8fa; }
 .entity-stretched-link::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 1;
 }
-.entity-stretched-link:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; border-radius: 3px; }
+.entity-stretched-link:focus-visible { outline: 2px solid #416c82; outline-offset: 3px; border-radius: 3px; }
 /* Any explicit secondary controls stay above the stretched navigation link. */
 .entity-row-action { position: relative; z-index: 2; }
