@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
+import { ShoppingCart } from 'lucide-react';
 import { EmployeeDailyClosingPage } from '../features/daily-closing/EmployeeDailyClosingPage';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -133,7 +134,7 @@ function CompanyDailyClosingPage() {
     </div>
     {valid&&<section aria-label="Финансовые показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <article className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-3 sm:p-4">
-       <p className="text-xs font-medium text-slate-500">🛒 Завершённые продажи</p>
+       <p className="text-xs font-medium text-slate-500"><ShoppingCart aria-hidden="true" className="mr-1 inline size-4 align-text-bottom"/>Завершённые продажи</p>
        <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
         {sales.isSuccess&&sales.data.totals.value!==null?som(sales.data.totals.value):'—'}</p>
        <p className="text-xs text-slate-500">
