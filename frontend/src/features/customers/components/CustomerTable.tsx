@@ -8,17 +8,17 @@ function isOverview(line: Line): line is CustomerOverviewLine {
 }
 
 export function CustomerTable({ items, withSales }: {items: Line[]; withSales: boolean}) {
-  return <section aria-label="Список клиентов" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  return <section aria-label="Список клиентов" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
     <div className="hidden overflow-x-auto lg:block">
       <table className="w-full text-left text-sm">
-        <thead className="bg-slate-50">
+        <thead className="bg-[#f2f6f8]">
           <tr>{['Клиент', 'Телефон', 'WhatsApp', 'Город / регион',
             ...(withSales ? ['Заказов', 'Последний заказ', 'Дата заказа'] : [])].map((title) =>
-            <th scope="col" key={title} className="px-4 py-3 font-semibold text-slate-600">{title}</th>)}</tr>
+            <th scope="col" key={title} className="px-4 py-3 font-semibold text-[#516977]">{title}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
           {items.map((line) => <tr key={line.id} className="entity-clickable-row group transition-colors">
-            <td className="px-4 py-4 font-semibold text-blue-700">
+            <td className="px-4 py-4 font-semibold text-[#416c82]">
               <Link className="entity-stretched-link hover:underline" to={'/customers/' + encodeURIComponent(line.id)}>{customerTitle(line)}</Link>
             </td>
             <td className="px-4 py-4">{line.phone || '—'}</td>
@@ -33,9 +33,9 @@ export function CustomerTable({ items, withSales }: {items: Line[]; withSales: b
         </tbody>
       </table>
     </div>
-    <div className="divide-y divide-slate-100 lg:hidden">
+    <div className="divide-y divide-[#e9eef0] lg:hidden">
       {items.map((line) => <article key={line.id} className="entity-clickable-row group space-y-3 p-4 transition-colors">
-        <Link className="entity-stretched-link block break-words font-semibold text-blue-700"
+        <Link className="entity-stretched-link block break-words font-semibold text-[#416c82]"
           to={'/customers/' + encodeURIComponent(line.id)}>{customerTitle(line)}</Link>
         <p className="break-all text-sm text-slate-600">Телефон: {line.phone || '—'}</p>
         <p className="break-all text-sm text-slate-600">WhatsApp: {line.whatsappPhone || '—'}</p>
