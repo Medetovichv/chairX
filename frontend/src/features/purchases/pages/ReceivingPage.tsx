@@ -39,7 +39,7 @@ export function ReceivingPage() {
     enabled: canReceive && !selected,
   });
   if (!canReceive || list.error instanceof ApiClientError && list.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6">
+  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title={selected?'Приёмка по закупке':'Поступления'}
       description="Складская приёмка без раскрытия закупочных цен и себестоимости." />
     {!selected&&<PurchaseTabs />}
@@ -47,7 +47,7 @@ export function ReceivingPage() {
     {invalidLink&&<p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
       Неверная ссылка на закупку. Выберите поступление из списка.
     </p>}
-    {selected&&canReadPurchases&&<Link className="text-sm font-semibold text-blue-700 hover:underline"
+    {selected&&canReadPurchases&&<Link className="text-sm font-semibold text-[#416c82] hover:underline"
       to={'/purchases/'+encodeURIComponent(selected)}>Открыть карточку закупки</Link>}
     {selected&&<ReceivingForm key={selected} purchaseId={selected}
       onClose={closeReceiving}
@@ -56,15 +56,15 @@ export function ReceivingPage() {
       list.isError ? <ErrorState error={list.error} onRetry={() => void list.refetch()} /> :
       !list.data?.items.length ? <EmptyState title="Нет позиций для приёмки"
         description="Все ожидаемые позиции уже получены или ещё не подтверждены." /> :
-      <section aria-label="Позиции к приёмке" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <section aria-label="Позиции к приёмке" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50"><tr>{['Закупка','Дата','Модель','Вариация','Статус','Заказано','Принято','Осталось','Действие'].map(s =>
+            <thead className="bg-[#f2f6f8]"><tr>{['Закупка','Дата','Модель','Вариация','Статус','Заказано','Принято','Осталось','Действие'].map(s =>
               <th scope="col" key={s} className="px-4 py-3 font-semibold">{s}</th>)}</tr></thead>
             <tbody className="divide-y divide-slate-100">{list.data.items.map(line =>
               <tr key={line.purchaseItemId}>
                 <td className="px-4 py-4">{canReadPurchases?
-                  <Link className="font-semibold text-blue-700 hover:underline"
+                  <Link className="font-semibold text-[#416c82] hover:underline"
                     to={'/purchases/'+encodeURIComponent(line.purchaseId)}>Открыть закупку</Link>:
                   <span>Закупка</span>}</td>
                 <td className="px-4 py-4">{formatDate(line.createdAt)}</td>
@@ -82,7 +82,7 @@ export function ReceivingPage() {
             <p className="font-bold">{line.model} · {line.variant}</p>
             <p className="text-xs text-slate-600">
               {canReadPurchases?
-                <Link className="font-semibold text-blue-700 hover:underline"
+                <Link className="font-semibold text-[#416c82] hover:underline"
                   to={'/purchases/'+encodeURIComponent(line.purchaseId)}>Карточка закупки</Link>:
                 'Закупка'} · {formatDate(line.createdAt)}
             </p>
