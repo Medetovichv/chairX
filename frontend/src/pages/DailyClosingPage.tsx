@@ -41,7 +41,7 @@ function ExistingReport({ report }: { report: ClosingReport }) {
   return <section aria-label="Закрытый отчёт" className="space-y-3">
     <h2 className="text-lg font-bold">День закрыт · версия {report.version}</h2>
     <p className="text-sm">Создал {report.createdBy} · {dateLabel(report.createdAt)}</p>
-    <details className="rounded-xl border border-slate-200 bg-white p-3">
+    <details className="rounded-[16px] border border-[#e3e9ee] bg-white p-3">
       <summary className="cursor-pointer text-sm font-semibold">Архивные финансовые показатели</summary>
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <AccountView title="Наличные" account={report.cash}/>
@@ -100,11 +100,11 @@ function CompanyDailyClosingPage() {
       client.invalidateQueries({ queryKey: ['employee-closings','manager',date] }),
     ]);
   }
-  return <div className="space-y-5">
+  return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
 
     <PageHeader title="Закрытие дня" description="Ежедневный операционный и финансовый отчёт"/>
 
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
+    <div className="flex flex-wrap items-center gap-3 rounded-[20px] border border-[#e3e9ee] bg-white p-4">
       <Button type="button" variant="outline" aria-label="Предыдущий день" onClick={()=>{
         const previous=new Date(date+'T12:00:00Z');previous.setUTCDate(previous.getUTCDate()-1);
         chooseDate(previous.toISOString().slice(0,10));
@@ -132,26 +132,26 @@ function CompanyDailyClosingPage() {
       </section>}
     </div>
     {valid&&<section aria-label="Финансовые показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-3 sm:p-4">
        <p className="text-xs font-medium text-slate-500">🛒 Завершённые продажи</p>
        <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
         {sales.isSuccess&&sales.data.totals.value!==null?som(sales.data.totals.value):'—'}</p>
        <p className="text-xs text-slate-500">
         {sales.isSuccess?`${sales.data.totals.orders??'—'} заказов · ${sales.data.totals.chairs??'—'} кресел`:'Данные загружаются'}</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-3 sm:p-4">
        <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
        <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
         {exists?(report.isSuccess?som(report.data.cash.expected):'—'):(preview.isSuccess?som(preview.data.expectedCash):'—')}</p>
        <p className="text-xs text-slate-500">По данным финансового отчёта</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-3 sm:p-4">
        <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
        <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
         {exists?(report.isSuccess?som(report.data.bank.expected):'—'):(preview.isSuccess?som(preview.data.expectedBank):'—')}</p>
        <p className="text-xs text-slate-500">По данным финансового отчёта</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-3 sm:p-4">
        <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
        <p className="mt-2 break-words text-lg font-bold sm:text-2xl">
         {staff.isSuccess?som(staff.data.expenseTotal):'—'}</p>
