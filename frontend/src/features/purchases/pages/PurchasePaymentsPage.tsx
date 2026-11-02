@@ -46,11 +46,11 @@ export function PurchasePaymentsPage() {
     ]);
   }
   if (!allowed || summary.error instanceof ApiClientError && summary.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6">
+  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title="Оплаты" description="Просмотр задолженности и проведение выплат поставщику/за карго по конкретной закупке." />
     <PurchaseTabs />
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
-    <form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-4">
+    <form onSubmit={submit} className="rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
       <label className="block space-y-2 text-sm font-semibold">UUID закупки
         <Input value={input} aria-label="UUID закупки для оплат" onChange={e=>setInput(e.target.value)}
           placeholder="Вставьте UUID закупки" />
