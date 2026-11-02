@@ -23,6 +23,7 @@ export interface DeliveryResponse {
 }
 export interface DeliveryPage { items: DeliverySummary[]; page: number; size: number; total: number }
 export interface DeliveryFilters {
+  pendingOnly?: boolean; deliveredOn?: string;
   status: DeliveryStatus | ''; from: string; to: string;
   plannedFrom: string; plannedTo: string; cityRegion: string; page: number;
   operational?: boolean;

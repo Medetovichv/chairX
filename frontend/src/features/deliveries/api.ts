@@ -5,7 +5,7 @@ const enc = (id: string) => encodeURIComponent(id);
 export const deliveryKeys = {
   lists: ['deliveries', 'list'] as const,
   list: (f: DeliveryFilters) => [
-    'deliveries','list',f.status,f.from,f.to,f.plannedFrom,f.plannedTo,f.cityRegion,f.page,f.operational,DELIVERY_PAGE_SIZE,
+    'deliveries','list',f.status,f.from,f.to,f.plannedFrom,f.plannedTo,f.cityRegion,f.page,f.operational,f.pendingOnly??false,f.deliveredOn??'',DELIVERY_PAGE_SIZE,
   ] as const,
   detail: (id: string) => ['deliveries','detail',id] as const,
   bySale: (saleId: string) => ['deliveries','by-sale',saleId] as const,
@@ -16,6 +16,8 @@ export const deliveryApi = {
     for (const key of ['status','from','to','plannedFrom','plannedTo','cityRegion'] as const) {
       if (filters[key].trim()) qs.set(key, filters[key].trim());
     }
+    if(filters.pendingOnly)qs.set('pendingOnly','true');
+    if(filters.deliveredOn)qs.set('deliveredOn',filters.deliveredOn);
     if(filters.operational)qs.set('operational','true');
     return apiClient.get('/api/deliveries?' + qs.toString());
   },

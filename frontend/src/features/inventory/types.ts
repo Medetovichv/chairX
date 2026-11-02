@@ -22,6 +22,7 @@ export interface InventoryOverviewPage {
   items: StockLine[]; page: number; size: number; total: number;
 }
 export interface InventoryFilters {
+  lowStock?: boolean;
   warehouseId: string | null;
   model: string; variation: string; search?: string; includeZero: boolean; onlyAvailable: boolean;
   page: number; size: number;

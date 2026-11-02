@@ -34,8 +34,9 @@ public class SaleController {
                                  @RequestParam(required=false) LocalDate from,
                                  @RequestParam(required=false) LocalDate to,
                                  @RequestParam(required=false) String number,
-                                 @RequestParam(defaultValue="false") boolean operational) {
-        return service.list(page,size,status,from,to,number,operational);
+                                 @RequestParam(defaultValue="false") boolean operational,
+                                 @RequestParam(defaultValue="false") boolean activeOnly) {
+        return service.list(page,size,status,from,to,number,operational,activeOnly);
     }
 
     @GetMapping("/customer/{customerId}")

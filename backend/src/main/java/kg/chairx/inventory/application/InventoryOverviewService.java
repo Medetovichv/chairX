@@ -34,6 +34,11 @@ public class InventoryOverviewService {
     public InventoryOverviewPage list(UUID warehouseId, String model, String variation, String search,
                                        boolean includeZero, boolean onlyAvailable,
                                        int page, int size) {
+        return list(warehouseId,model,variation,search,includeZero,onlyAvailable,page,size,false);
+    }
+
+    public InventoryOverviewPage list(UUID warehouseId,String model,String variation,String search,
+            boolean includeZero,boolean onlyAvailable,int page,int size,boolean lowStock) {
         if (page < 0 || size < 1 || size > 100 || (model != null && model.length() > 200)
                 || (variation != null && variation.length() > 200)
                 || (search != null && search.length() > 200)) {
@@ -56,6 +61,11 @@ public class InventoryOverviewService {
                     OR p.name ILIKE :search ESCAPE '\\'
                     OR v.name ILIKE :search ESCAPE '\\'
                     OR v.sku ILIKE :search ESCAPE '\\')
+                  AND (:lowStock = FALSE OR v.id IN (
+                    SELECT b.product_variant_id FROM inventory_balances b
+                    WHERE (CAST(:warehouse AS uuid) IS NULL OR b.warehouse_id = :warehouse)
+                    GROUP BY b.product_variant_id
+                    HAVING SUM(b.on_hand-b.reserved-b.blocked) BETWEEN 1 AND 5))
                   AND (:includeZero = TRUE OR EXISTS (
                         SELECT 1 FROM inventory_balances b
                         WHERE b.product_variant_id = v.id
@@ -90,6 +100,7 @@ public class InventoryOverviewService {
                 .param("variation", variationQuery, Types.VARCHAR)
                 .param("search", searchQuery, Types.VARCHAR)
                 .param("warehouse", warehouseId, Types.OTHER)
+                .param("lowStock",lowStock)
                 .param("includeZero", includeZero)
                 .param("onlyAvailable", onlyAvailable)
                 .param("size", size).param("offset", (long)page*size)
@@ -116,6 +127,7 @@ public class InventoryOverviewService {
                 .param("variation", variationQuery, Types.VARCHAR)
                 .param("search", searchQuery, Types.VARCHAR)
                 .param("warehouse", warehouseId, Types.OTHER)
+                .param("lowStock",lowStock)
                 .param("includeZero", includeZero)
                 .param("onlyAvailable", onlyAvailable)
                 .query(Long.class).single();
