@@ -35,10 +35,10 @@ export function AdminRolesPage(){
    }else setError('Роль не создана. Проверьте код, разрешения и возможные конфликты.');
   }finally{lock.current=false;}
  }
- return <div className="space-y-5">
+ return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
   <PageHeader title="Роли и разрешения" description="Пользовательские роли создаются вручную; системные роли остаются защищёнными."
    action={hasPermission('ROLES_CREATE')?<Button onClick={()=>setCreating(true)}>+ Создать роль</Button>:undefined}/>
-  {creating&&hasPermission('ROLES_CREATE')&&<section aria-label="Новая роль" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5">
+  {creating&&hasPermission('ROLES_CREATE')&&<section aria-label="Новая роль" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-5">
    <h3 className="font-bold">Создание пользовательской роли</h3>
    <div className="grid gap-3 sm:grid-cols-2">
     <label>Код роли<Input aria-label="Код роли" maxLength={100} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/></label>
@@ -56,7 +56,7 @@ export function AdminRolesPage(){
   </section>}
   {roles.isPending?<LoadingState label="Загружаем роли…"/>:
    roles.isError?<ErrorState error={roles.error} onRetry={()=>void roles.refetch()}/>:
-   <section className="divide-y divide-slate-100 rounded-2xl border border-slate-200 bg-white p-5">
+   <section className="divide-y divide-slate-100 rounded-[20px] border border-[#e3e9ee] bg-white p-5">
     {(roles.data??[]).map(role=><article key={role.id} className="entity-clickable-row group flex flex-wrap items-center justify-between gap-3 px-3 py-3 transition-colors">
      <div><h3 className="font-bold"><Link className="entity-stretched-link text-blue-700 hover:underline" to={'/admin/roles/'+encodeURIComponent(role.id)} aria-label={'Открыть роль '+role.name}>{role.name} ({role.code})</Link></h3>
       <p className="text-sm text-slate-500">{role.systemRole?'Системная':'Пользовательская'} · Сотрудников: {role.assignedUsersCount} · Разрешений: {role.permissions.length}</p></div>

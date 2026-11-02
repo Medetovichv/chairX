@@ -41,11 +41,11 @@ export function AdminUsersPage(){
  }
  const visible=(users.data??[]).filter(x=>(onlyActive==='all'||(onlyActive==='active')===x.active)&&
  [x.username,x.displayName,...x.roles].join(' ').toLowerCase().includes(filter.toLowerCase()));
- return <div className="space-y-5">
+ return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
   <PageHeader title="Сотрудники" description="Учётные записи и их роли"
     action={hasPermission('USERS_CREATE')?<Button onClick={()=>setCreating(true)}>+ Создать сотрудника</Button>:undefined}/>
   {creating&&<form aria-label="Создание сотрудника" onSubmit={e=>void submit(e)}
-   className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+   className="space-y-3 rounded-[20px] border border-[#e3e9ee] bg-white p-5">
    <h3 className="font-bold">Новый сотрудник</h3>
    <p className="text-sm text-slate-500">Создание и назначение ролей — разные операции.</p>
    <div className="grid gap-3 sm:grid-cols-2">
@@ -61,7 +61,7 @@ export function AdminUsersPage(){
    <div className="flex gap-2"><Button type="submit" disabled={submitting||unknown}>Создать</Button>
     <Button type="button" variant="outline" disabled={submitting} onClick={()=>{setCreating(false);setUnknown(false);setPassword('');setAgain('');}}>Закрыть</Button></div>
   </form>}
-  <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
+  <section className="space-y-3 rounded-[20px] border border-[#e3e9ee] bg-white p-5">
    <div className="flex flex-wrap gap-3">
     <Input type="search" aria-label="Поиск сотрудника" className="max-w-xs" placeholder="Имя, логин или роль"
      value={filter} onChange={e=>setFilter(e.target.value)}/>
