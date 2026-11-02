@@ -50,8 +50,11 @@ export function DeliveriesPage(){
   }));
   const history=!filters.operational;
   const region=filters.cityRegion;
-  const quick: Quick|null = filters.pendingOnly || filters.deliveredOn || filters.plannedFrom || filters.plannedTo
-    ? null : filters.status || 'all';
+  const today=applyQuick('today'), upcoming=applyQuick('upcoming');
+  const quick: Quick|null = filters.pendingOnly || filters.deliveredOn ? null
+    : !filters.status && filters.plannedFrom===today.plannedFrom && filters.plannedTo===today.plannedTo ? 'today'
+    : !filters.status && filters.plannedFrom===upcoming.plannedFrom && !filters.plannedTo ? 'upcoming'
+    : filters.plannedFrom || filters.plannedTo ? null : filters.status || 'all';
   const change=(p:Partial<Filters>)=>setFilters(f=>({...f,...p,page:0}));
   const setRegion=(cityRegion:string)=>change({cityRegion});
   const choose=(choice:Quick)=>change({...applyQuick(choice),pendingOnly:false,deliveredOn:''});

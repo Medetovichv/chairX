@@ -218,6 +218,15 @@ describe('dashboard drilldowns and browser history', () => {
     );
     fireEvent.click(screen.getByText('Forward'));
     expect(screen.getByLabelText('Плановая дата по')).toHaveValue('2026-10-09');
+    fireEvent.click(screen.getByRole('button', { name: 'Сегодня' }));
+    expect(screen.getByRole('button', { name: 'Сегодня' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: 'Предстоящие' }));
+    expect(screen.getByRole('button', { name: 'Предстоящие' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    fireEvent.click(screen.getByText('Back'));
+    expect(screen.getByRole('button', { name: 'Сегодня' })).toHaveAttribute('aria-pressed', 'true');
   });
   it('restores inventory warehouse including clearing it, all search fields, availability and page', async () => {
     setup(
