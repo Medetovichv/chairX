@@ -65,9 +65,9 @@ export function CustomerForm({ initial, onSave, onCancel }: {
 
   return <form aria-label={initial ? 'Редактирование клиента' : 'Создание клиента'}
     onSubmit={(event) => void submit(event)}
-    className="space-y-5 rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm sm:p-6">
+    className="space-y-5 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
     <div>
-      <h3 className="text-lg font-bold text-slate-900">{initial ? 'Редактировать клиента' : 'Новый клиент'}</h3>
+      <h3 className="text-lg font-semibold text-[#182d38]">{initial ? 'Редактировать клиента' : 'Новый клиент'}</h3>
       <p className="mt-1 text-sm text-slate-500">Имя необязательно. Достаточно хотя бы одного контакта.</p>
     </div>
     <div className="grid gap-4 sm:grid-cols-2">
@@ -79,7 +79,7 @@ export function CustomerForm({ initial, onSave, onCancel }: {
           <textarea aria-label={customerLabels[field]} rows={field === 'comment' ? 3 : 2}
             maxLength={customerLimits[field]} value={values[field]} disabled={saving}
             onChange={(event) => setField(field, event.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-normal outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100" />
+            className="w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3.5 py-3 text-sm font-normal text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]" />
           : <Input aria-label={customerLabels[field]} type="text" autoComplete="off"
             maxLength={customerLimits[field]} value={values[field]} disabled={saving}
             onChange={(event) => setField(field, event.target.value)} />}
