@@ -61,7 +61,7 @@ describe('F02.1 navigation structure', () => {
 
   it('opens actual dashboard without fabricated KPI values', () => {
     renderAt();
-    expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Новая продажа' })).toHaveAttribute('href', '/sales/new');
     expect(screen.queryByText('Выручка сегодня')).not.toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe('F02.1 navigation structure', () => {
     expect(screen.getByRole('button', { name: 'Канбан' })).toHaveAttribute('aria-pressed', 'true');
     expect(await screen.findByRole('region', { name: 'Канбан: Черновик' })).toBeInTheDocument();
     await user.click(within(screen.getByRole('navigation', { name: 'Разделы ChairX' })).getByRole('link', { name: 'Главная' }));
-    expect(screen.getByRole('heading', { name: 'Рабочий обзор' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Добро пожаловать,/ })).toBeInTheDocument();
     authSession.clear();
     vi.unstubAllGlobals();
   });
