@@ -218,7 +218,7 @@ describe('F05 customer list / permissions', () => {
     mockBackend();
     renderAt();
     expect(await screen.findByRole('cell', { name: 'Алия' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '+ Добавить клиента' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Добавить клиента' })).not.toBeInTheDocument();
   });
 
   it('server HTTP 403 shows forbidden, without rendering private records', async () => {
@@ -234,7 +234,7 @@ describe('F05 customer creation and validation', () => {
     const {calls}=mockBackend();
     renderAt();
     await screen.findByRole('cell',{name:'Алия'});
-    await userEvent.setup().click(screen.getByRole('button',{name:'+ Добавить клиента'}));
+    await userEvent.setup().click(screen.getByRole('button',{name:'Добавить клиента'}));
     expect(screen.getByRole('form',{name:'Создание клиента'})).toBeInTheDocument();
     expect(screen.queryByRole('region',{name:'Поиск и список клиентов'})).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox',{name:'Поиск клиентов'})).not.toBeInTheDocument();
@@ -251,7 +251,7 @@ describe('F05 customer creation and validation', () => {
       const { calls } = mockBackend();
       renderAt();
       await screen.findByRole('cell', { name: 'Алия' });
-      await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
       setField(label, value);
       await userEvent.setup().click(form().getByRole('button', { name: 'Сохранить клиента' }));
       await waitFor(() => expect(screen.getByRole('heading', { name: value })).toBeInTheDocument());
@@ -267,7 +267,7 @@ describe('F05 customer creation and validation', () => {
     const { calls } = mockBackend();
     renderAt();
     await screen.findByRole('cell', { name: 'Алия' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
     await userEvent.setup().click(form().getByRole('button', { name: 'Сохранить клиента' }));
     expect(form().getByRole('alert')).toHaveTextContent('Укажите хотя бы один контакт');
     expect(calls.mock.calls.filter(([url, req]) =>
@@ -287,7 +287,7 @@ describe('F05 customer creation and validation', () => {
     mockBackend();
     renderAt();
     await screen.findByRole('cell', { name: 'Алия' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
     setField('Основной телефон', '+996700123456');
     expect(await screen.findByText('Возможно, такой клиент уже есть')).toBeInTheDocument();
     expect(form().getByRole('button', { name: 'Сохранить клиента' })).toBeEnabled();
@@ -298,7 +298,7 @@ describe('F05 customer creation and validation', () => {
     mockBackend({ networkPost: true });
     renderAt();
     await screen.findByRole('cell', { name: 'Алия' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
     setField('Основной телефон', '+996777111222');
     await userEvent.setup().click(form().getByRole('button', { name: 'Сохранить клиента' }));
     expect(await form().findByRole('alert')).toHaveTextContent(/могло завершиться на сервере/);
@@ -311,7 +311,7 @@ describe('F05 customer creation and validation', () => {
     const { calls } = mockBackend({ holdCreate });
     renderAt();
     await screen.findByRole('cell', { name: 'Алия' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
     setField('Основной телефон', '+996222123456');
     fireEvent.click(form().getByRole('button', { name: 'Сохранить клиента' }));
     fireEvent.click(form().getByRole('button', { name: /Сохраняем/ }));
@@ -325,7 +325,7 @@ describe('F05 customer creation and validation', () => {
     mockBackend({ fail: { 'POST /api/customers': 409 } });
     renderAt();
     await screen.findByRole('cell', { name: 'Алия' });
-    await userEvent.setup().click(screen.getByRole('button', { name: '+ Добавить клиента' }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Добавить клиента' }));
     setField('Основной телефон', '0555123123');
     await userEvent.setup().click(form().getByRole('button', { name: 'Сохранить клиента' }));
     expect(await form().findByRole('alert')).toHaveTextContent(/противоречит текущему состоянию/);
