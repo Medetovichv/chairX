@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
@@ -30,12 +31,12 @@ function initialFilters():PurchaseFilters {
   return {status:'',supplierId:'',...lastSevenDays(),number:'',page:0};
 }
 function PurchaseTable({ lines }: { lines: PurchaseLine[] }) {
-  return <section aria-label="Список закупок" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+  return <section aria-label="Список закупок" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
     <div className="hidden overflow-x-auto xl:block"><table className="w-full text-left text-sm">
-      <thead className="bg-slate-50"><tr>{['Закупка','Поставщик','Дата','Статус','Позиций','Заказано','Принято','Осталось','Товары','Карго','Итого'].map(col =>
+      <thead className="bg-[#f2f6f8]"><tr>{['Закупка','Поставщик','Дата','Статус','Позиций','Заказано','Принято','Осталось','Товары','Карго','Итого'].map(col =>
         <th scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600" key={col}>{col}</th>)}</tr></thead>
       <tbody className="divide-y divide-slate-100">{lines.map(line => <tr key={line.id}>
-        <td className="px-3 py-3"><Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700 hover:underline"
+        <td className="px-3 py-3"><Link className="inline-flex min-h-11 items-center font-semibold text-[#416c82] hover:underline"
           to={'/purchases/'+encodeURIComponent(line.id)}>{formatDate(line.createdAt)}</Link></td>
         <td className="px-3 py-3">{line.supplierName}</td><td className="px-3 py-3">{formatDate(line.createdAt)}</td>
         <td className="px-3 py-3"><PurchaseStatusBadge status={line.status} /></td>
@@ -48,7 +49,7 @@ function PurchaseTable({ lines }: { lines: PurchaseLine[] }) {
     <div className="divide-y divide-slate-100 xl:hidden">{lines.map(line => <article key={line.id}
       className="space-y-3 p-4 text-sm">
       <div className="flex flex-wrap justify-between gap-2">
-        <Link className="inline-flex min-h-11 items-center font-semibold text-indigo-700" to={'/purchases/'+encodeURIComponent(line.id)}>
+        <Link className="inline-flex min-h-11 items-center font-semibold text-[#416c82]" to={'/purchases/'+encodeURIComponent(line.id)}>
           Закупка от {formatDate(line.createdAt)}</Link><PurchaseStatusBadge status={line.status} />
       </div>
       <p className="font-semibold">{line.supplierName} · {formatDate(line.createdAt)}</p>
@@ -85,25 +86,25 @@ export function PurchasesPage() {
     navigate('/purchases/'+encodeURIComponent(purchase.id), { state:{notice:'Закупка создана как черновик.'} });
   } });
   if (!allowed || overview.error instanceof ApiClientError && overview.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6">
+  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title={creating ? 'Новая закупка' : 'Закупки'}
-      action={canCreate && !creating ? <Button onClick={() => setCreating(true)}>+ Новая закупка</Button> : undefined} />
+      action={canCreate && !creating ? <Button className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Новая закупка</Button> : undefined} />
     {!creating && <PurchaseTabs />}
     {notice && <p role="status">{notice}</p>}
     {creating && canCreate && <PurchaseForm onCancel={() => setCreating(false)}
       onSave={async value => { await create.mutateAsync(value); }} />}
-    {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>{setFilters(initialFilters());setIncludeOpenOlder(true);}}>Сбросить фильтры</Button></div>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,...lastSevenDays(),page:0}));setIncludeOpenOlder(true);}}>Последние 7 дней + незавершённые</Button>
         <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,from:'',to:'',page:0}));setIncludeOpenOlder(false);}}>Все даты</Button>
       </div>
-      <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
+      <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} className={filters.status===status?"rounded-full bg-[#182d38] text-white hover:bg-[#305063]":"rounded-full"} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-sm font-semibold">Статус
           <select aria-label="Фильтр статуса закупки" value={filters.status}
             onChange={e => change('status', e.target.value as PurchaseStatus | '')}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
+            className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
             <option value="">Все статусы</option>{statuses.map(s => <option key={s} value={s}>{statusNames[s]}</option>)}
           </select>
         </label>
@@ -111,7 +112,7 @@ export function PurchasesPage() {
           <select aria-label="Фильтр поставщика" value={filters.supplierId}
             disabled={suppliers.isPending || suppliers.isError}
             onChange={e => change('supplierId',e.target.value)}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3">
+            className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
             <option value="">Все поставщики</option>{suppliers.data?.map(s =>
               <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
