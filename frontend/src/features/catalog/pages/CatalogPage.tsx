@@ -58,28 +58,28 @@ export function CatalogPage() {
     setFilters({ search: '', category: '', active: null });
     setPage(0);
   };
-  return <div className="space-y-5 sm:space-y-6">
+  return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:space-y-6 sm:p-6">
     <PageHeader title={creating ? 'Новая модель кресла' : 'Каталог товаров'}
       description={creating ? 'Сначала создайте модель, затем добавьте цвета и артикулы в её карточке.' :
         'Модели кресел, цвета, артикулы и цены — без фотографий.'}
       action={canManage && !creating ? <Button type="button" disabled={creating}
-        className="bg-blue-600 hover:bg-blue-700" onClick={() => setCreating(true)}>
+        className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}>
         <Plus className="size-4" aria-hidden="true" />Создать товар
       </Button> : undefined}/>
     {creating && canManage && <ProductForm onCancel={() => setCreating(false)}
       onSave={async input => { await create.mutateAsync(input); }}/>}
     {!creating && <>
     <section aria-label="Фильтры каталога"
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+      className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-base font-bold text-slate-900">Модели кресел</h3>
-        {data && <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700">
+        <h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Модели кресел</h3>
+        {data && <span className="rounded-full bg-[#eaf2f6] px-3 py-1.5 text-sm font-semibold tabular-nums text-[#416c82]">
           Найдено: {data.totalElements}
         </span>}
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1fr)_minmax(160px,.75fr)_170px]">
         <label className="space-y-1.5 text-sm font-semibold text-slate-700">
-          <span className="inline-flex items-center gap-2"><Search className="size-4 text-blue-600" aria-hidden="true"/>Поиск модели или категории</span>
+          <span className="inline-flex items-center gap-2"><Search className="size-4 text-[#416c82]" aria-hidden="true"/>Поиск модели или категории</span>
           <Input type="search" value={searchInput} maxLength={200}
             aria-label="Поиск модели или категории"
             onChange={e=>setSearchInput(e.target.value)} placeholder="Например, Ergo или офисные"/>
@@ -92,7 +92,7 @@ export function CatalogPage() {
         </label>
         <label className="space-y-1.5 text-sm font-semibold text-slate-700">
           Статус
-          <select className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm"
+          <select className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]"
             aria-label="Статус товара"
             value={filters.active === null ? 'all' : filters.active ? 'active' : 'inactive'}
             onChange={e=>{
@@ -119,17 +119,17 @@ export function CatalogPage() {
           'Здесь появятся модели после добавления первого товара.'}
         action={hasFilters ? <Button variant="outline" onClick={reset}>Сбросить фильтры</Button> :
           canManage ? <Button disabled={creating} onClick={()=>setCreating(true)}>Создать товар</Button> : undefined}/> :
-      data ? <section aria-label="Список моделей" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      data ? <section aria-label="Список моделей" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50"><tr>
+            <thead className="bg-[#f2f6f8]"><tr>
               {['Модель','Категория','Статус'].map(col=>
-                <th scope="col" key={col} className="px-5 py-3 font-semibold text-slate-600">{col}</th>)}
+                <th scope="col" key={col} className="px-5 py-3 font-semibold text-[#516977]">{col}</th>)}
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {data.items.map(model=><tr key={model.id}
-                className="entity-clickable-row group transition-colors hover:bg-blue-50">
-                <td className="px-5 py-4 font-semibold text-blue-700">
+                className="entity-clickable-row group transition-colors hover:bg-[#f3f8fa]">
+                <td className="px-5 py-4 font-semibold text-[#416c82]">
                   <Link className="entity-stretched-link hover:underline"
                     to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link>
                 </td>
@@ -143,12 +143,12 @@ export function CatalogPage() {
         </div>
         <div className="divide-y divide-slate-100 md:hidden">
           {data.items.map(model=><article key={model.id}
-            className="entity-clickable-row group flex items-start gap-3 p-4 transition-colors hover:bg-blue-50">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+            className="entity-clickable-row group flex items-start gap-3 p-4 transition-colors hover:bg-[#f3f8fa]">
+            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eaf2f6] text-[#416c82]">
               <Package className="size-5" aria-hidden="true"/>
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-blue-700"><Link className="entity-stretched-link"
+              <h3 className="font-semibold text-[#416c82]"><Link className="entity-stretched-link"
                 to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link></h3>
               <p className="mt-1 text-sm text-slate-500">{model.category || 'Категория не указана'}</p>
             </div>
