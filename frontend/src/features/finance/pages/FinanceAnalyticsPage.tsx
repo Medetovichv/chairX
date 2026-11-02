@@ -26,14 +26,14 @@ export function FinanceAnalyticsPage(){
  const monthsToCompare=year===today.getFullYear()?today.getMonth():12;
  const comparable=(months: {from:string;netRevenue:string|number;netCash:string|number}[])=>months.filter(m=>Number(m.from.slice(5,7))<=monthsToCompare);
  if(!allowed)return <ForbiddenPage/>;
- return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
+ return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden rounded-[24px] bg-[#e9eef0] p-3 pb-10 text-[#182d38] sm:p-6">
   <PageHeader title="Аналитика" description="Динамика выручки, экономической прибыли и кассовых потоков по месяцам"/>
   <FinanceTabs/>
   <label className="inline-flex items-center gap-3 rounded-xl border bg-white p-3 text-sm">Год
    <select aria-label="Год аналитики" className="rounded-lg border p-2" value={year} onChange={e=>setYear(Number(e.target.value))}>
     {[year-2,year-1,year,year+1].filter((x,i,a)=>a.indexOf(x)===i).map(x=><option key={x} value={x}>{x}</option>)}
    </select></label>
-  <section aria-label="Маржинальность моделей" className="min-w-0 rounded-2xl border bg-white p-4">
+  <section aria-label="Маржинальность моделей" className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-4">
    <h2 className="font-semibold">Продажи и маржинальность моделей</h2>
    <p className="mt-1 text-xs text-slate-500">Фактическая FIFO-себестоимость проданных вариаций; неполная себестоимость не заменяется текущей ценой закупки.</p>
    {margins.isPending?<LoadingState label="Загружаем модели…"/>:margins.isError?<ErrorState error={margins.error} onRetry={()=>void margins.refetch()}/>:
@@ -48,7 +48,7 @@ export function FinanceAnalyticsPage(){
      </article>)}</div>
     </>}
   </section>
-  <section aria-label="Оборачиваемость запасов" className="min-w-0 rounded-2xl border bg-white p-4">
+  <section aria-label="Оборачиваемость запасов" className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-4">
    <h2 className="font-semibold">Оборачиваемость склада · {expensePeriod.from} — {expensePeriod.to}</h2>
    <p className="mt-1 text-xs text-slate-500">FIFO-себестоимость реализованных товаров за вычетом восстановленной стоимости возвратов, разделённая на среднюю стоимость запасов на границах периода.</p>
    {turnover.isPending?<LoadingState label="Рассчитываем оборачиваемость…"/>:turnover.isError?<ErrorState error={turnover.error} onRetry={()=>void turnover.refetch()}/>:
@@ -57,12 +57,12 @@ export function FinanceAnalyticsPage(){
     </div>}
    {turnover.isSuccess&&!turnover.data.available&&<p className="mt-2 text-xs text-amber-700">Средний остаток равен нулю либо исходные FIFO-суммы требуют сверки. Коэффициент не рассчитывается.</p>}
   </section>
-  <section aria-label="Сравнение финансовых годов" className="min-w-0 rounded-2xl border bg-white p-4">
+  <section aria-label="Сравнение финансовых годов" className="min-w-0 rounded-[20px] border border-[#e3e9ee] bg-white p-4">
    <h2 className="font-semibold">Сравнение с {year-1} годом</h2>
    <p className="mt-1 text-xs text-slate-500">Сравниваются одинаковые месяцы: для текущего года — только завершённые месяцы ({monthsToCompare>0?`январь–${String(monthsToCompare).padStart(2,"0")}`:"завершённых месяцев ещё нет"}), для прошлых лет — весь год. Кассовый поток не является прибылью.</p>
    {q.isSuccess&&previous.isSuccess?(()=>{const now=totals(comparable(q.data.months)),old=totals(comparable(previous.data.months));return <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">{([["Чистая выручка",now.revenue,old.revenue],["Чистый денежный поток",now.cash,old.cash]] as const).map(([label,current,prior])=><article key={label} className="min-w-0 rounded-xl bg-slate-50 p-3 text-sm"><h3 className="font-medium">{label}</h3><p className="mt-2 break-words">{year}: <strong>{som(current)}</strong></p><p className="break-words text-slate-600">{year-1}: {som(prior)}</p><p className="mt-1 text-xs text-slate-600">Изменение: {difference(current,prior)}</p></article>)}</div>})():q.isError||previous.isError?<ErrorState error={q.error||previous.error} onRetry={()=>{void q.refetch();void previous.refetch();}}/>:<LoadingState label="Загружаем сравнение годов…"/>}
   </section>
-  <section className="rounded-2xl border bg-white p-4">
+  <section className="rounded-[20px] border border-[#e3e9ee] bg-white p-4">
    <h2 className="font-semibold">Структура расходов · {expensePeriod.from} — {expensePeriod.to}</h2>
    <p className="mt-1 text-xs text-slate-500">Начисления F14 и прямые расходы; выплаты по начислениям не учитываются повторно.</p>
    {categories.isPending?<LoadingState label="Загружаем структуру расходов…"/>:
@@ -82,7 +82,7 @@ export function FinanceAnalyticsPage(){
     </div>}
   </section>
   {q.isPending?<LoadingState label="Загружаем динамику…"/>:q.isError?<ErrorState error={q.error} onRetry={()=>void q.refetch()}/>:
-   <section className="rounded-2xl border bg-white p-4"><h2 className="font-semibold">Месячные результаты · {year}</h2>
+   <section className="rounded-[20px] border border-[#e3e9ee] bg-white p-4"><h2 className="font-semibold">Месячные результаты · {year}</h2>
     <div className="mt-4 space-y-3">{q.data.months.map(m=><div key={m.from} className="grid grid-cols-[55px_1fr] items-center gap-3 border-b pb-3 text-sm sm:grid-cols-[85px_1fr_1fr]">
      <strong>{m.from.slice(5,7)}.{year}</strong><div className="min-w-0">
       <p className="mb-1 text-xs">Выручка {som(m.netRevenue)}</p>
