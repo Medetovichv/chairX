@@ -42,7 +42,7 @@ function Stat({ title, value, note, icon: Icon, path }: {
 
 function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
   const [focused, setFocused] = useState<string | null>(null);
-  if (!days.length) return <section className="rounded-[22px] border border-[#e5ebef] bg-white p-6" aria-label="Заказы за 7 дней"><h3 className="text-lg font-semibold">Динамика заказов</h3><p className="mt-4 text-sm text-slate-500">Данных за выбранный период пока нет.</p></section>;
+  if (!days.length) return <section className="rounded-[22px] border border-[#e5ebef] bg-white p-6" aria-label="Заказы за 7 дней"><h3 className="text-lg font-semibold">Заказы за 7 дней</h3><p className="mt-4 text-sm text-slate-500">Данных за выбранный период пока нет.</p></section>;
   const maximum = Math.max(1, ...days.map(x => x.orders));
   const top = Math.ceil(maximum / 4) * 4 || 4;
   const baseline = 180;
@@ -55,7 +55,7 @@ function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
   const active = points.find(p => p.day === focused);
   return <section aria-label="Заказы за 7 дней" className="min-w-0 rounded-[22px] border border-[#e5ebef] bg-white p-5 sm:p-6">
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-      <div><h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Динамика заказов</h3>
+      <div><h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Заказы за 7 дней</h3>
         <p className="mt-1 text-xs text-[#81909a]">По дате создания · время Бишкек</p></div>
       <span className="rounded-full bg-[#edf3f6] px-3 py-2 text-xs font-semibold text-[#416c82]">7 дней</span>
     </div>
@@ -168,6 +168,7 @@ export function HomePage() {
     queryFn: dashboardApi.overview, enabled: allowed, staleTime: 30_000,
   });
   const data = overview.data;
+  const name = user?.displayName?.trim().split(/\s+/u)[0] || 'коллега';
   const quickLinks = [
     { label: 'Склады', path: '/inventory' },
     { label: 'Доставки', path: '/deliveries' },
@@ -181,7 +182,7 @@ export function HomePage() {
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div>
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#82939d]">ChairX / Workspace</p>
-        <h2 className="text-2xl font-bold tracking-tight text-[#182d38] sm:text-4xl">Рабочий обзор</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-[#182d38] sm:text-4xl">Добро пожаловать, {name}!</h2>
         <p className="mt-1 text-sm text-slate-500">
           {data ? dayLabel(data.businessDate, true) : 'Рабочее пространство ChairX'}
         </p>
