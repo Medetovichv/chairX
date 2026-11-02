@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, CalendarDays, Clock3, Package, Plus, ShoppingCart, TriangleAlert, Truck, ArrowUpRight, CheckCircle2, Search, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Clock3, Package, Plus, ShoppingCart, TriangleAlert, Truck, ArrowUpRight, Search, type LucideIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { useAuth } from '../features/auth/AuthProvider';
 import { dashboardApi, dashboardKeys } from '../features/dashboard/api';
