@@ -44,7 +44,7 @@ export function SuppliersPage() {
       setNotice(saved.active ? 'Поставщик активирован.' : 'Поставщик деактивирован.'); },
     onError: cause => {setDeactivating(null);setError(userFacingApiError(cause));} });
   if (!canRead || listing.error instanceof ApiClientError && listing.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6">
+  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title="Поставщики" description="Поставщики закупок; неактивные остаются в истории."
       action={canManage ? <Button disabled={creating || !!editing} onClick={() => {setCreating(true);setNotice('');}}>
         + Добавить поставщика</Button> : undefined} />
@@ -58,11 +58,11 @@ export function SuppliersPage() {
     {listing.isPending ? <LoadingState label="Загружаем поставщиков…" /> :
       listing.isError ? <ErrorState error={listing.error} onRetry={() => void listing.refetch()} /> :
       !listing.data?.items.length ? <EmptyState title="Поставщиков пока нет" description="Добавьте первого поставщика." /> :
-      <section aria-label="Список поставщиков" className="rounded-2xl border border-slate-200 bg-white">
-        <div className="divide-y divide-slate-100">{listing.data.items.map(s =>
-          <article key={s.id} className="flex flex-wrap items-start justify-between gap-3 p-4">
+      <section aria-label="Список поставщиков" className="rounded-[20px] border border-[#e3e9ee] bg-white">
+        <div className="divide-y divide-[#e9eef0]">{listing.data.items.map(s =>
+          <article key={s.id} className="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-[#f3f8fa]">
             <div className="min-w-0 flex-1 space-y-1">
-              <h3 className="font-bold">{s.name}</h3>
+              <h3 className="font-semibold text-[#182d38]">{s.name}</h3>
               <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{s.contactInformation || 'Контакт не указан'}</p>
               {s.comment && <p className="whitespace-pre-wrap text-sm text-slate-500">{s.comment}</p>}
               <StatusBadge tone={s.active ? 'success':'neutral'}>{s.active?'Активен':'Неактивен'}</StatusBadge>
