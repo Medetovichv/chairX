@@ -294,7 +294,7 @@ describe('F06 list, filters and drafts',()=>{
     access.permissions=['PURCHASE_READ'];
     mockApi();renderAt();
     expect(await screen.findByText(/Всего закупок: 1/)).toBeInTheDocument();
-    expect(screen.queryByRole('button',{name:'+ Новая закупка'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Новая закупка'})).not.toBeInTheDocument();
   });
   it('prevents invalid quantities, duplicate variants and invalid currency',()=>{
     expect(integerQuantity('0')).toBeNull();
@@ -323,7 +323,7 @@ describe('F06 list, filters and drafts',()=>{
     const {calls}=mockApi();
     renderAt();
     expect(await screen.findByRole('region',{name:'Список закупок'})).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(screen.getByRole('button',{name:'Новая закупка'}));
     expect(screen.getByRole('form',{name:'Создание закупки'})).toBeInTheDocument();
     expect(screen.queryByRole('region',{name:'Список закупок'})).not.toBeInTheDocument();
     expect(screen.queryByRole('region',{name:'Фильтры закупок'})).not.toBeInTheDocument();
@@ -337,7 +337,7 @@ describe('F06 list, filters and drafts',()=>{
   it('searches the full catalog on server and shows real variant name, SKU and exact cost preview',async()=>{
     const {calls}=mockApi();
     renderAt();
-    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(await screen.findByRole('button',{name:'Новая закупка'}));
     const form=within(screen.getByRole('form',{name:'Создание закупки'}));
     expect(form.getByText('Пока не указано')).toBeInTheDocument();
     await userEvent.setup().click(form.getByRole('button',{name:'Выбрать вариацию'}));
@@ -364,7 +364,7 @@ describe('F06 list, filters and drafts',()=>{
   it('creates a supplier in the purchase drawer without losing items or cargo',async()=>{
     const {calls}=mockApi();
     renderAt();
-    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(await screen.findByRole('button',{name:'Новая закупка'}));
     const form=within(screen.getByRole('form',{name:'Создание закупки'}));
     fireEvent.change(form.getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'7'}});
     fireEvent.change(form.getByRole('textbox',{name:'Цена позиции 1'}),{target:{value:'1500'}});
@@ -389,7 +389,7 @@ describe('F06 list, filters and drafts',()=>{
     access.permissions=access.permissions.filter(p=>p!=='SUPPLIERS_MANAGE');
     mockApi();
     renderAt();
-    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(await screen.findByRole('button',{name:'Новая закупка'}));
     const form=within(screen.getByRole('form',{name:'Создание закупки'}));
     expect(form.queryByRole('button',{name:'+ Новый поставщик'})).not.toBeInTheDocument();
     expect(await form.findByRole('combobox',{name:'Поставщик закупки'})).toBeInTheDocument();
@@ -397,7 +397,7 @@ describe('F06 list, filters and drafts',()=>{
   it('blocks duplicate supplier POST after a potentially committed network failure',async()=>{
     const {calls}=mockApi({networkSupplierCreateOnce:true});
     renderAt();
-    await userEvent.setup().click(await screen.findByRole('button',{name:'+ Новая закупка'}));
+    await userEvent.setup().click(await screen.findByRole('button',{name:'Новая закупка'}));
     await userEvent.setup().click(screen.getByRole('button',{name:'+ Новый поставщик'}));
     const drawer=screen.getByRole('dialog',{name:'Новый поставщик для закупки'});
     const inner=within(drawer).getByRole('form',{name:'Создание поставщика'});
@@ -412,8 +412,8 @@ describe('F06 list, filters and drafts',()=>{
   it('creates DRAFT from selected real catalog product and variant UUID',async()=>{
     const {calls}=mockApi();
     renderAt();
-    await screen.findByRole('button',{name:'+ Новая закупка'});
-    await userEvent.setup().click(screen.getByRole('button',{name:'+ Новая закупка'}));
+    await screen.findByRole('button',{name:'Новая закупка'});
+    await userEvent.setup().click(screen.getByRole('button',{name:'Новая закупка'}));
     const form=within(screen.getByRole('form',{name:'Создание закупки'}));
     await screen.findByRole('combobox',{name:'Поставщик закупки'});
     fireEvent.change(form.getByRole('combobox',{name:'Поставщик закупки'}),{target:{value:SID}});
