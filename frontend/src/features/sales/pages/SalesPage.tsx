@@ -107,9 +107,9 @@ export function SalesPage() {
 
   const visibleIds = (listing.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-5 sm:space-y-6 min-w-0 flex-1">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:space-y-6 sm:p-6">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
-      action={create ? <Button asChild className="bg-blue-600 hover:bg-blue-700">
+      action={create ? <Button asChild className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
       </Button> : undefined}/>
 
@@ -118,31 +118,31 @@ export function SalesPage() {
         {title:'Черновики в работе',value:drafts.data?.total,icon:ShoppingCart,status:'DRAFT'},
         {title:'Ожидают выполнения',value:confirmed.data?.total,icon:Clock3,status:'CONFIRMED'},
         {title:'Выданы сегодня или ещё не закрыты',value:completed.data?.total,icon:CheckCircle2,status:'FULFILLED'},
-      ]).map(m=><Link to={'/sales?status='+m.status+'&operational=true'} key={m.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <m.icon className="mb-2 size-5 text-blue-600" aria-hidden="true"/>
-        <p className="text-xs font-semibold text-slate-600">{m.title}</p>
-        <p className="mt-1 text-3xl font-bold">{m.value===undefined?'—':m.value}</p>
+      ]).map(m=><Link to={'/sales?status='+m.status+'&operational=true'} key={m.title} className="group rounded-[20px] border border-[#e3e9ee] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#a2bac8] hover:shadow-[0_12px_28px_rgba(22,42,55,0.09)] focus-visible:outline-2 focus-visible:outline-[#416c82] motion-reduce:transform-none motion-reduce:transition-none">
+        <m.icon className="mb-4 size-9 rounded-xl bg-[#e9f2f5] p-2 text-[#416c82]" aria-hidden="true"/>
+        <p className="text-xs font-semibold text-[#697a85]">{m.title}</p>
+        <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-[#182d38]">{m.value===undefined?'—':m.value}</p>
       </Link>)}
     </section>}
     {filters.activeOnly && <p role="status">В работе: черновики и подтверждённые заказы.
       <Button variant="ghost" onClick={() => setFilters(empty)}>Сбросить фильтры</Button></p>}
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2 rounded-[16px] bg-white/70 p-2">
       <Button aria-pressed={!history} variant={!history?'default':'outline'}
         onClick={()=>{setFilters(empty);}}>Актуальные заказы</Button>
       <Button aria-pressed={history} variant={history?'default':'outline'}
         onClick={()=>{setFilters({...empty,...dayRange(7),operational:false});}}>История продаж</Button>
     </div>
-    <section aria-label="Фильтры продаж" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+    <section aria-label="Фильтры продаж" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-base font-bold text-slate-900">{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
-        <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Режим отображения продаж">
+        <h3 className="text-lg font-semibold tracking-tight text-[#182d38]">{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
+        <div className="flex items-center gap-1 rounded-full bg-[#f1f5f7] p-1" aria-label="Режим отображения продаж">
           <Button size="sm" aria-pressed={view === 'kanban'}
             variant={view === 'kanban' ? 'default' : 'ghost'}
-            className={view === 'kanban' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+            className={view === 'kanban' ? 'rounded-full bg-[#182d38] text-white hover:bg-[#305063]' : 'rounded-full'}
             onClick={() => setView('kanban')}><LayoutGrid className="size-4" aria-hidden="true" />Канбан</Button>
           <Button size="sm" aria-pressed={view === 'table'}
             variant={view === 'table' ? 'default' : 'ghost'}
-            className={view === 'table' ? 'bg-blue-600 hover:bg-blue-700' : ''}
+            className={view === 'table' ? 'rounded-full bg-[#182d38] text-white hover:bg-[#305063]' : 'rounded-full'}
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
@@ -156,7 +156,7 @@ export function SalesPage() {
         <label className="space-y-1 text-sm font-semibold text-slate-700">Статус
           <select aria-label="Фильтр статуса продажи" value={filters.status}
             onChange={e => change('status', e.target.value as SaleStatus | '')}
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm">
+            className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
             <option value="">Все статусы</option>
             {saleStatuses.map(s => <option value={s} key={s}>{saleStatusNames[s]}</option>)}
           </select>
