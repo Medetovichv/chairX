@@ -13,13 +13,13 @@ export function DeliveryFilters({value,region,onRegion,quick,onQuick,onChange}:{
   value:Filters;region:string;onRegion:(x:string)=>void;quick:Quick|null;
   onQuick:(x:Quick)=>void;onChange:(patch:Partial<Filters>)=>void;
 }){
-  return <section aria-label="Фильтры доставок" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+  return <section aria-label="Фильтры доставок" className="space-y-5 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
     <div className="flex flex-wrap gap-2" role="group" aria-label="Быстрые фильтры">
       {quicks.map(x=><Button key={x.id} type="button"
-        variant={quick===x.id?'default':'outline'} aria-pressed={quick===x.id}
+        variant={quick===x.id?'default':'outline'} className={quick===x.id?'rounded-full bg-[#182d38] text-white hover:bg-[#305063]':'rounded-full border-[#dce6eb] text-[#516977] hover:bg-[#edf3f6]'} aria-pressed={quick===x.id}
         onClick={()=>onQuick(x.id)}>{x.name}</Button>)}
     </div>
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <label className="space-y-1 text-sm font-semibold">Город или регион
         <Input type="search" aria-label="Поиск города или региона"
           maxLength={200} value={region} onChange={e=>onRegion(e.target.value)}
@@ -42,7 +42,7 @@ export function DeliveryFilters({value,region,onRegion,quick,onQuick,onChange}:{
           onChange={e=>onChange({plannedTo:e.target.value})}/>
       </label>
     </div>
-    <p className="text-xs text-slate-500">
+    <p className="text-xs leading-relaxed text-[#6f808a]">
       Создана с/по фильтрует дату создания; план с/по — планируемую дату.
       Сегодня в Бишкеке: {bishkekToday()}; предстоящие — с {nextBishkekDay()}.
     </p>
