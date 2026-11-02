@@ -96,10 +96,10 @@ export function EmployeeDailyClosingPage(){
    }else setError('Закрытие отклонено сервером. Проверьте права, дату и ожидаемые суммы.');
   }finally{setPending(false);}
  }
- return <div className="space-y-5 bg-[#f5f8ff]/40 pb-6">
+ return <div className="space-y-5 rounded-[24px] bg-studio-canvas p-3 pb-6 text-studio-ink sm:p-6">
   <PageHeader title="Закрытие дня"
    description="Ежедневный операционный отчёт предприятия"/>
-  <nav aria-label="Режим отчётов" className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm"> 
+  <nav aria-label="Режим отчётов" className="flex flex-wrap items-center gap-2 rounded-[20px] border border-studio-border bg-studio-surface p-4"> 
    <Button type="button" variant="outline" aria-label="Предыдущий день" onClick={()=>chooseDate(shiftDay(day,-1))}>‹</Button>
    <Button type="button" variant="outline" aria-label="Следующий день"
     disabled={day>=bishkekToday()} onClick={()=>chooseDate(shiftDay(day,1))}>›</Button>
@@ -116,7 +116,7 @@ export function EmployeeDailyClosingPage(){
     chooseDate(previous.toISOString().slice(0,10));
    }}>Предыдущие отчёты</Button>
   </div></nav>
-  {view==='history'&&<section aria-label="Предыдущие отчёты" className="space-y-3 rounded-xl border bg-white p-4">
+  {view==='history'&&<section aria-label="Предыдущие отчёты" className="space-y-3 rounded-[16px] border border-studio-border bg-studio-surface p-4">
    <div className="flex gap-2">
     {([7,10,20,30] as const).map(count=><Button key={count} variant={historyDays===count?'default':'outline'}
       onClick={()=>setHistoryDays(count)}>{count} дней</Button>)}
@@ -133,7 +133,7 @@ export function EmployeeDailyClosingPage(){
        return closedDates.length===0
         ? <p className="text-sm text-slate-600">За выбранный период закрытых отчётов нет.</p>
         : closedDates.map(value=><button type="button" key={value} onClick={()=>chooseDate(value)}
-          className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-blue-600':'')}>
+          className={'flex w-full justify-between rounded-lg border p-3 text-left '+(day===value?'border-studio-accent':'')}>
            <span>{value}</span><span>Закрыт</span>
           </button>);
       })()}
@@ -152,28 +152,28 @@ export function EmployeeDailyClosingPage(){
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <div className="flex flex-col gap-4">
     <section aria-label="Показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
        <p className="text-xs font-medium text-slate-500">🛒 Продажи</p>
        <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.salesValue)}</p>
        <p className="text-xs text-slate-500">{report.data.orders} заказов · {report.data.chairs} кресел</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
        <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
        <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedCash)}</p>
        <p className="text-xs text-slate-500">Из операционного отчёта</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
        <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
        <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedBank)}</p>
        <p className="text-xs text-slate-500">Из операционного отчёта</p>
       </article>
-      <article className="min-w-0 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm sm:p-4">
+      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
        <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
        <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{som(String(centsFree(report.data.expenseCash)+centsFree(report.data.expenseBank)))}</p>
        <p className="text-xs text-slate-500">Все сотрудники за день</p>
       </article>
     </section>
-    <section className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section className="rounded-[20px] border border-studio-border bg-studio-surface p-4 shadow-sm">
 
      <h2 className="text-lg font-bold">Продажи, включаемые в закрытие дня</h2>
      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -222,7 +222,7 @@ export function EmployeeDailyClosingPage(){
       !report.data.sales.some(s=>(s.saleNumber+' '+(s.phone||'')+' '+(s.products||'')).toLowerCase().includes(saleSearch.trim().toLowerCase()))&&
       <p role="status" className="mt-3 text-sm text-slate-600">По вашему запросу продаж не найдено.</p>}
     </section>
-    <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+    <section aria-label="Расходы сотрудников за день" className="space-y-3 rounded-[20px] border border-studio-border bg-studio-surface p-4 shadow-sm">
      <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="text-lg font-bold">Расходы сотрудников за день</h2>
       {!report.data.closed&&write&&hasPermission('EXPENSES_CREATE')&&

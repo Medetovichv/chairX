@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+/* Shared Studio Analytics tokens for consistent utility classes. */
+@theme {
+  --color-studio-canvas: #e9eef0;
+  --color-studio-ink: #182d38;
+  --color-studio-muted: #516977;
+  --color-studio-accent: #416c82;
+  --color-studio-surface: #ffffff;
+  --color-studio-border: #e3e9ee;
+  --color-studio-surface-muted: #f2f6f8;
+}
+
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   font-synthesis: none;
