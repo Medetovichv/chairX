@@ -6,6 +6,7 @@ import { CustomerQuickView } from '../../../shared/components/QuickViewContent';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
+import { Plus } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -84,13 +85,13 @@ export function CustomersPage() {
 
   const visibleIds = (items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="space-y-6 min-w-0 flex-1">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
     <PageHeader title={creating?'Новый клиент':'Клиенты'}
-      action={canCreate&&!creating ? <Button onClick={() => setCreating(true)}>+ Добавить клиента</Button> : undefined} />
+      action={canCreate&&!creating ? <Button className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Добавить клиента</Button> : undefined} />
     {creating && canCreate && <CustomerForm onSave={async (data) => { await create.mutateAsync(data); }}
       onCancel={() => setCreating(false)} />}
     {!creating&&<section aria-label="Поиск и список клиентов" className="space-y-3">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
         <CustomerSearch value={search} onChange={(value) => { setSearch(value); setPage(0); }} />
       </div>
       {!withSales && <p className="text-sm text-slate-600">
@@ -103,7 +104,7 @@ export function CustomersPage() {
             : <div>
               <CustomerTable items={items} withSales={result?.kind === 'overview'} />
               {result?.kind === 'limited-search' ?
-                <p className="rounded-b-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                <p className="rounded-b-xl border border-[#e3e9ee] bg-[#f2f6f8] p-3 text-sm text-[#516977]">
                   Поиск показывает не более 20 совпадений. Это не полный список; уточните запрос.
                 </p> : total !== null ? <CustomerPager page={pageIndex} size={pageSize}
                   total={total} onPage={setPage} /> : null}
