@@ -91,7 +91,7 @@ describe('UI-V2-02 real-data dashboard and permission isolation', () => {
     expect(screen.getByText('Просроченные доставки')).toBeInTheDocument();
     expect(screen.getByText('Заказы за 7 дней')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Открыть продажу CHX-2026-00042' });
-    expect(link).toHaveTextContent('№ 42');
+    expect(link).toHaveTextContent('#42');
     expect(link).toHaveAttribute('href', '/sales/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
     expect(screen.getByRole('link', { name: 'Новая продажа' })).toHaveAttribute('href', '/sales/new');
     expect(screen.queryByText('Доступно на складах')).not.toBeInTheDocument();
