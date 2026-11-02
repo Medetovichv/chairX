@@ -193,7 +193,7 @@ describe('F08 backend DTOs, filters and list',()=>{
   it('navigates from list to creation without treating new as quick-view id',async()=>{
     const api=mockBackend();
     renderAt();
-    await userEvent.setup().click(await screen.findByRole('link',{name:'+ Оформить доставку'}));
+    await userEvent.setup().click(await screen.findByRole('link',{name:'Оформить доставку'}));
     expect(await screen.findByRole('form',{name:'Оформить доставку'})).toBeInTheDocument();
     expect(screen.getByRole('dialog',{name:'Быстрый просмотр: Новая доставка'})).toBeInTheDocument();
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
@@ -264,7 +264,7 @@ describe('F08 backend DTOs, filters and list',()=>{
     const api=mockBackend();
     renderAt();
     await screen.findByRole('heading',{name:'Доставки',level:2});
-    expect(screen.queryByRole('link',{name:'+ Оформить доставку'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Оформить доставку'})).not.toBeInTheDocument();
     expect(requests(api,'/api/sales')).toHaveLength(0);
   });
 });
