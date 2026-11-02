@@ -146,7 +146,7 @@ function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
       {filtered.map(s=><Link key={s.id} to={'/sales/'+encodeURIComponent(s.id)}
         aria-label={'Открыть продажу '+s.saleNumber}
         className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[#f4f8fa] focus-visible:outline-2 focus-visible:outline-[#416c82] sm:grid-cols-[100px_minmax(120px,1.1fr)_minmax(120px,1.3fr)_110px_110px_20px] sm:px-6">
-        <span className="font-semibold text-[#416c82]">№ {displaySaleNumber(s.saleNumber)}</span>
+        <span className="font-semibold text-[#416c82]">{displaySaleNumber(s.saleNumber)}</span>
         <span className="min-w-0 text-sm text-[#273b47] sm:truncate">{s.customerName||'Без имени'}</span>
         <span className="col-span-2 min-w-0 truncate text-xs text-[#81909a] sm:col-span-1">{s.products||'—'}</span>
         <span className="font-semibold text-[#273b47]">{money(s.total)}</span>
