@@ -22,15 +22,15 @@ function dayLabel(iso: string, includeYear = false): string {
 function Stat({ title, value, note, icon: Icon, path }: {
   title: string; value: number; note: string; icon: LucideIcon; path: string;
 }) {
-  return <Link to={path} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-blue-600">
+  return <Link to={path} className="group relative overflow-hidden rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-400 hover:shadow-md focus-visible:outline-2 focus-visible:outline-emerald-700">
     <div className="flex items-center justify-between">
-      <span className="flex size-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-800">
         <Icon className="size-5" aria-hidden="true" />
       </span>
-      <ArrowRight className="size-4 text-slate-400 group-hover:text-blue-600" aria-hidden="true" />
+      <ArrowRight className="size-4 text-stone-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-emerald-700" aria-hidden="true" />
     </div>
     <p className="mt-3 text-sm font-medium text-slate-600">{title}</p>
-    <p className="mt-1 text-3xl font-extrabold text-slate-950">{value.toLocaleString('ru-RU')}</p>
+    <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-stone-900">{value.toLocaleString('ru-RU')}</p>
     <p className="mt-2 text-xs text-slate-500">{note}</p>
   </Link>;
 }
@@ -43,12 +43,12 @@ function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
   }));
   const line = points.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
   const fill = line + ' L' + points.at(-1)!.x + ' 160 L' + points[0]!.x + ' 160 Z';
-  return <section aria-label="Заказы за неделю" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  return <section aria-label="Заказы за неделю" className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm">
     <div className="mb-4 flex items-center justify-between gap-3">
       <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-        <CalendarDays className="size-5 text-blue-600" aria-hidden="true" />Заказы за 7 дней
+        <CalendarDays className="size-5 text-emerald-700" aria-hidden="true" />Заказы за 7 дней
       </h3>
-      <strong className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-700">
+      <strong className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
         Всего: {days.reduce((a, d) => a + d.orders, 0)}
       </strong>
     </div>
@@ -56,11 +56,11 @@ function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
       aria-label={days.map(d => dayLabel(d.day) + ': ' + d.orders).join('; ')}
       className="w-full overflow-visible">
       {[0, 0.5, 1].map(n => <line key={n} x1="24" x2="696" y1={160 - n * 132}
-        y2={160 - n * 132} stroke="#e2e8f0" strokeDasharray="4 5" />)}
-      <path d={fill} fill="#dbeafe" fillOpacity="0.8" />
-      <path d={line} stroke="#2563eb" strokeWidth="3" strokeLinejoin="round" fill="none" />
+        y2={160 - n * 132} stroke="#e7e5e4" strokeDasharray="4 5" />)}
+      <path d={fill} fill="#d1fae5" fillOpacity="0.8" />
+      <path d={line} stroke="#17765c" strokeWidth="3" strokeLinejoin="round" fill="none" />
       {points.map(p => <circle key={p.day} cx={p.x} cy={p.y} r="5"
-        fill="#2563eb" stroke="white" strokeWidth="2">
+        fill="#17765c" stroke="white" strokeWidth="2">
         <title>{dayLabel(p.day)}: {p.orders} заказов</title>
       </circle>)}
     </svg>
@@ -82,7 +82,7 @@ function Attention({ data, deliveryRight, inventoryRight }: {
       ? [{ name: 'Мало товара', count: data.lowStockVariants,
         desc: 'Вариации с доступным остатком 1–5 шт.', path: '/inventory', icon: Package }] : []),
   ];
-  return <section aria-label="Требует внимания" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  return <section aria-label="Требует внимания" className="rounded-[22px] border border-stone-200 bg-white p-5 shadow-sm">
     <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-slate-900">
       <TriangleAlert className="size-5 text-amber-500" aria-hidden="true" />Требует внимания
     </h3>
@@ -101,10 +101,10 @@ function Attention({ data, deliveryRight, inventoryRight }: {
   </section>;
 }
 function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
-  return <section aria-label="Последние заказы" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  return <section aria-label="Последние заказы" className="overflow-hidden rounded-[22px] border border-stone-200 bg-white shadow-sm">
     <div className="flex items-center justify-between gap-2 px-5 py-4">
       <h3 className="text-lg font-bold text-slate-900">Последние заказы</h3>
-      <Link to="/sales" className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:underline">
+      <Link to="/sales" className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-800 hover:underline">
         Смотреть все <ArrowRight className="size-4" aria-hidden="true" /></Link>
     </div>
     {items.length === 0 ? <p className="px-5 pb-5 text-sm text-slate-500">Заказов пока нет.</p> :
@@ -114,8 +114,8 @@ function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
           <th key={h} scope="col" className="px-4 py-3 font-semibold">{h}</th>)}
       </tr></thead>
       <tbody className="divide-y divide-slate-100">{items.map(s =>
-        <tr key={s.id} className="entity-clickable-row hover:bg-blue-50">
-          <td className="px-4 py-3 font-bold text-blue-700">
+        <tr key={s.id} className="entity-clickable-row hover:bg-emerald-50">
+          <td className="px-4 py-3 font-bold text-emerald-800">
             <Link to={'/sales/' + encodeURIComponent(s.id)} className="entity-stretched-link"
               title={s.saleNumber} aria-label={'Открыть продажу ' + s.saleNumber}>{displaySaleNumber(s.saleNumber)}</Link>
           </td>
@@ -149,17 +149,17 @@ export function HomePage() {
     return !!nav && isNavigationAllowed(nav, hasAnyPermission);
   });
 
-  return <div className="space-y-5 sm:space-y-6">
+  return <div className="space-y-5 rounded-[28px] bg-[#f8f9f6] p-3 sm:space-y-6 sm:p-6">
     <header className="flex flex-wrap items-center justify-between gap-4">
       <div>
-        <h2 className="text-2xl font-extrabold tracking-tight text-slate-950 sm:text-3xl">
+        <h2 className="text-2xl font-bold tracking-tight text-stone-900 sm:text-3xl">
           Добро пожаловать, {name}!
         </h2>
         <p className="mt-1 text-sm text-slate-500">
           {data ? dayLabel(data.businessDate, true) : 'Рабочее пространство ChairX'}
         </p>
       </div>
-      {hasPermission('SALES_CREATE') && <Button asChild className="bg-blue-600 hover:bg-blue-700">
+      {hasPermission('SALES_CREATE') && <Button asChild className="bg-emerald-800 hover:bg-emerald-900">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
       </Button>}
     </header>
@@ -185,7 +185,7 @@ export function HomePage() {
       </div>
       {sales && <RecentSales items={data.recentSales} />}
     </>}
-    {!allowed && <section className="rounded-2xl border border-slate-200 bg-white p-6">
+    {!allowed && <section className="rounded-[22px] border border-stone-200 bg-white p-6">
       <h3 className="font-bold text-slate-900">Показатели недоступны</h3>
       <p className="mt-2 text-sm text-slate-500">Права на просмотр заказов, доставок или складов ещё не назначены.</p>
     </section>}
