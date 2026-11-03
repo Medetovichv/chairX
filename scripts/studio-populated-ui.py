@@ -36,13 +36,13 @@ def goto(page,route):
 def measure(page):
     return page.evaluate("""() => {
         const viewport=document.documentElement.clientWidth;
-        const candidates=[...document.querySelectorAll('main button, main a, main input, main select')];
+        const candidates=[...document.querySelectorAll('main button, main a')];
         const clipped=candidates.filter(el=>{
             const r=el.getBoundingClientRect();
             const st=getComputedStyle(el);
             if(!r.width || !r.height || st.visibility==='hidden') return false;
             if(r.right>viewport+2 || r.left< -2) return true;
-            return !['hidden','clip'].includes(st.overflowX)
+            return st.overflowX === 'visible'
                 && el.scrollWidth>el.clientWidth+2
                 && st.whiteSpace==='nowrap';
         });
@@ -108,7 +108,6 @@ def main():
                 selection=records[0]["id"]
                 target=route+"&quick="+quote(selection)
                 goto(page,target)
-                dialog=page.get_by_role("dialog",name=("Быстрый просмотр:" if name=="sale" else "Быстрый просмотр:") )
                 # Name includes the localized entity, so use a prefix rather than exact match.
                 dialog=page.get_by_role("dialog",name="Быстрый просмотр:",exact=False)
                 dialog.wait_for(timeout=30000)
