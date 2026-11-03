@@ -140,27 +140,27 @@ export function SalesPage() {
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
-      <div className="grid gap-3 @min-[480px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
-        <label className="space-y-1 text-sm font-semibold text-slate-700">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 @min-[480px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">
           <span className="inline-flex items-center gap-2"><Search className="size-4" aria-hidden="true" />Поиск заказа</span>
           <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}
-            placeholder="По номеру заказа, например CHX-..."
+            className="min-w-0" placeholder="По номеру заказа, например CHX-..."
             value={search} onChange={e => { change('number', e.target.value); }}/>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">Статус
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">Статус
           <select aria-label="Фильтр статуса продажи" value={filters.status}
             onChange={e => change('status', e.target.value as SaleStatus | '')}
-            className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
+            className="min-h-11 min-w-0 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
             <option value="">Все статусы</option>
             {saleStatuses.map(s => <option value={s} key={s}>{saleStatusNames[s]}</option>)}
           </select>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">С даты
-          <Input type="date" aria-label="Продажи с даты" value={filters.from}
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">С даты
+          <Input type="date" className="min-w-0" aria-label="Продажи с даты" value={filters.from}
             onChange={e => change('from', e.target.value)}/>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">По дату
-          <Input type="date" aria-label="Продажи по дату" value={filters.to}
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">По дату
+          <Input type="date" className="min-w-0" aria-label="Продажи по дату" value={filters.to}
             onChange={e => change('to', e.target.value)}/>
         </label>
       </div>
