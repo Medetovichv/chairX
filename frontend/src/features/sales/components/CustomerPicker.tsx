@@ -30,6 +30,10 @@ export function CustomerPicker({value,onChange,disabled=false}:{
   const [selected,setSelected]=useState<Customer|null>(null);
   const [creating,setCreating]=useState(false);
   const [createBusy,setCreateBusy]=useState(false);
+  const [phone,setPhone]=useState('');
+  const [phoneBusy,setPhoneBusy]=useState(false);
+  const [phoneError,setPhoneError]=useState('');
+
   const [creationUncertain,setCreationUncertain]=useState(false);
   async function createInsideSale(data:CustomerInput) {
     if(createBusy||creationUncertain)throw new Error('Проверьте результат предыдущего создания клиента.');
@@ -55,6 +59,27 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       throw error;
     } finally {setCreateBusy(false);}
   }
+  async function resolvePhone() {
+    if(phoneBusy||createBusy||creationUncertain||!canCreate||!allowed||disabled)return;
+    setPhoneBusy(true);setPhoneError('');
+    try {
+      const found=await customersApi.resolvePhone(phone);
+      queryClient.setQueryData(customerKeys.detail(found.id),found);
+      queryClient.setQueryData(['customers','customer',found.id],found);
+      setSelected(found);onChange(found.id);
+      setPhone('');setSearch('');setQuery('');
+      void queryClient.invalidateQueries({queryKey:customerKeys.lists});
+    } catch(error) {
+      setPhoneError(error instanceof Error?error.message:'Не удалось определить клиента по телефону');
+      // The POST may have committed even when the response was lost.
+      // Don't issue another uncorrelated write without manual reconciliation.
+      if(!(error instanceof ApiClientError)||error.kind!=='http'||
+         error.status===undefined||error.status===409||error.status>=500){
+        setCreationUncertain(true);
+      }
+    } finally {setPhoneBusy(false);}
+  }
+
   useEffect(()=>{
     const timeout=setTimeout(()=>setQuery(search.trim()),350);
     return ()=>clearTimeout(timeout);
@@ -87,6 +112,27 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       Без CUSTOMERS_READ поиск клиентов недоступен. Можно сохранить черновик без клиента.
       {value&&' Ранее выбранный клиент сохранится при редактировании.'}
     </p>}
+    {allowed&&canCreate&&<div className="space-y-3 rounded-xl border border-[#dfe7eb] bg-[#f2f7f6] p-4">
+      <div>
+        <p className="text-sm font-semibold text-[#182d38]">Быстро привязать клиента по телефону</p>
+        <p className="mt-1 text-xs text-[#516977]">Повторно используем найденную карточку или создадим контакт без имени. Если номер неоднозначен, потребуется выбрать клиента вручную.</p>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="min-w-[13rem] flex-1 space-y-1 text-sm font-semibold">Номер клиента
+          <Input type="tel" aria-label="Номер клиента для продажи" value={phone} maxLength={50}
+            placeholder="+996 700 123456" disabled={disabled||phoneBusy||creationUncertain}
+            onChange={e=>{setPhone(e.target.value);setPhoneError('');}}/>
+        </label>
+        <Button type="button" variant="outline" disabled={disabled||phoneBusy||creationUncertain||!phone.trim()}
+          onClick={()=>void resolvePhone()}>
+          {phoneBusy?'Проверяем номер…':'Найти или создать'}
+        </Button>
+      </div>
+      {phoneError&&<p role="alert" className="text-sm text-red-700">{phoneError}</p>}
+      {creationUncertain&&<p role="alert" className="text-sm text-amber-800">
+        Результат предыдущего создания неизвестен. Проверьте клиента вручную, прежде чем повторять операцию.
+      </p>}
+    </div>}
     {allowed && <>
       <label className="block space-y-2 text-sm font-semibold">Найти клиента
         <Input type="search" aria-label="Поиск клиента для продажи" value={search}
