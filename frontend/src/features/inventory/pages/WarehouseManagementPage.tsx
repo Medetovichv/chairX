@@ -19,6 +19,11 @@ const clean = (v: string) => v.trim();
 function validName(value: string): boolean { return clean(value).length > 0 && clean(value).length <= 200; }
 function validAddress(value: string): boolean { return value.trim().length <= 1000; }
 const isCodeValid = (code: string): boolean => /^[A-Z0-9][A-Z0-9_-]{0,49}$/.test(code);
+function warehouseCount(n: number): string {
+  const suffix = n % 100 >= 11 && n % 100 <= 14 ? 'складов' :
+    n % 10 === 1 ? 'склад' : n % 10 >= 2 && n % 10 <= 4 ? 'склада' : 'складов';
+  return n.toLocaleString('ru-RU')+' '+suffix;
+}
 
 export function WarehouseManagementPage() {
   const { hasPermission } = useAuth();
@@ -146,7 +151,7 @@ export function WarehouseManagementPage() {
       <section aria-label="Список складов" className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-bold tracking-tight text-[#182d38]">Все склады</h2>
-          <p className="text-xs text-[#516977]">{warehouses.data.length.toLocaleString('ru-RU')} складов · управление доступностью и адресами</p>
+          <p className="text-xs text-[#516977]">{warehouseCount(warehouses.data.length)} · управление доступностью и адресами</p>
         </div>
         <div className="overflow-hidden rounded-2xl border border-[#dfe7eb] bg-white">
           <div className="divide-y divide-[#e7eeed]">
