@@ -355,7 +355,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   await waitFor(()=>expect(recorded).toHaveLength(1));
   expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:null});
   expect((recorded[0] as Record<string,unknown>).amount).toBeUndefined();
-  expect(await screen.findByText(/Оплачено.*8.*500.*Перевод/)).toBeInTheDocument();
+  expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
   expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
  });
  it('draft sale cannot send a normal customer payment',()=>{
