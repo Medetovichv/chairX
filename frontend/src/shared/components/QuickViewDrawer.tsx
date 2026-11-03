@@ -76,7 +76,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       // A portalled child dialog owns keyboard interaction until it closes.
       if(event.defaultPrevented||document.querySelector('[role="dialog"][aria-modal="true"]'))return;
       if (event.key === 'Escape') { if (allowLeave()) onClose(); }
-      if (event.key === 'Tab' && window.matchMedia?.('(max-width: 1023px)').matches) {
+      if (event.key === 'Tab' && window.matchMedia?.('(max-width: 1279px)').matches) {
         const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-quick-view] button:not([disabled]), [data-quick-view] a[href], [data-quick-view] input:not([disabled]), [data-quick-view] select:not([disabled]), [data-quick-view] textarea:not([disabled])')).filter(node => node.getClientRects().length > 0);
         if (!nodes.length) return;
         const first = nodes[0], last = nodes[nodes.length - 1];
@@ -101,11 +101,11 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     if (!allowLeave()) { event.preventDefault(); event.stopPropagation(); }
   };
   return <FooterHostContext.Provider value={creating?footerHost:null}><DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
-    className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-10rem)] lg:w-[min(52vw,720px)] lg:min-w-0 lg:shrink-0 lg:rounded-2xl lg:border">
+    className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl xl:sticky xl:top-4 xl:z-10 xl:h-[calc(100dvh-10rem)] xl:w-[min(52vw,720px)] xl:min-w-0 xl:shrink-0 xl:rounded-2xl xl:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
         className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100">
-        <ArrowLeft className="size-5 lg:hidden"/><X className="hidden size-5 lg:block"/>
+        <ArrowLeft className="size-5 xl:hidden"/><X className="hidden size-5 xl:block"/>
       </button>
       <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">{title}</h2>
       {!creating&&<div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={() => guardedMove(previous)} className="min-h-11 min-w-11 rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={() => guardedMove(next)} className="min-h-11 min-w-11 rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>}
