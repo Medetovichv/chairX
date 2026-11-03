@@ -22,10 +22,19 @@ public class CustomerController {
 
     private final CustomerService service;
     private final CustomerAddressService addresses;
+    private final kg.chairx.customer.application.CustomerPhoneResolver phoneResolver;
 
-    public CustomerController(CustomerService service, CustomerAddressService addresses) {
+    public CustomerController(CustomerService service, CustomerAddressService addresses,
+                              kg.chairx.customer.application.CustomerPhoneResolver phoneResolver) {
         this.service = service;
         this.addresses = addresses;
+        this.phoneResolver = phoneResolver;
+    }
+
+    @PostMapping("/resolve-phone")
+    public CustomerResponse resolvePhone(
+            @Valid @RequestBody kg.chairx.customer.api.ResolveCustomerPhoneRequest request) {
+        return phoneResolver.resolve(request.phone());
     }
 
     @PostMapping
