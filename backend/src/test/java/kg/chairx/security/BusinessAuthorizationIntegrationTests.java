@@ -67,6 +67,25 @@ class BusinessAuthorizationIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void reasonedSaleCancellationAndReadbackRequireSpecificPrivileges() throws Exception {
+        String id = UUID.randomUUID().toString();
+        mvc.perform(post("/api/sales/"+id+"/cancel-with-reason")
+                .with(permission("SALES_READ")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"OTHER\",\"comment\":null}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(get("/api/sales/"+id+"/cancellation-details")
+                .with(permission("SALES_CANCEL")))
+                .andExpect(status().isForbidden());
+        // A permitted caller still cannot submit a cancellation without reason,
+        // and no sale/stock mutation is allowed from an invalid request.
+        mvc.perform(post("/api/sales/"+id+"/cancel-with-reason")
+                .with(permission("SALES_CANCEL")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"comment\":\"No reason\"}"))
+                .andExpect(status().isBadRequest());
+    }
+
     @Test void p22RelatedDataAndMutationEndpointsEnforceExplicitPermissions() throws Exception {
         String id = UUID.randomUUID().toString();
         for (String path: List.of("/api/customers/overview",
