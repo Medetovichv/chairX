@@ -1,3 +1,5 @@
+import console from 'node:console';
+import process from 'node:process';
 import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
