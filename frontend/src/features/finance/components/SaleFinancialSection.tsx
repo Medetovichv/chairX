@@ -87,7 +87,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      <p>Итого с доставкой: <strong>{!requiresDelivery?som(sale.total):orderTotal===null?'Пока не рассчитано':som(orderTotal.toString())}</strong></p>
    </div>
    {requiresDelivery&&!deliveryVerified&&<p role="status" className="text-sm text-amber-800">Сначала оформите доставку, чтобы рассчитать итог к оплате. Оплата пока недоступна.</p>}
-   {paymentRead&&payments.isSuccess&&<div aria-label="Состояние оплаты" className="grid gap-3 rounded-xl bg-[#f2f7f6] p-4 text-sm sm:grid-cols-2">
+   {paymentRead&&payments.isSuccess&&<section aria-label="Состояние оплаты" className="grid gap-3 rounded-xl bg-[#f2f7f6] p-4 text-sm sm:grid-cols-2">
     <p>Оплачено: <strong>{activePayment?som(activePayment.amount):'0 сом'}</strong></p>
     <p>Остаток к оплате: <strong>{activePayment?'0 сом':requiresDelivery?
       (orderTotal===null?'Пока не рассчитано':som(orderTotal.toString())):som(sale.total)}</strong></p>
