@@ -66,6 +66,18 @@ def main():
                 }""")
                 assert metrics["document"] <= width + 1, metrics
                 assert metrics["footerBottom"] <= 901, metrics
+                if metrics["filterOverflow"] > 2:
+                    print("Overflow diagnostics:", page.evaluate("""() => {
+                        const section=document.querySelector('[aria-label="Фильтры продаж"]');
+                        const edge=section.getBoundingClientRect().right - parseFloat(getComputedStyle(section).paddingRight);
+                        return [...section.querySelectorAll('*')].map(el => {
+                            const r=el.getBoundingClientRect();
+                            return {tag:el.tagName, text:el.textContent?.trim().slice(0,45),
+                                className:String(el.className).slice(0,100),
+                                right:Math.round(r.right*10)/10, edge:Math.round(edge*10)/10,
+                                scrollWidth:el.scrollWidth, clientWidth:el.clientWidth};
+                        }).filter(x=>x.right>edge+1 || x.scrollWidth>x.clientWidth+2).slice(0,20);
+                    }"""), flush=True)
                 assert metrics["filterOverflow"] <= 2, metrics
                 observations.append(metrics)
                 page.screenshot(path=str(ART / f"sale-{width}.png"))
