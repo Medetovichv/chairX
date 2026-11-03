@@ -56,19 +56,17 @@ function Attention({ data, deliveryRight, inventoryRight }: {
         desc: 'Вариации с доступным остатком 1–5 шт.', path: '/inventory?lowStock=true', icon: Package }] : []),
   ];
   return <section aria-label="Требует внимания" className="rounded-[24px] border border-[#e0e8eb] bg-white p-5 sm:p-7">
-    <h3 className="mb-3 flex items-center gap-2 text-lg font-semibold text-[#182d38]">
-      <TriangleAlert className="size-5 text-[#c17952]" aria-hidden="true" />Требует внимания
-    </h3>
+    <div className="mb-5 flex items-center gap-3"><span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#fff0db] text-[#9c6924]"><TriangleAlert className="size-5" aria-hidden="true" /></span><div><h3 className="text-lg font-bold tracking-tight text-[#182d38]">Требует внимания</h3><p className="mt-1 text-xs text-[#516977]">Важные задачи на сегодня</p></div></div>
     {alerts.length === 0
-      ? <p className="rounded-xl bg-[#edf4ee] p-4 text-sm text-[#35614a]">Нет проблем по доступным вам показателям.</p>
-      : <div className="divide-y divide-slate-100">{alerts.map(a =>
-        <Link key={a.path} to={a.path} className="flex items-center gap-3 py-4 rounded-xl px-2 transition-colors hover:bg-[#f3f7f9] focus-visible:outline-2 focus-visible:outline-[#416c82]">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#fbefe8] text-[#ad653d]">
+      ? <p className="rounded-2xl bg-[#e8f5eb] p-5 text-sm font-medium leading-relaxed text-[#286b48]">Нет проблем по доступным вам показателям.</p>
+      : <div className="space-y-3">{alerts.map(a =>
+        <Link key={a.path} to={a.path} className="flex min-h-19 items-center gap-3 rounded-2xl border border-[#f1e7d8] bg-[#fffbf5] p-4 transition-colors hover:bg-[#fff3e2] focus-visible:outline-2 focus-visible:outline-[#267f79]">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#fff0db] text-[#936125]">
             <a.icon className="size-5" aria-hidden="true" />
           </span>
           <span className="min-w-0 flex-1"><strong className="block text-sm">{a.name}</strong>
-            <span className="text-xs text-slate-500">{a.desc}</span></span>
-          <b className="rounded-full bg-[#fbefe8] px-2 py-1 text-sm text-[#ad653d]">{a.count}</b>
+            <span className="mt-1 block text-xs leading-relaxed text-[#516977]">{a.desc}</span></span>
+          <b className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold tabular-nums text-[#915d1f]">{a.count}</b>
           <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
         </Link>)}</div>}
   </section>;
@@ -83,36 +81,36 @@ function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
     value === 'CONFIRMED' ? 'bg-[#fbefdb] text-[#946f30]' : value === 'CANCELLED' ?
     'bg-[#fcebea] text-[#ad4f4c]' : 'bg-[#edf0f3] text-[#657480]';
   return <section aria-label="Последние заказы" className="overflow-hidden rounded-[24px] border border-[#e0e8eb] bg-white">
-    <div className="flex flex-wrap items-start justify-between gap-3 p-5 sm:p-6">
-      <div><h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Последние заказы</h3>
+    <div className="flex flex-wrap items-start justify-between gap-3 px-5 pb-4 pt-6 sm:px-7 sm:pt-7">
+      <div><p className="mb-2 flex items-center gap-2 text-xs font-bold text-[#27756d]"><ShoppingCart className="size-4" aria-hidden="true" /> Активность</p><h3 className="text-xl font-bold tracking-tight text-[#182d38]">Последние заказы</h3>
         <p className="mt-1 text-xs text-[#516977]">Недавняя активность продаж</p></div>
-      <Link to="/sales" className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-[#416c82] hover:bg-[#edf3f6]">Все продажи <ArrowUpRight className="size-4" aria-hidden="true"/></Link>
+      <Link to="/sales" className="inline-flex min-h-11 items-center gap-1 rounded-xl px-3 text-sm font-semibold text-[#267f79] hover:bg-[#edf3f6]">Все продажи <ArrowUpRight className="size-4" aria-hidden="true"/></Link>
     </div>
-    <div className="flex flex-wrap items-center gap-2 px-5 pb-4 sm:px-6">
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#e8eff0] px-5 pb-4 sm:px-7">
       <div className="flex flex-wrap gap-1" role="group" aria-label="Фильтр статуса заказа">
         {availableStatuses.map(v=><button key={v} type="button" aria-pressed={status===v} onClick={()=>setStatus(v)}
-          className={'rounded-full px-3 py-2 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-[#416c82] '+(status===v?'bg-[#182d38] text-white':'bg-[#f1f5f7] text-[#647783] hover:bg-[#e5edf1]')}>
+          className={'min-h-10 rounded-xl px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-[#416c82] '+(status===v?'bg-[#182d38] text-white':'bg-[#f1f5f7] text-[#647783] hover:bg-[#e5edf1]')}>
           {v==='Все'?'Все':v==='DRAFT'?'Черновики':v==='CONFIRMED'?'Подтверждены':'Выполнены'}
         </button>)}
       </div>
       <label className="relative ml-auto"><Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8495a0]" aria-hidden="true"/>
         <span className="sr-only">Поиск последних заказов</span>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Номер, клиент, товар"
-          className="w-full max-w-56 rounded-full border border-[#e4ebef] bg-[#f6f8f9] py-2 pl-9 pr-3 text-xs text-[#182d38] placeholder:text-[#8b99a2] focus-visible:outline-2 focus-visible:outline-[#416c82]"/>
+          className="w-full max-w-56 rounded-xl border border-[#d9e5e6] bg-[#f8faf9] py-2 pl-9 pr-3 text-xs text-[#182d38] placeholder:text-[#8b99a2] focus-visible:outline-2 focus-visible:outline-[#416c82]"/>
       </label>
     </div>
     {filtered.length===0 ? <p className="px-6 pb-6 text-sm text-[#516977]">{items.length?'По выбранным фильтрам заказов нет.':'Заказов пока нет.'}</p>
     : <div className="divide-y divide-[#ebeff1]">
       {filtered.map(s=><Link key={s.id} to={'/sales/'+encodeURIComponent(s.id)}
         aria-label={'Открыть продажу '+s.saleNumber}
-        className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[#f4f8fa] focus-visible:outline-2 focus-visible:outline-[#416c82] sm:grid-cols-[100px_minmax(120px,1.1fr)_minmax(120px,1.3fr)_110px_110px_20px] sm:px-6">
+        className="group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[#f4f8fa] focus-visible:outline-2 focus-visible:outline-[#416c82] lg:grid-cols-[100px_minmax(120px,1.1fr)_minmax(120px,1.3fr)_110px_110px_20px] lg:px-7">
         <span className="font-semibold text-[#416c82]">{displaySaleNumber(s.saleNumber)}</span>
         <span className="min-w-0 text-sm text-[#273b47] sm:truncate">{s.customerName||'Без имени'}</span>
-        <span className="col-span-2 min-w-0 truncate text-xs text-[#516977] sm:col-span-1">{s.products||'—'}</span>
+        <span className="col-span-2 min-w-0 truncate text-xs text-[#516977] lg:col-span-1">{s.products||'—'}</span>
         <span className="font-semibold text-[#273b47]">{money(s.total)}</span>
-        <span className={'justify-self-end rounded-full px-2.5 py-1 text-xs font-medium sm:justify-self-start '+badgeClass(s.status)}>{saleStatusNames[s.status]}</span>
-        <ArrowUpRight className="hidden size-4 text-[#96a5ae] group-hover:text-[#416c82] sm:block" aria-hidden="true"/>
-        <span className="col-span-2 text-xs text-[#9aa5ae] sm:hidden">{saleDate(s.createdAt)}</span>
+        <span className={'justify-self-end rounded-full px-2.5 py-1 text-xs font-medium lg:justify-self-start '+badgeClass(s.status)}>{saleStatusNames[s.status]}</span>
+        <ArrowUpRight className="hidden size-4 text-[#96a5ae] group-hover:text-[#416c82] lg:block" aria-hidden="true"/>
+        <span className="col-span-2 text-xs text-[#9aa5ae] lg:hidden">{saleDate(s.createdAt)}</span>
       </Link>)}
     </div>}
   </section>;
