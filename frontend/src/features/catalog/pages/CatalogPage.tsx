@@ -143,16 +143,18 @@ export function CatalogPage() {
         </div>
         <div className="divide-y divide-slate-100 md:hidden">
           {data.items.map(model=><article key={model.id}
-            className="entity-clickable-row group flex items-start gap-3 p-4 transition-colors hover:bg-[#f3f8fa]">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eaf2f6] text-[#416c82]">
-              <Package className="size-5" aria-hidden="true"/>
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-[#416c82]"><Link className="entity-stretched-link"
+            className="entity-clickable-row group space-y-3 p-4 transition-colors hover:bg-[#f3f8fa]">
+            <div className="flex items-center justify-between gap-3">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eaf2f6] text-[#416c82]">
+                <Package className="size-5" aria-hidden="true"/>
+              </span>
+              <StatusBadge tone={model.active?'success':'neutral'}>{model.active?'Активен':'Неактивен'}</StatusBadge>
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-semibold text-[#416c82]"><Link className="entity-stretched-link block break-all"
                 to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link></h3>
               <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">{model.category || 'Категория не указана'}</p>
             </div>
-            <StatusBadge tone={model.active?'success':'neutral'}>{model.active?'Активен':'Неактивен'}</StatusBadge>
           </article>)}
         </div>
         <CatalogPager page={data.page} totalPages={data.totalPages}
