@@ -1,4 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { MapPin, Truck } from 'lucide-react';
+import { useQuickCreateFooterHost } from '../../../shared/components/QuickViewDrawer';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
@@ -19,6 +22,8 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   initialSaleId?:string;onSubmit:(payload:CreateDeliveryInput)=>Promise<void>|void;disabled?:boolean;
 }){
   const {hasPermission}=useAuth();
+  const formId=useId();
+  const quickFooter=useQuickCreateFooterHost();
   const canReadSales=hasPermission('SALES_READ');
   const [saleId,setSaleId]=useState(initialSaleId);
   const [page,setPage]=useState(0);
@@ -76,7 +81,7 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
     if(error||!canCreate){setProblem(error||'Проверьте заказ и отсутствие существующей доставки.');return;}
     setProblem('');await onSubmit(payload);
   }
-  return <form aria-label="Оформить доставку" className="min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 [.quick-create_&]:p-4"
+  return <form id={formId} aria-label="Оформить доставку" className="@container min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 [.quick-create_&]:p-4"
     onSubmit={e=>void submit(e)}>
     <section className="space-y-3">
       <h3 className="font-semibold">Подтверждённый заказ с доставкой</h3>
@@ -141,7 +146,9 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
         <ErrorState title="Не удалось проверить существующую доставку"
           error={existing.error} onRetry={()=>void existing.refetch()}/>}
     </section>
-    <div className="grid min-w-0 gap-4 sm:grid-cols-2 [.quick-create_&]:!grid-cols-1 xl:[.quick-create_&]:!grid-cols-2">
+    <section aria-label="Получатель и маршрут" className="space-y-4">
+      <h3 className="flex items-center gap-2 font-semibold"><MapPin aria-hidden="true" size={18}/>Получатель и маршрут</h3>
+    <div className="grid min-w-0 gap-4 @min-[480px]:grid-cols-2">
       {([
         ['Имя получателя','recipientName',recipientName,setRecipientName,200],
         ['Телефон *','recipientPhone',recipientPhone,setRecipientPhone,50],
@@ -151,9 +158,10 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
         ['Перевозчик','carrierName',carrierName,setCarrierName,200],
         ['Трек-номер','trackingNumber',trackingNumber,setTrackingNumber,200],
       ] as const).map(([title,id,value,update,max])=>
-        <label key={id} className={'space-y-1 text-sm font-semibold '+(id==='address'?'sm:col-span-2':'')}>
+        <label key={id} className={'space-y-1 text-sm font-semibold '+(id==='address'?'@min-[480px]:col-span-2':'')}>
           {title}
           <Input aria-label={title} value={value} maxLength={max} disabled={disabled}
+            type={id==='recipientPhone'?'tel':'text'}
             inputMode={id==='deliveryCost'?'numeric':undefined}
             onChange={e=>update(e.target.value)} />
         </label>)}
@@ -161,17 +169,27 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
         <Input type="date" aria-label="Плановая дата" disabled={disabled} value={plannedDeliveryDate}
           onChange={e=>setPlannedDeliveryDate(e.target.value)}/>
       </label>
-      <label className="space-y-1 text-sm font-semibold sm:col-span-2">Комментарий
+      <label className="space-y-1 text-sm font-semibold @min-[480px]:col-span-2">Комментарий
         <textarea aria-label="Комментарий доставки" rows={3} maxLength={2000}
           disabled={disabled} value={comment} onChange={e=>setComment(e.target.value)}
           className="w-full rounded-xl border border-slate-200 p-3"/>
       </label>
     </div>
-    {problem&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{problem}</p>}
-    <p className="text-sm text-slate-600">
-      Стоимость — целые сомы, это не регистрация оплаты. Доставка создаётся в статусе READY.
-      Дублирование заказа блокирует backend.
-    </p>
-    <Button type="submit" disabled={disabled||!canCreate}>Создать доставку</Button>
+    </section>
+    {quickFooter ? createPortal(<div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="flex items-center gap-2 font-semibold"><Truck aria-hidden="true" size={18}/>Доставка</span>
+        <span className="tabular-nums">{deliveryCost.trim() ? `${deliveryCost.trim()} сом` : 'Укажите стоимость'}</span>
+      </div>
+      <p className="text-xs text-slate-600">Оплата не списывается при создании доставки.</p>
+      {problem&&<p role="alert" className="text-sm text-red-800">{problem}</p>}
+      <Button className="w-full" form={formId} type="submit" disabled={disabled||!canCreate}>
+        {disabled?'Сохраняем…':'Создать доставку'}
+      </Button>
+    </div>,quickFooter) : <>
+      {problem&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{problem}</p>}
+      <p className="text-sm text-slate-600">Стоимость доставки указывается в целых сомах. Оплата не списывается при создании доставки.</p>
+      <Button type="submit" disabled={disabled||!canCreate}>{disabled?'Сохраняем…':'Создать доставку'}</Button>
+    </>}
   </form>;
 }

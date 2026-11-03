@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router';
+import { QuickViewDrawer } from '../shared/components/QuickViewDrawer';
+import { DeliveryForm } from '../features/deliveries/components/DeliveryForm';
 import { AppRouter } from '../app/router/AppRouter';
 import { createQueryClient } from '../shared/api/query';
 import { authSession } from '../features/auth/session';
@@ -288,6 +290,32 @@ describe('FLOW-24 direct delivery links and least-privilege reads',()=>{
  });
 });
 describe('F08 create delivery and non-idempotent network outcomes',()=>{
+  it('submits delivery from the fixed drawer footer and keeps validation visible there',async()=>{
+    mockBackend({deliveries:[]});
+    const submit=vi.fn();
+    render(<QueryClientProvider client={createQueryClient()}><MemoryRouter>
+      <QuickViewDrawer title="Оформить доставку" detailUrl="/deliveries/new" onClose={()=>{}}>
+        <DeliveryForm initialSaleId={SALE} onSubmit={submit}/>
+      </QuickViewDrawer>
+    </MemoryRouter></QueryClientProvider>);
+    const form=await screen.findByRole('form',{name:'Оформить доставку'});
+    const footer=screen.getByRole('region',{name:'Итог и сохранение заказа'});
+    const action=within(footer).getByRole('button',{name:'Создать доставку'});
+    expect(action.closest('[data-quick-view-scroll]')).toBeNull();
+    expect(action).toHaveAttribute('form',form.id);
+    expect(within(form).queryByRole('button',{name:'Создать доставку'})).toBeNull();
+    await waitFor(()=>expect(action).toBeEnabled());
+    await userEvent.setup().click(action);
+    expect(within(footer).getByRole('alert')).toHaveTextContent(/Телефон/);
+    expect(submit).not.toHaveBeenCalled();
+    fireEvent.change(within(form).getByLabelText('Телефон *'),{target:{value:'+996700123456'}});
+    fireEvent.change(within(form).getByLabelText('Адрес *'),{target:{value:'Бишкек, 12'}});
+    fireEvent.change(within(form).getByLabelText('Стоимость доставки, сом *'),{target:{value:'300'}});
+    expect(within(footer).getByText('300 сом')).toBeInTheDocument();
+    await userEvent.setup().click(action);
+    expect(submit).toHaveBeenCalledTimes(1);
+    expect(submit).toHaveBeenCalledWith(expect.objectContaining({saleId:SALE,deliveryCost:'300'}));
+  });
   it('validates phone, address, integer som and nullable name',()=>{
     const p:CreateDeliveryInput={saleId:SALE,recipientName:null,recipientPhone:'+996700123456',
       address:'Бишкек',cityRegion:null,deliveryCost:'0',carrierName:null,

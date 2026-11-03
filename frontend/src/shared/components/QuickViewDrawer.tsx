@@ -99,7 +99,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     if (!allowLeave()) { event.preventDefault(); event.stopPropagation(); }
   };
   return <FooterHostContext.Provider value={creating?footerHost:null}><DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
-    className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-2rem)] lg:w-[min(52vw,720px)] lg:min-w-0 lg:shrink-0 lg:rounded-2xl lg:border">
+    className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-10rem)] lg:w-[min(52vw,720px)] lg:min-w-0 lg:shrink-0 lg:rounded-2xl lg:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
         className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100">
@@ -115,7 +115,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       className={"min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-auto scroll-smooth [scrollbar-gutter:stable] [touch-action:pan-y] p-4 sm:p-5 "+(creating?"pb-6":"pb-[max(5rem,env(safe-area-inset-bottom))] sm:pb-20")}>
       {children}
     </div>
-    {canScrollDown && <button type="button" aria-label="Прокрутить панель вниз"
+    {canScrollDown && !creating && <button type="button" aria-label="Прокрутить панель вниз"
       onClick={() => { const node = scrollRef.current; if (node) node.scrollBy({ top: Math.max(320, node.clientHeight * 0.8), behavior: 'smooth' }); }}
       className="absolute bottom-4 right-5 z-20 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
       <ArrowDown aria-hidden="true" className="size-5"/>
