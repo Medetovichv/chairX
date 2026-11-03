@@ -20,7 +20,7 @@ export function SalesPipelineOverview({ drafts, confirmed, completed }: {
     { status:'FULFILLED', label:'Выданы сегодня или ещё не закрыты',
       description:'Проверяйте оплату и получение', total:completed },
   ];
-  const pending=entries[1];
+  const pending=entries[1]!;
   return <section aria-label="Текущие показатели продаж"
     className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
     <Link to={'/sales?status='+pending.status+'&operational=true'}
