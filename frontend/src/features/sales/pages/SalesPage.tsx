@@ -140,7 +140,7 @@ export function SalesPage() {
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
-      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 @min-[480px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 @min-[640px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
         <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">
           <span className="inline-flex items-center gap-2"><Search className="size-4" aria-hidden="true" />Поиск заказа</span>
           <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}
