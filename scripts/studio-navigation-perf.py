@@ -39,7 +39,7 @@ def main():
         )
         # Observe main-thread long tasks on the actual Vite app, without adding
         # dependencies or changing the application being measured.
-        context.add_init_script("""() => {
+        context.add_init_script("""(() => {
             window.__chairxLongTasks = [];
             try {
                 new PerformanceObserver(list => {
@@ -51,7 +51,7 @@ def main():
                     }
                 }).observe({type:'longtask', buffered:true});
             } catch (_) {}
-        }""")
+        })()""")
         page = context.new_page()
         requests = []
         responses = []
