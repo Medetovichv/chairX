@@ -108,7 +108,7 @@ export function SalesPage() {
 
   const visibleIds = (listing.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="@container/workspace min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
       action={create ? <Button asChild className="min-h-12 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
@@ -140,7 +140,7 @@ export function SalesPage() {
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
+      <div className="grid gap-3 @min-[480px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
         <label className="space-y-1 text-sm font-semibold text-slate-700">
           <span className="inline-flex items-center gap-2"><Search className="size-4" aria-hidden="true" />Поиск заказа</span>
           <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}

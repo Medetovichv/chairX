@@ -67,7 +67,7 @@ export function DeliveriesPage(){
   if(!read||(q.error instanceof ApiClientError&&q.error.status===403))return <ForbiddenPage/>;
   const visibleIds = (q.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="@container/workspace min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Доставки" description="Планирование, отправка и контроль городских и региональных заказов."
       action={manage?<Button asChild className="min-h-11 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]"><Link to="/deliveries/new"><Plus className="size-4" aria-hidden="true"/>Оформить доставку</Link></Button>:undefined}/>
     <div className="flex flex-wrap gap-2 rounded-2xl border border-[#dfe7eb] bg-white p-2">

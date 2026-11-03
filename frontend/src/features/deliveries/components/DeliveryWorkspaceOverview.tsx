@@ -31,7 +31,7 @@ export function DeliveryWorkspaceOverview({ rows, total, page, onStatus }: {
         Страница {page + 1} · {rows.length} из {total.toLocaleString('ru-RU')}
       </p>
     </div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 @min-[520px]/workspace:grid-cols-2 @min-[1000px]/workspace:grid-cols-4">
       {states.map(({ status, title, detail, icon: Icon }) =>
         <button key={status} type="button" onClick={() => onStatus(status)}
           aria-label={title + ': ' + counts[status] + '. Показать все с этим статусом'}

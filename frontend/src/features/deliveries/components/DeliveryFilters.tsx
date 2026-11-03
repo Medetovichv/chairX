@@ -19,7 +19,7 @@ export function DeliveryFilters({value,region,onRegion,quick,onQuick,onChange}:{
         variant={quick===x.id?'default':'outline'} className={quick===x.id?'min-h-11 rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]':'min-h-11 rounded-xl border-[#dce6eb] text-[#405b65] hover:bg-[#edf3f6]'} aria-pressed={quick===x.id}
         onClick={()=>onQuick(x.id)}>{x.name}</Button>)}
     </div>
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+    <div className="grid gap-3 @min-[520px]/workspace:grid-cols-2 @min-[1100px]/workspace:grid-cols-5">
       <label className="space-y-1 text-sm font-semibold">Город или регион
         <Input type="search" aria-label="Поиск города или региона"
           maxLength={200} value={region} onChange={e=>onRegion(e.target.value)}
