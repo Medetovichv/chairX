@@ -129,14 +129,14 @@ export function SalesPage() {
     <section aria-label="Фильтры продаж" className="space-y-5 rounded-[24px] border border-[#e0e8eb] bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#182d38]"><SlidersHorizontal className="size-5 text-[#267f79]" aria-hidden="true" />{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
-        <div className="flex items-center gap-1 rounded-xl bg-[#edf5f3] p-1" aria-label="Режим отображения продаж">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-1 rounded-xl bg-[#edf5f3] p-1 @min-[520px]/workspace:w-auto" aria-label="Режим отображения продаж">
           <Button size="sm" aria-pressed={view === 'kanban'}
             variant={view === 'kanban' ? 'default' : 'ghost'}
-            className={view === 'kanban' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
+            className={view === 'kanban' ? 'flex-1 rounded-lg bg-[#172f3c] text-white hover:bg-[#305063] @min-[520px]/workspace:flex-none' : 'flex-1 rounded-lg @min-[520px]/workspace:flex-none'}
             onClick={() => setView('kanban')}><LayoutGrid className="size-4" aria-hidden="true" />Канбан</Button>
           <Button size="sm" aria-pressed={view === 'table'}
             variant={view === 'table' ? 'default' : 'ghost'}
-            className={view === 'table' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
+            className={view === 'table' ? 'flex-1 rounded-lg bg-[#172f3c] text-white hover:bg-[#305063] @min-[520px]/workspace:flex-none' : 'flex-1 rounded-lg @min-[520px]/workspace:flex-none'}
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
