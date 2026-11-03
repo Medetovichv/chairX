@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Search, ArrowUpRight, Package, Truck, CalendarDays } from 'lucide-react';
+import { PurchasesWorkspaceOverview } from '../components/PurchasesWorkspaceOverview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../auth/AuthProvider';
@@ -31,32 +32,72 @@ function initialFilters():PurchaseFilters {
   return {status:'',supplierId:'',...lastSevenDays(),number:'',page:0};
 }
 function PurchaseTable({ lines }: { lines: PurchaseLine[] }) {
-  return <section aria-label="Список закупок" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
+  const detail = (id:string) => '/purchases/' + encodeURIComponent(id);
+  return <section aria-label="Список закупок" className="overflow-hidden rounded-2xl border border-[#dfe7eb] bg-white">
     <div className="hidden overflow-x-auto xl:block"><table className="w-full text-left text-sm">
-      <thead className="bg-[#f2f6f8]"><tr>{['Закупка','Поставщик','Дата','Статус','Позиций','Заказано','Принято','Осталось','Товары','Карго','Итого'].map(col =>
-        <th scope="col" className="whitespace-nowrap px-3 py-3 font-semibold text-slate-600" key={col}>{col}</th>)}</tr></thead>
-      <tbody className="divide-y divide-slate-100">{lines.map(line => <tr key={line.id}>
-        <td className="px-3 py-3"><Link className="inline-flex min-h-11 items-center font-semibold text-[#416c82] hover:underline"
-          to={'/purchases/'+encodeURIComponent(line.id)}>{formatDate(line.createdAt)}</Link></td>
-        <td className="px-3 py-3">{line.supplierName}</td><td className="px-3 py-3">{formatDate(line.createdAt)}</td>
-        <td className="px-3 py-3"><PurchaseStatusBadge status={line.status} /></td>
-        <td className="px-3 py-3">{line.itemCount}</td><td className="px-3 py-3">{line.orderedQuantity}</td>
-        <td className="px-3 py-3">{line.receivedQuantity}</td><td className="px-3 py-3">{line.remainingQuantity}</td>
-        <td className="px-3 py-3">{formatMoney(line.goodsCost)}</td><td className="px-3 py-3">{formatMoney(line.cargoCost)}</td>
-        <td className="px-3 py-3 font-bold">{formatMoney(line.totalCost)}</td>
-      </tr>)}</tbody>
+      <thead className="bg-[#f5f9f7] text-[#516977]"><tr>
+        {['Закупка и дата', 'Поставщик', 'Статус', 'Поступление', 'Сумма закупки'].map(col=>
+          <th key={col} scope="col" className="whitespace-nowrap px-5 py-4 text-xs font-bold">{col}</th>)}
+      </tr></thead>
+      <tbody className="divide-y divide-[#eaf0f0]">{lines.map(line=>
+        <tr key={line.id} className="entity-clickable-row group transition-colors hover:bg-[#f5faf8]">
+          <td className="px-5 py-4 align-top">
+            <Link className="entity-stretched-link font-bold text-[#236e66] hover:underline focus-visible:outline-2 focus-visible:outline-[#267f79]"
+              to={detail(line.id)}>Закупка от {formatDate(line.createdAt)}</Link>
+            <p className="mt-1 text-xs text-[#516977]">{line.itemCount} позиций</p>
+          </td>
+          <td className="max-w-56 break-words px-5 py-4 align-top font-semibold text-[#263e49]">{line.supplierName}</td>
+          <td className="px-5 py-4 align-top"><PurchaseStatusBadge status={line.status}/></td>
+          <td className="px-5 py-4 align-top">
+            <p className="font-semibold tabular-nums text-[#263e49]">{line.receivedQuantity} из {line.orderedQuantity} шт.</p>
+            <p className="mt-1 text-xs text-[#516977]">Осталось: {line.remainingQuantity} шт.</p>
+            {line.lastReceiptAt && <p className="mt-1 text-xs text-[#516977]">Последняя приёмка: {formatDate(line.lastReceiptAt)}</p>}
+          </td>
+          <td className="whitespace-nowrap px-5 py-4 align-top">
+            <strong className="font-bold tabular-nums text-[#182d38]">{formatMoney(line.totalCost)}</strong>
+            <p className="mt-1 text-xs text-[#516977]">Товары: {formatMoney(line.goodsCost)}</p>
+            <p className="text-xs text-[#516977]">Карго: {formatMoney(line.cargoCost)}</p>
+          </td>
+        </tr>)}
+      </tbody>
     </table></div>
-    <div className="divide-y divide-slate-100 xl:hidden">{lines.map(line => <article key={line.id}
-      className="space-y-3 p-4 text-sm">
-      <div className="flex flex-wrap justify-between gap-2">
-        <Link className="inline-flex min-h-11 items-center font-semibold text-[#416c82]" to={'/purchases/'+encodeURIComponent(line.id)}>
-          Закупка от {formatDate(line.createdAt)}</Link><PurchaseStatusBadge status={line.status} />
-      </div>
-      <p className="font-semibold">{line.supplierName} · {formatDate(line.createdAt)}</p>
-      <p>Позиций: {line.itemCount} · Заказано: {line.orderedQuantity} · Принято: {line.receivedQuantity} · Осталось: {line.remainingQuantity}</p>
-      <p>Товары: {formatMoney(line.goodsCost)} · Карго: {formatMoney(line.cargoCost)}</p>
-      <p className="font-bold">Итого: {formatMoney(line.totalCost)}</p>
-    </article>)}</div>
+    <div className="divide-y divide-[#eaf0f0] xl:hidden">{lines.map(line=>
+      <article key={line.id} className="entity-clickable-row group space-y-4 p-4 transition-colors hover:bg-[#f5faf8] sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Link className="entity-stretched-link inline-flex items-center gap-1.5 font-bold text-[#236e66] hover:underline"
+              to={detail(line.id)}>
+              Закупка от {formatDate(line.createdAt)}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true"/>
+            </Link>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-[#516977]">
+              <CalendarDays className="size-4" aria-hidden="true"/>{line.itemCount} позиций
+            </p>
+          </div>
+          <PurchaseStatusBadge status={line.status}/>
+        </div>
+        <p className="break-words font-semibold text-[#263e49]">{line.supplierName}</p>
+        <div className="grid gap-3 rounded-xl bg-[#f2f7f6] p-4 sm:grid-cols-2">
+          <div className="flex items-start gap-2">
+            <Package className="mt-0.5 size-4 shrink-0 text-[#286e66]" aria-hidden="true"/>
+            <div>
+              <p className="text-xs text-[#516977]">Поступило</p>
+              <p className="font-bold tabular-nums text-[#182d38]">{line.receivedQuantity} / {line.orderedQuantity} шт.</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <Truck className="mt-0.5 size-4 shrink-0 text-[#286e66]" aria-hidden="true"/>
+            <div>
+              <p className="text-xs text-[#516977]">Осталось принять</p>
+              <p className="font-bold tabular-nums text-[#182d38]">{line.remainingQuantity} шт.</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-[#516977]">Товары: {formatMoney(line.goodsCost)} · Карго: {formatMoney(line.cargoCost)}</p>
+          <strong className="text-lg font-bold tabular-nums text-[#182d38]">{formatMoney(line.totalCost)}</strong>
+        </div>
+        {line.lastReceiptAt && <p className="text-xs text-[#516977]">Последнее поступление: {formatDate(line.lastReceiptAt)}</p>}
+      </article>)}</div>
   </section>;
 }
 export function PurchasesPage() {
@@ -86,20 +127,21 @@ export function PurchasesPage() {
     navigate('/purchases/'+encodeURIComponent(purchase.id), { state:{notice:'Закупка создана как черновик.'} });
   } });
   if (!allowed || overview.error instanceof ApiClientError && overview.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
-    <PageHeader title={creating ? 'Новая закупка' : 'Закупки'}
-      action={canCreate && !creating ? <Button className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Новая закупка</Button> : undefined} />
+  return <div className="space-y-5 text-[#182d38] sm:space-y-6">
+    <PageHeader title={creating ? 'Новая закупка' : 'Закупки'} description="Заказы поставщикам, приёмка товаров и контроль оставшихся количеств."
+      action={canCreate && !creating ? <Button className="min-h-11 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Новая закупка</Button> : undefined} />
     {!creating && <PurchaseTabs />}
+    {!creating && overview.isSuccess && <PurchasesWorkspaceOverview lines={overview.data.items} total={overview.data.total} page={overview.data.page}/>}
     {notice && <p role="status">{notice}</p>}
     {creating && canCreate && <PurchaseForm onCancel={() => setCreating(false)}
       onSave={async value => { await create.mutateAsync(value); }} />}
-    {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>{setFilters(initialFilters());setIncludeOpenOlder(true);}}>Сбросить фильтры</Button></div>
+    {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 font-bold text-[#182d38]"><Search className="size-4 text-[#267f79]" aria-hidden="true"/>Поиск и фильтры</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>{setFilters(initialFilters());setIncludeOpenOlder(true);}}>Сбросить фильтры</Button></div>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" className="h-auto min-h-11 w-full max-w-full whitespace-normal py-2 text-center leading-snug sm:w-auto" onClick={()=>{setFilters(old=>({...old,...lastSevenDays(),page:0}));setIncludeOpenOlder(true);}}>Последние 7 дней + незавершённые</Button>
         <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,from:'',to:'',page:0}));setIncludeOpenOlder(false);}}>Все даты</Button>
       </div>
-      <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} className={filters.status===status?"rounded-full bg-[#182d38] text-white hover:bg-[#305063]":"rounded-full"} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
+      <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} className={filters.status===status?"min-h-11 rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]":"min-h-11 rounded-xl"} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <label className="space-y-1 text-sm font-semibold">Статус
           <select aria-label="Фильтр статуса закупки" value={filters.status}
@@ -136,7 +178,7 @@ export function PurchasesPage() {
       overview.isPending ? <LoadingState label="Загружаем закупки…" /> :
       overview.isError ? <ErrorState error={overview.error} onRetry={() => void overview.refetch()} /> :
       !overview.data?.items.length ? <EmptyState title="Закупки не найдены" description="Измените фильтры или добавьте первую закупку." /> :
-      <div><PurchaseTable lines={overview.data.items} />
+      <div className="space-y-3"><h2 className="font-bold text-[#182d38]">Список закупок</h2><PurchaseTable lines={overview.data.items} />
         <PurchasePager page={overview.data.page} total={overview.data.total} size={overview.data.size}
           label="закупок" onPage={page => setFilters(old => ({...old,page}))} /></div>}</>}
   </div>;
