@@ -271,6 +271,19 @@ beforeEach(()=>{
 afterEach(()=>{authSession.clear();sessionStorage.clear();vi.unstubAllGlobals();});
 
 describe('F07 DTOs, validation and server sales list',()=>{
+  it('does not request hidden KPI totals while viewing historical orders', async () => {
+    const api = mockBackend({ sales: [sale('FULFILLED')] });
+    renderAt('/sales?operational=false');
+    expect(await screen.findByRole('heading', { name: 'История продаж', level: 3 })).toBeInTheDocument();
+    await waitFor(() => expect(called(api, '/api/sales?').length).toBeGreaterThanOrEqual(1));
+    const metrics = api.fetchMock.mock.calls
+      .filter(([raw]) => new URL(String(raw), 'http://chairx.test').pathname === '/api/sales')
+      .map(([raw]) => new URL(String(raw), 'http://chairx.test').searchParams.get('status'));
+    expect(metrics).not.toContain('DRAFT');
+    expect(metrics).not.toContain('CONFIRMED');
+    expect(metrics).not.toContain('FULFILLED');
+  });
+
   it('navigates from list to creation without treating new as quick-view id',async()=>{
     const api=mockBackend();
     renderAt();
