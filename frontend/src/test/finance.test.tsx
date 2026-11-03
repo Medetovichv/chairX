@@ -342,6 +342,10 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
   await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
   expect(within(form).getAllByRole('option').map(o => o.textContent)).toEqual(['Наличные', 'Перевод']);
+  expect(within(form).queryByRole('textbox',{name:'Reference платежа'})).not.toBeInTheDocument();
+  expect(within(form).queryByText(/Метод:.*Счёт:/)).not.toBeInTheDocument();
+  expect(screen.getByRole('region',{name:'Состояние оплаты'})).toHaveTextContent('Оплачено: 0 сом');
+  expect(screen.getByRole('region',{name:'Состояние оплаты'})).toHaveTextContent('Остаток к оплате: 8 500 сом');
   fireEvent.change(within(form).getByRole('combobox',{name:'Канал клиентской оплаты'}),
    {target:{value:'BANK_TRANSFER'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'}));
@@ -351,6 +355,8 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   await waitFor(()=>expect(recorded).toHaveLength(1));
   expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:null});
   expect((recorded[0] as Record<string,unknown>).amount).toBeUndefined();
+  expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
+  expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
  });
  it('draft sale cannot send a normal customer payment',()=>{
   access.permissions=['PAYMENTS_CREATE'];
