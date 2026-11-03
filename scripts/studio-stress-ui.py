@@ -122,6 +122,14 @@ def main():
                 assert m["pageWidth"]<=m["viewport"]+1,(
                     f"{route}: long unbroken label overflow: {m}"
                 )
+                if route=="/catalog":
+                    link=page.get_by_role("region",name=section,exact=True).get_by_role(
+                        "link",name=long_product,exact=True
+                    ).last
+                    box=link.bounding_box()
+                    assert box and box["height"]>=48, (
+                        f"Long model name clipped to a single line at 375px: {box}"
+                    )
                 page.screenshot(path=str(ART/f"{route[1:]}-long-375.png"),full_page=True)
                 samples.append({"route":route,"long_unbroken_label":True,**m})
                 field.fill("")
