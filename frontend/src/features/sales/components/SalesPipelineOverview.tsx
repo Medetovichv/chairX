@@ -6,19 +6,21 @@ type PipelineItem = {
   label: string;
   description: string;
   total?: number;
+  failed?: boolean;
 };
 
 /** Views use the same three TanStack Query results as SalesPage; no extra API requests. */
-export function SalesPipelineOverview({ drafts, confirmed, completed }: {
+export function SalesPipelineOverview({ drafts, confirmed, completed, draftsFailed, confirmedFailed, completedFailed }: {
   drafts?: number; confirmed?: number; completed?: number;
+  draftsFailed?: boolean; confirmedFailed?: boolean; completedFailed?: boolean;
 }) {
   const entries: PipelineItem[] = [
     { status:'DRAFT', label:'Черновики в работе',
-      description:'Оформление ещё не завершено', total:drafts },
+      description:'Оформление ещё не завершено', total:drafts, failed:draftsFailed },
     { status:'CONFIRMED', label:'Ожидают выполнения',
-      description:'Подтверждены, нужны действия', total:confirmed },
+      description:'Подтверждены, нужны действия', total:confirmed, failed:confirmedFailed },
     { status:'FULFILLED', label:'Выданы сегодня или ещё не закрыты',
-      description:'Проверяйте оплату и получение', total:completed },
+      description:'Проверяйте оплату и получение', total:completed, failed:completedFailed },
   ];
   const pending=entries[1]!;
   return <section aria-label="Текущие показатели продаж"
@@ -35,11 +37,11 @@ export function SalesPipelineOverview({ drafts, confirmed, completed }: {
       <div className="relative mt-5">
         <div className="flex flex-wrap items-end gap-3">
           <strong className="text-5xl font-bold leading-none tracking-[-0.045em] tabular-nums">
-            {pending.total === undefined ? '—' : pending.total.toLocaleString('ru-RU')}
+            {pending.failed ? '!' : pending.total === undefined ? '…' : pending.total.toLocaleString('ru-RU')}
           </strong>
           <span className="pb-1 text-sm font-medium text-[#d0e4e6]">{pending.label}</span>
         </div>
-        <p className="mt-3 text-sm text-[#c4d9dc]">{pending.description}</p>
+        <p className="mt-3 text-sm text-[#c4d9dc]" role={pending.failed ? 'alert' : undefined}>{pending.failed ? 'Не удалось загрузить показатель. Откройте список для проверки.' : pending.description}</p>
       </div>
     </Link>
     <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -52,9 +54,9 @@ export function SalesPipelineOverview({ drafts, confirmed, completed }: {
             <ArrowUpRight className="size-4 text-[#607783]" aria-hidden="true" />
           </div>
           <div className="mt-4">
-            <strong className="text-3xl font-bold tracking-tight tabular-nums text-[#182d38]">{item.total === undefined ? '—' : item.total.toLocaleString('ru-RU')}</strong>
+            <strong className="text-3xl font-bold tracking-tight tabular-nums text-[#182d38]">{item.failed ? '!' : item.total === undefined ? '…' : item.total.toLocaleString('ru-RU')}</strong>
             <p className="mt-1 text-xs font-bold text-[#27434b]">{item.label}</p>
-            <p className="mt-1 text-xs text-[#516977]">{item.description}</p>
+            <p className="mt-1 text-xs text-[#516977]" role={item.failed ? 'alert' : undefined}>{item.failed ? 'Не удалось загрузить показатель' : item.description}</p>
           </div>
         </Link>;
       })}
