@@ -64,6 +64,16 @@ export function CustomersPage() {
     queryFn: () => customersApi.list(withSales, query, page),
     enabled: canRead,
   });
+  useEffect(() => {
+    if (!listing.isSuccess || listing.data.kind === 'limited-search') return;
+    // A persisted page can become invalid when records disappear or a user
+    // returns to an older tab. Recover rather than reporting a false empty list.
+    const { total, size } = listing.data.kind === 'overview'
+      ? listing.data.data
+      : { total: listing.data.data.totalElements, size: listing.data.data.size };
+    const lastPage = Math.max(0, Math.ceil(total / Math.max(1, size)) - 1);
+    if (!Number.isSafeInteger(page) || page < 0 || page > lastPage) setPage(lastPage);
+  }, [listing.isSuccess, listing.data, page, setPage]);
   const create = useMutation({
     mutationFn: customersApi.create,
     onSuccess: async (saved) => {

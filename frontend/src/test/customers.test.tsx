@@ -204,6 +204,22 @@ describe('F05 customer list / permissions', () => {
     expect(callsTo(calls, 'page=1')).toHaveLength(1);
   });
 
+  it.each([
+    ['overview', true],
+    ['basic', false],
+  ])('recovers a stale persisted customer page in %s mode without hiding records', async (_mode, withSales) => {
+    if (!withSales) access.permissions = ['CUSTOMERS_READ'];
+    sessionStorage.setItem('chairx:f16:list:v1:user:customer-page', JSON.stringify(8));
+    const { calls } = mockBackend({ customers: Array.from({ length: 22 }, (_, i) =>
+      person({ id: '55555555-5555-4555-8555-' + String(i).padStart(12, '0'), fullName: 'Клиент ' + i })) });
+    renderAt();
+    expect(await screen.findByText(/Страница 2 из 2/)).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Клиент 20' })).toBeInTheDocument();
+    expect(screen.queryByText('Клиентов пока нет')).not.toBeInTheDocument();
+    expect(callsTo(calls, 'page=8').length).toBeGreaterThan(0);
+    expect(callsTo(calls, 'page=1').length).toBeGreaterThan(0);
+  });
+
   it('does not fetch protected routes or show data without CUSTOMERS_READ', async () => {
     access.permissions = ['CUSTOMERS_CREATE', 'SALES_READ'];
     const { calls } = mockBackend();
