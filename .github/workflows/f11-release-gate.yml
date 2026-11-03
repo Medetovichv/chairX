@@ -177,6 +177,27 @@ jobs:
             --output=json \
             --output-path=artifacts/studio-production/lighthouse-login-mobile.json \
             --quiet
+      - name: Summarize Lighthouse findings and check contrast/console regressions
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path('artifacts/studio-production')
+          data=json.loads((folder/'lighthouse-login-mobile.json').read_text())
+          scores={key:round(value['score']*100) for key,value in data['categories'].items() if value.get('score') is not None}
+          findings={}
+          for key in ('color-contrast','errors-in-console','unused-javascript','valid-source-maps'):
+              audit=data['audits'].get(key,{})
+              findings[key]={'items':len(audit.get('details',{}).get('items',[])),'display':audit.get('displayValue')}
+          (folder/'lighthouse-summary.json').write_text(json.dumps({
+              'scope':'production login page, synthetic CI mobile audit (not authenticated app LCP)',
+              'scores':scores,'findings':findings
+          },indent=2),encoding='utf-8')
+          print('Lighthouse login scores:',scores,'findings:',findings)
+          assert not findings['color-contrast']['items'], 'Login contrast regression'
+          assert not findings['errors-in-console']['items'], 'Login console/network errors'
+          PY
       - name: Collect acceptance screenshots
         if: always()
         uses: actions/upload-artifact@v4
