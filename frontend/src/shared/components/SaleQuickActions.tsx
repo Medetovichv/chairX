@@ -78,18 +78,20 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     }
   }
   async function verify() {
-    if(busyRef.current)return;
-    busyRef.current=true;setBusy(true);
+    if(busyRef.current || !unknown)return;
+    busyRef.current=true;setBusy(true);setNotice('');
     try {
       const current=await salesApi.get(sale.id);
       await update(current);
       const expected=unknown==='confirm'?'CONFIRMED':unknown==='fulfill'?'FULFILLED':'CANCELLED';
+      // A matching final status is NOT evidence that this user's particular POST
+      // committed. Another operator could have independently changed the sale.
+      // These endpoints expose no action idempotency key / request correlation.
+      // Keep the durable pending marker and the mutation controls locked.
       if(current.status===expected) {
-        if(user?.id && clearSaleAction(user.id,sale.id)) {
-          setUnknown(null);setError('');setNotice('Результат подтверждён сервером.');
-        } else {setInvalid(true);setError('Подтверждено, но запись восстановления не очищена.');}
+        setError('Текущий статус заказа совпадает с ожидаемым, но исход именно вашего запроса не доказан. Запись операции сохранена. Не повторяйте действие: требуется ручная сверка с аудитом.');
       } else {
-        setError('Результат не подтверждён. Не повторяйте операцию без ручной сверки.');
+        setError('Текущий статус заказа: '+current.status+'. Исход отправленного запроса остаётся неизвестным. Не повторяйте действие без ручной сверки с аудитом.');
       }
     } catch(cause) {setError(userFacingApiError(cause));}
     finally {busyRef.current=false;setBusy(false);}
@@ -101,7 +103,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     {notice&&<p role="status" className="text-sm text-green-700">{notice}</p>}
     {invalid&&<p role="alert" className="text-sm text-amber-900">Хранилище операции недоступно или повреждено. Новые действия заблокированы — нужна ручная сверка.</p>}
     {unknown&&<div className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm">
-      <p>Исход операции неизвестен. Другие операции заблокированы до проверки.</p>
+      <p>Исход операции неизвестен. Действия заблокированы до ручной сверки с аудитом; проверка статуса сама по себе не разблокирует заказ.</p>
       <button type="button" disabled={busy} className="rounded-xl border px-3 py-2" onClick={()=>void verify()}>Проверить состояние сервера</button>
     </div>}
     <div className="flex flex-wrap gap-2">
