@@ -7,13 +7,13 @@ import { gzipSync } from 'node:zlib';
 const maxEntryBytes = 950_000;
 const maxEntryGzipBytes = 255_000;
 const html = readFileSync(join('dist', 'index.html'), 'utf8');
-const sources = [...html.matchAll(/<script\\b[^>]*\\bsrc=["']([^"']+\\.js)["']/g)]
+const sources = [...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+\.js)["']/g)]
   .map(match => match[1]);
-const entry = sources.find(src => /(?:^|\\/)assets\\/index-[^/]+\\.js$/.test(src));
+const entry = sources.find(src => /(?:^|\/)assets\/index-[^/]+\.js$/.test(src));
 if (!entry) {
   throw new Error('Cannot identify Vite entry JavaScript from dist/index.html');
 }
-const path = join('dist', entry.replace(/^\\/+/, ''));
+const path = join('dist', entry.replace(/^\/+/, ''));
 const minifiedBytes = statSync(path).size;
 const gzipBytes = gzipSync(readFileSync(path)).byteLength;
 console.log(
