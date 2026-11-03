@@ -119,6 +119,17 @@ def main():
                     page.set_viewport_size({"width": width, "height": 900})
                     page.wait_for_timeout(150)
                     metrics = assert_layout(page, route, width)
+                    if route == "/purchases" and width == 375:
+                        preset = page.get_by_role(
+                            "button", name="Последние 7 дней + незавершённые"
+                        )
+                        bounds = preset.bounding_box()
+                        assert bounds is not None and (
+                            bounds["x"] >= 0 and bounds["x"] + bounds["width"] <= 376
+                        ), f"Purchase date-preset button clipped at 375px: {bounds}"
+                        assert preset.evaluate(
+                            "(el) => el.scrollWidth <= el.clientWidth + 1"
+                        ), "Purchase date-preset label is clipped"
                     observations.append({"route": route, "width": width, **metrics})
                     if width in (375, 1440):
                         slug = route.strip("/").replace("/", "-") or "home"
