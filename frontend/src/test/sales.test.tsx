@@ -184,6 +184,14 @@ function mockBackend(options:{
       }
       return json(s);
     }
+    if(path==='/api/customers/resolve-phone'&&method==='POST') {
+      const input=JSON.parse(String(init?.body)) as {phone:string};
+      if(!input.phone.includes('996'))return json({code:'INVALID_PHONE',message:'Укажите номер Кыргызстана'},400);
+      return json({id:NEW_CUSTOMER_ID,fullName:null,phone:input.phone,
+        secondaryPhone:null,whatsappPhone:null,instagramUsername:null,
+        address:null,cityRegion:null,comment:null,active:true,
+        createdAt:TIME,updatedAt:TIME});
+    }
     if(path==='/api/customers'&&method==='POST'){
       const input=JSON.parse(String(init?.body)) as Record<string,unknown>;
       return json({id:NEW_CUSTOMER_ID,...input,active:true,createdAt:TIME,updatedAt:TIME},201);
@@ -503,6 +511,28 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(within(form).queryByText(/На выбранном складе недостаточно товара/)).not.toBeInTheDocument();
   });
 
+  it('resolves a phone-only pickup customer and preserves sale draft state',async()=>{
+    const api=mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Комментарий продажи'}),{
+      target:{value:'Самовывоз по телефону'}});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Номер клиента для продажи'}),{
+      target:{value:'+996 700 123456'}});
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Найти или создать'}));
+    expect(await within(form).findByText(/Выбран:/)).toHaveTextContent('+996 700 123456');
+    expect(within(form).getByRole('textbox',{name:'Комментарий продажи'}))
+      .toHaveValue('Самовывоз по телефону');
+    expect(api.fetchMock.mock.calls.filter(([url,init])=>
+      String(url)==='/api/customers/resolve-phone'&&(init as RequestInit).method==='POST'))
+      .toHaveLength(1);
+    await userEvent.setup().click(within(form).getByRole('button',{name:'Сохранить черновик'}));
+    expect(await screen.findByRole('heading',{name:'Продажа #43'})).toBeInTheDocument();
+    const post=api.fetchMock.mock.calls.find(([url,init])=>
+      String(url)==='/api/sales/drafts'&&(init as RequestInit).method==='POST');
+    expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({
+      customerId:NEW_CUSTOMER_ID,comment:'Самовывоз по телефону'});
+  });
   it('creates a customer without leaving the sale form or losing entered data',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');
