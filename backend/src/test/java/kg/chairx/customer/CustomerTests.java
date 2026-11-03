@@ -29,6 +29,7 @@ class CustomerTests {
 
     @Autowired
     CustomerService customers;
+    @Autowired kg.chairx.customer.application.CustomerPhoneResolver phoneResolver;
 
     @Autowired
     kg.chairx.customer.application.CustomerAddressService addresses;
@@ -45,6 +46,42 @@ class CustomerTests {
     @AfterEach
     void cleanup() {
         reset();
+    }
+
+    @Test
+    void phoneResolutionCreatesOnceAndReusesFormattedKyrgyzNumber() {
+        var first=phoneResolver.resolve("+996 700 123456");
+        assertThat(first.fullName()).isNull();
+        assertThat(first.phone()).isEqualTo("+996 700 123456");
+        assertThat(phoneResolver.resolve("0700123456").id()).isEqualTo(first.id());
+        assertThat(phoneResolver.resolve("00996700123456").id()).isEqualTo(first.id());
+        assertThat(countCustomers()).isEqualTo(1);
+        assertThat(customers.list(0,20).items()).extracting("id").contains(first.id());
+    }
+
+    @Test
+    void phoneResolutionRefusesAmbiguousOrInactiveMatches() {
+        var first=customers.create(request("Первый","0700123456",null,null,
+                null,null,null,null));
+        customers.create(request("Второй","+996700123456",null,null,
+                null,null,null,null));
+        assertThatThrownBy(()->phoneResolver.resolve("700123456"))
+                .isInstanceOf(CustomerRuleViolationException.class)
+                .hasMessageContaining("Несколько клиентов");
+        assertThat(countCustomers()).isEqualTo(2);
+        jdbc.update("DELETE FROM customers WHERE id=?",first.id());
+        var other=customers.list(0,20).items().getFirst();
+        customers.deactivate(other.id());
+        assertThatThrownBy(()->phoneResolver.resolve("+996 700 123456"))
+                .isInstanceOf(CustomerRuleViolationException.class)
+                .hasMessageContaining("неактивен");
+    }
+
+    @Test
+    void phoneResolutionDoesNotInventCustomerForInvalidPhone() {
+        assertThatThrownBy(()->phoneResolver.resolve("12345"))
+                .isInstanceOf(CustomerRuleViolationException.class);
+        assertThat(countCustomers()).isZero();
     }
 
     @Test
