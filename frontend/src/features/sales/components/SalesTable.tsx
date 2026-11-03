@@ -30,29 +30,28 @@ export function SalesTable({ rows }: { rows: SaleSummary[] }) {
     <div className="hidden overflow-x-auto xl:block">
       <table className="w-full text-left text-sm">
         <thead className="bg-[#f5f9f7] text-[#516977]">
-          <tr>{[
-            'Заказ', 'Дата', 'Клиент / WhatsApp', 'Адрес доставки', 'Товары',
-            'Шт.', 'Сумма', 'Статус продажи', 'Статус оплаты', 'Статус доставки',
-          ].map(header => <th key={header} scope="col"
-            className="whitespace-nowrap px-4 py-4 text-xs font-bold">{header}</th>)}</tr>
+          <tr>{['Заказ','Клиент / WhatsApp','Товары','Сумма','Статус продажи','Оплата','Доставка'].map(header =>
+            <th key={header} scope="col" className="whitespace-nowrap px-4 py-4 text-xs font-bold">{header}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-[#eaf0f0]">{rows.map(sale =>
           <tr key={sale.id} className="entity-clickable-row group transition-colors hover:bg-[#f5faf8]">
-            <td className="px-4 py-4 font-bold text-[#236e66]">
-              <Link className="entity-stretched-link hover:underline"
-                to={'/sales/' + encodeURIComponent(sale.id)} state={{ summary: sale }}
+            <td className="px-4 py-4">
+              <Link className="entity-stretched-link font-bold text-[#236e66] hover:underline"
+                to={'/sales/' + encodeURIComponent(sale.id)} state={{ summary:sale }}
                 title={sale.saleNumber} aria-label={'Открыть продажу ' + sale.saleNumber}>
                 {displaySaleNumber(sale.saleNumber)}
               </Link>
+              <p className="mt-1 whitespace-nowrap text-xs text-[#516977]">{saleDate(sale.createdAt)}</p>
             </td>
-            <td className="whitespace-nowrap px-4 py-4 text-[#516977]">{saleDate(sale.createdAt)}</td>
-            <td className="px-4 py-4">
-              <div className="max-w-43 break-words font-semibold text-[#263e49]">{sale.customerName || 'Имя не указано'}</div>
-              {sale.customerPhone && <div className="mt-1 whitespace-nowrap text-xs text-[#516977]">{sale.customerPhone}</div>}
+            <td className="min-w-35 max-w-52 px-4 py-4">
+              <p className="break-words font-semibold text-[#263e49]">{sale.customerName || 'Имя не указано'}</p>
+              {sale.customerPhone && <p className="mt-1 whitespace-nowrap text-xs text-[#516977]">{sale.customerPhone}</p>}
+              {sale.deliveryAddress && <p className="mt-1 max-w-48 truncate text-xs text-[#516977]" title={sale.deliveryAddress}>{sale.deliveryAddress}</p>}
             </td>
-            <td className="max-w-52 break-words px-4 py-4 text-[#516977]">{sale.deliveryAddress || '—'}</td>
-            <td className="max-w-64 break-words px-4 py-4 text-[#263e49]">{sale.products || '—'}</td>
-            <td className="px-4 py-4 tabular-nums">{sale.quantity}</td>
+            <td className="min-w-35 max-w-57 px-4 py-4">
+              <p className="line-clamp-2 break-words text-[#263e49]" title={sale.products || undefined}>{sale.products || '—'}</p>
+              <p className="mt-1 text-xs text-[#516977]">{sale.quantity} шт.</p>
+            </td>
             <td className="whitespace-nowrap px-4 py-4 font-bold tabular-nums text-[#182d38]">{money(sale.total)}</td>
             <td className="px-4 py-4">
               <SaleStatusBadge status={sale.status} />
@@ -60,9 +59,9 @@ export function SalesTable({ rows }: { rows: SaleSummary[] }) {
               {sale.status === 'FULFILLED' && sale.paymentStatus !== 'PAID' &&
                 <p className="mt-2 text-xs font-bold text-[#926120]">Деньги не получены</p>}
             </td>
-            <td className="px-4 py-4">{paymentLabel(sale.paymentStatus)}</td>
+            <td className="px-4 py-4 text-sm text-[#405b65]">{paymentLabel(sale.paymentStatus)}</td>
             <td className="px-4 py-4">
-              {deliveryLabel(sale.deliveryStatus)}
+              <p className="text-sm text-[#405b65]">{deliveryLabel(sale.deliveryStatus)}</p>
               {sale.plannedDeliveryDate && <p className="mt-1 text-xs text-[#516977]">{sale.plannedDeliveryDate}</p>}
               {sale.deliveryStatus && <SaleDeliveryQuickActions saleId={sale.id} />}
             </td>
