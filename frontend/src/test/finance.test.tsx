@@ -340,7 +340,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   }));
   wrapper(<SaleFinancialSection sale={sale}/>);
   const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
-  await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
+  await waitFor(()=>expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeEnabled());
   expect(within(form).getAllByRole('option').map(o => o.textContent)).toEqual(['Наличные', 'Перевод']);
   expect(within(form).queryByRole('textbox',{name:'Reference платежа'})).not.toBeInTheDocument();
   expect(within(form).queryByText(/Метод:.*Счёт:/)).not.toBeInTheDocument();
@@ -348,10 +348,8 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(screen.getByRole('region',{name:'Состояние оплаты'})).toHaveTextContent('Остаток к оплате: 8 500 сом');
   fireEvent.change(within(form).getByRole('combobox',{name:'Канал клиентской оплаты'}),
    {target:{value:'BANK_TRANSFER'}});
-  await userEvent.setup().click(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'}));
-  expect(screen.getByRole('alertdialog')).toHaveTextContent(/8.*500 сом/);
-  await userEvent.setup().click(within(screen.getByRole('alertdialog'))
-   .getByRole('button',{name:'Подтвердить оплату'}));
+   await userEvent.setup().click(within(form).getByRole('button',{name:'Зарегистрировать оплату'}));
+   expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   await waitFor(()=>expect(recorded).toHaveLength(1));
   expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:null});
   expect((recorded[0] as Record<string,unknown>).amount).toBeUndefined();
@@ -373,7 +371,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   }));
   wrapper(<SaleFinancialSection sale={sale}/>);
   const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
-  await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
+  await waitFor(()=>expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeEnabled());
   await userEvent.setup().click(within(form).getByRole('checkbox',{name:'Клиент получает кресла сейчас'}));
   expect(within(form).getByRole('button',{name:'Оплатить и завершить выдачу'})).toBeEnabled();
   await userEvent.setup().click(within(form).getByRole('button',{name:'Оплатить и завершить выдачу'}));
@@ -389,13 +387,13 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   access.permissions=['PAYMENTS_CREATE'];
   wrapper(<SaleFinancialSection sale={sale}/>);
   expect(screen.queryByRole('checkbox',{name:'Клиент получает кресла сейчас'})).not.toBeInTheDocument();
-  expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Зарегистрировать оплату'})).toBeInTheDocument();
  });
  it('draft sale cannot send a normal customer payment',()=>{
   access.permissions=['PAYMENTS_CREATE'];
   const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
   wrapper(<SaleFinancialSection sale={{...sale,status:'DRAFT'}}/>);
-  expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeDisabled();
+  expect(screen.getByRole('button',{name:'Зарегистрировать оплату'})).toBeDisabled();
   expect(fetchMock).not.toHaveBeenCalled();
  });
  it('Refund creation from a physical Return works without SALES_READ and never fetches protected Sales API',async()=>{
