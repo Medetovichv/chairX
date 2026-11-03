@@ -115,7 +115,9 @@ export function SalesPage() {
       </Button> : undefined}/>
 
     {!history && <SalesPipelineOverview drafts={drafts.data?.total}
-      confirmed={confirmed.data?.total} completed={completed.data?.total} />}
+      confirmed={confirmed.data?.total} completed={completed.data?.total}
+      draftsFailed={drafts.isError} confirmedFailed={confirmed.isError}
+      completedFailed={completed.isError} />}
     {filters.activeOnly && <p role="status">В работе: черновики и подтверждённые заказы.
       <Button variant="ghost" onClick={() => setFilters(empty)}>Сбросить фильтры</Button></p>}
     <div className="flex flex-wrap gap-2 rounded-[20px] border border-[#e0e8eb] bg-white p-2">
