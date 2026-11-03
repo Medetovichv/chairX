@@ -76,9 +76,7 @@ public class SaleWithDeliveryService {
                     """).param("key",key).query(UUID.class).optional().orElse(null);
             if(generated==null) {
                 var delivery=request.delivery();
-                generated=customers.create(new CreateCustomerRequest(
-                        delivery.recipientName(),delivery.recipientPhone(),null,null,null,
-                        delivery.address(),delivery.cityRegion(),null)).id();
+                generated=resolveCustomerForDelivery(delivery);
                 jdbc.sql("""
                         UPDATE sale_delivery_requests SET generated_customer_id=:customer
                         WHERE idempotency_key=:key
@@ -107,6 +105,67 @@ public class SaleWithDeliveryService {
             addresses.add(confirmed.customerId(),new kg.chairx.customer.application.CustomerAddressService.AddressInput(d.address(),d.cityRegion()));
         }
         return confirmed;
+    }
+
+    private record Candidate(UUID id, boolean active) {}
+
+    /**
+     * Link an unselected delivery customer only when the phone resolves to
+     * exactly one existing customer. Preserve manually distinct people with
+     * the same number: ambiguous matches must be resolved by an operator.
+     *
+     * The advisory transaction lock serializes different idempotency keys
+     * for the SAME normalized Kyrgyz phone without imposing a global unique
+     * constraint on the editable Customers directory.
+     */
+    private UUID resolveCustomerForDelivery(CreateSaleWithDeliveryRequest.DeliveryDetails delivery) {
+        String local=normalizedKyrgyzPhone(delivery.recipientPhone());
+        if(local!=null) {
+            jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))")
+                    .param("key","chairx-delivery-customer:"+local)
+                    .query((rs,row)->true).single();
+
+            var matches=jdbc.sql("""
+                    SELECT DISTINCT id,active FROM customers
+                    WHERE regexp_replace(coalesce(phone,''),'[^0-9]','','g') IN (:a,:b,:c,:d)
+                       OR regexp_replace(coalesce(secondary_phone,''),'[^0-9]','','g') IN (:a,:b,:c,:d)
+                       OR regexp_replace(coalesce(whatsapp_phone,''),'[^0-9]','','g') IN (:a,:b,:c,:d)
+                    ORDER BY id LIMIT 2
+                    """)
+                    .param("a",local)
+                    .param("b","0"+local)
+                    .param("c","996"+local)
+                    .param("d","00996"+local)
+                    .query((rs,row)->new Candidate(
+                            rs.getObject("id",UUID.class),rs.getBoolean("active")))
+                    .list();
+            if(matches.size()>1) {
+                throw new SaleRuleViolationException("CUSTOMER_PHONE_AMBIGUOUS",
+                        "Несколько клиентов используют этот телефон. Выберите клиента вручную.");
+            }
+            if(matches.size()==1) {
+                var match=matches.getFirst();
+                if(!match.active()) {
+                    throw new SaleRuleViolationException("CUSTOMER_INACTIVE",
+                            "Клиент с этим телефоном неактивен. Выберите клиента вручную.");
+                }
+                return match.id();
+            }
+        }
+        return customers.create(new CreateCustomerRequest(
+                delivery.recipientName(),delivery.recipientPhone(),null,null,null,
+                delivery.address(),delivery.cityRegion(),null)).id();
+    }
+
+    /** Accept only unambiguous KG mobile/national representation. */
+    private static String normalizedKyrgyzPhone(String raw) {
+        if(raw==null)return null;
+        String digits=raw.replaceAll("[^0-9]","");
+        if(digits.startsWith("00996")&&digits.length()==14)digits=digits.substring(2);
+        if(digits.startsWith("996")&&digits.length()==12)digits=digits.substring(3);
+        else if(digits.startsWith("0")&&digits.length()==10)digits=digits.substring(1);
+        if(digits.length()!=9 || !digits.matches("[0-9]{9}"))return null;
+        return digits;
     }
 
     private String hash(CreateSaleWithDeliveryRequest request) {
