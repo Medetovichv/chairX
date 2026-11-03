@@ -117,7 +117,7 @@ function mockBackend(options:Options={}){
       if(dateNetwork){dateNetwork=false;throw new TypeError('PUT committed but response lost');}
       return json(d);
     }
-    const action=/^\/api\/deliveries\/([^/]+)\/(dispatch|deliver|fail|cancel|return-to-warehouse)$/.exec(path);
+    const action=/^\/api\/deliveries\/([^/]+)\/(dispatch|deliver|fail|cancel|cancel-with-reason|return-to-warehouse)$/.exec(path);
     if(action&&method==='POST'){
       const d=data.find(x=>x.id===action[1]);
       if(!d)return json({},404);
@@ -137,7 +137,10 @@ function mockBackend(options:Options={}){
           d.status='FAILED';d.failedAt=BASE;d.failedBy='logistics';
           d.failureReason=(JSON.parse(String(init?.body)) as {reason:string}).reason;failCount++;
         }else if(d.status!=='FAILED')return json({code:'INVALID_DELIVERY_STATUS',message:'',details:{}},409);
-      }else if(op==='cancel'){
+      }else if(op==='cancel'||op==='cancel-with-reason'){
+        if(op==='cancel-with-reason'&&
+           !['CUSTOMER_CHANGED_MIND','INSUFFICIENT_FUNDS','PRODUCT_MISMATCH','DUPLICATE_ORDER','OTHER']
+             .includes((JSON.parse(String(init?.body)) as {reason:string}).reason))return json({code:'INVALID_REASON'},400);
         if(d.status==='READY'){d.status='CANCELLED';d.cancelledAt=BASE;saleCancelled++;}
         else if(d.status!=='CANCELLED')return json({code:'INVALID_DELIVERY_STATUS',message:'',details:{}},409);
       }else {
@@ -457,10 +460,22 @@ describe('F08 detail, dispatch/deliver/fail/return and authorizations',()=>{
     await screen.findByRole('heading',{name:/Доставка/});
     expect(screen.queryByRole('button',{name:'Отправить доставку'})).not.toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button',{name:'Отменить доставку и продажу'}));
+    expect(screen.getByRole('button',{name:'Продолжить отмену доставки'})).toBeDisabled();
+    expect(api.counts().saleCancelled).toBe(0);
+    await userEvent.setup().selectOptions(screen.getByRole('combobox',{name:'Причина отмены доставки'}),'CUSTOMER_CHANGED_MIND');
+    await userEvent.setup().type(screen.getByRole('textbox',{name:'Комментарий отмены доставки'}),'Покупатель передумал');
+    await userEvent.setup().click(screen.getByRole('button',{name:'Продолжить отмену доставки'}));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('также отменит связанную продажу');
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить действие'}));
     await waitFor(()=>expect(api.counts().saleCancelled).toBe(1));
     expect(api.data[0]?.status).toBe('CANCELLED');
+    const posting=api.fetchMock.mock.calls.find(([url,init])=>
+      String(url)==='/api/deliveries/'+ID+'/cancel-with-reason'&&
+      (init as RequestInit).method==='POST');
+    expect(posting).toBeDefined();
+    expect(JSON.parse(String((posting?.[1] as RequestInit).body))).toEqual({
+      reason:'CUSTOMER_CHANGED_MIND',comment:'Покупатель передумал'
+    });
   });
   it('planned date can change and clear without manipulating inventory',async()=>{
     const api=mockBackend();
