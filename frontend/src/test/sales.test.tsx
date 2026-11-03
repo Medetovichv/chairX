@@ -94,6 +94,7 @@ function mockBackend(options:{
       ]:[];
       return json({items:entries,page:0,size:20,total:entries.length});
     }
+    if(path==='/api/sales/'+SALE_ID+'/cancellation-details'&&method==='GET')return json({reason:'CUSTOMER_CHANGED_MIND',comment:null,cancelledBy:'sales-operator',cancelledAt:TIME});
     if(path==='/api/deliveries/by-sale/'+SALE_ID&&method==='GET'){
       return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY'});
     }
@@ -164,7 +165,7 @@ function mockBackend(options:{
       if(updateNetworkOnce){updateNetworkOnce=false;throw new TypeError('Lost response after PUT commit');}
       return json(s);
     }
-    const action=/^\/api\/sales\/([^/]+)\/(confirm|fulfill|cancel)$/.exec(path);
+    const action=/^\/api\/sales\/([^/]+)\/(confirm|fulfill|cancel|cancel-with-reason)$/.exec(path);
     if(action&&method==='POST'){
       const s=rows.find(r=>r.id===action[1]);
       if(!s)return json({},404);
@@ -176,7 +177,8 @@ function mockBackend(options:{
         if(s.fulfillmentType!=='SELF_PICKUP')return json({code:'DELIVERY_REQUIRED',message:'',details:{}},409);
         fulfills++;s.status='FULFILLED';s.fulfilledAt=TIME;
       }
-      if(action[2]==='cancel'){
+      if(action[2]==='cancel'||action[2]==='cancel-with-reason'){
+         if(action[2]==='cancel-with-reason'&&!JSON.parse(String(init?.body)).reason)return json({code:'CANCELLATION_REASON_REQUIRED'},400);
         if(s.status==='CONFIRMED'&&s.fulfillmentType!=='SELF_PICKUP')return json({code:'DELIVERY_REQUIRED',message:'',details:{}},409);
         cancels++;s.status='CANCELLED';s.cancelledAt=TIME;
       }
@@ -723,6 +725,8 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Отменить заказ'}));
     expect(api.count().cancels).toBe(0);
+    await userEvent.setup().selectOptions(screen.getByRole('combobox',{name:'Причина отмены'}),'CUSTOMER_CHANGED_MIND');
+    await userEvent.setup().click(screen.getByRole('button',{name:'Продолжить отмену'}));
     await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Отменить заказ'}));
     expect(await screen.findByText('Заказ отменён.')).toBeInTheDocument();
     expect(api.count().cancels).toBe(1);
