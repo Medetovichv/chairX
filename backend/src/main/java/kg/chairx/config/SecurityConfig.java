@@ -134,7 +134,7 @@ public class SecurityConfig {
                         // Dashboard metrics are independently redacted per operational grant.
                         .requestMatchers(HttpMethod.GET, "/api/dashboard/overview")
                         .hasAnyAuthority("SALES_READ", "DELIVERIES_READ", "INVENTORY_READ")
-                        .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*", "/api/sales/*/history", "/api/sales/*/comments")
+                        .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*", "/api/sales/*/history", "/api/sales/*/comments", "/api/sales/*/cancellation-details")
                         .hasAuthority("SALES_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
@@ -155,7 +155,7 @@ public class SecurityConfig {
                         .hasAuthority("SALES_DRAFT_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/fulfill")
                         .hasAuthority("SALES_UPDATE")
-                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel", "/api/sales/*/cancel-with-reason")
                         .hasAuthority("SALES_CANCEL")
                         .requestMatchers(HttpMethod.GET, "/api/deliveries", "/api/deliveries/*", "/api/deliveries/by-sale/*")
                         .hasAuthority("DELIVERIES_READ")
