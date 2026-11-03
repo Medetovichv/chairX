@@ -16,7 +16,7 @@ describe('Studio purchase payments overview',()=>{
     expect(screen.getByText('Расчёты по закупке')).toBeInTheDocument();
     expect(screen.getByText(/Обязательства перед поставщиком:/)).toBeInTheDocument();
     expect(screen.getByText(/Обязательства по карго:/)).toBeInTheDocument();
-    expect(screen.getByText(/Суммы не включают взаимные перерасчёты/)).toBeInTheDocument();
+    expect(screen.getByText(/Обязательства поставщику и по карго показаны отдельно/)).toBeInTheDocument();
   });
   it('does not invent a zero when the cargo balance is unknown',()=>{
     render(<PurchasePaymentOverview summary={{...base,cargoTotal:null,remainingCargo:null}}/>);
