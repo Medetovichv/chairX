@@ -39,6 +39,7 @@ export const customersApi = {
   addAddress: (id:string,address:string,cityRegion:string|null) =>
     apiClient.post<CustomerAddress>('/api/customers/'+idPath(id)+'/addresses',{address,cityRegion}),
   create: (input: CustomerInput) => apiClient.post<Customer>('/api/customers', input),
+  resolvePhone: (phone:string) => apiClient.post<Customer>('/api/customers/resolve-phone',{phone}),
   update: (id: string, input: CustomerInput) =>
     apiClient.put<Customer>('/api/customers/' + idPath(id), input),
   setActive: (id: string, active: boolean) =>
