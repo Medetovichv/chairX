@@ -10,6 +10,7 @@ interface MobileNavigationProps {
 
 export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
   const closeButton = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -17,7 +18,26 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
     previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeButton.current?.focus();
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') { onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter(node => node.getClientRects().length > 0);
+      if (!focusable.length) { event.preventDefault(); return; }
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener('keydown', onKeyDown);
     const before = document.body.style.overflow;
@@ -40,6 +60,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
         onClick={onClose}
       />
       <aside
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Мобильная навигация"
