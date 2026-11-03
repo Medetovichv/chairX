@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 
 /**
  * Operational sales snapshot for P21 closing. No finance postings are generated here.
- * Complete self-pickups are determined by sales.fulfilled_at, deliveries by delivered_at.
+ * Self-pickups and city deliveries use their completion/payment time; fully paid\n * regional deliveries belong to the date full payment was received, even in transit.
  */
 public final class DailyClosingSalesSnapshot {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Bishkek");
@@ -135,10 +135,10 @@ public final class DailyClosingSalesSnapshot {
                                 NULLIF(BTRIM(c.secondary_phone),'')) AS phone,
                        detail.products,detail.quantity,dl.address,
                        s.fulfillment_type,
-                       GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at) AS completed_at,
-                       detail.total,
+                       CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN pay.paid_at ELSE GREATEST(s.fulfilled_at,pay.paid_at) END AS completed_at,
+                       detail.total + COALESCE(dl.delivery_cost,0) AS total,
                        CASE WHEN pay.amount IS NULL THEN 'UNPAID'
-                            WHEN pay.amount < detail.total THEN 'PARTIAL'
+                            WHEN pay.amount < detail.total + COALESCE(dl.delivery_cost,0) THEN 'PARTIAL'
                             ELSE 'PAID' END AS payment_status,
                        dl.status AS delivery_status
                 FROM sales s
@@ -156,21 +156,21 @@ public final class DailyClosingSalesSnapshot {
                 ) detail ON TRUE
                 JOIN LATERAL (
                     SELECT SUM(p.amount) AS amount,
-                           MIN(p.paid_at) FILTER (WHERE p.running_total >= detail.total) AS paid_at
+                           MIN(p.paid_at) FILTER (WHERE p.running_total >= detail.total + COALESCE(dl.delivery_cost,0)) AS paid_at
                     FROM (
                         SELECT amount, paid_at,
                                SUM(amount) OVER (ORDER BY paid_at, id) AS running_total
                         FROM payments
                         WHERE sale_id=s.id AND status='PAID'
                     ) p
-                    HAVING SUM(p.amount) >= detail.total AND detail.total > 0
+                    HAVING SUM(p.amount) >= detail.total + COALESCE(dl.delivery_cost,0) AND detail.total > 0
                 ) pay ON TRUE
-                WHERE s.status='FULFILLED'
+                WHERE (s.status='FULFILLED' OR (s.fulfillment_type='REGION_DELIVERY' AND s.status='CONFIRMED'))
                   AND (s.fulfillment_type='SELF_PICKUP'
                     OR (s.fulfillment_type='CITY_DELIVERY' AND dl.status IN ('IN_TRANSIT','DELIVERED'))
-                    OR (s.fulfillment_type='REGION_DELIVERY' AND dl.status='DELIVERED'))
-                  AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at)>=:begin
-                  AND GREATEST(CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN dl.delivered_at ELSE s.fulfilled_at END,pay.paid_at)<:until
+                    OR (s.fulfillment_type='REGION_DELIVERY' AND dl.status IN ('READY','IN_TRANSIT','DELIVERED')))
+                  AND CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN pay.paid_at ELSE GREATEST(s.fulfilled_at,pay.paid_at) END>=:begin
+                  AND CASE WHEN s.fulfillment_type='REGION_DELIVERY' THEN pay.paid_at ELSE GREATEST(s.fulfilled_at,pay.paid_at) END<:until
                 ORDER BY completed_at,s.id
                 """)
                 .param("begin",from.atOffset(ZoneOffset.UTC),Types.TIMESTAMP_WITH_TIMEZONE)
