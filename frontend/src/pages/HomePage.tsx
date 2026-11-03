@@ -18,14 +18,6 @@ function previousDay(day: string): string {
   const date = new Date(day + 'T12:00:00Z'); date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().slice(0,10);
 }
-function dayLabel(iso: string, includeYear = false): string {
-  const date = new Date(iso + 'T12:00:00+06:00');
-  return new Intl.DateTimeFormat('ru-RU', {
-    timeZone: 'Asia/Bishkek', day: 'numeric',
-    month: includeYear ? 'long' : 'short',
-    ...(includeYear ? { year: 'numeric' } : {}),
-  }).format(date);
-}
 function Stat({ title, value, note, icon: Icon, path }: {
   title: string; value: number; note: string; icon: LucideIcon; path: string;
 }) {
