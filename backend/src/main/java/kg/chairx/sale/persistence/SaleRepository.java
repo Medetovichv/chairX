@@ -398,23 +398,24 @@ public class SaleRepository {
     }
 
     public void saveCancellationDetails(UUID saleId, String reason, String comment, String actor) {
-        jdbc.sql("""
-                INSERT INTO sale_cancellation_details(
-                    sale_id,reason,comment,cancelled_by,cancelled_at
-                ) VALUES (:sale,:reason,:comment,:actor,clock_timestamp())
+        int updated = jdbc.sql("""
+                UPDATE sales SET cancellation_reason=:reason, cancellation_comment=:comment
+                WHERE id=:sale AND status='CANCELLED'
+                  AND cancelled_by=:actor AND cancellation_reason IS NULL
                 """)
-                .param("sale", saleId)
-                .param("reason", reason)
-                .param("comment", comment, Types.VARCHAR)
-                .param("actor", actor)
+                .param("sale",saleId).param("reason",reason)
+                .param("comment",comment,Types.VARCHAR).param("actor",actor)
                 .update();
+        if (updated != 1) throw new IllegalStateException(
+                "Не удалось записать причину отмены в этой же транзакции");
     }
 
     public java.util.Optional<kg.chairx.sale.api.SaleCancellationDetails> cancellationDetails(UUID saleId) {
         return jdbc.sql("""
-                SELECT reason,comment,cancelled_by,cancelled_at
-                FROM sale_cancellation_details WHERE sale_id=:sale
-                """).param("sale", saleId)
+                SELECT cancellation_reason AS reason,cancellation_comment AS comment,
+                       cancelled_by,cancelled_at
+                FROM sales WHERE id=:sale AND cancellation_reason IS NOT NULL
+                """).param("sale",saleId)
                 .query((rs,row) -> new kg.chairx.sale.api.SaleCancellationDetails(
                     kg.chairx.sale.api.SaleCancellationReason.valueOf(rs.getString("reason")),
                     rs.getString("comment"),rs.getString("cancelled_by"),
