@@ -290,6 +290,25 @@ describe('F04 warehouses and real overview', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Поиск вариации' }), 'Чер');
     await waitFor(() => expect(calls.mock.calls.some((c) => String(c[0]).includes('variation=%D0%A7%D0%B5%D1%80'))).toBe(true), { timeout: 2500 });
   });
+  it('keeps Studio warehouse selectors accessible and clears all active filters together', async () => {
+    const { calls } = fakeBackend({ stock: [chair(), rowZero()] }); renderAt();
+    await screen.findByRole('columnheader', { name: 'Модель' });
+    const cards = screen.getByRole('region', { name: 'Сводка складов' });
+    expect(within(cards).getByRole('button', { name: 'Показать все склады' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Сбросить все фильтры' })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(within(cards).getByRole('button', { name: 'Показать склад Домашний' }));
+    expect(within(cards).getByRole('button', { name: 'Показать склад Домашний' })).toHaveAttribute('aria-pressed', 'true');
+    await user.type(screen.getByRole('searchbox', { name: 'Поиск модели' }), 'Ergo');
+    await user.click(screen.getByRole('button', { name: 'Только доступные' }));
+    await user.click(screen.getByRole('button', { name: 'Сбросить все фильтры' }));
+    expect(screen.getByRole('combobox', { name: 'Выбор склада' })).toHaveValue('');
+    expect(screen.getByRole('searchbox', { name: 'Поиск модели' })).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Все товары' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(cards).getByRole('button', { name: 'Показать все склады' })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Сбросить все фильтры' })).not.toBeInTheDocument());
+    expect(calls.mock.calls.some(([url]) => String(url).includes('warehouseId='+HOME))).toBe(true);
+  });
   it('uses API pagination and resets page when selecting a warehouse', async () => {
     const stock = Array.from({ length: 21 }, (_, i) => chair('00000000-0000-4000-8000-' + String(i + 1).padStart(12, '0')));
     const { calls } = fakeBackend({ stock }); renderAt();
