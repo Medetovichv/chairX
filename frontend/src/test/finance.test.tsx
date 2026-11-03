@@ -358,6 +358,39 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
   expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
  });
+ it('explicit pickup handover posts one atomic payment+fulfill request, never the payment-only route',async()=>{
+  access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE','SALES_UPDATE'];
+  const calls:{path:string;body:unknown}[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   if(path==='/api/sales/'+SALE+'/pay-and-hand-over'&&init?.method==='POST'){
+     const body=JSON.parse(String(init.body));calls.push({path,body});
+     return j({...sale,status:'FULFILLED',fulfilledAt:NOW,fulfilledBy:'f10'});
+   }
+   throw new Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={sale}/>);
+  const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
+  await waitFor(()=>expect(within(form).getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeEnabled());
+  await userEvent.setup().click(within(form).getByRole('checkbox',{name:'Клиент получает кресла сейчас'}));
+  expect(within(form).getByRole('button',{name:'Оплатить и завершить выдачу'})).toBeEnabled();
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Оплатить и завершить выдачу'}));
+  expect(screen.getByRole('alertdialog')).toHaveTextContent('Кресла сейчас фактически передаются клиенту');
+  await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{
+   name:'Подтвердить оплату и выдачу'
+  }));
+  await waitFor(()=>expect(calls).toHaveLength(1));
+  expect(calls[0]).toEqual({path:'/api/sales/'+SALE+'/pay-and-hand-over',
+   body:{saleId:SALE,method:'CASH',channel:'CASH',reference:null,comment:null}});
+ });
+ it('does not offer atomic handover without SALES_UPDATE permission',async()=>{
+  access.permissions=['PAYMENTS_CREATE'];
+  wrapper(<SaleFinancialSection sale={sale}/>);
+  expect(screen.queryByRole('checkbox',{name:'Клиент получает кресла сейчас'})).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Проверить и подтвердить оплату'})).toBeInTheDocument();
+ });
  it('draft sale cannot send a normal customer payment',()=>{
   access.permissions=['PAYMENTS_CREATE'];
   const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);
