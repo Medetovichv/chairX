@@ -99,6 +99,18 @@ class BusinessAuthorizationIntegrationTests {
                 .andExpect(status().isForbidden());
     }
 
+    @Test void customerPhoneResolutionNeedsReadAndCreatePrivileges() throws Exception {
+        String input="{\"phone\":\"+996700123456\"}";
+        mvc.perform(post("/api/customers/resolve-phone")
+                .with(permission("CUSTOMERS_READ")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(input))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/customers/resolve-phone")
+                .with(permission("CUSTOMERS_CREATE")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(input))
+                .andExpect(status().isForbidden());
+    }
+
     @Test void p22RelatedDataAndMutationEndpointsEnforceExplicitPermissions() throws Exception {
         String id = UUID.randomUUID().toString();
         for (String path: List.of("/api/customers/overview",
