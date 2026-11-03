@@ -305,6 +305,23 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 
+  it('keeps quick-create checkout visible outside scroll and preserves real form submit',async()=>{
+    const api=mockBackend({sales:[]});
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('link',{name:'Новая продажа'}));
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    const scroll=within(drawer).getByLabelText('Прокручиваемое содержимое панели');
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    expect(scroll.contains(footer)).toBe(false);
+    const save=within(footer).getByRole('button',{name:'Сохранить черновик'});
+    expect(save.getAttribute('form')).toBe(form.id);
+    expect(within(drawer).queryByRole('button',{name:'Предыдущая запись'})).not.toBeInTheDocument();
+    await userEvent.setup().click(save);
+    expect(api.count().creates).toBe(1);
+    expect(await within(drawer).findByRole('heading',{name:/Продажа/})).toBeInTheDocument();
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
