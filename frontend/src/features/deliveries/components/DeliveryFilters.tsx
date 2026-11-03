@@ -13,10 +13,10 @@ export function DeliveryFilters({value,region,onRegion,quick,onQuick,onChange}:{
   value:Filters;region:string;onRegion:(x:string)=>void;quick:Quick|null;
   onQuick:(x:Quick)=>void;onChange:(patch:Partial<Filters>)=>void;
 }){
-  return <section aria-label="Фильтры доставок" className="space-y-5 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
+  return <section aria-label="Фильтры доставок" className="space-y-5 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-6">
     <div className="flex flex-wrap gap-2" role="group" aria-label="Быстрые фильтры">
       {quicks.map(x=><Button key={x.id} type="button"
-        variant={quick===x.id?'default':'outline'} className={quick===x.id?'rounded-full bg-[#182d38] text-white hover:bg-[#305063]':'rounded-full border-[#dce6eb] text-[#516977] hover:bg-[#edf3f6]'} aria-pressed={quick===x.id}
+        variant={quick===x.id?'default':'outline'} className={quick===x.id?'min-h-11 rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]':'min-h-11 rounded-xl border-[#dce6eb] text-[#405b65] hover:bg-[#edf3f6]'} aria-pressed={quick===x.id}
         onClick={()=>onQuick(x.id)}>{x.name}</Button>)}
     </div>
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -42,7 +42,7 @@ export function DeliveryFilters({value,region,onRegion,quick,onQuick,onChange}:{
           onChange={e=>onChange({plannedTo:e.target.value})}/>
       </label>
     </div>
-    <p className="text-xs leading-relaxed text-[#6f808a]">
+    <p className="text-xs leading-relaxed text-[#516977]">
       Создана с/по фильтрует дату создания; план с/по — планируемую дату.
       Сегодня в Бишкеке: {bishkekToday()}; предстоящие — с {nextBishkekDay()}.
     </p>
