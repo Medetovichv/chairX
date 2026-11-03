@@ -16,7 +16,7 @@ describe('Studio suppliers overview',()=>{
       supplier('three',true,'wechat'),
     ]} total={72} page={2}/>);
     expect(screen.getByText('Страница 3 · 3 из 72')).toBeInTheDocument();
-    expect(screen.getByText('2',{selector:'strong'})).toBeInTheDocument();
+    expect(screen.getAllByText('2',{selector:'strong'})).toHaveLength(2);
     expect(screen.getByText('1',{selector:'strong'})).toBeInTheDocument();
     expect(screen.getByText(/только по текущей странице/)).toBeInTheDocument();
   });
