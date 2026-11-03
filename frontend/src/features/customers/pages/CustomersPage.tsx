@@ -6,7 +6,8 @@ import { CustomerQuickView } from '../../../shared/components/QuickViewContent';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import { Plus } from 'lucide-react';
+import { Plus, UsersRound, Search } from 'lucide-react';
+import { CustomerWorkspaceOverview } from '../components/CustomerWorkspaceOverview';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -85,23 +86,27 @@ export function CustomersPage() {
 
   const visibleIds = (items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
-    <PageHeader title={creating?'Новый клиент':'Клиенты'}
-      action={canCreate&&!creating ? <Button className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Добавить клиента</Button> : undefined} />
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
+    <PageHeader description="Контакты, история заказов и быстрое обслуживание покупателей." title={creating?'Новый клиент':'Клиенты'}
+      action={canCreate&&!creating ? <Button className="min-h-11 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}><Plus className="size-4" aria-hidden="true"/>Добавить клиента</Button> : undefined} />
     {creating && canCreate && <CustomerForm onSave={async (data) => { await create.mutateAsync(data); }}
       onCancel={() => setCreating(false)} />}
-    {!creating&&<section aria-label="Поиск и список клиентов" className="space-y-3">
-      <div className="rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
+    {!creating&&<section aria-label="Поиск и список клиентов" className="space-y-5">
+      {listing.isSuccess && <CustomerWorkspaceOverview items={items} total={total} page={pageIndex}
+        limitedSearch={result?.kind === 'limited-search'} withSales={result?.kind === 'overview'}/>} 
+      <div className="space-y-3 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-6">
+        <h2 className="flex items-center gap-2 text-base font-bold text-[#182d38]"><Search className="size-4 text-[#267f79]" aria-hidden="true"/>Поиск клиентов</h2>
         <CustomerSearch value={search} onChange={(value) => { setSearch(value); setPage(0); }} />
       </div>
-      {!withSales && <p className="text-sm text-slate-600">
+      {!withSales && <p className="rounded-xl border border-[#dfe7eb] bg-white px-4 py-3 text-sm text-[#516977]">
         Статистика продаж скрыта: для её просмотра требуется дополнительное разрешение SALES_READ.
       </p>}
       {listing.isPending ? <LoadingState label="Загружаем клиентов…" />
         : listing.isError ? <ErrorState error={listing.error} onRetry={() => void listing.refetch()} />
           : items.length === 0 ? <EmptyState title={query ? 'Клиенты не найдены' : 'Клиентов пока нет'}
             description={query ? 'Попробуйте другой поисковый запрос.' : 'Добавьте первого клиента, чтобы начать вести базу контактов.'} />
-            : <div>
+            : <div className="space-y-3">
+              <h2 className="flex items-center gap-2 text-base font-bold text-[#182d38]"><UsersRound className="size-4 text-[#267f79]" aria-hidden="true"/>Список клиентов</h2>
               <CustomerTable items={items} withSales={result?.kind === 'overview'} />
               {result?.kind === 'limited-search' ?
                 <p className="rounded-b-xl border border-[#e3e9ee] bg-[#f2f6f8] p-3 text-sm text-[#516977]">
