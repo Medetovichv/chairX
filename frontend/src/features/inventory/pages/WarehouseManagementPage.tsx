@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { ArrowLeft, Plus, Pencil, Power, Warehouse as WarehouseIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Pencil, Power, Warehouse as WarehouseIcon, House, Boxes, MapPin, CircleCheck, CircleOff } from 'lucide-react';
 import { useAuth } from '../../auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -97,22 +97,28 @@ export function WarehouseManagementPage() {
       Нет прав на управление складами.
     </div>;
   }
-  return <div className="space-y-5">
+  return <div className="space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Управление складами"
       description="Создание, изменение и активация складов. Операции защищены разрешением WAREHOUSES_MANAGE." />
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <Button asChild variant="outline"><Link to="/inventory"><ArrowLeft className="size-4" />К остаткам</Link></Button>
-      {!creating && !editing && <Button onClick={startCreate}>
-        <Plus className="size-4" />Новый склад
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#dfe7eb] bg-white p-3 sm:p-4">
+      <Button asChild variant="outline" className="border-[#dfe7eb]"><Link to="/inventory"><ArrowLeft className="size-4" aria-hidden="true"/>К остаткам</Link></Button>
+      {!creating && !editing && <Button onClick={startCreate} className="bg-[#182d38] text-white hover:bg-[#305063]">
+        <Plus className="size-4" aria-hidden="true"/>Новый склад
       </Button>}
     </div>
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{error}</p>}
 
     {(creating || editing) && <section aria-label={creating ? 'Создание склада' : 'Редактирование склада'}
-      className="space-y-4 rounded-2xl border border-blue-200 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-bold">{creating ? 'Новый склад' : 'Изменить склад'}</h3>
-      <div className="grid gap-4 sm:grid-cols-2">
+      className="space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-xl bg-[#e6efed] text-[#286e66]"><WarehouseIcon className="size-5" aria-hidden="true"/></span>
+        <div>
+          <h3 className="text-lg font-bold">{creating ? 'Новый склад' : 'Изменить склад'}</h3>
+          <p className="text-xs text-[#516977]">Название и адрес склада; код задаётся при создании.</p>
+        </div>
+      </div>
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <label className="space-y-1 text-sm font-medium">Название
           <Input aria-label="Название склада" maxLength={200} value={name} disabled={write.isPending}
             onChange={e=>setName(e.target.value)} placeholder="Например, Офисный" />
@@ -128,7 +134,7 @@ export function WarehouseManagementPage() {
         <Input aria-label="Адрес склада" value={address} maxLength={1000} disabled={write.isPending}
           onChange={e=>setAddress(e.target.value)} placeholder="Адрес помещения" />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 border-t border-[#e7eeed] pt-4">
         <Button disabled={write.isPending} onClick={submit}>{write.isPending ? 'Сохраняем…' : 'Сохранить склад'}</Button>
         <Button disabled={write.isPending} variant="outline" onClick={closeEditor}>Отмена</Button>
       </div>
@@ -137,27 +143,43 @@ export function WarehouseManagementPage() {
     {warehouses.isPending ? <LoadingState label="Загружаем склады…" /> :
       warehouses.isError ? <ErrorState error={warehouses.error} onRetry={()=>void warehouses.refetch()} /> :
       !warehouses.data?.length ? <EmptyState title="Складов пока нет" /> :
-      <section aria-label="Список складов" className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="divide-y divide-slate-100">
-          {warehouses.data.map(w =>
-            <article key={w.id} className="flex flex-wrap items-center gap-3 p-4">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                <WarehouseIcon className="size-5" aria-hidden="true" />
-              </span>
-              <div className="min-w-44 flex-1">
-                <strong className="text-slate-950">{w.name}</strong>
-                <p className="text-xs text-slate-500">{w.address || 'Адрес не указан'}</p>
-              </div>
-              <span className={'rounded-full px-2 py-1 text-xs font-semibold ' +
-                (w.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-700')}>
-                {w.active ? 'Активен' : 'Неактивен'}</span>
-              <Button size="sm" variant="outline" disabled={write.isPending || !!editing || creating}
-                onClick={()=>startEdit(w)}><Pencil className="size-4" />Изменить</Button>
-              <Button size="sm" variant="outline" disabled={write.isPending || !!editing || creating}
-                onClick={()=>{setNotice('');setError('');setTarget({warehouse:w,active:!w.active});}}>
-                <Power className="size-4" />{w.active ? 'Деактивировать' : 'Активировать'}
-              </Button>
-            </article>)}
+      <section aria-label="Список складов" className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-[#182d38]">Все склады</h2>
+          <p className="text-xs text-[#516977]">{warehouses.data.length.toLocaleString('ru-RU')} складов · управление доступностью и адресами</p>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-[#dfe7eb] bg-white">
+          <div className="divide-y divide-[#e7eeed]">
+            {warehouses.data.map(w => {
+              const Icon = w.code === 'HOME' ? House : w.code === 'OFFICE' ? WarehouseIcon : Boxes;
+              return <article key={w.id} className="flex min-w-0 flex-wrap items-center gap-3 p-4 transition-colors hover:bg-[#f8fafb] sm:gap-4 sm:px-5">
+                <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e6efed] text-[#286e66]">
+                  <Icon className="size-5" aria-hidden="true"/>
+                </span>
+                <div className="min-w-0 basis-[11rem] flex-1 space-y-1">
+                  <strong className="block break-words text-sm font-bold text-[#182d38]">{w.name}</strong>
+                  <p className="flex items-start gap-1.5 break-words text-xs text-[#516977]">
+                    <MapPin className="mt-0.5 size-3.5 shrink-0" aria-hidden="true"/>{w.address || 'Адрес не указан'}
+                  </p>
+                </div>
+                <span className={'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ' +
+                  (w.active ? 'bg-[#e6efed] text-[#285f58]' : 'bg-[#f2f6f8] text-[#516977]')}>
+                  {w.active ? <CircleCheck className="size-3.5" aria-hidden="true"/> : <CircleOff className="size-3.5" aria-hidden="true"/>}
+                  {w.active ? 'Активен' : 'Неактивен'}
+                </span>
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                  <Button size="sm" variant="outline" className="border-[#dfe7eb]"
+                    disabled={write.isPending || !!editing || creating}
+                    onClick={()=>startEdit(w)}><Pencil className="size-4" aria-hidden="true"/>Изменить</Button>
+                  <Button size="sm" variant="outline" className="border-[#dfe7eb]"
+                    disabled={write.isPending || !!editing || creating}
+                    onClick={()=>{setNotice('');setError('');setTarget({warehouse:w,active:!w.active});}}>
+                    <Power className="size-4" aria-hidden="true"/>{w.active ? 'Деактивировать' : 'Активировать'}
+                  </Button>
+                </div>
+              </article>;
+            })}
+          </div>
         </div>
       </section>}
     <ConfirmDialog open={!!target} onOpenChange={open=>{if(!open&&!write.isPending)setTarget(null);}}
