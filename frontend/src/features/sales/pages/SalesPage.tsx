@@ -81,13 +81,13 @@ export function SalesPage() {
 
   const drafts=useQuery({queryKey:['sales','metric','drafts'],
     queryFn:()=>salesApi.list({status:'DRAFT',from:'',to:'',number:'',page:0,operational:true}),
-    enabled:read,staleTime:30_000});
+    enabled:read && !history,staleTime:30_000});
   const confirmed=useQuery({queryKey:['sales','metric','confirmed'],
     queryFn:()=>salesApi.list({status:'CONFIRMED',from:'',to:'',number:'',page:0,operational:true}),
-    enabled:read,staleTime:30_000});
+    enabled:read && !history,staleTime:30_000});
   const completed=useQuery({queryKey:['sales','metric','completed'],
     queryFn:()=>salesApi.list({status:'FULFILLED',from:'',to:'',number:'',page:0,operational:true}),
-    enabled:read,staleTime:30_000});
+    enabled:read && !history,staleTime:30_000});
   const listing = useQuery({
     queryKey: salesKeys.list(filtered),
     queryFn: () => salesApi.list(filtered),
