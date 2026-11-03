@@ -24,6 +24,8 @@ import kg.chairx.sale.api.CreateDraftSaleRequest;
 import kg.chairx.sale.api.CreateSaleWithDeliveryRequest;
 import kg.chairx.sale.application.SaleWithDeliveryService;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CancelSaleRequest;
+import kg.chairx.sale.api.SaleCancellationReason;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.SaleStatus;
@@ -481,6 +483,45 @@ class DeliveryTests {
 
         assertThat(balance.reserved())
                 .isZero();
+    }
+
+    @Test
+    void reasonedReadyDeliveryCancellationIsAtomicAcrossSaleAndDelivery() {
+        var sale=createSale(FulfillmentType.REGION_DELIVERY,
+                item(firstVariant,home,3,"8500"));
+        var delivery=deliveries.create(deliveryRequest(sale.id()));
+        var result=deliveries.cancelWithReason(delivery.id(),
+                new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER,
+                        "Повторный региональный заказ"));
+        assertThat(result.status()).isEqualTo(DeliveryStatus.CANCELLED);
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+        var details=sales.cancellationDetails(sale.id()).orElseThrow();
+        assertThat(details.reason()).isEqualTo(SaleCancellationReason.DUPLICATE_ORDER);
+        assertThat(details.comment()).isEqualTo("Повторный региональный заказ");
+        assertThat(details.cancelledBy()).isEqualTo("delivery-test-user");
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
+        assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
+                new CancelSaleRequest(SaleCancellationReason.OTHER,null)))
+                .isInstanceOf(kg.chairx.sale.application.SaleRuleViolationException.class)
+                .hasMessageContaining("Заказ уже отменён");
+    }
+
+    @Test
+    void reasonedDeliveryCancellationRejectsPaidSaleWithoutAnySideEffects() {
+        var sale=createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant,home,2,"8500"));
+        var delivery=deliveries.create(deliveryRequest(sale.id()));
+        var payment=payments.create(new CreatePaymentRequest(
+                sale.id(),PaymentMethod.CASH,null,null));
+        assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
+                new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,null)))
+                .isInstanceOf(kg.chairx.sale.application.SaleRuleViolationException.class);
+        assertThat(deliveries.get(delivery.id()).status()).isEqualTo(DeliveryStatus.READY);
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(sales.cancellationDetails(sale.id())).isEmpty();
+        assertThat(payments.get(payment.id()).status())
+                .isEqualTo(kg.chairx.payment.domain.PaymentStatus.PAID);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(2);
     }
 
     @Test
