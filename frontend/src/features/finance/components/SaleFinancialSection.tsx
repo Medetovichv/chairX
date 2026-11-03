@@ -105,7 +105,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     title={handoverNow?'Оплатить и выдать кресла клиенту?':'Подтвердить полную оплату продажи?'}
     label={handoverNow?'Подтвердить оплату и выдачу':'Подтвердить оплату'}
     operationKey={p=>p.localOperationId}
-    meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId,handoverNow:p.handoverNow})}
+    meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId,handoverNow:String(p.handoverNow)})}
     post={async p=>{const {localOperationId:_unused,handoverNow:alsoHandOver,...body}=p;void _unused;
       if(alsoHandOver)await salesApi.payAndHandOver(sale.id,body);
       else await financeApi.postPayment(body);
