@@ -464,8 +464,18 @@ describe('F07 creation and idempotent drafts',()=>{
     fireEvent.change(within(form).getByRole('combobox',{name:'Склад позиции 1'}),{target:{value:WH}});
     fireEvent.change(within(form).getByRole('textbox',{name:'Количество позиции 1'}),{target:{value:'2'}});
     // Recommended price must remain unset until explicitly selected.
-    expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
-    fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
+    const priceField=within(form).getByRole('textbox',{name:'Цена продажи позиции 1'});
+    const quantityField=within(form).getByRole('textbox',{name:'Количество позиции 1'});
+    expect(priceField).toHaveValue('');
+    expect(priceField).toHaveAttribute('aria-invalid','true');
+    expect(within(form).getByText('Укажите цену целым числом сомов (можно 0).')).toBeInTheDocument();
+    fireEvent.change(quantityField,{target:{value:'0'}});
+    expect(quantityField).toHaveAttribute('aria-invalid','true');
+    expect(within(form).getByText('Укажите целое количество больше нуля.')).toBeInTheDocument();
+    fireEvent.change(quantityField,{target:{value:'2'}});
+    expect(quantityField).toHaveAttribute('aria-invalid','false');
+    fireEvent.change(priceField,{target:{value:'8200'}});
+    expect(priceField).toHaveAttribute('aria-invalid','false');
     expect(within(form).getByText((_,element)=>element?.tagName==='P'&&/2 шт\. ×.*16\s?400/.test(element.textContent||''))).toBeInTheDocument();
     expect(within(form).getAllByRole('button',{name:'Выбрать товар'})).toHaveLength(1);
     await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
