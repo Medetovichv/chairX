@@ -29,7 +29,8 @@ import { DeliveryDetailPage } from '../../features/deliveries/pages/DeliveryDeta
 import { ReturnsPage } from '../../features/returns/pages/ReturnsPage';
 import { CreateReturnPage } from '../../features/returns/pages/CreateReturnPage';
 import { ReturnDetailPage } from '../../features/returns/pages/ReturnDetailPage';
-import { DefectsPage } from '../../features/returns/pages/DefectsPage';
+const DefectsPage = lazy(() => import('../../features/returns/pages/DefectsPage').then(module => ({ default: module.DefectsPage })));
+
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
 const FinanceOverviewPage = lazy(() => import('../../features/finance/pages/FinanceOverviewPage').then(module => ({ default: module.FinanceOverviewPage })));
 const FinanceOperationsPage = lazy(() => import('../../features/finance/pages/FinanceOperationsPage').then(module => ({ default: module.FinanceOperationsPage })));
@@ -128,7 +129,7 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/sales') return <SalesPage />;
   if (path === '/deliveries') return <DeliveriesPage />;
   if (path === '/returns') return <ReturnsPage />;
-  if (path === '/returns/defects') return <DefectsPage />;
+  if (path === '/returns/defects') return <DeferredPage><DefectsPage /></DeferredPage>;
   if (path === '/finance') return <DeferredPage><FinanceOverviewPage /></DeferredPage>;
   if (path === '/finance/expenses') return <DeferredPage><ExpensesPage /></DeferredPage>;
   if (path === '/finance/operations') return <DeferredPage><FinanceOperationsPage /></DeferredPage>;
