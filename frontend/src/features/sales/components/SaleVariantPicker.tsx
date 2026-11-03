@@ -48,6 +48,15 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
     setSelectionError('');
     setPicking(true);
     try {
+      if(!warehouseId){setSelectionError('Нет склада с доступным остатком.');return;}
+      // Inventory overview can be stale while multiple cashiers reserve stock.
+      // Re-read the selected warehouse before committing the selected item.
+      const balance=await inventoryApi.balance(warehouseId,id);
+      if(balance.available<=0){
+        setSelectionError('Товар уже закончился на выбранном складе. Обновите список.');
+        await stock.refetch();
+        return;
+      }
       const variant=await catalogApi.getVariant(id);
       if(!variant.active) {
         setSelectionError('Этот вариант товара неактивен. Выберите другой.');
@@ -60,7 +69,7 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
     } finally {setPicking(false);}
   }
   return <div className="space-y-2">
-    {value&&<p className="break-all text-xs text-slate-600">
+    {value&&<p className="break-words rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
       Вариация: {current.data?.name||value}
       {current.data?.sku&&' · '+current.data.sku}
       {current.data&&' · Рекомендовано: '+money(current.data.recommendedSalePrice)}
@@ -107,7 +116,10 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
         Для выбора товара по наличию требуется право INVENTORY_READ. Обратитесь к администратору.
       </p>}
       {canReadInventory&&<section aria-label="Быстрый поиск кресел" className="space-y-2">
-        <h4 className="text-sm font-medium text-blue-700">Поиск по наличию</h4>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-sm font-semibold text-slate-900">Товары в наличии</h4>
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">Только доступные</span>
+        </div>
         <label className="block space-y-1 text-sm font-semibold">Быстрый поиск по модели, цвету или SKU
           <input type="search" aria-label="Поиск по креслам в наличии"
             value={stockSearch} disabled={disabled||picking} maxLength={200}
@@ -127,14 +139,24 @@ export function SaleVariantPicker({value,onSelect,disabled=false,allowOutOfStock
                 disabled={disabled||picking}
                 onClick={()=>void chooseAvailable(line.productVariantId,best!.warehouseId)}
                 className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left text-sm transition-colors hover:border-blue-400 hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600 disabled:opacity-50">
-                <span><strong className="block">{line.model} · {line.variation}</strong>
-                  <span className="text-xs text-slate-500">Доступно: {line.available} шт.</span></span>
-                <span className="text-blue-700" aria-hidden="true">Выбрать</span>
+                <span className="min-w-0">
+                  <strong className="block break-words text-slate-900">{line.model}</strong>
+                  <span className="mt-0.5 block text-xs text-slate-500">{line.variation}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">{line.available} шт.</span>
+                  <span className="font-semibold text-blue-700" aria-hidden="true">Выбрать</span>
+                </span>
               </button>;
             })}
             {!!stock.data&&stock.data.total>stock.data.size&&
-              <PurchasePager page={stock.data.page} size={stock.data.size} total={stock.data.total}
-                label="доступных вариаций" onPage={setSearchPage}/>}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                <Button type="button" size="sm" variant="outline" disabled={disabled||picking||searchPage===0||stock.isFetching}
+                  onClick={()=>setSearchPage(page=>Math.max(0,page-1))}>Назад к товарам</Button>
+                <Button type="button" size="sm" variant="outline" disabled={disabled||picking||stock.isFetching||
+                    (searchPage+1)*stock.data.size>=stock.data.total}
+                  onClick={()=>setSearchPage(page=>page+1)}>Показать другие товары</Button>
+              </div>}
           </div>)}
       </section>}
     </section>}
