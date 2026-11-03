@@ -101,6 +101,12 @@ public class DeliveryController {
         );
     }
 
+    @PostMapping("/{id}/cancel-with-reason")
+    public DeliveryResponse cancelWithReason(@PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request) {
+        return service.cancelWithReason(id,request);
+    }
+
     @PostMapping("/{id}/cancel")
     public DeliveryResponse cancel(
             @PathVariable UUID id
