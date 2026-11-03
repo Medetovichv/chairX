@@ -1,7 +1,7 @@
 import {apiClient} from '../../shared/api/client';
 
 export interface EmployeeSaleLine {
- saleId:string; saleNumber:string; quantity:number; total:string; goodsTotal:string; deliveryTotal:string; completedAt:string;
+ saleId:string; saleNumber:string; quantity:number; total:string; goodsTotal:string|null; deliveryTotal:string|null; completedAt:string;
  products?:string|null;phone?:string|null;address?:string|null;
  fulfillment?:string|null;deliveryStatus?:string|null;paymentStatus?:string|null;
 }

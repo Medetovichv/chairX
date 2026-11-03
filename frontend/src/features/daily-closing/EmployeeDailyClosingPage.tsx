@@ -179,8 +179,8 @@ export function EmployeeDailyClosingPage(){
          {s.address&&<p className="text-xs text-slate-500">{s.address}</p>}</td>
         <td className="p-2"><span className="font-semibold text-emerald-700">Оплачено</span>
          <p className="text-xs text-slate-600">{operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</p></td>
-        <td className="p-2 text-right">{money(s.goodsTotal)}</td>
-        <td className="p-2 text-right">{money(s.deliveryTotal)}</td>
+        <td className="p-2 text-right">{s.goodsTotal===null?'Нет данных':money(s.goodsTotal)}</td>
+        <td className="p-2 text-right">{s.deliveryTotal===null?'Нет данных':money(s.deliveryTotal)}</td>
         <td className="p-2 text-right font-semibold">{money(s.total)}</td>
        </tr>)}</tbody>
       </table>
@@ -194,6 +194,10 @@ export function EmployeeDailyClosingPage(){
          </div>
          <p className="mt-1 text-sm text-slate-600">{s.phone||'Контакт не указан'}</p>
          <p className="mt-1 break-words text-sm">{s.products||'Товары в заказе'} · {s.quantity} шт.</p>
+          <p className="mt-1 text-xs text-slate-600">
+           Товары: {s.goodsTotal===null?'Нет данных':money(s.goodsTotal)} ·
+           Доставка: {s.deliveryTotal===null?'Нет данных':money(s.deliveryTotal)}
+          </p>
          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">Оплачено</span>
           <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
