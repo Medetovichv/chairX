@@ -6,7 +6,8 @@ import { QuickViewDrawer } from '../../../shared/components/QuickViewDrawer';
 import { DeliveryQuickView } from '../../../shared/components/QuickViewContent';
 
 import { Link } from 'react-router';
-import { Plus, Truck } from 'lucide-react';
+import { Plus, Truck, SlidersHorizontal } from 'lucide-react';
+import { DeliveryWorkspaceOverview } from '../components/DeliveryWorkspaceOverview';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -66,27 +67,35 @@ export function DeliveriesPage(){
   if(!read||(q.error instanceof ApiClientError&&q.error.status===403))return <ForbiddenPage/>;
   const visibleIds = (q.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
-    <PageHeader title="Доставки" description="Городские и региональные заказы в работе."
-      action={manage?<Button asChild className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]"><Link to="/deliveries/new"><Plus className="size-4" aria-hidden="true"/>Оформить доставку</Link></Button>:undefined}/>
-    <div className="flex flex-wrap gap-2 rounded-2xl bg-white/70 p-2">
-      <Button className={!history?'rounded-full bg-[#182d38] text-white hover:bg-[#305063]':'rounded-full'} variant={!history?'default':'outline'} aria-pressed={!history}
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
+    <PageHeader title="Доставки" description="Планирование, отправка и контроль городских и региональных заказов."
+      action={manage?<Button asChild className="min-h-11 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]"><Link to="/deliveries/new"><Plus className="size-4" aria-hidden="true"/>Оформить доставку</Link></Button>:undefined}/>
+    <div className="flex flex-wrap gap-2 rounded-2xl border border-[#dfe7eb] bg-white p-2">
+      <Button className={!history?'rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]':'rounded-xl'} variant={!history?'default':'outline'} aria-pressed={!history}
         onClick={()=>{setFilters({...initial});}}>Актуальные доставки</Button>
-      <Button className={history?'rounded-full bg-[#182d38] text-white hover:bg-[#305063]':'rounded-full'} variant={history?'default':'outline'} aria-pressed={history}
+      <Button className={history?'rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]':'rounded-xl'} variant={history?'default':'outline'} aria-pressed={history}
         onClick={()=>{setFilters({...initial,operational:false});}}>История доставок</Button>
     </div>
     {(filters.pendingOnly || filters.deliveredOn) && <p role="status">
       {filters.deliveredOn ? 'Завершены: '+filters.deliveredOn : 'Готовы к отправке или в пути'}
       <Button variant="ghost" onClick={()=>setFilters(initial)}>Сбросить фильтры</Button></p>}
-    <DeliveryFilters value={filters} region={region} onRegion={setRegion}
+    {q.isSuccess && q.data && <DeliveryWorkspaceOverview rows={q.data.items}
+      total={q.data.total} page={q.data.page}
+      onStatus={status=>choose(status)}/>}
+    <div className="space-y-3">
+      <h2 className="flex items-center gap-2 text-base font-bold text-[#182d38]">
+        <SlidersHorizontal className="size-4 text-[#267f79]" aria-hidden="true"/>Фильтры и планирование
+      </h2>
+      <DeliveryFilters value={filters} region={region} onRegion={setRegion}
       quick={quick} onQuick={choose} onChange={change}/>
+    </div>
     {!valid?<p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
       Начальная дата не должна быть позже конечной.</p>:
       q.isPending?<LoadingState label="Загружаем доставки…"/>:
       q.isError?<ErrorState error={q.error} onRetry={()=>void q.refetch()}/>:
       !q.data?.items.length?<EmptyState title="Доставки не найдены"
         description="Попробуйте изменить фильтры или оформить доставку для подтверждённой продажи."/>:
-      <div className="space-y-3"><div className="flex items-center justify-between px-1"><h3 className="flex items-center gap-2 text-base font-semibold text-[#182d38]"><Truck className="size-4 text-[#416c82]" aria-hidden="true"/>Список доставок</h3><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold tabular-nums text-[#416c82]">{q.data.total.toLocaleString('ru-RU')} всего</span></div><DeliveriesTable rows={q.data.items}/>
+      <div className="space-y-3"><div className="flex items-center justify-between px-1"><h3 className="flex items-center gap-2 text-base font-bold text-[#182d38]"><Truck className="size-4 text-[#416c82]" aria-hidden="true"/>Список доставок</h3><span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold tabular-nums text-[#416c82]">{q.data.total.toLocaleString('ru-RU')} всего</span></div><DeliveriesTable rows={q.data.items}/>
         <PurchasePager page={q.data.page} size={q.data.size} total={q.data.total}
           label="доставок" onPage={page=>setFilters(f=>({...f,page}))}/>
       </div>}
