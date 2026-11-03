@@ -6,6 +6,7 @@ on:
       - '.github/workflows/f11-release-gate.yml'
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/studio-ui-acceptance.py'
+      - 'scripts/studio-navigation-perf.py'
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
       - 'scripts/studio-stress-ui.py'
@@ -124,6 +125,16 @@ jobs:
           source .env
           set +a
           python scripts/studio-ui-acceptance.py
+      - name: Studio authenticated navigation and request diagnostics
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/studio-navigation-perf.py
       - name: Collect acceptance screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -132,6 +143,7 @@ jobs:
           path: |
             artifacts/f11/
             artifacts/studio-ui/
+            artifacts/studio-navigation/
           if-no-files-found: ignore
           retention-days: 14
       - name: Diagnostic logs on failure
