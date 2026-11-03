@@ -49,18 +49,18 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-xl sm:p-10">
+    <div className="flex min-h-screen items-center justify-center bg-studio-canvas px-4 py-10">
+      <div className="w-full max-w-md rounded-[20px] border border-studio-border bg-white p-7 shadow-xl sm:p-10">
         <div className="mb-7 flex items-center gap-3">
-          <div className="flex size-13 items-center justify-center rounded-2xl bg-indigo-600 text-white">
+          <div className="flex size-13 items-center justify-center rounded-2xl bg-studio-ink text-white">
             <Armchair className="size-7" aria-hidden="true" />
           </div>
           <div>
             <p className="text-2xl font-extrabold tracking-tight text-slate-900">ChairX</p>
-            <p className="text-xs font-semibold tracking-wider text-slate-400 uppercase">Система управления</p>
+            <p className="text-xs font-semibold tracking-wider text-studio-muted uppercase">Система управления</p>
           </div>
         </div>
-        <div className="mb-6 flex size-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+        <div className="mb-6 flex size-11 items-center justify-center rounded-xl bg-studio-surface-muted text-studio-accent">
           <LockKeyhole className="size-5" aria-hidden="true" />
         </div>
         <h1 className="text-2xl font-bold text-slate-900">Вход для сотрудников</h1>
