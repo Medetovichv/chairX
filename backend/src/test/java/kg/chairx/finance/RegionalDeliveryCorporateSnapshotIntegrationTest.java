@@ -69,7 +69,7 @@ class RegionalDeliveryCorporateSnapshotIntegrationTest {
             INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,fulfillment_type,status,created_by,created_at)
             VALUES (?,?,?,?,'REGION_DELIVERY','CONFIRMED','test-operator',?)
             """, sale, "R"+sale.toString().replace("-","").substring(0,20),
-            UUID.randomUUID(), "issue109", PAID_FIRST.minusSeconds(3600));
+            UUID.randomUUID(), "issue109", PAID_FIRST.minusSeconds(3600).atOffset(java.time.ZoneOffset.UTC));
         jdbc.update("""
             INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
             VALUES (?,?,?,?,1,8500)
@@ -78,12 +78,12 @@ class RegionalDeliveryCorporateSnapshotIntegrationTest {
             INSERT INTO deliveries(id,sale_id,status,recipient_name,recipient_phone,address,
                                    delivery_cost,created_by,created_at)
             VALUES (?,?,?,'Recipient','+996700000001','Bishkek street',?,'test-operator',?)
-            """, delivery,sale,status,deliveryFee,PAID_FIRST.minusSeconds(1800));
+            """, delivery,sale,status,deliveryFee,PAID_FIRST.minusSeconds(1800).atOffset(java.time.ZoneOffset.UTC));
         if (paymentAmount > 0) {
             jdbc.update("""
                 INSERT INTO payments(id,sale_id,amount,method,status,paid_by,paid_at)
                 VALUES (?,?,?,'CASH','PAID','test-operator',?)
-                """, UUID.randomUUID(), sale, paymentAmount,paidAt);
+                """, UUID.randomUUID(), sale, paymentAmount,paidAt.atOffset(java.time.ZoneOffset.UTC));
         }
         return new Fixture(sale,delivery);
     }
@@ -112,11 +112,11 @@ class RegionalDeliveryCorporateSnapshotIntegrationTest {
         jdbc.update("""
             UPDATE deliveries SET status='DELIVERED',delivered_at=?,delivered_by='courier'
             WHERE id=?
-            """, DELIVERED_LATER,transit.deliveryId());
+            """, DELIVERED_LATER.atOffset(java.time.ZoneOffset.UTC),transit.deliveryId());
         jdbc.update("""
             UPDATE sales SET status='FULFILLED',fulfilled_at=?,fulfilled_by='courier'
             WHERE id=?
-            """, DELIVERED_LATER,transit.saleId());
+            """, DELIVERED_LATER.atOffset(java.time.ZoneOffset.UTC),transit.saleId());
         assertThat(DailyClosingSalesSnapshot.live(client,FIRST))
             .extracting(DailyClosingSalesSnapshot.CompletedSale::saleId)
             .contains(transit.saleId());
