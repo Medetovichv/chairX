@@ -4,7 +4,7 @@ import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
 import { SaleVariantPicker } from './SaleVariantPicker';
-import { countValid, integerSom, money } from '../validation';
+import { countValid, integerSom, money, salePriceValid } from '../validation';
 import type { Money } from '../types';
 import type { Warehouse } from '../../inventory/types';
 
@@ -32,7 +32,10 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
       Не удалось загрузить список складов.
       <Button type="button" variant="outline" size="sm" onClick={()=>void warehouses.refetch()}>Повторить</Button>
     </p>}
-    {rows.map((row,index)=><div key={row.key} className="@container space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    {rows.map((row,index)=>{
+      const quantityInvalid = !!row.productVariantId && !countValid(row.quantity);
+      const priceInvalid = !!row.productVariantId && !salePriceValid(row.unitSalePrice);
+      return <div key={row.key} className="@container space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">Позиция {index+1}</p>
         <Button type="button" variant="outline" size="sm" disabled={disabled}
@@ -61,15 +64,27 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
           </select>
           {!row.warehouseId&&<span className="block text-xs font-normal text-red-700">Выберите склад — обязательное поле</span>}
         </label>
-        <label className="space-y-1 text-sm font-semibold">Количество *
+        <label className="space-y-1 text-sm font-semibold">Количество <span className="text-red-600" aria-hidden="true">*</span>
           <Input aria-label={'Количество позиции '+(index+1)} inputMode="numeric"
+            aria-required="true" aria-invalid={quantityInvalid}
+            aria-describedby={quantityInvalid?'sale-quantity-error-'+row.key:undefined}
+            className={quantityInvalid?'border-red-400':''}
             value={row.quantity} disabled={disabled}
             onChange={e=>patch(row.key,{quantity:e.target.value})}/>
+          {quantityInvalid&&<span id={'sale-quantity-error-'+row.key} className="block text-xs font-normal text-red-700">
+            Укажите целое количество больше нуля.
+          </span>}
         </label>
-        <label className="space-y-1 text-sm font-semibold">Цена продажи, сом *
+        <label className="space-y-1 text-sm font-semibold">Цена продажи, сом <span className="text-red-600" aria-hidden="true">*</span>
           <Input aria-label={'Цена продажи позиции '+(index+1)} inputMode="numeric"
+            aria-required="true" aria-invalid={priceInvalid}
+            aria-describedby={priceInvalid?'sale-price-error-'+row.key:undefined}
+            className={priceInvalid?'border-red-400':''}
             value={row.unitSalePrice} disabled={disabled}
             onChange={e=>patch(row.key,{unitSalePrice:e.target.value})}/>
+          {priceInvalid&&<span id={'sale-price-error-'+row.key} className="block text-xs font-normal text-red-700">
+            Укажите цену целым числом сомов (можно 0).
+          </span>}
         </label>
       </div>
       {row.recommended!==null&&<div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
@@ -88,7 +103,8 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
         onSwitch={id=>patch(row.key,{warehouseId:id})}/>
-    </div>)}
+    </div>;
+    })}
     <Button type="button" variant="outline" disabled={disabled||rows.length>=1000}
       onClick={()=>onChange([...rows,{
         key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null,
