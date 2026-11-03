@@ -7,7 +7,8 @@ import { SaleQuickView } from '../../../shared/components/QuickViewContent';
 
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle2, Clock3, LayoutGrid, List, Plus, Search, ShoppingCart } from 'lucide-react';
+import { LayoutGrid, List, Plus, Search, SlidersHorizontal } from 'lucide-react';
+import { SalesPipelineOverview } from '../components/SalesPipelineOverview';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -107,42 +108,33 @@ export function SalesPage() {
 
   const visibleIds = (listing.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:space-y-6 sm:p-6">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
-      action={create ? <Button asChild className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]">
+      action={create ? <Button asChild className="min-h-12 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
       </Button> : undefined}/>
 
-    {!history&&<section aria-label="Текущие показатели продаж" className="grid gap-3 sm:grid-cols-3">
-      {([
-        {title:'Черновики в работе',value:drafts.data?.total,icon:ShoppingCart,status:'DRAFT'},
-        {title:'Ожидают выполнения',value:confirmed.data?.total,icon:Clock3,status:'CONFIRMED'},
-        {title:'Выданы сегодня или ещё не закрыты',value:completed.data?.total,icon:CheckCircle2,status:'FULFILLED'},
-      ]).map(m=><Link to={'/sales?status='+m.status+'&operational=true'} key={m.title} className="group rounded-[20px] border border-[#e3e9ee] bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#a2bac8] hover:shadow-[0_12px_28px_rgba(22,42,55,0.09)] focus-visible:outline-2 focus-visible:outline-[#416c82] motion-reduce:transform-none motion-reduce:transition-none">
-        <m.icon className="mb-4 size-9 rounded-xl bg-[#e9f2f5] p-2 text-[#416c82]" aria-hidden="true"/>
-        <p className="text-xs font-semibold text-[#697a85]">{m.title}</p>
-        <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-[#182d38]">{m.value===undefined?'—':m.value}</p>
-      </Link>)}
-    </section>}
+    {!history && <SalesPipelineOverview drafts={drafts.data?.total}
+      confirmed={confirmed.data?.total} completed={completed.data?.total} />}
     {filters.activeOnly && <p role="status">В работе: черновики и подтверждённые заказы.
       <Button variant="ghost" onClick={() => setFilters(empty)}>Сбросить фильтры</Button></p>}
-    <div className="flex flex-wrap gap-2 rounded-[16px] bg-white/70 p-2">
+    <div className="flex flex-wrap gap-2 rounded-[20px] border border-[#e0e8eb] bg-white p-2">
       <Button aria-pressed={!history} variant={!history?'default':'outline'}
         onClick={()=>{setFilters(empty);}}>Актуальные заказы</Button>
       <Button aria-pressed={history} variant={history?'default':'outline'}
         onClick={()=>{setFilters({...empty,...dayRange(7),operational:false});}}>История продаж</Button>
     </div>
-    <section aria-label="Фильтры продаж" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
+    <section aria-label="Фильтры продаж" className="space-y-5 rounded-[24px] border border-[#e0e8eb] bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="text-lg font-semibold tracking-tight text-[#182d38]">{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
-        <div className="flex items-center gap-1 rounded-full bg-[#f1f5f7] p-1" aria-label="Режим отображения продаж">
+        <h3 className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#182d38]"><SlidersHorizontal className="size-5 text-[#267f79]" aria-hidden="true" />{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
+        <div className="flex items-center gap-1 rounded-xl bg-[#edf5f3] p-1" aria-label="Режим отображения продаж">
           <Button size="sm" aria-pressed={view === 'kanban'}
             variant={view === 'kanban' ? 'default' : 'ghost'}
-            className={view === 'kanban' ? 'rounded-full bg-[#182d38] text-white hover:bg-[#305063]' : 'rounded-full'}
+            className={view === 'kanban' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
             onClick={() => setView('kanban')}><LayoutGrid className="size-4" aria-hidden="true" />Канбан</Button>
           <Button size="sm" aria-pressed={view === 'table'}
             variant={view === 'table' ? 'default' : 'ghost'}
-            className={view === 'table' ? 'rounded-full bg-[#182d38] text-white hover:bg-[#305063]' : 'rounded-full'}
+            className={view === 'table' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
@@ -180,7 +172,7 @@ export function SalesPage() {
       </div>}
       <Button type="button" variant="ghost" size="sm" onClick={() => setFilters({...empty,operational:!history})}>Сбросить фильтры</Button>
       {view === 'kanban' && filters.status &&
-        <p className="text-xs text-slate-500">Kanban всегда показывает все четыре статуса.
+        <p className="rounded-xl bg-[#f2f7f6] px-4 py-3 text-xs text-[#516977]">Kanban всегда показывает все четыре статуса.
           Фильтр статуса применяется только к таблице.</p>}
     </section>
     {!valid ? <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
