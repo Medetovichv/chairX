@@ -30,7 +30,7 @@ export function CustomerWorkspaceOverview({ items, total, page, limitedSearch, w
         <ArrowUpRight className="size-4" aria-hidden="true"/>Страница {page + 1} · всего {total.toLocaleString('ru-RU')}
       </span>}
     </div>
-    <div className={'grid gap-3 sm:grid-cols-' + (withOrders === null ? '2' : '3')}>
+    <div className={withOrders === null ? 'grid gap-3 sm:grid-cols-2' : 'grid gap-3 sm:grid-cols-3'}>
       {metrics.map(({ label, value, hint, icon: Icon }) =>
         <div key={label} className="flex min-h-32 flex-col justify-between rounded-2xl border border-[#dfe7eb] bg-white p-5">
           <div className="flex items-center justify-between gap-2">
