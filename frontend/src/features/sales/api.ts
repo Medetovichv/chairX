@@ -1,4 +1,5 @@
 import { apiClient } from '../../shared/api/client';
+import type {CancelSaleInput,SaleCancellationDetails} from './cancellation';
 import type { CreateDraftInput, DraftInput, SaleFilters, SalePageResponse, SaleResponse, SaleStatus, SaleHistoryPage, SaleCommentsPage, SaleComment, CreateSaleCommentInput } from './types';
 
 export const SALES_PAGE_SIZE = 20;
@@ -47,4 +48,9 @@ export const salesApi = {
   confirm: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm'),
   fulfill: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill'),
   cancel: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel'),
+  cancelWithReason: (id:string,input:CancelSaleInput) =>
+    apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/cancel-with-reason',input),
+  cancellationDetails: (id:string) =>
+    apiClient.get<SaleCancellationDetails>('/api/sales/'+enc(id)+'/cancellation-details'),
+
 };
