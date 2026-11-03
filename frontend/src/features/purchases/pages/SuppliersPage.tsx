@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Plus, Phone, MessageSquareText } from 'lucide-react';
+import { SuppliersWorkspaceOverview } from '../components/SuppliersWorkspaceOverview';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
@@ -44,11 +46,12 @@ export function SuppliersPage() {
       setNotice(saved.active ? 'Поставщик активирован.' : 'Поставщик деактивирован.'); },
     onError: cause => {setDeactivating(null);setError(userFacingApiError(cause));} });
   if (!canRead || listing.error instanceof ApiClientError && listing.error.status===403) return <ForbiddenPage />;
-  return <div className="space-y-6 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:p-6">
+  return <div className="space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Поставщики" description="Поставщики закупок; неактивные остаются в истории."
-      action={canManage ? <Button disabled={creating || !!editing} onClick={() => {setCreating(true);setNotice('');}}>
-        + Добавить поставщика</Button> : undefined} />
+      action={canManage ? <Button className="min-h-11 rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]" disabled={creating || !!editing} onClick={() => {setCreating(true);setNotice('');}}>
+        <Plus className="size-4" aria-hidden="true"/>Добавить поставщика</Button> : undefined} />
     <PurchaseTabs />
+    {listing.isSuccess && <SuppliersWorkspaceOverview suppliers={listing.data.items} total={listing.data.totalElements} page={listing.data.page}/>}
     {notice && <p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
     {creating && canManage && <SupplierForm onCancel={() => setCreating(false)}
@@ -58,16 +61,16 @@ export function SuppliersPage() {
     {listing.isPending ? <LoadingState label="Загружаем поставщиков…" /> :
       listing.isError ? <ErrorState error={listing.error} onRetry={() => void listing.refetch()} /> :
       !listing.data?.items.length ? <EmptyState title="Поставщиков пока нет" description="Добавьте первого поставщика." /> :
-      <section aria-label="Список поставщиков" className="rounded-[20px] border border-[#e3e9ee] bg-white">
-        <div className="divide-y divide-[#e9eef0]">{listing.data.items.map(s =>
-          <article key={s.id} className="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-[#f3f8fa]">
+      <section aria-label="Список поставщиков" className="overflow-hidden rounded-2xl border border-[#dfe7eb] bg-white">
+        <div className="divide-y divide-[#eaf0f0]">{listing.data.items.map(s =>
+          <article key={s.id} className="flex flex-wrap items-start justify-between gap-4 p-5 transition-colors hover:bg-[#f5faf8]">
             <div className="min-w-0 flex-1 space-y-1">
-              <h3 className="font-semibold text-[#182d38]">{s.name}</h3>
-              <p className="whitespace-pre-wrap break-words text-sm text-slate-600">{s.contactInformation || 'Контакт не указан'}</p>
-              {s.comment && <p className="whitespace-pre-wrap text-sm text-slate-500">{s.comment}</p>}
+              <h3 className="break-words text-base font-bold text-[#182d38]">{s.name}</h3>
+              <p className="flex items-start gap-2 whitespace-pre-wrap break-words text-sm text-[#405b65]"><Phone className="mt-0.5 size-4 shrink-0 text-[#286e66]" aria-hidden="true"/>{s.contactInformation || 'Контакт не указан'}</p>
+              {s.comment && <p className="flex items-start gap-2 whitespace-pre-wrap break-words text-sm text-[#516977]"><MessageSquareText className="mt-0.5 size-4 shrink-0" aria-hidden="true"/>{s.comment}</p>}
               <StatusBadge tone={s.active ? 'success':'neutral'}>{s.active?'Активен':'Неактивен'}</StatusBadge>
             </div>
-            {canManage && <div className="flex flex-wrap gap-2">
+            {canManage && <div className="flex flex-wrap gap-2 sm:justify-end">
               <Button type="button" variant="outline" disabled={!!editing || creating || active.isPending}
                 onClick={() => {setEditing(s);setCreating(false);setNotice('');}}>Изменить {s.name}</Button>
               <Button type="button" variant="outline" disabled={active.isPending}
