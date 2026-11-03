@@ -104,7 +104,11 @@ def main():
             page.get_by_role("heading", name="Продажи", exact=True).wait_for(timeout=30000)
             page.get_by_role("region", name="Текущие показатели продаж").wait_for(timeout=30000)
             page.get_by_role("button", name="Канбан").click()
-            page.get_by_label("Доска продаж", exact=True).wait_for(timeout=30000)
+            board=page.get_by_label("Доска продаж", exact=True)
+            board.wait_for(timeout=30000)
+            assert board.get_by_text("DELIVERED",exact=True).count()==0, (
+                "Untranslated delivery status leaked into sales Kanban"
+            )
             for width in (375,1440):
                 page.set_viewport_size({"width":width,"height":900})
                 page.wait_for_timeout(180)
