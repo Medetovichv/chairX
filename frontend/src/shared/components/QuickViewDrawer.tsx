@@ -4,6 +4,8 @@ import { ArrowDown, ArrowLeft, ExternalLink, X } from 'lucide-react';
 
 const DirtyContext = createContext<(dirty: boolean) => void>(() => {});
 export const useQuickViewDirty = () => useContext(DirtyContext);
+const FooterHostContext = createContext<HTMLElement | null>(null);
+export const useQuickCreateFooterHost = () => useContext(FooterHostContext);
 const LeaveContext = createContext<() => boolean>(() => true);
 export const useQuickViewCanLeave = () => useContext(LeaveContext);
 
@@ -36,6 +38,7 @@ interface Props {
 /** Non-modal desktop split view; full-screen detail on mobile. */
 export function QuickViewDrawer({ title, detailUrl, onClose, children, previous, next }: Props) {
   const [dirty, setDirty] = useState(false);
+  const [footerHost,setFooterHost] = useState<HTMLDivElement|null>(null);
   const creating = detailUrl.endsWith('/new');
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
@@ -95,7 +98,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     if (!(target instanceof Element) || !target.closest('a[href]')) return;
     if (!allowLeave()) { event.preventDefault(); event.stopPropagation(); }
   };
-  return <DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
+  return <FooterHostContext.Provider value={creating?footerHost:null}><DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl lg:sticky lg:top-4 lg:z-10 lg:h-[calc(100dvh-2rem)] lg:w-[min(52vw,720px)] lg:min-w-0 lg:shrink-0 lg:rounded-2xl lg:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
@@ -109,7 +112,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       </Link>
     </header>
     <div ref={scrollRef} data-quick-view-scroll onScroll={updateScrollState} tabIndex={0} aria-label="Прокручиваемое содержимое панели"
-      className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-auto scroll-smooth [scrollbar-gutter:stable] [touch-action:pan-y] p-4 pb-[max(5rem,env(safe-area-inset-bottom))] sm:p-5 sm:pb-20">
+      className={"min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-auto scroll-smooth [scrollbar-gutter:stable] [touch-action:pan-y] p-4 sm:p-5 "+(creating?"pb-6":"pb-[max(5rem,env(safe-area-inset-bottom))] sm:pb-20")}>
       {children}
     </div>
     {canScrollDown && <button type="button" aria-label="Прокрутить панель вниз"
@@ -117,5 +120,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       className="absolute bottom-4 right-5 z-20 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
       <ArrowDown aria-hidden="true" className="size-5"/>
     </button>}
-  </aside></LeaveContext.Provider></DirtyContext.Provider>;
+    {creating&&<div ref={setFooterHost} data-quick-create-footer role="region" aria-label="Итог и сохранение заказа"
+      className="shrink-0 border-t border-[#dfe7eb] bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(18,42,55,0.08)] sm:px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"/>}
+  </aside></LeaveContext.Provider></DirtyContext.Provider></FooterHostContext.Provider>;
 }
