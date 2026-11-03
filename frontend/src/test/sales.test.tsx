@@ -554,6 +554,25 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({
       customerId:NEW_CUSTOMER_ID,comment:'Самовывоз по телефону'});
   });
+  it('contains customer dialog focus and Escape without closing the sale drawer',async()=>{
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const saleForm=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    const opener=within(saleForm).getByRole('button',{name:'+ Новый клиент'});
+    const user=userEvent.setup();
+    await user.click(opener);
+    const dialog=screen.getByRole('dialog',{name:'Новый клиент для продажи'});
+    const close=within(dialog).getByRole('button',{name:'Закрыть'});
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close,{key:'Tab',shiftKey:true});
+    const last=within(dialog).getByRole('button',{name:'Отмена'});
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last,{key:'Tab'});expect(close).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog',{name:'Новый клиент для продажи'})).toBeNull();
+    expect(screen.getByRole('form',{name:'Новый черновик продажи'})).toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
   it('creates a customer without leaving the sale form or losing entered data',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');

@@ -73,6 +73,8 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
+      // A portalled child dialog owns keyboard interaction until it closes.
+      if(event.defaultPrevented||document.querySelector('[role="dialog"][aria-modal="true"]'))return;
       if (event.key === 'Escape') { if (allowLeave()) onClose(); }
       if (event.key === 'Tab' && window.matchMedia?.('(max-width: 1023px)').matches) {
         const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-quick-view] button:not([disabled]), [data-quick-view] a[href], [data-quick-view] input:not([disabled]), [data-quick-view] select:not([disabled]), [data-quick-view] textarea:not([disabled])')).filter(node => node.getClientRects().length > 0);
