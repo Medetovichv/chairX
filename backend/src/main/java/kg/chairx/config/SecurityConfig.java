@@ -164,7 +164,7 @@ public class SecurityConfig {
                                 "hasAuthority('DELIVERIES_CREATE') or hasAuthority('DELIVERIES_MANAGE')"))
                         .requestMatchers(HttpMethod.POST, "/api/deliveries/*/dispatch", "/api/deliveries/*/deliver", "/api/deliveries/*/fail", "/api/deliveries/*/return-to-warehouse")
                         .hasAuthority("DELIVERIES_MANAGE")
-                        .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel")
+                        .requestMatchers(HttpMethod.POST, "/api/deliveries/*/cancel", "/api/deliveries/*/cancel-with-reason")
                         .hasAuthority("SALES_CANCEL")
                         .requestMatchers(HttpMethod.PUT, "/api/deliveries/*/planned-date")
                         .hasAuthority("DELIVERIES_MANAGE")
