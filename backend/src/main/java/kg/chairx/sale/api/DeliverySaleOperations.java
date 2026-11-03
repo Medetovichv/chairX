@@ -10,5 +10,6 @@ public interface DeliverySaleOperations {
     SaleResponse get(UUID saleId);
     SaleResponse fulfillForDelivery(UUID saleId);
     SaleResponse cancelForDelivery(UUID saleId);
+    SaleResponse cancelForDeliveryWithReason(UUID saleId, CancelSaleRequest request);
     SaleResponse lockForInventoryReturn(UUID saleId);
 }
