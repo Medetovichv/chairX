@@ -441,7 +441,7 @@ describe('F07 creation and idempotent drafts',()=>{
     // Recommended price must remain unset until explicitly selected.
     expect(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'})).toHaveValue('');
     fireEvent.change(within(form).getByRole('textbox',{name:'Цена продажи позиции 1'}),{target:{value:'8200'}});
-    expect(within(form).getByText(/2 шт. × 8\\s?200.*16\\s?400/)).toBeInTheDocument();
+    expect(within(form).getByText((_,element)=>element?.tagName==='P'&&element.textContent?.includes('2 шт. ×')===true&&element.textContent?.includes('16 400')===true)).toBeInTheDocument();
     expect(within(form).getAllByRole('button',{name:'Выбрать товар'})).toHaveLength(1);
     await userEvent.setup().click(within(form).getByRole('button',{name:'Выбрать товар'}));
         fireEvent.change(within(form).getAllByRole('searchbox',{name:'Поиск по креслам в наличии'}).at(-1)!,{target:{value:'ERGO'}});
