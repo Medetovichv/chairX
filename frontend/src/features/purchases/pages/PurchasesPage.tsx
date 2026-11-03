@@ -96,7 +96,7 @@ export function PurchasesPage() {
     {!creating && <><section aria-label="Фильтры закупок" className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold text-slate-900">Найти закупку</h2><p className="text-xs text-slate-500">Выбирайте статус, поставщика или период. Технические идентификаторы не требуются.</p></div><Button variant="outline" onClick={()=>{setFilters(initialFilters());setIncludeOpenOlder(true);}}>Сбросить фильтры</Button></div>
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,...lastSevenDays(),page:0}));setIncludeOpenOlder(true);}}>Последние 7 дней + незавершённые</Button>
+        <Button variant="outline" size="sm" className="h-auto min-h-11 w-full max-w-full whitespace-normal py-2 text-center leading-snug sm:w-auto" onClick={()=>{setFilters(old=>({...old,...lastSevenDays(),page:0}));setIncludeOpenOlder(true);}}>Последние 7 дней + незавершённые</Button>
         <Button variant="outline" size="sm" onClick={()=>{setFilters(old=>({...old,from:'',to:'',page:0}));setIncludeOpenOlder(false);}}>Все даты</Button>
       </div>
       <div aria-label="Быстрые статусы закупок" className="flex flex-wrap gap-2">{([["","Все"],["DRAFT","Черновики"],["CONFIRMED","Ожидают поступления"],["PARTIALLY_RECEIVED","Частично получены"],["RECEIVED","Получены"]] as const).map(([status,label])=><Button key={label} className={filters.status===status?"rounded-full bg-[#182d38] text-white hover:bg-[#305063]":"rounded-full"} variant={filters.status===status?"default":"outline"} size="sm" onClick={()=>change("status",status)}>{label}</Button>)}</div>
