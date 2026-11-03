@@ -662,7 +662,7 @@ describe('F06 suppliers and read-only purchase payments',()=>{
   it('creates and edits supplier; requires SUPPLIERS_MANAGE for controls',async()=>{
     const {calls}=mockApi();
     renderAt('/purchases/suppliers');await screen.findByText('Шэньчжэнь');
-    await userEvent.setup().click(screen.getByRole('button',{name:'+ Добавить поставщика'}));
+    await userEvent.setup().click(screen.getByRole('button',{name:'Добавить поставщика'}));
     const form=within(screen.getByRole('form',{name:'Создание поставщика'}));
     fireEvent.change(form.getByRole('textbox',{name:'Название поставщика'}),{target:{value:'Новый поставщик'}});
     await userEvent.setup().click(form.getByRole('button',{name:'Сохранить поставщика'}));
@@ -687,7 +687,7 @@ describe('F06 suppliers and read-only purchase payments',()=>{
   it('hides supplier mutations without permission',async()=>{
     access.permissions=['SUPPLIERS_READ'];
     mockApi();renderAt('/purchases/suppliers');await screen.findByText('Шэньчжэнь');
-    expect(screen.queryByRole('button',{name:'+ Добавить поставщика'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button',{name:'Добавить поставщика'})).not.toBeInTheDocument();
     expect(screen.queryByRole('button',{name:'Изменить Шэньчжэнь'})).not.toBeInTheDocument();
   });
   it('opens payments by a readable purchase choice without exposing UUID fields',async()=>{
