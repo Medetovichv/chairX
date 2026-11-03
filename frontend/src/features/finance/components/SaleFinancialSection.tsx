@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery,useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
-import { salesKeys } from '../../sales/api';
+import { salesApi,salesKeys } from '../../sales/api';
 import { customersApi } from '../../customers/api';
 import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { financeApi,financeKeys } from '../api';
@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import type { SaleResponse } from '../../sales/types';
 import { integerSom } from '../../sales/validation';
-type PaymentDraft=PaymentInput&{localOperationId:string};
+type PaymentDraft=PaymentInput&{localOperationId:string;handoverNow:boolean};
 type CancelDraft={paymentId:string;reason:string;localOperationId:string};
 const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='http'&&error.status===404;
 const card='space-y-4 rounded-2xl border border-slate-200 bg-white p-5';
@@ -52,6 +52,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const customer=useQuery({queryKey:['customers','customer',sale.customerId],
   queryFn:()=>customersApi.get(sale.customerId!),enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId});
  const [channel,setChannel]=useState<PaymentChannel>('CASH');
+ const [handoverNow,setHandoverNow]=useState(false);
  const [comment,setComment]=useState(''),[refundAmount,setRefundAmount]=useState('');
  const [refundMethod,setRefundMethod]=useState<RefundMethod>('CASH'),[refundReturn,setRefundReturn]=useState(()=>{
   const supplied=query.get('returnId')??'';return validUUID(supplied)?supplied:'';
@@ -102,8 +103,11 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
    {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
     allowed={paymentCreate} title="Подтвердить полную оплату продажи?" label="Подтвердить оплату"
     operationKey={p=>p.localOperationId}
-    meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId})}
-    post={async p=>{const {localOperationId:_unused,...body}=p;void _unused;await financeApi.postPayment(body);}}
+    meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId,handoverNow:p.handoverNow})}
+    post={async p=>{const {localOperationId:_unused,handoverNow:alsoHandOver,...body}=p;void _unused;
+      if(alsoHandOver)await salesApi.payAndHandOver(sale.id,body);
+      else await financeApi.postPayment(body);
+    }}
     onDone={refresh}
     reconcile={paymentRead?async _record=>{
       const latest=await financeApi.payments(sale.id);
@@ -117,11 +121,15 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        if(!canPay){setError('Оплата пока недоступна: проверьте подтверждение продажи, оформление доставки, предыдущие платежи и счёт.');return;}
        if(comment.trim().length>1000){setError('Слишком длинный комментарий.');return;}
        setError('');
-       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:null,comment:optional(comment),
+       if(handoverNow&&!(sale.fulfillmentType==='SELF_PICKUP'&&sale.status==='CONFIRMED'&&hasPermission('SALES_UPDATE'))){
+         setError('Для подтверждения выдачи нужны права SALES_UPDATE и подтверждённый самовывоз.');return;
+       }
+       const p:PaymentDraft={saleId:sale.id,channel,method:methodFor(channel),reference:null,comment:optional(comment),handoverNow,
         localOperationId:crypto.randomUUID()};
        start(p,'Заказ '+sale.saleNumber+'. Клиент '+customerLabel+'. Полная сумма '+(requiresDelivery&&orderTotal!==null?som(orderTotal.toString()):som(sale.total))+
          '. '+(salePaymentChannels.find(x=>x.value===channel)?.label??channel)+'. Зачисление: '+accountFor(channel)+
-         '. Подтверждайте только фактически полученные деньги.');}}>
+         (handoverNow?'. Кресла сейчас фактически передаются клиенту; подтвердите выдачу.':
+         '. Подтверждайте только фактически полученные деньги; товар пока не выдан.'));}}>
        <label className="block space-y-1 text-sm font-semibold">Как клиент оплатил
         <select aria-label="Канал клиентской оплаты" value={channel} disabled={locked}
           onChange={e=>setChannel(e.target.value as PaymentChannel)}
@@ -130,6 +138,14 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
         </select>
        </label>
        <p className="text-sm text-[#516977]">После подтверждения вся сумма заказа будет зарегистрирована одним платежом. Повторная проводка заблокирована.</p>
+       {sale.fulfillmentType==='SELF_PICKUP'&&sale.status==='CONFIRMED'&&hasPermission('SALES_UPDATE')&&
+         <label className="flex min-h-11 items-start gap-3 rounded-xl border border-[#dfe7eb] bg-[#f2f7f6] p-3 text-sm font-semibold">
+           <input type="checkbox" aria-label="Клиент получает кресла сейчас" checked={handoverNow}
+             disabled={locked} onChange={e=>setHandoverNow(e.target.checked)} className="mt-1 size-4" />
+           <span>Клиент получает кресла сейчас
+             <span className="mt-1 block text-xs font-normal text-[#516977]">Отметьте только при фактической передаче товара. Оплата и выдача завершатся одной транзакцией.</span>
+           </span>
+         </label>}
        {financeRead&&<p className="text-sm">
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
@@ -142,7 +158,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
        <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Возврат денег и новая продажа оформляются отдельными операциями.</p>
-       <Button type="submit" disabled={locked||!canPay}>Проверить и подтвердить оплату</Button>
+       <Button type="submit" disabled={locked||!canPay}>{handoverNow?'Оплатить и завершить выдачу':'Проверить и подтвердить оплату'}</Button>
       </form>}
    </GuardedPost>}
   </section>
