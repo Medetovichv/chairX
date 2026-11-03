@@ -10,6 +10,8 @@ import {
 type Control<T>={start:(payload:T,description:string)=>void;locked:boolean;busy:boolean};
 interface Props<T>{
  kind:string;scope:string;allowed:boolean;title:string;label:string;destructive?:boolean;
+ /** Ordinary customer payments may submit on the form's explicit action; keep confirmations for irreversible operations. */
+ confirmBeforeSend?:boolean;
  operationKey:(payload:T)=>string;meta:(payload:T)=>Record<string,string>;
  post:(payload:T)=>Promise<unknown>;onDone:()=>Promise<void>|void;
  /** Only for backend idempotent POSTs with a stable key inside the original payload. */
@@ -32,7 +34,7 @@ export function GuardedPost<T>(props:Props<T>){
  return <ScopedGuardedPost key={JSON.stringify([user?.id,props.kind,props.scope])} {...props}/>;
 }
 function ScopedGuardedPost<T>({
- kind,scope,allowed,title,label,destructive,operationKey,meta,post,onDone,reconcile,canReplay=false,children
+ kind,scope,allowed,title,label,destructive,confirmBeforeSend=true,operationKey,meta,post,onDone,reconcile,canReplay=false,children
 }:Props<T>){
  const {user}=useAuth();
  const [initial]=useState<ReadFinance>(()=>readFinancePending(user?.id,kind,scope));
@@ -52,7 +54,8 @@ function ScopedGuardedPost<T>({
  function start(payload:T,description:string){
   if(!allowed||locked||running.current)return;
   setError('');setNotice('');
-  setCandidate({payload,description});
+  if(confirmBeforeSend)setCandidate({payload,description});
+  else void send(payload);
  }
  function finish(){
   if(!user?.id||!clearFinancePending(user.id,kind,scope)){
@@ -144,9 +147,9 @@ function ScopedGuardedPost<T>({
        Повторить исходный запрос с прежним ключом</Button>}
    </div>
   </div>}
-  <ConfirmDialog open={candidate!==null} onOpenChange={open=>{if(!open)setCandidate(null);}}
+  {confirmBeforeSend&&<ConfirmDialog open={candidate!==null} onOpenChange={open=>{if(!open)setCandidate(null);}}
    title={title} description={candidate?.description??''} destructive={destructive}
    confirmLabel={label} busy={busy}
-   onConfirm={()=>{const item=candidate;if(item)void send(item.payload);}}/>
+   onConfirm={()=>{const item=candidate;if(item)void send(item.payload);}}/>}
  </section>;
 }

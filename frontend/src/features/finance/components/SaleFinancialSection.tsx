@@ -101,7 +101,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      payments.data.map(p=><PaymentLine key={p.id} payment={p} onChanged={refresh}
       canCancel={paymentCancel} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
    {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
-    allowed={paymentCreate}
+    allowed={paymentCreate} confirmBeforeSend={handoverNow}
     title={handoverNow?'Оплатить и выдать кресла клиенту?':'Подтвердить полную оплату продажи?'}
     label={handoverNow?'Подтвердить оплату и выдачу':'Подтвердить оплату'}
     operationKey={p=>p.localOperationId}
@@ -160,7 +160,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
        {!paymentRead&&<p className="text-sm text-amber-800">Без PAYMENTS_READ нельзя проверить историю. При неизвестном результате обращайтесь к уполномоченному сотруднику.</p>}
        <p className="text-xs text-slate-500">Частичных оплат нет: backend проводит полную сумму автоматически. Возврат денег и новая продажа оформляются отдельными операциями.</p>
-       <Button type="submit" disabled={locked||!canPay}>{handoverNow?'Оплатить и завершить выдачу':'Проверить и подтвердить оплату'}</Button>
+       <Button type="submit" disabled={locked||!canPay}>{handoverNow?'Оплатить и завершить выдачу':'Зарегистрировать оплату'}</Button>
       </form>}
    </GuardedPost>}
   </section>
