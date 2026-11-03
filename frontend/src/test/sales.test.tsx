@@ -560,7 +560,9 @@ describe('F07 creation and idempotent drafts',()=>{
     const saleForm=await screen.findByRole('form',{name:'Новый черновик продажи'});
     const opener=within(saleForm).getByRole('button',{name:'+ Новый клиент'});
     const user=userEvent.setup();
-    await user.click(opener);
+    // Opening must restore its explicit trigger even if disabling it blurred focus.
+    within(saleForm).getByRole('textbox',{name:'Комментарий продажи'}).focus();
+    fireEvent.click(opener);
     const dialog=screen.getByRole('dialog',{name:'Новый клиент для продажи'});
     const close=within(dialog).getByRole('button',{name:'Закрыть'});
     expect(close).toHaveFocus();

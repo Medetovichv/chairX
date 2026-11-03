@@ -30,9 +30,9 @@ export function CustomerPicker({value,onChange,disabled=false}:{
   const [selected,setSelected]=useState<Customer|null>(null);
   const [creating,setCreating]=useState(false);
   const dialogRef=useRef<HTMLElement>(null);
+  const createButtonRef=useRef<HTMLButtonElement>(null);
   useEffect(()=>{
     if(!creating)return;
-    const previous=document.activeElement instanceof HTMLElement?document.activeElement:null;
     const overlay=dialogRef.current?.parentElement;
     const background=Array.from(document.body.children).filter(
       (node):node is HTMLElement=>node instanceof HTMLElement&&node!==overlay);
@@ -41,7 +41,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
     return()=>{
       background.forEach((node,index)=>{node.inert=inertValues[index]!;});
-      previous?.focus();
+      createButtonRef.current?.focus();
     };
   },[creating]);
   const [createBusy,setCreateBusy]=useState(false);
@@ -113,7 +113,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="font-semibold">Клиент (необязательно для черновика)</h3>
       {canCreate && allowed && <Button type="button" variant="outline" size="sm"
-        disabled={disabled||creating} onClick={()=>setCreating(true)}>+ Новый клиент</Button>}
+        ref={createButtonRef} disabled={disabled||creating} onClick={()=>setCreating(true)}>+ Новый клиент</Button>}
     </div>
     {value && <div className="rounded-xl bg-indigo-50 p-3 text-sm">
       <p>Выбран: <strong>{picked?display(picked):'Загружаем клиента…'}</strong></p>

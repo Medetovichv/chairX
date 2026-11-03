@@ -51,6 +51,10 @@ def main():
                 page.screenshot(path=str(ART / f"customer-{width}.png"))
                 page.keyboard.press("Escape")
                 expect(child).to_have_count(0)
+                print("Restored focus:", page.evaluate("""() => ({
+                    tag:document.activeElement?.tagName,
+                    text:document.activeElement?.textContent?.slice(0,80)
+                })"""), flush=True)
                 expect(opener).to_be_focused()
                 expect(form).to_be_visible()
                 metrics = page.evaluate("""() => {
