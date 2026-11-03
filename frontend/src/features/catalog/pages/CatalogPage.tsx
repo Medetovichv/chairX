@@ -130,7 +130,7 @@ export function CatalogPage() {
               {data.items.map(model=><tr key={model.id}
                 className="entity-clickable-row group transition-colors hover:bg-[#f3f8fa]">
                 <td className="px-5 py-4 font-semibold text-[#416c82]">
-                  <Link className="entity-stretched-link hover:underline"
+                  <Link className="entity-stretched-link [overflow-wrap:anywhere] hover:underline"
                     to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link>
                 </td>
                 <td className="px-5 py-4 text-slate-600">{model.category || '—'}</td>
@@ -150,7 +150,7 @@ export function CatalogPage() {
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-[#416c82]"><Link className="entity-stretched-link"
                 to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link></h3>
-              <p className="mt-1 text-sm text-slate-500">{model.category || 'Категория не указана'}</p>
+              <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">{model.category || 'Категория не указана'}</p>
             </div>
             <StatusBadge tone={model.active?'success':'neutral'}>{model.active?'Активен':'Неактивен'}</StatusBadge>
           </article>)}
