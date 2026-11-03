@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { Package, Plus, Search, X } from 'lucide-react';
+import { ArrowUpRight, Package, Plus, Search, X } from 'lucide-react';
+import { CatalogWorkspaceOverview } from '../components/CatalogWorkspaceOverview';
 import { useAuth } from '../../../features/auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { EmptyState } from '../../../shared/components/EmptyState';
@@ -58,21 +59,22 @@ export function CatalogPage() {
     setFilters({ search: '', category: '', active: null });
     setPage(0);
   };
-  return <div className="space-y-5 rounded-[24px] bg-[#e9eef0] p-3 text-[#182d38] sm:space-y-6 sm:p-6">
+  return <div className="space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title={creating ? 'Новая модель кресла' : 'Каталог товаров'}
       description={creating ? 'Сначала создайте модель, затем добавьте цвета и артикулы в её карточке.' :
         'Модели кресел, цвета, артикулы и цены — без фотографий.'}
       action={canManage && !creating ? <Button type="button" disabled={creating}
-        className="rounded-full bg-[#182d38] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}>
+        className="min-h-11 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]" onClick={() => setCreating(true)}>
         <Plus className="size-4" aria-hidden="true" />Создать товар
       </Button> : undefined}/>
     {creating && canManage && <ProductForm onCancel={() => setCreating(false)}
       onSave={async input => { await create.mutateAsync(input); }}/>}
     {!creating && <>
+    {data && <CatalogWorkspaceOverview page={data}/>}
     <section aria-label="Фильтры каталога"
-      className="space-y-4 rounded-[20px] border border-[#e3e9ee] bg-white p-4 sm:p-6">
+      className="space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Модели кресел</h3>
+        <h2 className="flex items-center gap-2 text-base font-bold tracking-tight text-[#182d38]"><Search className="size-4 text-[#267f79]" aria-hidden="true"/>Поиск и фильтры</h2>
         {data && <span className="rounded-full bg-[#eaf2f6] px-3 py-1.5 text-sm font-semibold tabular-nums text-[#416c82]">
           Найдено: {data.totalElements}
         </span>}
@@ -119,18 +121,18 @@ export function CatalogPage() {
           'Здесь появятся модели после добавления первого товара.'}
         action={hasFilters ? <Button variant="outline" onClick={reset}>Сбросить фильтры</Button> :
           canManage ? <Button disabled={creating} onClick={()=>setCreating(true)}>Создать товар</Button> : undefined}/> :
-      data ? <section aria-label="Список моделей" className="overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white">
+      data ? <section aria-label="Список моделей" className="overflow-hidden rounded-2xl border border-[#dfe7eb] bg-white">
         <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left text-sm">
-            <thead className="bg-[#f2f6f8]"><tr>
+            <thead className="bg-[#f5f9f7]"><tr>
               {['Модель','Категория','Статус'].map(col=>
                 <th scope="col" key={col} className="px-5 py-3 font-semibold text-[#516977]">{col}</th>)}
             </tr></thead>
             <tbody className="divide-y divide-slate-100">
               {data.items.map(model=><tr key={model.id}
-                className="entity-clickable-row group transition-colors hover:bg-[#f3f8fa]">
-                <td className="px-5 py-4 font-semibold text-[#416c82]">
-                  <Link className="entity-stretched-link [overflow-wrap:anywhere] hover:underline"
+                className="entity-clickable-row group transition-colors hover:bg-[#f5faf8]">
+                <td className="px-5 py-4 font-bold text-[#236e66]">
+                  <Link className="entity-stretched-link [overflow-wrap:anywhere] hover:underline focus-visible:outline-2 focus-visible:outline-[#267f79]"
                     to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link>
                 </td>
                 <td className="px-5 py-4 text-slate-600">{model.category || '—'}</td>
@@ -141,18 +143,18 @@ export function CatalogPage() {
             </tbody>
           </table>
         </div>
-        <div className="divide-y divide-slate-100 md:hidden">
+        <div className="divide-y divide-[#eaf0f0] md:hidden">
           {data.items.map(model=><article key={model.id}
-            className="entity-clickable-row group space-y-3 p-4 transition-colors hover:bg-[#f3f8fa]">
+            className="entity-clickable-row group space-y-3 p-4 transition-colors hover:bg-[#f5faf8] sm:p-5">
             <div className="flex items-center justify-between gap-3">
-              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#eaf2f6] text-[#416c82]">
+              <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#e7f4ee] text-[#27756d]">
                 <Package className="size-5" aria-hidden="true"/>
               </span>
               <StatusBadge tone={model.active?'success':'neutral'}>{model.active?'Активен':'Неактивен'}</StatusBadge>
             </div>
             <div className="min-w-0">
-              <h3 className="font-semibold text-[#416c82]"><Link className="entity-stretched-link block break-all"
-                to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}</Link></h3>
+              <h3 className="font-bold text-[#236e66]"><Link className="entity-stretched-link flex items-center gap-2 break-words"
+                to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true"/></Link></h3>
               <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">{model.category || 'Категория не указана'}</p>
             </div>
           </article>)}
