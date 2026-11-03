@@ -594,6 +594,8 @@ describe('F07 creation and idempotent drafts',()=>{
     const posts=api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/customers'&&
       (init as RequestInit).method==='POST');
     expect(posts).toHaveLength(1);
+    expect(api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/sales/drafts'&&
+      (init as RequestInit).method==='POST')).toHaveLength(0);
   });
 
   it('can create draft with SALES_CREATE only but cannot read sale detail',async()=>{
