@@ -101,7 +101,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      payments.data.map(p=><PaymentLine key={p.id} payment={p} onChanged={refresh}
       canCancel={paymentCancel} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
    {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
-    allowed={paymentCreate} confirmBeforeSend={!handoverNow}
+    allowed={paymentCreate} confirmBeforeSend={handoverNow}
     title={handoverNow?'Оплатить и выдать кресла клиенту?':'Подтвердить полную оплату продажи?'}
     label={handoverNow?'Подтвердить оплату и выдачу':'Подтвердить оплату'}
     operationKey={p=>p.localOperationId}
