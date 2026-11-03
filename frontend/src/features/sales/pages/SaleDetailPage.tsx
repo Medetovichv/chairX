@@ -30,6 +30,7 @@ import { SaleCommentsPanel } from '../components/SaleCommentsPanel';
 import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../validation';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
+import {cancellationReasons,cancellationLabel,type SaleCancellationReason} from '../cancellation';
 
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
@@ -160,6 +161,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [draftUncertain,setDraftUncertain]=useState(false);
   const [submittedDraft,setSubmittedDraft]=useState<DraftInput|null>(null);
   const [action,setAction]=useState<Action|null>(null);
+  const [showCancelForm,setShowCancelForm]=useState(false);
+  const [cancelReason,setCancelReason]=useState<SaleCancellationReason|''>('');
+  const [cancelComment,setCancelComment]=useState('');
   const [unknownAction,setUnknownAction]=useState<Action|null>(null);
   const [busy,setBusy]=useState(false);
   const running=useRef(false);
@@ -252,6 +256,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     queryFn:()=>salesApi.history(sale.id,historyPage),
     enabled:hasPermission('SALES_READ'),
   });
+  const cancellationDetails=useQuery({queryKey:['sales','cancellation',sale.id],
+    queryFn:()=>salesApi.cancellationDetails(sale.id),
+    enabled:hasPermission('SALES_READ')&&sale.status==='CANCELLED',retry:false});
   const paymentRequired=sale.status==='FULFILLED'&&matched?.paymentStatus!=='PAID';
   const paymentStatus=matched?.paymentStatus==='PAID'?'Оплачено':
     matched?.paymentStatus==='UNPAID'?'Не оплачено':
@@ -302,7 +309,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     }finally{running.current=false;}
   }
   async function execute(value:Action) {
-    if(running.current||unknownAction)return;
+    if(running.current||unknownAction||value==='cancel'&&(!cancelReason||cancelComment.length>1000))return;
     running.current=true;setBusy(true);setError('');
     try {
       // Verify what the operator is actually approving. Another employee may
@@ -315,8 +322,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       }
       // A 200 is not assumed until the backend returns an authoritative SaleResponse.
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
-        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancel(sale.id));
+        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null}));
       await changed(next);
+      if(value==='cancel')await client.invalidateQueries({queryKey:['sales','cancellation',sale.id]});
       setNotice(value==='confirm'?'Заказ подтверждён.':
         value==='fulfill'?'Продажа выполнена.':'Заказ отменён.');
       setUnknownAction(null);
@@ -333,7 +341,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       client.setQueryData(salesKeys.detail(sale.id),result);
       const expected=unknownAction==='confirm'?'CONFIRMED':
         unknownAction==='fulfill'?'FULFILLED':'CANCELLED';
-      if(result.status===expected){
+      if(unknownAction!==null){
+        setError('Текущий статус не доказывает результат вашего запроса. Требуется сверка с аудитом; не повторяйте действие.');
+      }else if(result.status===expected){
         setNotice('Операция подтверждена актуальным статусом сервера.');
         setError('');setUnknownAction(null);
       }else{
@@ -543,9 +553,30 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       {canFulfill&&!unknownAction&&<Button disabled={busy}
         onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
       {canCancel&&!unknownAction&&<Button disabled={busy}
-        variant="outline" onClick={()=>setAction('cancel')}>Отменить заказ</Button>}
+        variant="outline" onClick={()=>setShowCancelForm(true)}>Отменить заказ</Button>}
     </div>
 
+          {showCancelForm&&canCancel&&<div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <label className="block space-y-1 text-sm font-semibold">Причина отмены *
+              <select aria-label="Причина отмены" value={cancelReason} required
+                onChange={e=>setCancelReason(e.target.value as SaleCancellationReason|'')}
+                className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3">
+                <option value="">Выберите причину</option>
+                {cancellationReasons.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+              </select>
+            </label>
+            <label className="block space-y-1 text-sm font-semibold">Комментарий (необязательно)
+              <textarea aria-label="Комментарий отмены" maxLength={1000} value={cancelComment}
+                onChange={e=>setCancelComment(e.target.value)}
+                className="min-h-20 w-full rounded-xl border border-slate-300 bg-white p-3"/>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button disabled={busy||!cancelReason} variant="destructive" onClick={()=>setAction('cancel')}>
+                Продолжить отмену
+              </Button>
+              <Button variant="outline" onClick={()=>setShowCancelForm(false)}>Не отменять</Button>
+            </div>
+          </div>}
           {!canManageDraft&&!canFulfill&&!canCancel&&
             <p className="text-xs text-slate-500">Действия зависят от статуса заказа и ваших прав.</p>}
         </section>
@@ -557,6 +588,16 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
             {paymentRequired?' Товар выдан, но финансовое закрытие заказа не завершено.':''}</p>
             {!hasPermission('PAYMENTS_CREATE')&&<p className="mt-2">Для регистрации поступления необходим доступ PAYMENTS_CREATE.</p>}
           </div>}
+        {sale.status==='CANCELLED'&&<section aria-label="Причина отмены заказа"
+          className="space-y-2 rounded-xl border border-[#dfe7eb] bg-white p-4 text-sm">
+          <h3 className="font-bold">Причина отмены</h3>
+          {cancellationDetails.isPending?<p>Загрузка причины…</p>:
+            cancellationDetails.isSuccess?<div>
+              <p>{cancellationLabel(cancellationDetails.data.reason)}</p>
+              {cancellationDetails.data.comment&&<p className="mt-1 whitespace-pre-wrap break-words text-slate-600">{cancellationDetails.data.comment}</p>}
+              <p className="mt-2 text-xs text-slate-500">Оформил: {cancellationDetails.data.cancelledBy} · {eventStamp(cancellationDetails.data.cancelledAt)}</p>
+            </div>:<p className="text-slate-600">Причина не сохранена для исторической отмены.</p>}
+        </section>}
         <SaleFinancialSection sale={sale}/>
       </aside>
     </div>
