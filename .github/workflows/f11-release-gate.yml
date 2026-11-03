@@ -7,6 +7,7 @@ on:
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/studio-ui-acceptance.py'
       - 'scripts/f11-operations-e2e.py'
+      - 'scripts/studio-populated-ui.py'
       - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
@@ -17,6 +18,7 @@ on:
       - '.github/workflows/f11-release-gate.yml'
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/f11-operations-e2e.py'
+      - 'scripts/studio-populated-ui.py'
       - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
@@ -179,6 +181,16 @@ jobs:
           source .env
           set +a
           python scripts/f11-operations-e2e.py
+      - name: Verify populated Studio layouts and quick-view drawers
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/studio-populated-ui.py
       - name: Upload purchase and settlement browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -186,6 +198,7 @@ jobs:
           name: issue-32-operations-browser-screenshots
           path: |
             artifacts/issue32-operations/
+            artifacts/studio-populated/
             artifacts/f13/
           if-no-files-found: ignore
           retention-days: 14
