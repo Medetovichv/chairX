@@ -575,7 +575,7 @@ describe('F06 receiving and idempotency',()=>{
     const {calls}=mockApi();
     renderAt('/purchases/receipts');
     expect(await screen.findByText('Ergo Comfort')).toBeInTheDocument();
-    expect(screen.getByText('Осталось принять')).toBeInTheDocument();
+    expect(within(screen.getByRole('region',{name:'Позиции к приёмке'})).getByText('Осталось принять')).toBeInTheDocument();
     expect(requests(calls,'/api/purchases/overview')).toHaveLength(0);
     expect(requests(calls,'/api/purchases/'+PID)).toHaveLength(0);
     expect(requests(calls,'/api/warehouses')).toHaveLength(0);
