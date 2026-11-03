@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
@@ -29,6 +29,21 @@ export function CustomerPicker({value,onChange,disabled=false}:{
   const [query,setQuery]=useState('');
   const [selected,setSelected]=useState<Customer|null>(null);
   const [creating,setCreating]=useState(false);
+  const dialogRef=useRef<HTMLElement>(null);
+  const createButtonRef=useRef<HTMLButtonElement>(null);
+  useEffect(()=>{
+    if(!creating)return;
+    const overlay=dialogRef.current?.parentElement;
+    const background=Array.from(document.body.children).filter(
+      (node):node is HTMLElement=>node instanceof HTMLElement&&node!==overlay);
+    const inertValues=background.map(node=>node.inert);
+    background.forEach(node=>{node.inert=true;});
+    dialogRef.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    return()=>{
+      background.forEach((node,index)=>{node.inert=inertValues[index]!;});
+      createButtonRef.current?.focus();
+    };
+  },[creating]);
   const [createBusy,setCreateBusy]=useState(false);
   const [phone,setPhone]=useState('');
   const [phoneBusy,setPhoneBusy]=useState(false);
@@ -98,7 +113,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 className="font-semibold">Клиент (необязательно для черновика)</h3>
       {canCreate && allowed && <Button type="button" variant="outline" size="sm"
-        disabled={disabled||creating} onClick={()=>setCreating(true)}>+ Новый клиент</Button>}
+        ref={createButtonRef} disabled={disabled||creating} onClick={()=>setCreating(true)}>+ Новый клиент</Button>}
     </div>
     {value && <div className="rounded-xl bg-indigo-50 p-3 text-sm">
       <p>Выбран: <strong>{picked?display(picked):'Загружаем клиента…'}</strong></p>
@@ -160,7 +175,21 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     </>}
     {creating&&canCreate&&allowed&&createPortal(
       <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40">
-        <aside role="dialog" aria-modal="true" aria-label="Новый клиент для продажи"
+        <aside ref={dialogRef} role="dialog" aria-modal="true" aria-label="Новый клиент для продажи"
+          onKeyDown={event=>{
+            if(event.key==='Escape'){
+              event.preventDefault();event.stopPropagation();
+              if(!createBusy)setCreating(false);
+            }
+            if(event.key==='Tab'){
+              const nodes=Array.from(event.currentTarget.querySelectorAll<HTMLElement>(
+                'button, a[href], input, select, textarea')).filter(node=>
+                  !node.hasAttribute('disabled')&&!node.closest('fieldset[disabled]'));
+              const first=nodes[0],last=nodes[nodes.length-1];
+              if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+              else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+            }
+          }}
           className="h-full w-full max-w-xl overflow-y-auto bg-white p-4 shadow-xl sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-3">
             <h3 className="text-lg font-bold">Создание клиента для заказа</h3>

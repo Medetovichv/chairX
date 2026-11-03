@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { createPortal } from 'react-dom';
+import { useQuickCreateFooterHost } from '../../../shared/components/QuickViewDrawer';
 import { useQuery } from '@tanstack/react-query';
 import { customersApi, customerKeys } from '../../customers/api';
 import { useAuth } from '../../auth/AuthProvider';
@@ -15,6 +17,8 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   onSave:(input:DraftInput)=>Promise<void>;onCancel?:()=>void;blocked?:boolean;
 }) {
   const {hasPermission}=useAuth();
+  const formId=useId();
+  const quickFooter=useQuickCreateFooterHost();
   const [customerId,setCustomerId]=useState<string|null>(initial?.customerId??defaultCustomerId);
   const [type,setType]=useState<FulfillmentType|null>(initial?.fulfillmentType??null);
   const [comment,setComment]=useState(initial?.comment??'');
@@ -101,7 +105,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const grandTotal=total===null||withDelivery&&deliveryAmount===null?null:
     total+(deliveryAmount??0n);
 
-  return <form aria-label={initial?'Редактирование черновика':'Новый черновик продажи'}
+  return <form id={formId} aria-label={initial?'Редактирование черновика':'Новый черновик продажи'}
     className="space-y-5" onSubmit={e=>void submit(e)}>
     <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3 text-xs font-semibold text-slate-600 [.quick-create_&]:hidden">
       <span>1. Клиент</span><span aria-hidden="true">→</span>
@@ -112,11 +116,11 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
     <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(17rem,20rem)] [.quick-create_&]:!grid-cols-1">
       <div className="min-w-0 space-y-5">
         <section aria-label="Этап 1. Клиент" className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
-          <h3 className="text-lg font-bold text-slate-950">1. Клиент</h3>
+          <h3 className="text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">1. </span>Клиент</h3>
           <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
         </section>
         <section aria-label="Этап 2. Товары" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
-          <h3 className="mb-4 text-lg font-bold text-slate-950">2. Выбор кресел</h3>
+          <h3 className="mb-4 text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">2. </span>Выбор кресел</h3>
           <SaleItemsEditor rows={rows} onChange={setRows} disabled={saving||blocked}/>
           {(!hasPermission('CATALOG_READ')||!hasPermission('INVENTORY_READ'))&&
             <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
@@ -125,7 +129,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
             </p>}
         </section>
         <section aria-label="Этап 3. Получение" className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-          <h3 className="text-lg font-bold text-slate-950">3. Получение заказа</h3>
+          <h3 className="text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">3. </span>Получение заказа</h3>
           <label className="block space-y-2 text-sm font-semibold">Способ получения
             <select aria-label="Способ получения" disabled={saving||blocked} value={type??''}
               onChange={e=>setType(e.target.value?e.target.value as FulfillmentType:null)}
@@ -183,7 +187,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           </label>
         </section>
       </div>
-      <aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:static [.quick-create_&]:bottom-auto [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-none">
+      {!quickFooter&&<aside aria-label="Этап 4. Итог заказа" className="sticky bottom-0 z-10 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm [.quick-create_&]:static [.quick-create_&]:bottom-auto [.quick-create_&]:border-t-2 [.quick-create_&]:shadow-none">
         <h3 className="text-lg font-bold text-slate-950">4. Итог заказа</h3>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-slate-500">Клиент</dt>
@@ -216,7 +220,29 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
         </Button>
         {onCancel&&<Button className="w-full" type="button" variant="outline" disabled={saving||blocked}
           onClick={onCancel}>Отмена</Button>}
-      </aside>
+      </aside>}
     </div>
+    {quickFooter&&createPortal(<div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div className="min-w-0">
+          <span className="block text-xs font-medium text-[#516977]">
+            {rows.length} позиций · {quantity} кресел{type?' · '+fulfillmentNames[type]:''}
+          </span>
+          <span className="block text-xs text-[#516977]">Итог с учётом доставки</span>
+        </div>
+        <strong className="text-lg font-extrabold text-[#182d38]">
+          {grandTotal===null?'Уточните цену':money(grandTotal.toString())}
+        </strong>
+      </div>
+      {error&&<p role="alert" className="rounded-lg bg-red-50 p-2 text-xs text-red-800">{error}</p>}
+      {blocked&&<p role="alert" className="rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
+        Результат предыдущего запроса неизвестен. Повторное создание заблокировано.
+      </p>}
+      <Button className="w-full" form={formId} type="submit" disabled={saving||blocked}>
+        {saving?'Сохраняем…':withDelivery?'Подтвердить продажу и доставку':'Сохранить черновик'}
+      </Button>
+      {onCancel&&<Button className="w-full" type="button" variant="outline" disabled={saving||blocked}
+        onClick={onCancel}>Отмена</Button>}
+    </div>,quickFooter)}
   </form>;
 }

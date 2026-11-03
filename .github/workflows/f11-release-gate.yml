@@ -10,6 +10,7 @@ on:
       - 'scripts/studio-production-vitals.py'
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
+      - 'scripts/studio-quickcreate-e2e.py'
       - 'scripts/studio-stress-ui.py'
       - 'scripts/studio-resilience-ui.py'
       - 'scripts/f13-admin-e2e.py'
@@ -23,6 +24,7 @@ on:
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
+      - 'scripts/studio-quickcreate-e2e.py'
       - 'scripts/studio-stress-ui.py'
       - 'scripts/studio-resilience-ui.py'
       - 'scripts/f13-admin-e2e.py'
@@ -271,6 +273,7 @@ jobs:
           source .env
           set +a
           python scripts/studio-populated-ui.py
+          python scripts/studio-quickcreate-e2e.py
       - name: Studio stress UI long labels, paging, and API timing
         shell: bash
         env:
@@ -299,6 +302,7 @@ jobs:
           path: |
             artifacts/issue32-operations/
             artifacts/studio-populated/
+            artifacts/studio-quickcreate/
             artifacts/studio-stress/
             artifacts/studio-resilience/
             artifacts/f13/

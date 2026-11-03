@@ -305,6 +305,23 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 
+  it('keeps quick-create checkout visible outside scroll and preserves real form submit',async()=>{
+    const api=mockBackend({sales:[]});
+    renderAt();
+    await userEvent.setup().click(await screen.findByRole('link',{name:'Новая продажа'}));
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    const scroll=within(drawer).getByLabelText('Прокручиваемое содержимое панели');
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    expect(scroll.contains(footer)).toBe(false);
+    const save=within(footer).getByRole('button',{name:'Сохранить черновик'});
+    expect(save.getAttribute('form')).toBe(form.id);
+    expect(within(drawer).queryByRole('button',{name:'Предыдущая запись'})).not.toBeInTheDocument();
+    await userEvent.setup().click(save);
+    expect(api.count().creates).toBe(1);
+    expect(await within(drawer).findByRole('heading',{name:/Продажа/})).toBeInTheDocument();
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
@@ -537,6 +554,27 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(JSON.parse(String((post?.[1] as RequestInit).body))).toMatchObject({
       customerId:NEW_CUSTOMER_ID,comment:'Самовывоз по телефону'});
   });
+  it('contains customer dialog focus and Escape without closing the sale drawer',async()=>{
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const saleForm=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    const opener=within(saleForm).getByRole('button',{name:'+ Новый клиент'});
+    const user=userEvent.setup();
+    // Opening must restore its explicit trigger even if disabling it blurred focus.
+    within(saleForm).getByRole('textbox',{name:'Комментарий продажи'}).focus();
+    fireEvent.click(opener);
+    const dialog=screen.getByRole('dialog',{name:'Новый клиент для продажи'});
+    const close=within(dialog).getByRole('button',{name:'Закрыть'});
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close,{key:'Tab',shiftKey:true});
+    const last=within(dialog).getByRole('button',{name:'Отмена'});
+    expect(last).toHaveFocus();
+    fireEvent.keyDown(last,{key:'Tab'});expect(close).toHaveFocus();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog',{name:'Новый клиент для продажи'})).toBeNull();
+    expect(screen.getByRole('form',{name:'Новый черновик продажи'})).toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
   it('creates a customer without leaving the sale form or losing entered data',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');
@@ -558,6 +596,8 @@ describe('F07 creation and idempotent drafts',()=>{
     const posts=api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/customers'&&
       (init as RequestInit).method==='POST');
     expect(posts).toHaveLength(1);
+    expect(api.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/sales/drafts'&&
+      (init as RequestInit).method==='POST')).toHaveLength(0);
   });
 
   it('can create draft with SALES_CREATE only but cannot read sale detail',async()=>{

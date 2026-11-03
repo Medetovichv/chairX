@@ -108,7 +108,7 @@ export function SalesPage() {
 
   const visibleIds = (listing.data?.items ?? []).map(record => record.id);
   const selectedIndex = visibleIds.indexOf(selected ?? '');
-  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
+  return <div className="flex min-w-0 items-start gap-4"><div onClickCapture={interceptDetail} className="@container/workspace min-w-0 flex-1 space-y-5 text-[#182d38] sm:space-y-6">
     <PageHeader title="Продажи" description="Заказы, резервирование товара, выдача и доставка."
       action={create ? <Button asChild className="min-h-12 rounded-xl bg-[#172f3c] px-5 text-white hover:bg-[#305063]">
         <Link to="/sales/new"><Plus className="size-4" aria-hidden="true" />Новая продажа</Link>
@@ -129,38 +129,38 @@ export function SalesPage() {
     <section aria-label="Фильтры продаж" className="space-y-5 rounded-[24px] border border-[#e0e8eb] bg-white p-5 sm:p-7">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#182d38]"><SlidersHorizontal className="size-5 text-[#267f79]" aria-hidden="true" />{history?'История продаж':'Сегодня и незавершённые заказы'}</h3>
-        <div className="flex items-center gap-1 rounded-xl bg-[#edf5f3] p-1" aria-label="Режим отображения продаж">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-1 rounded-xl bg-[#edf5f3] p-1 @min-[520px]/workspace:w-auto" aria-label="Режим отображения продаж">
           <Button size="sm" aria-pressed={view === 'kanban'}
             variant={view === 'kanban' ? 'default' : 'ghost'}
-            className={view === 'kanban' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
+            className={view === 'kanban' ? 'flex-1 rounded-lg bg-[#172f3c] text-white hover:bg-[#305063] @min-[520px]/workspace:flex-none' : 'flex-1 rounded-lg @min-[520px]/workspace:flex-none'}
             onClick={() => setView('kanban')}><LayoutGrid className="size-4" aria-hidden="true" />Канбан</Button>
           <Button size="sm" aria-pressed={view === 'table'}
             variant={view === 'table' ? 'default' : 'ghost'}
-            className={view === 'table' ? 'rounded-lg bg-[#172f3c] text-white hover:bg-[#305063]' : 'rounded-lg'}
+            className={view === 'table' ? 'flex-1 rounded-lg bg-[#172f3c] text-white hover:bg-[#305063] @min-[520px]/workspace:flex-none' : 'flex-1 rounded-lg @min-[520px]/workspace:flex-none'}
             onClick={() => setView('table')}><List className="size-4" aria-hidden="true" />Таблица</Button>
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
-        <label className="space-y-1 text-sm font-semibold text-slate-700">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 @min-[480px]/workspace:grid-cols-2 @min-[900px]/workspace:grid-cols-[minmax(200px,1fr)_minmax(160px,0.65fr)_minmax(155px,0.6fr)_minmax(155px,0.6fr)]">
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">
           <span className="inline-flex items-center gap-2"><Search className="size-4" aria-hidden="true" />Поиск заказа</span>
           <Input type="search" aria-label="Поиск по номеру заказа" maxLength={100}
-            placeholder="По номеру заказа, например CHX-..."
+            className="min-w-0" placeholder="По номеру заказа, например CHX-..."
             value={search} onChange={e => { change('number', e.target.value); }}/>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">Статус
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">Статус
           <select aria-label="Фильтр статуса продажи" value={filters.status}
             onChange={e => change('status', e.target.value as SaleStatus | '')}
-            className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
+            className="min-h-11 min-w-0 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-sm text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]">
             <option value="">Все статусы</option>
             {saleStatuses.map(s => <option value={s} key={s}>{saleStatusNames[s]}</option>)}
           </select>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">С даты
-          <Input type="date" aria-label="Продажи с даты" value={filters.from}
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">С даты
+          <Input type="date" className="min-w-0" aria-label="Продажи с даты" value={filters.from}
             onChange={e => change('from', e.target.value)}/>
         </label>
-        <label className="space-y-1 text-sm font-semibold text-slate-700">По дату
-          <Input type="date" aria-label="Продажи по дату" value={filters.to}
+        <label className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">По дату
+          <Input type="date" className="min-w-0" aria-label="Продажи по дату" value={filters.to}
             onChange={e => change('to', e.target.value)}/>
         </label>
       </div>

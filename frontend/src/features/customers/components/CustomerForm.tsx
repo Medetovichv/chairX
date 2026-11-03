@@ -44,6 +44,8 @@ export function CustomerForm({ initial, onSave, onCancel }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Portalled customer forms must not submit an enclosing sale form.
+    event.stopPropagation();
     if (pending.current) return;
     const problem = validateCustomer(values);
     if (problem) { setError(problem); return; }

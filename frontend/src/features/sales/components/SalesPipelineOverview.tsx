@@ -24,7 +24,7 @@ export function SalesPipelineOverview({ drafts, confirmed, completed, draftsFail
   ];
   const pending=entries[1]!;
   return <section aria-label="Текущие показатели продаж"
-    className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
+    className="grid min-w-0 gap-3 @min-[640px]/workspace:grid-cols-[minmax(0,1.15fr)_minmax(0,.85fr)]">
     <Link to={'/sales?status='+pending.status+'&operational=true'}
       className="group relative isolate flex min-h-50 flex-col justify-between overflow-hidden rounded-[24px] bg-[#172f3c] p-6 text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#267f79] sm:p-7">
       <div aria-hidden="true" className="pointer-events-none absolute -right-12 -top-22 size-64 rounded-full border-[38px] border-[#32636a]/35" />
@@ -44,7 +44,7 @@ export function SalesPipelineOverview({ drafts, confirmed, completed, draftsFail
         <p className="mt-3 text-sm text-[#c4d9dc]" role={pending.failed ? 'alert' : undefined}>{pending.failed ? 'Не удалось загрузить показатель. Откройте список для проверки.' : pending.description}</p>
       </div>
     </Link>
-    <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+    <div className="grid min-w-0 gap-3 @min-[480px]/workspace:grid-cols-2 @min-[640px]/workspace:grid-cols-1 @min-[1000px]/workspace:grid-cols-2">
       {entries.filter(item => item.status !== pending.status).map(item => {
         const Icon = item.status === 'DRAFT' ? ShoppingCart : CheckCircle2;
         return <Link key={item.status} to={'/sales?status='+item.status+'&operational=true'}
