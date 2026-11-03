@@ -8,6 +8,7 @@ import { saleStatuses, saleStatusNames, saleDate, money, fulfillmentNames } from
 import { allowedKanbanTransitions, transitionForTarget } from '../kanbanTransitions';
 import { Button } from '../../../shared/ui/button';
 import { displaySaleNumber } from '../../../shared/lib/format';
+import { deliveryStatusNames } from '../../deliveries/validation';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import type { SaleFilters, SaleStatus, SaleSummary } from '../types';
@@ -116,7 +117,7 @@ function KanbanColumn({ status, filters, dragged, onStart, onEnd, onDropMove, on
           <div className="flex flex-wrap items-center justify-between gap-2">
             <PaymentLabel value={s.paymentStatus} />
             <span className="max-w-full truncate text-xs text-slate-600">
-              {s.deliveryStatus || (s.fulfillmentType ? fulfillmentNames[s.fulfillmentType] : 'Способ получения не выбран')}
+              {s.deliveryStatus ? (deliveryStatusNames[s.deliveryStatus as keyof typeof deliveryStatusNames] ?? s.deliveryStatus) : (s.fulfillmentType ? fulfillmentNames[s.fulfillmentType] : 'Способ получения не выбран')}
             </span>
           </div>
           {s.plannedDeliveryDate && <p className="text-xs text-slate-500">План доставки: {s.plannedDeliveryDate}</p>}
