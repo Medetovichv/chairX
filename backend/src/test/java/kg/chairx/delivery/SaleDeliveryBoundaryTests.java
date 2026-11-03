@@ -183,6 +183,53 @@ class SaleDeliveryBoundaryTests {
     }
 
     @Test
+    void differentOrdersReuseOneCustomerAcrossKyrgyzPhoneFormats() {
+        var firstKey=UUID.randomUUID();
+        var secondKey=UUID.randomUUID();
+        var item=List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("8500")));
+        var first=saleWithDelivery.create(new CreateSaleWithDeliveryRequest(
+                new CreateDraftSaleRequest(firstKey,null,FulfillmentType.CITY_DELIVERY,item,null),
+                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Клиент"," +996 (555) 123-456 ","Улица 1","Бишкек",
+                        BigDecimal.ZERO,null,null,null,null)));
+        generatedCustomer=first.customerId();
+        var second=saleWithDelivery.create(new CreateSaleWithDeliveryRequest(
+                new CreateDraftSaleRequest(secondKey,null,FulfillmentType.CITY_DELIVERY,item,null),
+                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Клиент","0555 123 456","Улица 2","Бишкек",
+                        BigDecimal.ZERO,null,null,null,null)));
+        assertThat(first.id()).isNotEqualTo(second.id());
+        assertThat(second.customerId()).isEqualTo(generatedCustomer);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM customers
+                WHERE id=? OR phone='0555 123 456'
+                """,Integer.class,generatedCustomer)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM sales WHERE customer_id=?
+                """,Integer.class,generatedCustomer)).isEqualTo(2);
+    }
+
+    @Test
+    void ambiguousExistingCustomerPhoneNeverLinksToRandomPerson() {
+        UUID other=UUID.randomUUID();
+        generatedCustomer=other;
+        jdbc.update("""
+                INSERT INTO customers(id,full_name,phone,active,created_at,updated_at)
+                VALUES (?,'Другой клиент','0555 000 001',TRUE,now(),now())
+                """,other);
+        var request=new CreateSaleWithDeliveryRequest(
+                new CreateDraftSaleRequest(UUID.randomUUID(),null,FulfillmentType.CITY_DELIVERY,
+                        List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("8500"))),null),
+                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                        "Получатель","996555000001","Улица","Бишкек",
+                        BigDecimal.ZERO,null,null,null,null));
+        assertThatThrownBy(()->saleWithDelivery.create(request))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        e->assertThat(e.getCode()).isEqualTo("CUSTOMER_PHONE_AMBIGUOUS"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM sales",Integer.class)).isZero();
+    }
+
+    @Test
     void cityDeliverySaleCannotBeCancelledDirectly() {
         var sale = createSale(
                 FulfillmentType.CITY_DELIVERY,
