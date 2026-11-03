@@ -430,7 +430,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   const api=mockBackend({defects:[defect()]});
   renderAt('/returns/defects');
   expect(await screen.findByRole('region',{name:'Список дефектов'})).toBeInTheDocument();
-  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  await userEvent.setup().click(screen.getByRole('button',{name:'Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   expect(screen.queryByRole('region',{name:'Список дефектов'})).not.toBeInTheDocument();
   expect(within(form).queryByRole('textbox',{name:/UUID/})).not.toBeInTheDocument();
@@ -513,7 +513,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   access.permissions.push('CATALOG_READ');
   const a=mockBackend({defects:[]});renderAt('/returns/defects');
   await screen.findByRole('heading',{name:'Брак',level:2});
-  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  await userEvent.setup().click(screen.getByRole('button',{name:'Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),{target:{value:SALE}});
@@ -536,7 +536,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   const a=mockBackend({defects:[],afterDefectNetwork:true});
   const first=renderAt('/returns/defects');
   await screen.findByRole('heading',{name:'Брак',level:2});
-  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  await userEvent.setup().click(screen.getByRole('button',{name:'Зарегистрировать брак'}));
   const form=screen.getByRole('form',{name:'Регистрация дефекта'});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад брака'}),{target:{value:WH}});
   fireEvent.change(await within(form).findByRole('combobox',{name:'Модель кресла'}),
@@ -550,7 +550,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
   first.unmount();
   renderAt('/returns/defects');
   await screen.findByRole('heading',{name:'Брак',level:2});
-  await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+  await userEvent.setup().click(screen.getByRole('button',{name:'Зарегистрировать брак'}));
   expect(screen.getByRole('button',{name:'Зарегистрировать брак'})).toBeDisabled();
   expect(a.count.defectPOST).toBe(1);
  });
@@ -599,7 +599,7 @@ describe('F09 defect states, permissions and stock boundaries',()=>{
    expect(await screen.findByRole('heading',{name:'Брак',level:2})).toBeInTheDocument();
    expect(screen.getByText(/Для списка и карточек дефектов требуется DEFECTS_READ/)).toBeInTheDocument();
    expect(calls(a,'/api/defects?')).toHaveLength(0);
-   await userEvent.setup().click(screen.getByRole('button',{name:'+ Зарегистрировать брак'}));
+   await userEvent.setup().click(screen.getByRole('button',{name:'Зарегистрировать брак'}));
    const form=screen.getByRole('form',{name:'Регистрация дефекта'});
    expect(within(form).getByRole('alert')).toHaveTextContent('CATALOG_READ');
    expect(within(form).queryByRole('textbox',{name:/UUID/})).not.toBeInTheDocument();
