@@ -13,6 +13,7 @@ import { saleStatusNames, fulfillmentNames, money, integerSom } from '../../feat
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
 import { deliveryApi, deliveryKeys } from '../../features/deliveries/api';
+import { deliveryStatusNames } from '../../features/deliveries/validation';
 import { salesApi, salesKeys } from '../../features/sales/api';
 import { ErrorState } from './ErrorState';
 import { LoadingState } from './LoadingState';
@@ -182,7 +183,7 @@ export function CustomerQuickView({ id }: { id: string }) {
       {history.isPending ? <LoadingState label="Загружаем заказы…"/> :
         history.isError ? <p role="status">История недоступна.</p> :
         history.data.items.length ? <ul className="space-y-2">{history.data.items.map(s =>
-          <li key={s.id}><Link className="text-blue-700 underline" to={'/sales/' + encodeURIComponent(s.id)}>{s.saleNumber}</Link> · {s.status}</li>)}</ul> :
+          <li key={s.id}><Link className="text-blue-700 underline" to={'/sales/' + encodeURIComponent(s.id)}>{s.saleNumber}</Link> · {saleStatusNames[s.status as keyof typeof saleStatusNames] ?? s.status}</li>)}</ul> :
         <p className="text-sm text-slate-500">Заказов нет.</p>}
     </section>}
     {tab === 'actions' && hasPermission('SALES_CREATE') && c.active && <Link className="inline-flex rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white"
@@ -200,7 +201,7 @@ export function DeliveryQuickView({ id }: { id: string }) {
   return <div className="space-y-5">
     <Tabs value={tab} onChange={setTab}/>
     {tab === 'overview' && <Section>
-      <Field label="Статус" value={d.status}/>
+      <Field label="Статус" value={deliveryStatusNames[d.status]}/>
       <Field label="Получатель" value={d.recipientName}/>
       <Field label="Телефон" value={d.recipientPhone}/>
       <Field label="Город / регион" value={d.cityRegion}/>
