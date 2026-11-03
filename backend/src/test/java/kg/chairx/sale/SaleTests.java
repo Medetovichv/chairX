@@ -761,8 +761,10 @@ class SaleTests {
         assertThat(details.comment()).isEqualTo("Клиент отказался после согласования");
         assertThat(details.cancelledBy()).isEqualTo("sale-test-user");
         assertThat(details.cancelledAt()).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT cancellation_comment FROM sales WHERE id=?",
+                String.class,sale.id())).isEqualTo("Клиент отказался после согласования");
         assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM sale_cancellation_details WHERE sale_id=?",
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
                 Integer.class,sale.id())).isEqualTo(1);
         assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
                 new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER,null)))
@@ -778,7 +780,7 @@ class SaleTests {
                 new CancelSaleRequest(null,null)))
                 .isInstanceOf(SaleRuleViolationException.class);
         assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM sale_cancellation_details WHERE sale_id=?",
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
                 Integer.class,sale.id())).isZero();
         payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,
                 "Оплата перед попыткой отмены"));
@@ -788,7 +790,7 @@ class SaleTests {
         assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
         assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(1);
         assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM sale_cancellation_details WHERE sale_id=?",
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
                 Integer.class,sale.id())).isZero();
     }
 
@@ -1402,7 +1404,7 @@ class SaleTests {
         assertTestDatabase();
 
         jdbc.execute("""
-                truncate table sale_cancellation_details, sale_comments,
+                truncate table sale_comments,
                     inventory_transfer_cost_origins,
                     inventory_transfers,
                     inventory_cost_allocations,
