@@ -115,6 +115,12 @@ def main():
                     "heading", name=heading,
                     exact=route != "/"
                 ).first.wait_for(timeout=30000)
+                if route == "/":
+                    hero=page.get_by_role("region", name="Обзор бизнеса")
+                    hero.wait_for(state="visible",timeout=30000)
+                    hero.get_by_role("heading", name="Контролируйте работу бизнеса в одном месте").wait_for()
+                    page.get_by_role("region", name="Заказы за 7 дней").wait_for()
+                    page.get_by_role("link", name="Новая продажа").first.wait_for()
                 for width in WIDTHS:
                     page.set_viewport_size({"width": width, "height": 900})
                     page.wait_for_timeout(150)

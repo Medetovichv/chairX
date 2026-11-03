@@ -19,11 +19,11 @@ export function AppLayout() {
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header title={routeLabel(pathname)} onOpenMenu={() => setMobileOpen(true)} />
-        <main id="main-content" className="mx-auto w-full max-w-[1600px] min-w-0 flex-1 px-4 py-5 sm:px-7 sm:py-7 lg:px-8 lg:py-8">
+        <main id="main-content" className="mx-auto w-full max-w-[1700px] min-w-0 flex-1 px-3 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
           <Breadcrumbs />
           <Outlet />
         </main>
-        <footer className="px-4 py-5 text-center text-xs text-slate-400">
+        <footer className="px-4 py-5 text-center text-xs text-[#607783]">
           ChairX · Кыргызстан · KGS
         </footer>
       </div>

@@ -56,7 +56,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
       <button
         type="button"
         aria-label="Закрыть меню"
-        className="absolute inset-0 w-full bg-slate-900/50"
+        className="absolute inset-0 w-full bg-[#071a25]/65"
         onClick={onClose}
       />
       <aside
@@ -64,7 +64,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
         role="dialog"
         aria-modal="true"
         aria-label="Мобильная навигация"
-        className="relative flex h-full w-[min(19rem,calc(100vw-3rem))] flex-col bg-white shadow-2xl"
+        className="relative flex h-full w-[min(19rem,calc(100vw-3rem))] flex-col bg-[#172f3c] text-white shadow-2xl"
       >
         <div className="relative">
           <SidebarBrand />
@@ -73,7 +73,7 @@ export function MobileNavigation({ open, onClose }: MobileNavigationProps) {
             aria-label="Закрыть боковое меню"
             variant="ghost"
             size="icon"
-            className="absolute top-4 right-2"
+            className="absolute top-4 right-2 text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white"
             onClick={onClose}
           >
             <X className="size-5" aria-hidden="true" />
