@@ -26,7 +26,7 @@ export function PurchasePaymentOverview({ summary }: { summary: PaymentSummary }
     </div>
     <p className="flex items-start gap-2 text-xs text-[#516977]">
       <BadgeCheck className="mt-0.5 size-4 shrink-0 text-[#286e66]" aria-hidden="true"/>
-      Суммы не включают взаимные перерасчёты и отображаются отдельно для поставщика и карго.
+      Обязательства поставщику и по карго показаны отдельно, без пересчёта сумм на клиенте.
     </p>
   </section>;
 }
