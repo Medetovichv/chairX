@@ -210,6 +210,56 @@ class SaleDeliveryBoundaryTests {
     }
 
     @Test
+    void concurrentSaleDeliveryRequestsWithSameNumberCreateOneCustomer() throws Exception {
+        var worker=java.util.concurrent.Executors.newFixedThreadPool(2);
+        var start=new java.util.concurrent.CountDownLatch(1);
+        var ready=new java.util.concurrent.CountDownLatch(2);
+        java.util.function.Function<UUID,java.util.concurrent.Callable<kg.chairx.sale.api.SaleResponse>> task =
+                key -> () -> {
+                    SecurityContextHolder.getContext().setAuthentication(
+                            UsernamePasswordAuthenticationToken.authenticated(
+                                    "sale-delivery-boundary-test-user",null,List.of()));
+                    try {
+                        ready.countDown();
+                        if(!start.await(10,java.util.concurrent.TimeUnit.SECONDS))
+                            throw new IllegalStateException("Fixture start timeout");
+                        return saleWithDelivery.create(new CreateSaleWithDeliveryRequest(
+                                new CreateDraftSaleRequest(key,null,FulfillmentType.CITY_DELIVERY,
+                                        List.of(new CreateSaleItemRequest(variant,home,1,new BigDecimal("8500"))),null),
+                                new CreateSaleWithDeliveryRequest.DeliveryDetails(
+                                        "Покупатель","+996 777 123 456","Адрес","Бишкек",
+                                        BigDecimal.ZERO,null,null,null,null)));
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                    }
+                };
+        try {
+            var one=worker.submit(task.apply(UUID.randomUUID()));
+            var two=worker.submit(task.apply(UUID.randomUUID()));
+            assertThat(ready.await(10,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            var first=one.get(30,java.util.concurrent.TimeUnit.SECONDS);
+            var second=two.get(30,java.util.concurrent.TimeUnit.SECONDS);
+            generatedCustomer=first.customerId();
+            assertThat(second.customerId()).isEqualTo(generatedCustomer);
+            assertThat(first.id()).isNotEqualTo(second.id());
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM customers
+                    WHERE regexp_replace(coalesce(phone,''),'[^0-9]','','g')='996777123456'
+                    """,Integer.class)).isEqualTo(1);
+        } finally {
+            start.countDown();
+            worker.shutdownNow();
+            if(generatedCustomer==null) {
+                var candidates=jdbc.queryForList("""
+                        SELECT id FROM customers WHERE phone='+996 777 123 456'
+                        """,UUID.class);
+                if(candidates.size()==1)generatedCustomer=candidates.getFirst();
+            }
+        }
+    }
+
+    @Test
     void ambiguousExistingCustomerPhoneNeverLinksToRandomPerson() {
         UUID other=UUID.randomUUID();
         generatedCustomer=other;
