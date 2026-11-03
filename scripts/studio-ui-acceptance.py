@@ -58,14 +58,26 @@ def test_mobile_menu(page):
     assert close.evaluate("(el) => el === document.activeElement"), (
         "Initial focus did not enter mobile menu"
     )
+    modal.evaluate("""dialog => {
+        const nodes = [...dialog.querySelectorAll(
+            'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )].filter(el => el.getClientRects().length);
+        nodes[0].focus();
+    }""")
     page.keyboard.press("Shift+Tab")
-    assert modal.evaluate("(el) => el.contains(document.activeElement)"), (
-        "Shift+Tab escaped the mobile dialog"
-    )
+    assert modal.evaluate("""dialog => {
+        const nodes = [...dialog.querySelectorAll(
+            'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )].filter(el => el.getClientRects().length);
+        return document.activeElement === nodes[nodes.length - 1];
+    }"""), "Shift+Tab did not wrap to final mobile-menu control"
     page.keyboard.press("Tab")
-    assert modal.evaluate("(el) => el.contains(document.activeElement)"), (
-        "Tab escaped the mobile dialog"
-    )
+    assert modal.evaluate("""dialog => {
+        const nodes = [...dialog.querySelectorAll(
+            'button:not([disabled]), a[href], input:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )].filter(el => el.getClientRects().length);
+        return document.activeElement === nodes[0];
+    }"""), "Tab did not wrap back to first mobile-menu control"
     page.screenshot(path=str(ART / "mobile-menu-375.png"), full_page=True)
     page.keyboard.press("Escape")
     modal.wait_for(state="detached")
