@@ -101,7 +101,9 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
      payments.data.map(p=><PaymentLine key={p.id} payment={p} onChanged={refresh}
       canCancel={paymentCancel} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
    {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
-    allowed={paymentCreate} title="Подтвердить полную оплату продажи?" label="Подтвердить оплату"
+    allowed={paymentCreate}
+    title={handoverNow?'Оплатить и выдать кресла клиенту?':'Подтвердить полную оплату продажи?'}
+    label={handoverNow?'Подтвердить оплату и выдачу':'Подтвердить оплату'}
     operationKey={p=>p.localOperationId}
     meta={p=>({method:p.method,channel:p.channel,saleId:p.saleId,handoverNow:p.handoverNow})}
     post={async p=>{const {localOperationId:_unused,handoverNow:alsoHandOver,...body}=p;void _unused;
