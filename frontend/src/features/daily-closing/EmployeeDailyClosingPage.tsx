@@ -1,4 +1,5 @@
 import {useState,type FormEvent} from 'react';
+import {EmployeeClosingMetrics} from './EmployeeClosingMetrics';
 import {Link} from 'react-router';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '../auth/AuthProvider';
@@ -96,7 +97,7 @@ export function EmployeeDailyClosingPage(){
    }else setError('Закрытие отклонено сервером. Проверьте права, дату и ожидаемые суммы.');
   }finally{setPending(false);}
  }
- return <div className="space-y-5 rounded-[24px] bg-studio-canvas p-3 pb-6 text-studio-ink sm:p-6">
+ return <div className="space-y-5 text-studio-ink sm:space-y-6">
   <PageHeader title="Закрытие дня"
    description="Ежедневный операционный отчёт предприятия"/>
   <nav aria-label="Режим отчётов" className="flex flex-wrap items-center gap-2 rounded-[20px] border border-studio-border bg-studio-surface p-4"> 
@@ -151,28 +152,10 @@ export function EmployeeDailyClosingPage(){
    report.isPending?<LoadingState label="Загружаем мою смену…"/>:
    report.isError?<ErrorState error={report.error} onRetry={()=>void report.refetch()}/>:
    <div className="flex flex-col gap-4">
-    <section aria-label="Показатели дня" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
-       <p className="text-xs font-medium text-slate-500">🛒 Продажи</p>
-       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.salesValue)}</p>
-       <p className="text-xs text-slate-500">{report.data.orders} заказов · {report.data.chairs} кресел</p>
-      </article>
-      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
-       <p className="text-xs font-medium text-slate-500">💵 Расчёт наличных</p>
-       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedCash)}</p>
-       <p className="text-xs text-slate-500">Из операционного отчёта</p>
-      </article>
-      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
-       <p className="text-xs font-medium text-slate-500">💳 Расчёт переводов</p>
-       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{money(report.data.expectedBank)}</p>
-       <p className="text-xs text-slate-500">Из операционного отчёта</p>
-      </article>
-      <article className="min-w-0 rounded-[20px] border border-studio-border bg-studio-surface p-3 shadow-sm sm:p-4">
-       <p className="text-xs font-medium text-slate-500">🧾 Расходы сотрудников</p>
-       <p className="mt-2 break-words text-lg font-bold text-slate-900 sm:text-2xl">{som(String(centsFree(report.data.expenseCash)+centsFree(report.data.expenseBank)))}</p>
-       <p className="text-xs text-slate-500">Все сотрудники за день</p>
-      </article>
-    </section>
+    <EmployeeClosingMetrics sales={money(report.data.salesValue)}
+      orders={report.data.orders} chairs={report.data.chairs}
+      cash={money(report.data.expectedCash)} bank={money(report.data.expectedBank)}
+      expenses={som(String(centsFree(report.data.expenseCash)+centsFree(report.data.expenseBank)))}/>
     <section className="rounded-[20px] border border-studio-border bg-studio-surface p-4 shadow-sm">
 
      <h2 className="text-lg font-bold">Продажи, включаемые в закрытие дня</h2>
