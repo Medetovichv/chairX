@@ -307,12 +307,10 @@ public class EmployeeDailyClosingService {
     private List<SaleLine> snapshot(UUID closingId) {
         return jdbc.sql("""
             SELECT snap.sale_id,snap.sale_number,snap.quantity,snap.total,snap.completed_at,
-                   snap.total-COALESCE(d.delivery_cost,0) AS goods_total,
-                   COALESCE(d.delivery_cost,0) AS delivery_total,
+                   snap.goods_total,snap.delivery_total,
                    snap.products,snap.contact_phone AS phone,snap.delivery_address AS address,
                    snap.fulfillment AS fulfillment_type,snap.delivery_status,snap.payment_status
             FROM employee_daily_closing_sales snap
-            LEFT JOIN deliveries d ON d.sale_id=snap.sale_id
             WHERE snap.closing_id=:id
             ORDER BY snap.completed_at,snap.sale_id
             """).param("id",closingId)
@@ -443,9 +441,11 @@ public class EmployeeDailyClosingService {
             jdbc.sql("""
                 INSERT INTO employee_daily_closing_sales
                 (closing_id,sale_id,sale_number,quantity,total,completed_at,
-                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status,
+                 goods_total,delivery_total)
                 VALUES (:closing,:sale,:number,:quantity,:total,:completedAt,
-                        :products,:phone,:address,:fulfillment,:deliveryStatus,:paymentStatus)
+                        :products,:phone,:address,:fulfillment,:deliveryStatus,:paymentStatus,
+                        :goods,:deliveryAmount)
                 """).param("closing",id).param("sale",sale.saleId())
                 .param("number",sale.saleNumber()).param("quantity",sale.quantity())
                 .param("total",sale.total())
@@ -455,7 +455,9 @@ public class EmployeeDailyClosingService {
                 .param("address",sale.address(),java.sql.Types.VARCHAR)
                 .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
                 .param("deliveryStatus",sale.deliveryStatus(),java.sql.Types.VARCHAR)
-                .param("paymentStatus",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
+                .param("paymentStatus",sale.paymentStatus(),java.sql.Types.VARCHAR)
+                .param("goods",sale.goodsTotal()).param("deliveryAmount",sale.deliveryTotal())
+                .update();
         }
         for(var expense:ownExpenses(actor.username(),date)){
             jdbc.sql("""
@@ -534,9 +536,10 @@ public class EmployeeDailyClosingService {
             jdbc.sql("""
                 INSERT INTO employee_daily_closing_sales
                 (closing_id,sale_id,sale_number,quantity,total,completed_at,
-                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status)
+                 products,contact_phone,delivery_address,fulfillment,delivery_status,payment_status,
+                 goods_total,delivery_total)
                 VALUES (:closing,:sale,:number,:quantity,:total,:completed,
-                        :products,:phone,:address,:fulfillment,:delivery,:payment)
+                        :products,:phone,:address,:fulfillment,:delivery,:payment,:goods,:deliveryAmount)
                 """).param("closing",id).param("sale",sale.saleId())
                 .param("number",sale.saleNumber()).param("quantity",sale.quantity())
                 .param("total",sale.total()).param("completed",sale.completedAt().atOffset(ZoneOffset.UTC))
@@ -545,7 +548,9 @@ public class EmployeeDailyClosingService {
                 .param("address",sale.address(),java.sql.Types.VARCHAR)
                 .param("fulfillment",sale.fulfillment(),java.sql.Types.VARCHAR)
                 .param("delivery",sale.deliveryStatus(),java.sql.Types.VARCHAR)
-                .param("payment",sale.paymentStatus(),java.sql.Types.VARCHAR).update();
+                .param("payment",sale.paymentStatus(),java.sql.Types.VARCHAR)
+                .param("goods",sale.goodsTotal()).param("deliveryAmount",sale.deliveryTotal())
+                .update();
         }
         List<ExpenseLine> expenses=staffExpenses(date);
         for(ExpenseLine expense:expenses) {
