@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeftRight, Search, PackageCheck, History, Settings2 } from 'lucide-react';
+import { ArrowLeftRight, Search, PackageCheck, History, Settings2, SlidersHorizontal, Layers, Warehouse as WarehouseIcon, RotateCcw } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { useUrlListState } from '../../../shared/hooks/useUrlListState';
@@ -173,17 +173,36 @@ export function InventoryPage() {
               selected={selectedWarehouseId} disabled={Boolean(transferLine)}
               onSelect={(id) => { setSelectedWarehouseId(id); newFilter(); }} />
             {dataset && !unknownWarehouse && <InventoryWorkspaceOverview lines={dataset.items} total={dataset.total} page={dataset.page} />}
-            <section aria-label="Фильтры складской сводки" className="space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-6">
-              <label className="mb-3 block space-y-1 text-sm font-semibold">
-                <span className="inline-flex items-center gap-2"><Search className="size-4 text-[#416c82]" aria-hidden="true" />Быстрый поиск по модели, вариации или артикулу (SKU)</span>
+            <section aria-label="Фильтры складской сводки" className="space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#e6efed] text-[#286e66]">
+                    <SlidersHorizontal className="size-5" aria-hidden="true"/>
+                  </span>
+                  <div>
+                    <h2 className="text-base font-bold text-[#182d38]">Поиск и фильтры</h2>
+                    <p className="text-xs text-[#516977]">Выберите склад и уточните список товаров</p>
+                  </div>
+                </div>
+                {(selectedWarehouseId || globalInput || modelInput || variationInput || availability !== 'all' || url.lowStock) &&
+                  <Button variant="outline" type="button" disabled={Boolean(transferLine)}
+                    className="min-h-11 rounded-xl border-[#dfe7eb] text-[#405b65]"
+                    onClick={() => { setUrl(f => ({...f,warehouseId:'',search:'',model:'',variation:'',availability:'all',lowStock:false,page:0}));newFilter(); }}>
+                    <RotateCcw className="size-4" aria-hidden="true"/>Сбросить все фильтры
+                  </Button>}
+              </div>
+              <label className="block space-y-2 text-sm font-semibold text-[#405b65]">
+                <span className="inline-flex items-center gap-2"><Search className="size-4 text-[#286e66]" aria-hidden="true"/>Быстрый поиск по модели, вариации или артикулу (SKU)</span>
                 <Input type="search" aria-label="Поиск товара по модели, вариации или SKU"
                   maxLength={200} value={globalInput} disabled={Boolean(transferLine)}
                   onChange={e=>{setGlobalInput(e.target.value);newFilter();}}
-                  placeholder="Например, Ergo, чёрный или ERGO-BLK" />
+                  placeholder="Например, Ergo, чёрный или ERGO-BLK"
+                  className="min-h-11 border-[#dfe7eb] bg-[#f8fafb] focus-visible:ring-[#267f79]" />
               </label>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <label className="space-y-2 text-sm font-semibold">Склад
-                  <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-[#dce6eb] bg-[#f8fafb] px-3 text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#416c82]"
+              <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <label className="min-w-0 space-y-2 text-sm font-semibold text-[#405b65]">
+                  <span className="inline-flex items-center gap-2"><WarehouseIcon className="size-4 text-[#286e66]" aria-hidden="true"/>Склад</span>
+                  <select aria-label="Выбор склада" className="min-h-11 w-full rounded-xl border border-[#dfe7eb] bg-[#f8fafb] px-3 text-[#182d38] focus-visible:outline-2 focus-visible:outline-[#267f79]"
                     value={selectedWarehouseId ?? ''} disabled={Boolean(transferLine)} onChange={(event) => {
                       setSelectedWarehouseId(event.target.value || null); newFilter();
                     }}>
@@ -193,22 +212,28 @@ export function InventoryPage() {
                     </option>)}
                   </select>
                 </label>
-                <label className="space-y-2 text-sm font-semibold"><span className="inline-flex items-center gap-1"><Search className="size-4 text-[#416c82]" aria-hidden="true" />Поиск модели</span>
+                <label className="min-w-0 space-y-2 text-sm font-semibold text-[#405b65]">
+                  <span className="inline-flex items-center gap-2"><Search className="size-4 text-[#286e66]" aria-hidden="true"/>Поиск модели</span>
                   <Input aria-label="Поиск модели" type="search" value={modelInput} maxLength={200} disabled={Boolean(transferLine)}
                     onChange={(event) => { setModelInput(event.target.value); newFilter(); }}
-                    placeholder="Например, Ergo" />
+                    placeholder="Например, Ergo" className="min-h-11 border-[#dfe7eb] bg-[#f8fafb] focus-visible:ring-[#267f79]" />
                 </label>
-                <label className="space-y-2 text-sm font-semibold">Поиск вариации
+                <label className="min-w-0 space-y-2 text-sm font-semibold text-[#405b65]">
+                  <span className="inline-flex items-center gap-2"><Layers className="size-4 text-[#286e66]" aria-hidden="true"/>Поиск вариации</span>
                   <Input aria-label="Поиск вариации" type="search" value={variationInput} maxLength={200} disabled={Boolean(transferLine)}
                     onChange={(event) => { setVariationInput(event.target.value); newFilter(); }}
-                    placeholder="Например, Чёрный" />
+                    placeholder="Например, Чёрный" className="min-h-11 border-[#dfe7eb] bg-[#f8fafb] focus-visible:ring-[#267f79]" />
                 </label>
               </div>
-              <div role="group" aria-label="Фильтр наличия" className="flex flex-wrap gap-2">
+              <div role="group" aria-label="Фильтр наличия" className="flex flex-wrap gap-2 border-t border-[#e7eeed] pt-4">
                 {([
                   ['all', 'Все товары'], ['available', 'Только доступные'], ['recorded', 'С остатком или резервом'],
-                ] as const).map(([value, label]) => <Button key={value} variant={availability === value ? 'default' : 'outline'}
-                  className={availability === value ? 'min-h-11 rounded-xl bg-[#172f3c] text-white hover:bg-[#305063]' : 'min-h-11 rounded-xl border-[#dce6eb] text-[#405b65] hover:bg-[#edf3f6]'} aria-pressed={availability === value} disabled={Boolean(transferLine)} onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
+                ] as const).map(([value, label]) => <Button key={value} variant="outline"
+                  className={availability === value
+                    ? 'min-h-11 rounded-xl border-[#267f79] bg-[#e6efed] font-semibold text-[#285f58] hover:bg-[#dcebe7]'
+                    : 'min-h-11 rounded-xl border-[#dfe7eb] bg-white text-[#405b65] hover:bg-[#f2f7f6]'}
+                  aria-pressed={availability === value} disabled={Boolean(transferLine)}
+                  onClick={() => { setAvailability(value); newFilter(); }}>{label}</Button>)}
               </div>
             </section>
             <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="flex items-center gap-2 text-lg font-bold text-[#182d38]"><PackageCheck className="size-5 text-[#416c82]" aria-hidden="true" />Остатки товаров</h3><p className="text-xs text-slate-500">Нажмите на строку для подробностей; фильтр «Все товары» включает нулевые остатки.</p></div>
