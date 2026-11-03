@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes, useLocation, useParams } from 'react-router';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { AppLayout } from '../../layouts/AppLayout';
@@ -30,26 +31,31 @@ import { CreateReturnPage } from '../../features/returns/pages/CreateReturnPage'
 import { ReturnDetailPage } from '../../features/returns/pages/ReturnDetailPage';
 import { DefectsPage } from '../../features/returns/pages/DefectsPage';
 import { DefectDetailPage } from '../../features/returns/pages/DefectDetailPage';
-import { FinanceOverviewPage } from '../../features/finance/pages/FinanceOverviewPage';
-import { FinanceOperationsPage } from '../../features/finance/pages/FinanceOperationsPage';
-import { FinanceSourceDocumentPage } from '../../features/finance/pages/FinanceSourceDocumentPage';
-import { FinanceObligationsPage } from '../../features/finance/pages/FinanceObligationsPage';
-import { FinanceAnalyticsPage } from '../../features/finance/pages/FinanceAnalyticsPage';
-import { FinanceReportPage } from '../../features/finance/pages/FinanceReportPage';
-import { CashFlowPage } from '../../features/finance/pages/CashFlowPage';
-import { ExpensesPage } from '../../features/finance/pages/ExpensesPage';
-import { FinanceTransferPage } from '../../features/finance/pages/FinanceTransferPage';
-import { OpeningBalancesPage } from '../../features/finance/pages/OpeningBalancesPage';
-import { AdminUsersPage } from '../../features/admin/pages/AdminUsersPage';
-import { AdminUserDetailPage } from '../../features/admin/pages/AdminUserDetailPage';
-import { AdminRolesPage } from '../../features/admin/pages/AdminRolesPage';
-import { AdminRoleDetailPage } from '../../features/admin/pages/AdminRoleDetailPage';
-import { AdminAuditPage } from '../../features/admin/pages/AdminAuditPage';
-import { ReturnRefundPage } from '../../features/finance/pages/ReturnRefundPage';
+const FinanceOverviewPage = lazy(() => import('../../features/finance/pages/FinanceOverviewPage').then(module => ({ default: module.FinanceOverviewPage })));
+const FinanceOperationsPage = lazy(() => import('../../features/finance/pages/FinanceOperationsPage').then(module => ({ default: module.FinanceOperationsPage })));
+const FinanceSourceDocumentPage = lazy(() => import('../../features/finance/pages/FinanceSourceDocumentPage').then(module => ({ default: module.FinanceSourceDocumentPage })));
+const FinanceObligationsPage = lazy(() => import('../../features/finance/pages/FinanceObligationsPage').then(module => ({ default: module.FinanceObligationsPage })));
+const FinanceAnalyticsPage = lazy(() => import('../../features/finance/pages/FinanceAnalyticsPage').then(module => ({ default: module.FinanceAnalyticsPage })));
+const FinanceReportPage = lazy(() => import('../../features/finance/pages/FinanceReportPage').then(module => ({ default: module.FinanceReportPage })));
+const CashFlowPage = lazy(() => import('../../features/finance/pages/CashFlowPage').then(module => ({ default: module.CashFlowPage })));
+const ExpensesPage = lazy(() => import('../../features/finance/pages/ExpensesPage').then(module => ({ default: module.ExpensesPage })));
+const FinanceTransferPage = lazy(() => import('../../features/finance/pages/FinanceTransferPage').then(module => ({ default: module.FinanceTransferPage })));
+const OpeningBalancesPage = lazy(() => import('../../features/finance/pages/OpeningBalancesPage').then(module => ({ default: module.OpeningBalancesPage })));
+const AdminUsersPage = lazy(() => import('../../features/admin/pages/AdminUsersPage').then(module => ({ default: module.AdminUsersPage })));
+const AdminUserDetailPage = lazy(() => import('../../features/admin/pages/AdminUserDetailPage').then(module => ({ default: module.AdminUserDetailPage })));
+const AdminRolesPage = lazy(() => import('../../features/admin/pages/AdminRolesPage').then(module => ({ default: module.AdminRolesPage })));
+const AdminRoleDetailPage = lazy(() => import('../../features/admin/pages/AdminRoleDetailPage').then(module => ({ default: module.AdminRoleDetailPage })));
+const AdminAuditPage = lazy(() => import('../../features/admin/pages/AdminAuditPage').then(module => ({ default: module.AdminAuditPage })));
+const ReturnRefundPage = lazy(() => import('../../features/finance/pages/ReturnRefundPage').then(module => ({ default: module.ReturnRefundPage })));
 import {
   firstAccessiblePath, hasRoutePermission, legacyRedirects,
   navigationItems, routeDefinitions,
 } from '../../shared/lib/navigation';
+
+/** Keep the navigation shell visible while rarely used pages load. */
+function DeferredPage({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<div role="status" className="rounded-[20px] bg-white p-6 text-sm text-[#516977]">Загружаем раздел…</div>}>{children}</Suspense>;
+}
 
 function RequireAuthentication() {
   const { isAuthenticated } = useAuth();
@@ -90,7 +96,7 @@ function DeliveryDetailGate() {
 }
 
 function ReturnCreateGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_CREATE')?<CreateReturnPage/>:<ForbiddenPage/>;}
-function ReturnRefundGate(){const {hasPermission}=useAuth(),{returnId}=useParams();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<ReturnRefundPage key={returnId}/>:<ForbiddenPage/>;}
+function ReturnRefundGate(){const {hasPermission}=useAuth(),{returnId}=useParams();return hasPermission('REFUNDS_CREATE')&&hasPermission('RETURNS_READ')?<DeferredPage><ReturnRefundPage key={returnId}/></DeferredPage>:<ForbiddenPage/>;}
 function ReturnDetailGate(){const {hasPermission}=useAuth();return hasPermission('RETURNS_READ')?<ReturnDetailPage/>:<ForbiddenPage/>;}
 function DefectDetailGate(){const {hasPermission}=useAuth();return hasPermission('DEFECTS_READ')?<DefectDetailPage/>:<ForbiddenPage/>;}
 
@@ -123,18 +129,18 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/deliveries') return <DeliveriesPage />;
   if (path === '/returns') return <ReturnsPage />;
   if (path === '/returns/defects') return <DefectsPage />;
-  if (path === '/finance') return <FinanceOverviewPage />;
-  if (path === '/finance/expenses') return <ExpensesPage />;
-  if (path === '/finance/operations') return <FinanceOperationsPage />;
-  if (path === '/finance/obligations') return <FinanceObligationsPage />;
-  if (path === '/finance/analytics') return <FinanceAnalyticsPage />;
-  if (path === '/finance/report') return <FinanceReportPage />;
-  if (path === '/finance/cash-flow') return <CashFlowPage />;
-  if (path === '/finance/transfers') return <FinanceTransferPage />;
-  if (path === '/finance/opening-balances') return <OpeningBalancesPage />;
-  if(path==='/admin/users')return <AdminUsersPage/>;
-  if(path==='/admin/roles')return <AdminRolesPage/>;
-  if(path==='/admin/audit')return <AdminAuditPage/>;
+  if (path === '/finance') return <DeferredPage><FinanceOverviewPage /></DeferredPage>;
+  if (path === '/finance/expenses') return <DeferredPage><ExpensesPage /></DeferredPage>;
+  if (path === '/finance/operations') return <DeferredPage><FinanceOperationsPage /></DeferredPage>;
+  if (path === '/finance/obligations') return <DeferredPage><FinanceObligationsPage /></DeferredPage>;
+  if (path === '/finance/analytics') return <DeferredPage><FinanceAnalyticsPage /></DeferredPage>;
+  if (path === '/finance/report') return <DeferredPage><FinanceReportPage /></DeferredPage>;
+  if (path === '/finance/cash-flow') return <DeferredPage><CashFlowPage /></DeferredPage>;
+  if (path === '/finance/transfers') return <DeferredPage><FinanceTransferPage /></DeferredPage>;
+  if (path === '/finance/opening-balances') return <DeferredPage><OpeningBalancesPage /></DeferredPage>;
+  if(path==='/admin/users')return <DeferredPage><AdminUsersPage/></DeferredPage>;
+  if(path==='/admin/roles')return <DeferredPage><AdminRolesPage/></DeferredPage>;
+  if(path==='/admin/audit')return <DeferredPage><AdminAuditPage/></DeferredPage>;
   if (path === '/catalog') return <CatalogPage />;
   if (path === '/inventory') return <InventoryPage />;
   if (path === '/inventory/transfers') return <InventoryTransfersPage />;
@@ -165,7 +171,7 @@ export function AppRouter() {
           {routeDefinitions.filter((item) => item.path !== '/').map((item) => (
             <Route key={item.path} path={item.path.slice(1)} element={<ProtectedSection path={item.path} />} />
           ))}
-          <Route path="finance/documents/:kind/:documentId" element={<FinanceSourceDocumentPage/>}/>
+          <Route path="finance/documents/:kind/:documentId" element={<DeferredPage><FinanceSourceDocumentPage/></DeferredPage>}/>
           <Route path="returns/new" element={<ReturnCreateGate/>}/>
           <Route path="returns/:returnId/refund" element={<ReturnRefundGate/>}/>
           <Route path="returns/defects/:defectId" element={<DefectDetailGate/>}/>
@@ -175,8 +181,8 @@ export function AppRouter() {
           <Route path="deliveries/new" element={<DeliveryCreateGate />} />
           <Route path="deliveries/:deliveryId" element={<DeliveryDetailGate />} />
           <Route path="catalog/:productId" element={<CatalogDetailGate />} />
-          <Route path="admin/users/:userId" element={<AdminGate permission="USERS_READ"><AdminUserDetailPage/></AdminGate>}/>
-          <Route path="admin/roles/:roleId" element={<AdminGate permission="ROLES_READ"><AdminRoleDetailPage/></AdminGate>}/>
+          <Route path="admin/users/:userId" element={<AdminGate permission="USERS_READ"><DeferredPage><AdminUserDetailPage/></DeferredPage></AdminGate>}/>
+          <Route path="admin/roles/:roleId" element={<AdminGate permission="ROLES_READ"><DeferredPage><AdminRoleDetailPage/></DeferredPage></AdminGate>}/>
           <Route path="customers/:customerId" element={<CustomerDetailGate />} />
           <Route path="purchases/:purchaseId" element={<PurchaseDetailGate />} />
           {Object.entries(legacyRedirects).map(([oldPath, target]) => (
