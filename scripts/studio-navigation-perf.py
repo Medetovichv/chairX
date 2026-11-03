@@ -91,9 +91,10 @@ def main():
                 api_requests = [r["url"].split("?", 1)[0].replace(BASE, "")
                                 for r in recent_requests
                                 if "/api/" in r["url"]]
+                # Vite DEV serves ESM modules through .tsx/.ts URLs as well
+                # as .js. Chromium's resource type reflects both correctly.
                 module_requests = [r["url"].split("?", 1)[0].replace(BASE, "")
-                                   for r in recent_requests if r["url"].endswith(".js")
-                                   or ".js?" in r["url"]]
+                                   for r in recent_requests if r["type"] == "script"]
                 bad_responses = [r for r in recent_responses if r["status"] >= 400]
                 assert not bad_responses, (
                     f"{link_name} caused HTTP errors: {bad_responses}"
