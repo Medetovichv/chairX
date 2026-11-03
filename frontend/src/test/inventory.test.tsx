@@ -655,7 +655,7 @@ describe('UI-V2-05 warehouse operations, unified SKU search and nested routes', 
     renderAt('/inventory/warehouses');
     const list=await screen.findByRole('region',{name:'Список складов'});
     expect(within(list).getByRole('heading',{name:'Все склады'})).toBeInTheDocument();
-    expect(list).toHaveTextContent('3 складов');
+    expect(list).toHaveTextContent('3 склада');
     expect(list).toHaveTextContent('Адрес не указан');
     expect(within(list).getAllByText('Активен')).toHaveLength(2);
     expect(within(list).getAllByText('Неактивен')).toHaveLength(1);
