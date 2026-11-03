@@ -27,6 +27,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   const [invalid,setInvalid]=useState(stored.kind === 'invalid');
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [showCancelForm,setShowCancelForm]=useState(false);
   const [cancelReason,setCancelReason]=useState<SaleCancellationReason|''>('');
   const [cancelComment,setCancelComment]=useState('');
   const draft=sale.status==='DRAFT';
@@ -112,9 +113,9 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     <div className="flex flex-wrap gap-2">
       {canConfirm&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('confirm')}>Подтвердить заказ</button>}
       {canFulfill&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('fulfill')}>Завершить выдачу</button>}
-      {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setIntent('cancel')}>Отменить заказ</button>}
+      {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setShowCancelForm(true)}>Отменить заказ</button>}
     </div>
-    {intent==='cancel'&&<div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+    {showCancelForm&&<div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
       <label className="block space-y-1 text-sm font-semibold">Причина отмены *
         <select aria-label="Причина отмены" required value={cancelReason}
           disabled={busy} onChange={e=>setCancelReason(e.target.value as SaleCancellationReason|'')}
@@ -129,12 +130,16 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
           className="min-h-20 w-full rounded-xl border border-slate-300 bg-white p-3"/>
       </label>
       <p className="text-xs text-slate-700">Оплаченную продажу нельзя отменить напрямую — сначала требуется компенсация или возврат оплаты.</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="min-h-11 rounded-xl bg-red-700 px-4 text-white disabled:opacity-50"
+          disabled={busy||!cancelReason} onClick={()=>setIntent('cancel')}>Продолжить отмену</button>
+        <button type="button" className="min-h-11 rounded-xl border px-4" onClick={()=>setShowCancelForm(false)}>Не отменять</button>
+      </div>
     </div>}
     <ConfirmDialog open={!!intent} onOpenChange={open=>{if(!open)setIntent(null);}}
       title={intent==='confirm'?'Подтвердить заказ?':intent==='fulfill'?'Выдать товар?':'Отменить заказ?'}
       description={'Заказ '+sale.saleNumber+', '+sale.items.length+' позиций, сумма '+sale.total+' сом. Проверьте данные: операция изменит складской учёт.'}
       busy={busy} destructive={intent==='cancel'} confirmLabel="Подтвердить"
-      confirmDisabled={intent==='cancel'&&!cancelReason}
       onConfirm={()=>{if(intent)void execute(intent);}}/>
   </section>;
 }
