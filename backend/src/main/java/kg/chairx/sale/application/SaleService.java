@@ -369,6 +369,44 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         return fulfillLocked(sale);
     }
 
+    /**
+     * Staged #128 operator workflow: requires an explicit reason, keeps every
+     * existing payment / fulfillment / reservation safety check in cancelLocked.
+     * Legacy no-body and delivery cancellation routes remain for compatibility
+     * until their callers and E2E tests are migrated.
+     */
+    @Transactional
+    public SaleResponse cancelWithReason(UUID saleId, kg.chairx.sale.api.CancelSaleRequest request) {
+        if (request == null || request.reason() == null) {
+            throw rule("CANCELLATION_REASON_REQUIRED", "Выберите причину отмены");
+        }
+        if (request.comment() != null && request.comment().length() > 1000) {
+            throw rule("CANCELLATION_COMMENT_TOO_LONG", "Комментарий не может превышать 1000 символов");
+        }
+        Sale sale = lock(saleId);
+        if (sale.status() == SaleStatus.CANCELLED) {
+            throw rule("SALE_ALREADY_CANCELLED", "Заказ уже отменён; повторно сохранять причину нельзя");
+        }
+        if (sale.status() != SaleStatus.DRAFT
+                && sale.fulfillmentType() != FulfillmentType.SELF_PICKUP) {
+            throw rule("DELIVERY_REQUIRED", "Продажу с доставкой необходимо отменять через процесс доставки");
+        }
+        SaleResponse result = cancelLocked(sale);
+        String comment = request.comment() == null || request.comment().isBlank()
+                ? null : request.comment().strip();
+        repository.saveCancellationDetails(saleId, request.reason().name(), comment, actor());
+        audit.record("SALE",saleId,"CANCELLATION_REASON_RECORDED",null,
+                java.util.Map.of("reason",request.reason().name(),
+                        "comment",comment == null ? "" : comment));
+        return result;
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Optional<kg.chairx.sale.api.SaleCancellationDetails> cancellationDetails(UUID saleId) {
+        get(saleId);
+        return repository.cancellationDetails(saleId);
+    }
+
     @Transactional
     public SaleResponse cancel(UUID saleId) {
         Sale sale = lock(saleId);
