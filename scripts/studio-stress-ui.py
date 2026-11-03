@@ -87,7 +87,7 @@ def main():
             ):
                 nav(page,route)
                 page.get_by_role("heading",name=heading,exact=True).wait_for(timeout=30000)
-                page.get_by_role("region",name=section).wait_for(timeout=30000)
+                page.get_by_role("region",name=section,exact=True).wait_for(timeout=30000)
                 # Ensure pagination under load, and the next page is selectable.
                 next_label="Следующая" if route=="/customers" else "Вперёд"
                 back_label="Предыдущая" if route=="/customers" else "Назад"
@@ -117,7 +117,7 @@ def main():
                 page.set_viewport_size({"width":375,"height":900})
                 field=page.get_by_role("searchbox",name=input_name)
                 field.fill(term)
-                page.get_by_role("region",name=section).get_by_text(term,exact=True).last.wait_for(timeout=30000)
+                page.get_by_role("region",name=section,exact=True).get_by_text(term,exact=True).last.wait_for(timeout=30000)
                 m=layout(page)
                 assert m["pageWidth"]<=m["viewport"]+1,(
                     f"{route}: long unbroken label overflow: {m}"
@@ -125,6 +125,34 @@ def main():
                 page.screenshot(path=str(ART/f"{route[1:]}-long-375.png"),full_page=True)
                 samples.append({"route":route,"long_unbroken_label":True,**m})
                 field.fill("")
+            # Validate forms without submitting any additional business transactions.
+            nav(page,"/customers")
+            page.get_by_role("heading",name="Клиенты",exact=True).wait_for()
+            page.get_by_role("button",name="Добавить клиента").click()
+            customer_form=page.get_by_role("form",name="Создание клиента")
+            customer_form.get_by_role("button",name="Сохранить клиента").click()
+            customer_form.get_by_role("alert").wait_for(timeout=10000)
+            customer_form.get_by_role("button",name="Отмена").click()
+            assert customer_form.count()==0,"Customer form did not close"
+            samples.append({"form":"customers","required_contact_validation":"pass"})
+
+            nav(page,"/catalog")
+            page.get_by_role("heading",name="Каталог товаров",exact=True).wait_for()
+            page.get_by_role("button",name="Создать товар").click()
+            product_form=page.get_by_role("form",name="Создание модели")
+            product_form.get_by_role("button",name="Создать модель").click()
+            assert product_form.locator('input[required]').first.evaluate(
+                "(el) => el.validity.valueMissing"
+            ),"Empty product name did not trigger native required-field validation"
+            product_form.get_by_role("button",name="Отмена").click()
+            assert product_form.count()==0,"Product form did not close"
+            samples.append({"form":"catalog","required_name_validation":"pass"})
+
+            page.get_by_role("searchbox",name="Поиск модели или категории").fill(
+                "STUDIO_STRESS_NONEXISTENT_QUERY_987654321"
+            )
+            page.get_by_text("По вашему запросу ничего не найдено").wait_for(timeout=30000)
+            samples.append({"state":"catalog_empty_filter","result":"pass"})
             # Simple real-browser timings, diagnostic only: CI hardware is too variable
             # for meaningful fixed performance budgets.
             (ART/"metrics.json").write_text(json.dumps({
