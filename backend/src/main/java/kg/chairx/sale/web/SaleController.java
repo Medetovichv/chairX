@@ -21,10 +21,13 @@ public class SaleController {
 
     private final SaleService service;
     private final kg.chairx.sale.application.SaleHistoryService history;
+    private final kg.chairx.sale.application.PaidPickupService pickup;
 
-    public SaleController(SaleService service, kg.chairx.sale.application.SaleHistoryService history) {
+    public SaleController(SaleService service, kg.chairx.sale.application.SaleHistoryService history,
+                          kg.chairx.sale.application.PaidPickupService pickup) {
         this.service = service;
         this.history = history;
+        this.pickup = pickup;
     }
 
     @GetMapping
@@ -92,6 +95,12 @@ public class SaleController {
             @PathVariable UUID id
     ) {
         return service.get(id);
+    }
+
+    @PostMapping("/{id}/pay-and-hand-over")
+    public SaleResponse payAndHandOver(@PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.payment.api.CreatePaymentRequest request) {
+        return pickup.payAndHandOver(id,request);
     }
 
     @PostMapping("/{id}/fulfill")

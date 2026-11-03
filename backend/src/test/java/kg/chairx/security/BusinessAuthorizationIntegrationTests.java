@@ -86,6 +86,19 @@ class BusinessAuthorizationIntegrationTests {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test void atomicPickupRequiresBothPaymentAndSaleUpdatePermissions() throws Exception {
+        String id=UUID.randomUUID().toString();
+        String body="{\"saleId\":\""+id+"\",\"method\":\"CASH\"}";
+        mvc.perform(post("/api/sales/"+id+"/pay-and-hand-over")
+                .with(permission("PAYMENTS_CREATE")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/sales/"+id+"/pay-and-hand-over")
+                .with(permission("SALES_UPDATE")).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+    }
+
     @Test void p22RelatedDataAndMutationEndpointsEnforceExplicitPermissions() throws Exception {
         String id = UUID.randomUUID().toString();
         for (String path: List.of("/api/customers/overview",
