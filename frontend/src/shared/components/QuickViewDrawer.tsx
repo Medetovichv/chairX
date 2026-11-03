@@ -10,12 +10,14 @@ const LeaveContext = createContext<() => boolean>(() => true);
 export const useQuickViewCanLeave = () => useContext(LeaveContext);
 
 /** Only mount the data-router blocker where RouterProvider is present (unit tests use MemoryRouter). */
-function HistoryGuard({ dirty, discard }: { dirty: boolean; discard: () => void }) {
+function HistoryGuard({ dirtyRef, discard }: { dirtyRef: { current: boolean }; discard: () => void }) {
   const context = useContext(UNSAFE_DataRouterContext);
-  return context ? <ActiveHistoryGuard dirty={dirty} discard={discard}/> : null;
+  return context ? <ActiveHistoryGuard dirtyRef={dirtyRef} discard={discard}/> : null;
 }
-function ActiveHistoryGuard({ dirty, discard }: { dirty: boolean; discard: () => void }) {
-  const blocker = useBlocker(dirty);
+function ActiveHistoryGuard({ dirtyRef, discard }: { dirtyRef: { current: boolean }; discard: () => void }) {
+  // The confirmation in allowLeave clears the ref synchronously, before navigation.
+  // A stale render-time boolean would otherwise block that same confirmed navigation again.
+  const blocker = useBlocker(() => dirtyRef.current);
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
     if (window.confirm('Есть несохранённые изменения. Продолжить без сохранения?')) {
@@ -102,7 +104,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     if (!(target instanceof Element) || !target.closest('a[href]')) return;
     if (!allowLeave()) { event.preventDefault(); event.stopPropagation(); }
   };
-  return <FooterHostContext.Provider value={creating?footerHost:null}><DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirty={dirty} discard={() => setDirty(false)}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
+  return <FooterHostContext.Provider value={creating?footerHost:null}><DirtyContext.Provider value={setDirty}><LeaveContext.Provider value={allowLeave}><HistoryGuard dirtyRef={dirtyRef} discard={() => { dirtyRef.current = false; setDirty(false); }}/><aside onClickCapture={guardInternalLinks} data-quick-view role="dialog" aria-modal={false} aria-label={'Быстрый просмотр: ' + title}
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl xl:sticky xl:top-4 xl:z-10 xl:h-[calc(100dvh-10rem)] xl:w-[min(52vw,720px)] xl:min-w-0 xl:shrink-0 xl:rounded-2xl xl:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
