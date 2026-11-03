@@ -33,9 +33,9 @@ function Stat({ title, value, note, icon: Icon, path }: {
       <ArrowUpRight className="size-4 text-[#8da0aa] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
     </div>
     <div className="mt-4">
-      <p className="text-xs font-semibold text-[#697a85]">{title}</p>
+      <p className="text-xs font-semibold text-[#516977]">{title}</p>
       <p className="mt-1 text-[clamp(1.75rem,2.5vw,2.35rem)] font-bold tracking-tight tabular-nums text-[#182d38]">{value.toLocaleString('ru-RU')}</p>
-      <p className="mt-1 text-xs text-[#85939d]">{note}</p>
+      <p className="mt-1 text-xs text-[#516977]">{note}</p>
     </div>
   </Link>;
 }
@@ -56,12 +56,12 @@ function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
   return <section aria-label="Заказы за 7 дней" className="min-w-0 rounded-[22px] border border-[#e5ebef] bg-white p-5 sm:p-6">
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Заказы за 7 дней</h3>
-        <p className="mt-1 text-xs text-[#81909a]">По дате создания · время Бишкек</p></div>
+        <p className="mt-1 text-xs text-[#516977]">По дате создания · время Бишкек</p></div>
       <span className="rounded-full bg-[#edf3f6] px-3 py-2 text-xs font-semibold text-[#416c82]">7 дней</span>
     </div>
     <div className="mb-3 flex flex-wrap items-baseline gap-2">
       <strong className="text-4xl font-bold tracking-tight tabular-nums text-[#182d38]">{active ? active.orders : days.reduce((a,d)=>a+d.orders,0)}</strong>
-      <span className="text-xs text-[#81909a]">{active ? 'заказов · ' + dayLabel(active.day) : 'заказов за неделю'}</span>
+      <span className="text-xs text-[#516977]">{active ? 'заказов · ' + dayLabel(active.day) : 'заказов за неделю'}</span>
     </div>
     <svg viewBox="0 0 720 222" role="img" aria-label={days.map(d => dayLabel(d.day)+': '+d.orders+' заказов').join('; ')} className="h-auto w-full">
       <defs><linearGradient id="chairx-chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#709dad" stopOpacity=".3"/><stop offset="100%" stopColor="#709dad" stopOpacity="0"/></linearGradient></defs>
@@ -79,7 +79,7 @@ function WeekChart({ days }: { days: DashboardOverview['ordersByDay'] }) {
         <text x={p.x} y="207" textAnchor="middle" fontSize="11" fill={focused===p.day?'#416c82':'#8c9aa4'}>{dayLabel(p.day)}</text>
       </g>)}
     </svg>
-    <div className="mt-2 flex items-center gap-2 text-xs text-[#81909a]"><span className="size-2 rounded-full bg-[#416c82]"/> Заказы за день <span className="ml-auto">Данные сервера</span></div>
+    <div className="mt-2 flex items-center gap-2 text-xs text-[#516977]"><span className="size-2 rounded-full bg-[#416c82]"/> Заказы за день <span className="ml-auto">Данные сервера</span></div>
   </section>;
 }
 
@@ -125,7 +125,7 @@ function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
   return <section aria-label="Последние заказы" className="overflow-hidden rounded-[22px] border border-[#e5ebef] bg-white">
     <div className="flex flex-wrap items-start justify-between gap-3 p-5 sm:p-6">
       <div><h3 className="text-lg font-semibold tracking-tight text-[#182d38]">Последние заказы</h3>
-        <p className="mt-1 text-xs text-[#81909a]">Недавняя активность продаж</p></div>
+        <p className="mt-1 text-xs text-[#516977]">Недавняя активность продаж</p></div>
       <Link to="/sales" className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-semibold text-[#416c82] hover:bg-[#edf3f6]">Все продажи <ArrowUpRight className="size-4" aria-hidden="true"/></Link>
     </div>
     <div className="flex flex-wrap items-center gap-2 px-5 pb-4 sm:px-6">
@@ -141,14 +141,14 @@ function RecentSales({ items }: { items: DashboardOverview['recentSales'] }) {
           className="w-full max-w-56 rounded-full border border-[#e4ebef] bg-[#f6f8f9] py-2 pl-9 pr-3 text-xs text-[#182d38] placeholder:text-[#8b99a2] focus-visible:outline-2 focus-visible:outline-[#416c82]"/>
       </label>
     </div>
-    {filtered.length===0 ? <p className="px-6 pb-6 text-sm text-[#81909a]">{items.length?'По выбранным фильтрам заказов нет.':'Заказов пока нет.'}</p>
+    {filtered.length===0 ? <p className="px-6 pb-6 text-sm text-[#516977]">{items.length?'По выбранным фильтрам заказов нет.':'Заказов пока нет.'}</p>
     : <div className="divide-y divide-[#ebeff1]">
       {filtered.map(s=><Link key={s.id} to={'/sales/'+encodeURIComponent(s.id)}
         aria-label={'Открыть продажу '+s.saleNumber}
         className="group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-5 py-4 transition-colors hover:bg-[#f4f8fa] focus-visible:outline-2 focus-visible:outline-[#416c82] sm:grid-cols-[100px_minmax(120px,1.1fr)_minmax(120px,1.3fr)_110px_110px_20px] sm:px-6">
         <span className="font-semibold text-[#416c82]">{displaySaleNumber(s.saleNumber)}</span>
         <span className="min-w-0 text-sm text-[#273b47] sm:truncate">{s.customerName||'Без имени'}</span>
-        <span className="col-span-2 min-w-0 truncate text-xs text-[#81909a] sm:col-span-1">{s.products||'—'}</span>
+        <span className="col-span-2 min-w-0 truncate text-xs text-[#516977] sm:col-span-1">{s.products||'—'}</span>
         <span className="font-semibold text-[#273b47]">{money(s.total)}</span>
         <span className={'justify-self-end rounded-full px-2.5 py-1 text-xs font-medium sm:justify-self-start '+badgeClass(s.status)}>{saleStatusNames[s.status]}</span>
         <ArrowUpRight className="hidden size-4 text-[#96a5ae] group-hover:text-[#416c82] sm:block" aria-hidden="true"/>
