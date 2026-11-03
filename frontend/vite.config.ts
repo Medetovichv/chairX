@@ -17,6 +17,18 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // Production preview in disposable CI uses the same Spring API origin
+    // as the development proxy, without changing deployed production URLs.
+    preview: {
+      host: '127.0.0.1',
+      port: 4173,
+      proxy: {
+        '/api': {
+          target: env.VITE_BACKEND_TARGET || 'http://localhost:8080',
+          changeOrigin: true,
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       setupFiles: ['./src/test/setup.ts'],
