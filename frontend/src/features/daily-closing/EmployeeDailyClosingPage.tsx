@@ -1,5 +1,6 @@
 import {useState,type FormEvent} from 'react';
 import {EmployeeClosingMetrics} from './EmployeeClosingMetrics';
+import {operationalDeliveryLabel} from './operational-delivery-label';
 import {Link} from 'react-router';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '../auth/AuthProvider';
@@ -177,8 +178,7 @@ export function EmployeeDailyClosingPage(){
         <td className="p-2">{s.phone||'Без номера'}
          {s.address&&<p className="text-xs text-slate-500">{s.address}</p>}</td>
         <td className="p-2"><span className="font-semibold text-emerald-700">Оплачено</span>
-         <p className="text-xs text-slate-600">{s.deliveryStatus==='IN_TRANSIT'?'В пути':
-          s.deliveryStatus==='DELIVERED'?'Доставлено':'Выдано'}</p></td>
+         <p className="text-xs text-slate-600">{operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</p></td>
         <td className="p-2 text-right">{money(s.goodsTotal)}</td>
         <td className="p-2 text-right">{money(s.deliveryTotal)}</td>
         <td className="p-2 text-right font-semibold">{money(s.total)}</td>
@@ -197,7 +197,7 @@ export function EmployeeDailyClosingPage(){
          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">Оплачено</span>
           <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
-           {s.deliveryStatus==='IN_TRANSIT'?'В пути':s.deliveryStatus==='DELIVERED'?'Доставлено':'Выдано'}</span>
+           {operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</span>
          </div>
        </article>)}
       </div>
