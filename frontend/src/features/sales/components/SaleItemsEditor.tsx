@@ -32,7 +32,7 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
       Не удалось загрузить список складов.
       <Button type="button" variant="outline" size="sm" onClick={()=>void warehouses.refetch()}>Повторить</Button>
     </p>}
-    {rows.map((row,index)=><div key={row.key} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    {rows.map((row,index)=><div key={row.key} className="@container space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">Позиция {index+1}</p>
         <Button type="button" variant="outline" size="sm" disabled={disabled}
@@ -41,9 +41,12 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
       <SaleVariantPicker allowOutOfStock={allowOutOfStock} value={row.productVariantId} disabled={disabled}
         onSelect={(v,preferredWarehouse)=>patch(row.key,{
           productVariantId:v.id,recommended:v.recommendedSalePrice,
-          warehouseId:row.warehouseId||preferredWarehouse||'',
+          // A new variant may have no stock at the previously selected warehouse.
+          // Use the availability-confirmed warehouse supplied by the picker.
+          // Never silently reuse a stale location for a different variant.
+          warehouseId:allowOutOfStock?(row.warehouseId||preferredWarehouse||''):(preferredWarehouse??''),
         })}/>
-      <div className="grid min-w-0 gap-3 sm:grid-cols-3 [.quick-create_&]:!grid-cols-1 xl:[.quick-create_&]:!grid-cols-2">
+      <div className="grid min-w-0 gap-3 @sm:grid-cols-2 @lg:grid-cols-3 [.quick-create_&]:!grid-cols-1">
         <label className="space-y-1 text-sm font-semibold">Склад <span className="text-red-600" aria-hidden="true">*</span>
           <select aria-label={'Склад позиции '+(index+1)} value={row.warehouseId}
             disabled={disabled||!inventoryRead||warehouses.isPending||warehouses.isError}
@@ -77,7 +80,11 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
         </Button>
       </div>}
       {countValid(row.quantity)&&integerSom(row.unitSalePrice)!==null&&
-        <p className="text-sm text-slate-500">Сумма позиции: {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}</p>}
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">
+          {row.quantity} шт. × {money(integerSom(row.unitSalePrice)!)} = <strong className="font-semibold text-slate-700">
+            {money((BigInt(row.quantity)*BigInt(integerSom(row.unitSalePrice)!)).toString())}
+          </strong>
+        </p>}
       <SaleAvailability warehouseId={row.warehouseId} variantId={row.productVariantId}
         enabled={inventoryRead} warehouses={warehouses.data??[]} quantity={row.quantity}
         onSwitch={id=>patch(row.key,{warehouseId:id})}/>
@@ -85,7 +92,7 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
     <Button type="button" variant="outline" disabled={disabled||rows.length>=1000}
       onClick={()=>onChange([...rows,{
         key:nextKey(),productVariantId:'',warehouseId:'',quantity:'1',unitSalePrice:'',recommended:null,
-      }])}>{rows.length===0?'Выбрать товар':'+ Добавить товар'}</Button>
+      }])}>Выбрать товар</Button>
   </section>;
 }
 let keySequence=0;
