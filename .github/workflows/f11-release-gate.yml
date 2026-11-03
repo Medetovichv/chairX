@@ -7,6 +7,7 @@ on:
       - 'scripts/f11-browser-e2e.py'
       - 'scripts/studio-ui-acceptance.py'
       - 'scripts/studio-navigation-perf.py'
+      - 'scripts/studio-production-vitals.py'
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
       - 'scripts/studio-stress-ui.py'
@@ -135,6 +136,68 @@ jobs:
           source .env
           set +a
           python scripts/studio-navigation-perf.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build actual production frontend for Web Vitals diagnostics
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Start production preview with disposable backend
+        run: |
+          (cd frontend && npm run preview -- --host 127.0.0.1 --port 4173 > ../artifacts-preview.log 2>&1) &
+          for n in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:4173/login >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat artifacts-preview.log
+          exit 1
+      - name: Measure authenticated production navigation and browser vitals
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/studio-production-vitals.py
+      - name: Lighthouse production login-page audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/studio-production
+          export CHROME_PATH="$(python -c 'from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print(p.chromium.executable_path); p.stop()')"
+          npx --yes lighthouse@12.8.2 http://127.0.0.1:4173/login \
+            --only-categories=performance,accessibility,best-practices \
+            --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+            --output=json \
+            --output-path=artifacts/studio-production/lighthouse-login-mobile.json \
+            --quiet
+      - name: Summarize Lighthouse findings and check contrast/console regressions
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          folder=Path('artifacts/studio-production')
+          data=json.loads((folder/'lighthouse-login-mobile.json').read_text())
+          scores={key:round(value['score']*100) for key,value in data['categories'].items() if value.get('score') is not None}
+          findings={}
+          for key in ('color-contrast','errors-in-console','unused-javascript','valid-source-maps'):
+              audit=data['audits'].get(key,{})
+              findings[key]={'items':len(audit.get('details',{}).get('items',[])),'display':audit.get('displayValue')}
+          (folder/'lighthouse-summary.json').write_text(json.dumps({
+              'scope':'production login page, synthetic CI mobile audit (not authenticated app LCP)',
+              'scores':scores,'findings':findings
+          },indent=2),encoding='utf-8')
+          print('Lighthouse login scores:',scores,'findings:',findings)
+          assert not findings['color-contrast']['items'], 'Login contrast regression'
+          assert not findings['errors-in-console']['items'], 'Login console/network errors'
+          PY
       - name: Collect acceptance screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -144,6 +207,7 @@ jobs:
             artifacts/f11/
             artifacts/studio-ui/
             artifacts/studio-navigation/
+            artifacts/studio-production/
           if-no-files-found: ignore
           retention-days: 14
       - name: Diagnostic logs on failure
