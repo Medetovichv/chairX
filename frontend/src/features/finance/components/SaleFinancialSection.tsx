@@ -91,7 +91,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     <p>Оплачено: <strong>{activePayment?som(activePayment.amount):'0 сом'}</strong></p>
     <p>Остаток к оплате: <strong>{activePayment?'0 сом':requiresDelivery?
       (orderTotal===null?'Пока не рассчитано':som(orderTotal.toString())):som(sale.total)}</strong></p>
-   </div>}
+   </section>}
 
    {paymentRead&&(payments.isPending?<LoadingState label="Загружаем платежи продажи…"/>:
     payments.isError?<ErrorState error={payments.error} onRetry={()=>void payments.refetch()}/>:
