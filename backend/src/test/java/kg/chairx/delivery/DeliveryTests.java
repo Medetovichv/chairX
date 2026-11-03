@@ -500,10 +500,12 @@ class DeliveryTests {
         assertThat(details.comment()).isEqualTo("Повторный региональный заказ");
         assertThat(details.cancelledBy()).isEqualTo("delivery-test-user");
         assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
-        assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
-                new CancelSaleRequest(SaleCancellationReason.OTHER,null)))
-                .isInstanceOf(kg.chairx.sale.application.SaleRuleViolationException.class)
-                .hasMessageContaining("Заказ уже отменён");
+        var repeated=deliveries.cancelWithReason(delivery.id(),
+                new CancelSaleRequest(SaleCancellationReason.OTHER,null));
+        assertThat(repeated.status()).isEqualTo(DeliveryStatus.CANCELLED);
+        assertThat(sales.cancellationDetails(sale.id()).orElseThrow().reason())
+                .isEqualTo(SaleCancellationReason.DUPLICATE_ORDER);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
     }
 
     @Test
