@@ -57,7 +57,7 @@ export function WarehouseOverviewCards({ warehouses, summaries, loading, failed,
   }), {available:0,onHand:0,reserved:0,blocked:0});
   return <section aria-label="Сводка складов" className="space-y-3">
     <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="text-lg font-bold tracking-tight text-[#182d38]">Склады</h2>
+      <h3 className="text-lg font-bold tracking-tight text-[#182d38]">Склады</h3>
       <p className="text-xs text-[#516977]">Сводка по всем товарам, не только текущей странице</p>
     </div>
     {loading && <p role="status" className="text-sm text-[#516977]">Загружаем сводку всех складов…</p>}
