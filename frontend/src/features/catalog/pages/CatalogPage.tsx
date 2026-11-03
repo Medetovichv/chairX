@@ -153,7 +153,7 @@ export function CatalogPage() {
               <StatusBadge tone={model.active?'success':'neutral'}>{model.active?'Активен':'Неактивен'}</StatusBadge>
             </div>
             <div className="min-w-0">
-              <h3 className="font-bold text-[#236e66]"><Link className="entity-stretched-link flex items-center gap-2 break-words"
+              <h3 className="min-w-0 font-bold text-[#236e66]"><Link className="entity-stretched-link flex min-w-0 items-start gap-2 [overflow-wrap:anywhere]"
                 to={'/catalog/'+encodeURIComponent(model.id)}>{model.name}<ArrowUpRight className="size-4 shrink-0" aria-hidden="true"/></Link></h3>
               <p className="mt-1 text-sm text-slate-500 [overflow-wrap:anywhere]">{model.category || 'Категория не указана'}</p>
             </div>
