@@ -22,6 +22,7 @@ import kg.chairx.sale.api.CreateDraftSaleRequest;
 import kg.chairx.sale.api.UpdateDraftSaleRequest;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.application.SaleService;
+import kg.chairx.sale.application.PaidPickupService;
 import kg.chairx.sale.domain.FulfillmentType;
 import kg.chairx.sale.domain.SaleStatus;
 import org.junit.jupiter.api.AfterEach;
@@ -53,6 +54,7 @@ class SaleTests {
 
     @Autowired
     SaleService sales;
+    @Autowired PaidPickupService paidPickup;
     @Autowired PaymentService payments;
 
     @Autowired
@@ -792,6 +794,54 @@ class SaleTests {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
                 Integer.class,sale.id())).isZero();
+    }
+
+    @Test
+    void atomicPaidPickupCompletesOnlyAfterExplicitHandoverAndNeverPostsTwice() {
+        var sale=sales.create(request(UUID.randomUUID(),customer,
+                item(firstVariant,home,2,"8500")));
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        var request=new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,
+                "Деньги и кресла переданы одновременно");
+        var closed=paidPickup.payAndHandOver(sale.id(),request);
+        assertThat(closed.status()).isEqualTo(SaleStatus.FULFILLED);
+        assertThat(inventory.getBalance(home,firstVariant).onHand()).isEqualTo(18);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
+        assertThat(payments.getBySale(sale.id()).stream()
+                .filter(p->p.status()==kg.chairx.payment.domain.PaymentStatus.PAID)).hasSize(1);
+        long movements=stockMovementCount();
+        long finance=jdbc.queryForObject("select count(*) from finance_movements",Long.class);
+        assertThatThrownBy(()->paidPickup.payAndHandOver(sale.id(),request))
+                .isInstanceOf(SaleRuleViolationException.class);
+        assertThat(stockMovementCount()).isEqualTo(movements);
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements",Long.class))
+                .isEqualTo(finance);
+    }
+
+    @Test
+    void regularPaymentBeforeCustomerHandoverDoesNotCompleteSale() {
+        var sale=sales.create(request(UUID.randomUUID(),customer,
+                item(firstVariant,home,1,"8500")));
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,
+                "Оплата, выдача позднее"));
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(1);
+        assertThat(inventory.getBalance(home,firstVariant).onHand()).isEqualTo(20);
+        assertThatThrownBy(()->paidPickup.payAndHandOver(sale.id(),
+                new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,null)))
+                .isInstanceOf(kg.chairx.payment.application.PaymentRuleViolationException.class);
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+    }
+
+    @Test
+    void pickupPaymentWithWrongSaleIdDoesNotPostAnything() {
+        var sale=sales.create(request(UUID.randomUUID(),customer,
+                item(firstVariant,home,1,"8500")));
+        assertThatThrownBy(()->paidPickup.payAndHandOver(sale.id(),
+                new CreatePaymentRequest(UUID.randomUUID(),PaymentMethod.CASH,null,null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+        assertThat(payments.getBySale(sale.id())).isEmpty();
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(1);
     }
 
     @Test
