@@ -41,6 +41,15 @@ def measure(page):
             const r=el.getBoundingClientRect();
             const st=getComputedStyle(el);
             if(!r.width || !r.height || st.visibility==='hidden') return false;
+            // An intentionally horizontally scrollable table is not a clipped
+            // control: users can reach off-screen columns by scrolling.
+            let ancestor=el.parentElement;
+            while(ancestor && ancestor!==document.body) {
+                const overflow=getComputedStyle(ancestor).overflowX;
+                if((overflow==='auto'||overflow==='scroll')
+                   && ancestor.scrollWidth>ancestor.clientWidth+2) return false;
+                ancestor=ancestor.parentElement;
+            }
             if(r.right>viewport+2 || r.left< -2) return true;
             return st.overflowX === 'visible'
                 && el.scrollWidth>el.clientWidth+2
