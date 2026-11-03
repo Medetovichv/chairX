@@ -7,6 +7,7 @@ has finished. Never run on production or retained local databases.
 import importlib.util
 import json
 import os
+import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 
@@ -61,6 +62,13 @@ def main():
     assert customers["total"]>=N and products["totalElements"]>=N, (
         f"Expected paginated fixtures: {customers['total']}, {products['totalElements']}"
     )
+    timings=[]
+    for endpoint in ("/api/customers/overview?page=0&size=20", "/api/products?page=0&size=20"):
+        for _ in range(5):
+            start=time.perf_counter()
+            response=api.must("GET",endpoint,None,200)
+            timings.append({"endpoint":endpoint,"elapsed_ms":round((time.perf_counter()-start)*1000,1),
+                            "count":len(response["items"])})
     samples=[]
     with sync_playwright() as p:
         browser=p.chromium.launch(headless=True)
@@ -81,13 +89,15 @@ def main():
                 page.get_by_role("heading",name=heading,exact=True).wait_for(timeout=30000)
                 page.get_by_role("region",name=section).wait_for(timeout=30000)
                 # Ensure pagination under load, and the next page is selectable.
-                pager=page.get_by_role("button",name="Следующая")
+                next_label="Следующая" if route=="/customers" else "Вперёд"
+                back_label="Предыдущая" if route=="/customers" else "Назад"
+                pager=page.get_by_role("button",name=next_label)
                 pager.wait_for(timeout=30000)
                 assert pager.is_enabled(),f"{route}: 42 rows should produce multiple pages"
                 pager.click()
-                page.get_by_role("button",name="Предыдущая").wait_for(timeout=30000)
-                assert page.get_by_role("button",name="Предыдущая").is_enabled()
-                page.get_by_role("button",name="Предыдущая").click()
+                page.get_by_role("button",name=back_label).wait_for(timeout=30000)
+                assert page.get_by_role("button",name=back_label).is_enabled()
+                page.get_by_role("button",name=back_label).click()
                 for width in WIDTHS:
                     page.set_viewport_size({"width":width,"height":900})
                     page.wait_for_timeout(130)
@@ -119,8 +129,8 @@ def main():
             # for meaningful fixed performance budgets.
             (ART/"metrics.json").write_text(json.dumps({
                 "seeded_customers":N,"seeded_products":N,
-                "responsive_checks":len(samples),"results":samples,
-                "note":"CI timings and screenshots are diagnostic, not Lighthouse scores"
+                "responsive_checks":len(samples),"results":samples,"api_timings":timings,
+                "note":"API GET timings from CI are diagnostics only; not Lighthouse or browser render measurements"
             },indent=2,ensure_ascii=False),encoding="utf-8")
             print(f"Studio stress acceptance passed: {N} customers + {N} products; {len(samples)} checks")
         finally:
