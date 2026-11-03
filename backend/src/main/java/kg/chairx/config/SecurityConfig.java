@@ -153,6 +153,9 @@ public class SecurityConfig {
                         .hasAuthority("SALES_DRAFT_MANAGE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/confirm")
                         .hasAuthority("SALES_DRAFT_MANAGE")
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/pay-and-hand-over")
+                        .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
+                                "hasAuthority('PAYMENTS_CREATE') and hasAuthority('SALES_UPDATE')"))
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/fulfill")
                         .hasAuthority("SALES_UPDATE")
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel", "/api/sales/*/cancel-with-reason")
