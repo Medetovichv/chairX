@@ -6,6 +6,7 @@ import { ApiClientError, userFacingApiError } from '../api/api-error';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { readSaleAction, saveSaleAction, clearSaleAction } from './pending-sale-action';
 import type { SaleResponse } from '../../features/sales/types';
+import {cancellationReasons,type SaleCancellationReason} from '../../features/sales/cancellation';
 
 type Action = 'confirm' | 'fulfill' | 'cancel';
 function snapshot(s: SaleResponse) {
@@ -26,6 +27,9 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
   const [invalid,setInvalid]=useState(stored.kind === 'invalid');
   const [error,setError]=useState('');
   const [notice,setNotice]=useState('');
+  const [showCancelForm,setShowCancelForm]=useState(false);
+  const [cancelReason,setCancelReason]=useState<SaleCancellationReason|''>('');
+  const [cancelComment,setCancelComment]=useState('');
   const draft=sale.status==='DRAFT';
   const confirmed=sale.status==='CONFIRMED';
   const canConfirm=draft&&hasPermission('SALES_DRAFT_MANAGE')&&!!sale.fulfillmentType&&sale.items.length>0;
@@ -40,7 +44,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     ]);
   }
   async function execute(action:Action) {
-    if(busyRef.current||unknown||invalid)return;
+    if(busyRef.current||unknown||invalid||action==='cancel'&&(!cancelReason||cancelComment.length>1000))return;
     busyRef.current=true;setBusy(true);setError('');
     let sent=false;
     try {
@@ -57,7 +61,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       }
       sent=true;
       const result=action==='confirm'?await salesApi.confirm(sale.id):
-        action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancel(sale.id);
+        action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null});
       sent=false; // A successful API response is authoritative: cache invalidation is not a second mutation.
       if(!clearSaleAction(user.id, sale.id)) {
         setInvalid(true);
@@ -109,8 +113,29 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     <div className="flex flex-wrap gap-2">
       {canConfirm&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('confirm')}>Подтвердить заказ</button>}
       {canFulfill&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('fulfill')}>Завершить выдачу</button>}
-      {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setIntent('cancel')}>Отменить заказ</button>}
+      {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setShowCancelForm(true)}>Отменить заказ</button>}
     </div>
+    {showCancelForm&&<div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+      <label className="block space-y-1 text-sm font-semibold">Причина отмены *
+        <select aria-label="Причина отмены" required value={cancelReason}
+          disabled={busy} onChange={e=>setCancelReason(e.target.value as SaleCancellationReason|'')}
+          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3">
+          <option value="">Выберите причину</option>
+          {cancellationReasons.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+      </label>
+      <label className="block space-y-1 text-sm font-semibold">Комментарий (необязательно)
+        <textarea aria-label="Комментарий отмены" value={cancelComment} maxLength={1000}
+          disabled={busy} onChange={e=>setCancelComment(e.target.value)}
+          className="min-h-20 w-full rounded-xl border border-slate-300 bg-white p-3"/>
+      </label>
+      <p className="text-xs text-slate-700">Оплаченную продажу нельзя отменить напрямую — сначала требуется компенсация или возврат оплаты.</p>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className="min-h-11 rounded-xl bg-red-700 px-4 text-white disabled:opacity-50"
+          disabled={busy||!cancelReason} onClick={()=>setIntent('cancel')}>Продолжить отмену</button>
+        <button type="button" className="min-h-11 rounded-xl border px-4" onClick={()=>setShowCancelForm(false)}>Не отменять</button>
+      </div>
+    </div>}
     <ConfirmDialog open={!!intent} onOpenChange={open=>{if(!open)setIntent(null);}}
       title={intent==='confirm'?'Подтвердить заказ?':intent==='fulfill'?'Выдать товар?':'Отменить заказ?'}
       description={'Заказ '+sale.saleNumber+', '+sale.items.length+' позиций, сумма '+sale.total+' сом. Проверьте данные: операция изменит складской учёт.'}

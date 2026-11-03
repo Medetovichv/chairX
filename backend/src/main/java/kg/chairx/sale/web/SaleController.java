@@ -101,6 +101,19 @@ public class SaleController {
         return service.fulfill(id);
     }
 
+    @PostMapping("/{id}/cancel-with-reason")
+    public SaleResponse cancelWithReason(@PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request) {
+        return service.cancelWithReason(id, request);
+    }
+
+    @GetMapping("/{id}/cancellation-details")
+    public ResponseEntity<kg.chairx.sale.api.SaleCancellationDetails> cancellationDetails(
+            @PathVariable UUID id) {
+        return service.cancellationDetails(id).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(
             @PathVariable UUID id

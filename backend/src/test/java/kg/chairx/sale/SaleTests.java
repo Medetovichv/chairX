@@ -16,6 +16,8 @@ import kg.chairx.inventory.application.InventoryService;
 import kg.chairx.inventory.domain.InsufficientStockException;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CancelSaleRequest;
+import kg.chairx.sale.api.SaleCancellationReason;
 import kg.chairx.sale.api.CreateDraftSaleRequest;
 import kg.chairx.sale.api.UpdateDraftSaleRequest;
 import kg.chairx.sale.application.SaleRuleViolationException;
@@ -743,6 +745,53 @@ class SaleTests {
                         firstVariant
                 ).reserved()
         ).isZero();
+    }
+
+    @Test
+    void reasonedCancellationIsAtomicPersistsMetadataAndReleasesReservationOnce() {
+        var sale = sales.create(request(UUID.randomUUID(),customer,
+                item(firstVariant,home,2,"8500")));
+        var result = sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Клиент отказался после согласования"));
+        assertThat(result.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
+        var details = sales.cancellationDetails(sale.id()).orElseThrow();
+        assertThat(details.reason()).isEqualTo(SaleCancellationReason.CUSTOMER_CHANGED_MIND);
+        assertThat(details.comment()).isEqualTo("Клиент отказался после согласования");
+        assertThat(details.cancelledBy()).isEqualTo("sale-test-user");
+        assertThat(details.cancelledAt()).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT cancellation_comment FROM sales WHERE id=?",
+                String.class,sale.id())).isEqualTo("Клиент отказался после согласования");
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
+                Integer.class,sale.id())).isEqualTo(1);
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER,null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isZero();
+    }
+
+    @Test
+    void reasonedCancellationRequiresValidReasonAndRejectsPaidSaleWithoutWritingMetadata() {
+        var sale = sales.create(request(UUID.randomUUID(),customer,
+                item(firstVariant,home,1,"8500")));
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(null,null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
+                Integer.class,sale.id())).isZero();
+        payments.create(new CreatePaymentRequest(sale.id(),PaymentMethod.CASH,null,
+                "Оплата перед попыткой отмены"));
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.INSUFFICIENT_FUNDS,null)))
+                .isInstanceOf(SaleRuleViolationException.class);
+        assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM sales WHERE id=? AND cancellation_reason IS NOT NULL",
+                Integer.class,sale.id())).isZero();
     }
 
     @Test
