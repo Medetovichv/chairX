@@ -120,6 +120,12 @@ def main():
                 # Name includes the localized entity, so use a prefix rather than exact match.
                 dialog=page.get_by_role("dialog",name="Быстрый просмотр:",exact=False)
                 dialog.wait_for(timeout=30000)
+                if name=="delivery":
+                    # UI must show localized human status, not backend enums.
+                    dialog.get_by_text("Доставлена",exact=True).wait_for(timeout=30000)
+                    assert dialog.get_by_text("DELIVERED",exact=True).count()==0, (
+                        "Technical delivery status leaked into the quick view"
+                    )
                 for width in (375,1440):
                     page.set_viewport_size({"width":width,"height":900})
                     page.wait_for_timeout(120)
