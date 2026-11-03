@@ -68,6 +68,8 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     for (const child of node.children) observer.observe(child);
     return () => observer.disconnect();
   }, [children]);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   const previouslyFocused = useRef<HTMLElement | null>(null);
   useEffect(() => {
     previouslyFocused.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -75,7 +77,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     const onKey = (event: KeyboardEvent) => {
       // A portalled child dialog owns keyboard interaction until it closes.
       if(event.defaultPrevented||document.querySelector('[role="dialog"][aria-modal="true"]'))return;
-      if (event.key === 'Escape') { if (allowLeave()) onClose(); }
+      if (event.key === 'Escape') { if (allowLeave()) onCloseRef.current(); }
       if (event.key === 'Tab' && window.matchMedia?.('(max-width: 1279px)').matches) {
         const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-quick-view] button:not([disabled]), [data-quick-view] a[href], [data-quick-view] input:not([disabled]), [data-quick-view] select:not([disabled]), [data-quick-view] textarea:not([disabled])')).filter(node => node.getClientRects().length > 0);
         if (!nodes.length) return;
@@ -92,7 +94,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       window.removeEventListener('beforeunload', onUnload);
       previouslyFocused.current?.focus();
     };
-  }, [onClose]);
+  }, []);
   const guardInternalLinks = (event: React.MouseEvent<HTMLElement>) => {
     if (!dirtyRef.current || event.defaultPrevented || event.button !== 0 ||
       event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;

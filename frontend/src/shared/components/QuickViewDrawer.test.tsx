@@ -58,6 +58,22 @@ describe('QuickViewDrawer navigation', () => {
     expect(region?.className).toContain('scrollbar-gutter:stable');
     unmount();
   });
+  it('preserves focus across parent data updates and calls the latest close handler', () => {
+    const firstClose=vi.fn(),latestClose=vi.fn();
+    const content=(onClose:()=>void)=><MemoryRouter>
+      <QuickViewDrawer title="Order" detailUrl="/sales/new" onClose={onClose}>
+        <button>Continue editing</button>
+      </QuickViewDrawer>
+    </MemoryRouter>;
+    const {rerender}=render(content(firstClose));
+    const editor=screen.getByRole('button',{name:'Continue editing'});
+    editor.focus();
+    rerender(content(latestClose));
+    expect(editor).toHaveFocus();
+    fireEvent.keyDown(window,{key:'Escape'});
+    expect(firstClose).not.toHaveBeenCalled();
+    expect(latestClose).toHaveBeenCalledOnce();
+  });
   it('closes on Escape when clean', () => {
     const close = vi.fn();
     const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={close}><Editor/></QuickViewDrawer></MemoryRouter>);

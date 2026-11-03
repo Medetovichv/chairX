@@ -38,6 +38,7 @@ def main():
             opener = form.get_by_role("button", name="+ Новый клиент", exact=True)
             # Desktop and mobile child-dialog keyboard ownership, before any write.
             for width in (1440, 1280, 1024, 768, 375, 320):
+                print(f"Quick-create acceptance at {width}px", flush=True)
                 page.set_viewport_size({"width": width, "height": 900})
                 opener.click()
                 child = page.get_by_role("dialog", name="Новый клиент для продажи", exact=True)
