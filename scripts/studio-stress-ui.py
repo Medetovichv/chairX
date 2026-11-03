@@ -117,7 +117,7 @@ def main():
                 page.set_viewport_size({"width":375,"height":900})
                 field=page.get_by_role("searchbox",name=input_name)
                 field.fill(term)
-                page.get_by_role("region",name=section).get_by_text(term,exact=True).first.wait_for(timeout=30000)
+                page.get_by_role("region",name=section).get_by_text(term,exact=True).last.wait_for(timeout=30000)
                 m=layout(page)
                 assert m["pageWidth"]<=m["viewport"]+1,(
                     f"{route}: long unbroken label overflow: {m}"
