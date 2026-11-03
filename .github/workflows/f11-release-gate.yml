@@ -9,6 +9,7 @@ on:
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
       - 'scripts/studio-stress-ui.py'
+      - 'scripts/studio-resilience-ui.py'
       - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
@@ -21,6 +22,7 @@ on:
       - 'scripts/f11-operations-e2e.py'
       - 'scripts/studio-populated-ui.py'
       - 'scripts/studio-stress-ui.py'
+      - 'scripts/studio-resilience-ui.py'
       - 'scripts/f13-admin-e2e.py'
       - 'backend/**'
       - 'frontend/**'
@@ -203,6 +205,16 @@ jobs:
           source .env
           set +a
           python scripts/studio-stress-ui.py
+      - name: Studio failed-request recovery and list readiness smoke
+        shell: bash
+        env:
+          CI: 'true'
+          CHAIRX_F11_E2E_DISPOSABLE: I_UNDERSTAND_DATABASE_IS_DISPOSABLE
+        run: |
+          set -a
+          source .env
+          set +a
+          python scripts/studio-resilience-ui.py
       - name: Upload purchase and settlement browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -212,6 +224,7 @@ jobs:
             artifacts/issue32-operations/
             artifacts/studio-populated/
             artifacts/studio-stress/
+            artifacts/studio-resilience/
             artifacts/f13/
           if-no-files-found: ignore
           retention-days: 14
