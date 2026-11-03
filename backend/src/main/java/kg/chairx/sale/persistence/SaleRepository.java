@@ -397,6 +397,31 @@ public class SaleRepository {
                 .update();
     }
 
+    public void saveCancellationDetails(UUID saleId, String reason, String comment, String actor) {
+        jdbc.sql("""
+                INSERT INTO sale_cancellation_details(
+                    sale_id,reason,comment,cancelled_by,cancelled_at
+                ) VALUES (:sale,:reason,:comment,:actor,clock_timestamp())
+                """)
+                .param("sale", saleId)
+                .param("reason", reason)
+                .param("comment", comment, Types.VARCHAR)
+                .param("actor", actor)
+                .update();
+    }
+
+    public java.util.Optional<kg.chairx.sale.api.SaleCancellationDetails> cancellationDetails(UUID saleId) {
+        return jdbc.sql("""
+                SELECT reason,comment,cancelled_by,cancelled_at
+                FROM sale_cancellation_details WHERE sale_id=:sale
+                """).param("sale", saleId)
+                .query((rs,row) -> new kg.chairx.sale.api.SaleCancellationDetails(
+                    kg.chairx.sale.api.SaleCancellationReason.valueOf(rs.getString("reason")),
+                    rs.getString("comment"),rs.getString("cancelled_by"),
+                    rs.getTimestamp("cancelled_at").toInstant()
+                )).optional();
+    }
+
     private Sale mapSale(
             ResultSet rs,
             int rowNum
