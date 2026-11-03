@@ -134,7 +134,7 @@ def main():
                         box=dialog.bounding_box()
                         assert box and box["x"]>=-1 and box["x"]+box["width"]<=376,(
                             f"{name} drawer beyond mobile viewport: {box}")
-                    page.screenshot(path=str(ART/f"{name}-drawer-{width}.png"),full_page=True)
+                    page.screenshot(path=str(ART/f"{name}-drawer-{width}.png"),full_page=False)
                 page.keyboard.press("Escape")
                 dialog.wait_for(state="detached",timeout=10000)
             (ART/"results.json").write_text(json.dumps({
