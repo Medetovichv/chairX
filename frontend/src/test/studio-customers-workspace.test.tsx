@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { CustomerWorkspaceOverview } from '../features/customers/components/CustomerWorkspaceOverview';
 import { CustomerTable } from '../features/customers/components/CustomerTable';
 import { MemoryRouter } from 'react-router';
@@ -31,7 +31,7 @@ describe('Studio customer directory', () => {
     expect(screen.getByText('Страница 3 · всего 82')).toBeInTheDocument();
     expect(screen.getByText('С заказами')).toBeInTheDocument();
     expect(screen.getByText('Среди показанных клиентов')).toBeInTheDocument();
-    expect(screen.getByText('2', { selector: 'strong' })).toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Обзор клиентской базы' })).getAllByText('2', { selector: 'strong' })).toHaveLength(2);
     expect(screen.getByText('1', { selector: 'strong' })).toBeInTheDocument();
   });
 
