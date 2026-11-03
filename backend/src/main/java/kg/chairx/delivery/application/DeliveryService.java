@@ -386,9 +386,22 @@ public class DeliveryService {
     }
 
     @Transactional
-    public DeliveryResponse cancel(
-            UUID deliveryId
-    ) {
+    public DeliveryResponse cancel(UUID deliveryId) {
+        return cancelInternal(deliveryId,null);
+    }
+
+    @Transactional
+    public DeliveryResponse cancelWithReason(UUID deliveryId,
+            kg.chairx.sale.api.CancelSaleRequest request) {
+        if(request==null || request.reason()==null)
+            throw rule("CANCELLATION_REASON_REQUIRED","Выберите причину отмены");
+        if(request.comment()!=null && request.comment().length()>1000)
+            throw rule("CANCELLATION_COMMENT_TOO_LONG","Комментарий слишком длинный");
+        return cancelInternal(deliveryId,request);
+    }
+
+    private DeliveryResponse cancelInternal(UUID deliveryId,
+            kg.chairx.sale.api.CancelSaleRequest request) {
         Delivery delivery = lock(deliveryId);
 
         if (delivery.cancelled()) {
@@ -414,9 +427,8 @@ public class DeliveryService {
          * Для продажи с доставкой используется отдельный
          * внутренний путь отмены Sale.
          */
-        sales.cancelForDelivery(
-                delivery.saleId()
-        );
+        if(request==null) sales.cancelForDelivery(delivery.saleId());
+        else sales.cancelForDeliveryWithReason(delivery.saleId(),request);
 
         repository.cancel(
                 delivery.id(),

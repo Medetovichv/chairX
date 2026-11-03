@@ -10,6 +10,7 @@ import { ErrorState } from '../../../shared/components/ErrorState';
 import { deliveryApi } from '../api';
 import { sameDelivery, validLocalDate } from '../validation';
 import type { DeliveryResponse } from '../types';
+import {cancellationReasons,type SaleCancellationReason} from '../../sales/cancellation';
 import {
   readPendingDelivery, savePendingDelivery, clearPendingDelivery,
   type DeliveryAction as Action, type DeliveryIntent as Intent,
@@ -20,7 +21,8 @@ function reached(d:DeliveryResponse, x:Intent):boolean{
   if(x.action==='dispatch')return ['IN_TRANSIT','DELIVERED','FAILED'].includes(d.status);
   if(x.action==='deliver')return d.status==='DELIVERED';
   if(x.action==='fail')return d.status==='FAILED'&&d.failureReason===x.reason;
-  if(x.action==='cancel')return d.status==='CANCELLED';
+  // A matching status is insufficient proof that this operator's lost POST committed.
+  if(x.action==='cancel')return false;
   return d.status==='FAILED'&&!!d.returnedToWarehouseAt&&d.returnWarehouseId===x.warehouseId;
 }
 export function DeliveryActions({delivery:d,onChanged}:{
@@ -42,6 +44,9 @@ export function DeliveryActions({delivery:d,onChanged}:{
   const [storageInvalid,setStorageInvalid]=useState(recovered.kind==='invalid');
   const [date,setDate]=useState(d.plannedDeliveryDate??'');
   const [reason,setReason]=useState('');
+  const [showCancelForm,setShowCancelForm]=useState(false);
+  const [cancelReason,setCancelReason]=useState<SaleCancellationReason|''>('');
+  const [cancelComment,setCancelComment]=useState('');
   const [warehouse,setWarehouse]=useState('');
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -90,7 +95,7 @@ export function DeliveryActions({delivery:d,onChanged}:{
       }
       const result=action.action==='dispatch'?await deliveryApi.dispatch(d.id):
         action.action==='deliver'?await deliveryApi.deliver(d.id):
-        action.action==='cancel'?await deliveryApi.cancel(d.id):
+        action.action==='cancel'?await deliveryApi.cancelWithReason(d.id,{reason:action.cancelReason!,comment:action.cancelComment??null}):
         action.action==='fail'?await deliveryApi.fail(d.id,action.reason!):
         await deliveryApi.returnToWarehouse(d.id,action.warehouseId!);
       if(!clearPendingDelivery(user.id,d.id)){
@@ -99,7 +104,7 @@ export function DeliveryActions({delivery:d,onChanged}:{
       }
       await onChanged(result);
       setNotice('Операция подтверждена сервером.');
-      setReason('');setWarehouse('');
+      setReason('');setWarehouse('');setShowCancelForm(false);
     }catch(cause){
       setError(userFacingApiError(cause));
       if(!(cause instanceof ApiClientError)||cause.kind!=='http'||cause.status===undefined||cause.status>=500){
@@ -191,8 +196,30 @@ export function DeliveryActions({delivery:d,onChanged}:{
       {canDispatch&&<Button disabled={disabled} onClick={()=>setIntent({action:'dispatch'})}>Отправить доставку</Button>}
       {canDeliver&&<Button disabled={disabled} onClick={()=>setIntent({action:'deliver'})}>Подтвердить вручение</Button>}
       {canAbort&&<Button variant="destructive" disabled={disabled}
-        onClick={()=>setIntent({action:'cancel'})}>Отменить доставку и продажу</Button>}
+        onClick={()=>setShowCancelForm(true)}>Отменить доставку и продажу</Button>}
     </div>
+    {showCancelForm&&canAbort&&<div className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+      <p className="text-sm font-semibold">Укажите причину отмены доставки и связанного заказа</p>
+      <label className="block space-y-1 text-sm font-semibold">Причина отмены *
+        <select aria-label="Причина отмены доставки" required value={cancelReason}
+          disabled={disabled} onChange={e=>setCancelReason(e.target.value as SaleCancellationReason|'')}
+          className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3">
+          <option value="">Выберите причину</option>
+          {cancellationReasons.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+      </label>
+      <label className="block space-y-1 text-sm font-semibold">Комментарий (необязательно)
+        <textarea aria-label="Комментарий отмены доставки" maxLength={1000}
+          value={cancelComment} disabled={disabled} onChange={e=>setCancelComment(e.target.value)}
+          className="min-h-20 w-full rounded-xl border border-slate-300 bg-white p-3"/>
+      </label>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="destructive" disabled={disabled||!cancelReason}
+          onClick={()=>setIntent({action:'cancel',cancelReason:cancelReason as SaleCancellationReason,
+            cancelComment:cancelComment.trim()||null})}>Продолжить отмену доставки</Button>
+        <Button variant="outline" disabled={disabled} onClick={()=>setShowCancelForm(false)}>Не отменять</Button>
+      </div>
+    </div>}
     {canFail&&<div className="space-y-2">
       <label className="block space-y-1 text-sm font-semibold">Причина неуспешной доставки
         <textarea aria-label="Причина неуспешной доставки" disabled={disabled} maxLength={1000}

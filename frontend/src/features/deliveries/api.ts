@@ -1,4 +1,5 @@
 import { apiClient } from '../../shared/api/client';
+import type {CancelSaleInput} from '../sales/cancellation';
 import type { CreateDeliveryInput, DeliveryFilters, DeliveryPage, DeliveryResponse } from './types';
 export const DELIVERY_PAGE_SIZE = 20;
 const enc = (id: string) => encodeURIComponent(id);
@@ -31,6 +32,8 @@ export const deliveryApi = {
   fail: (id: string, reason: string): Promise<DeliveryResponse> =>
     apiClient.post('/api/deliveries/' + enc(id) + '/fail',{reason}),
   cancel: (id: string): Promise<DeliveryResponse> => apiClient.post('/api/deliveries/' + enc(id) + '/cancel'),
+  cancelWithReason: (id:string,input:CancelSaleInput):Promise<DeliveryResponse> =>
+    apiClient.post('/api/deliveries/'+enc(id)+'/cancel-with-reason',input),
   returnToWarehouse: (id: string, warehouseId: string): Promise<DeliveryResponse> =>
     apiClient.post('/api/deliveries/' + enc(id) + '/return-to-warehouse',{warehouseId}),
 };

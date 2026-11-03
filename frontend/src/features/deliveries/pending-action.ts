@@ -1,7 +1,9 @@
 import { validLocalDate, validUUID } from './validation';
+import {cancellationReasons,type SaleCancellationReason} from '../sales/cancellation';
 
 export type DeliveryAction = 'dispatch'|'deliver'|'fail'|'cancel'|'return';
-export type DeliveryIntent = { action: DeliveryAction; reason?: string; warehouseId?: string };
+export type DeliveryIntent = { action: DeliveryAction; reason?: string; warehouseId?: string;
+  cancelReason?: SaleCancellationReason; cancelComment?: string|null };
 export type PendingDeliveryMutation =
   | {kind:'action'; intent:DeliveryIntent}
   | {kind:'date'; plannedDate:string|null};
@@ -23,10 +25,14 @@ function validMutation(value:unknown):value is PendingDeliveryMutation{
   if(d.kind!=='action'||!d.intent||typeof d.intent!=='object'||Array.isArray(d.intent))return false;
   const i=d.intent as Record<string,unknown>;
   if(!['dispatch','deliver','fail','cancel','return'].includes(String(i.action)))return false;
+  if(i.action==='cancel')return cancellationReasons.some(r=>r.value===i.cancelReason)
+    && (i.cancelComment===null||typeof i.cancelComment==='string'&&i.cancelComment.length<=1000)
+    && i.reason===undefined && i.warehouseId===undefined;
   if(i.action==='fail')return typeof i.reason==='string'&&
     i.reason.trim().length>0&&i.reason.length<=1000;
   if(i.action==='return')return typeof i.warehouseId==='string'&&validUUID(i.warehouseId);
-  return i.reason===undefined&&i.warehouseId===undefined;
+  return i.reason===undefined&&i.warehouseId===undefined&&
+    i.cancelReason===undefined&&i.cancelComment===undefined;
 }
 
 /**

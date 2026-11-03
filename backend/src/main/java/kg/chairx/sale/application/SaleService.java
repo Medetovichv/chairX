@@ -391,14 +391,7 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
                 && sale.fulfillmentType() != FulfillmentType.SELF_PICKUP) {
             throw rule("DELIVERY_REQUIRED", "Продажу с доставкой необходимо отменять через процесс доставки");
         }
-        SaleResponse result = cancelLocked(sale);
-        String comment = request.comment() == null || request.comment().isBlank()
-                ? null : request.comment().strip();
-        repository.saveCancellationDetails(saleId, request.reason().name(), comment, actor());
-        audit.record("SALE",saleId,"CANCELLATION_REASON_RECORDED",null,
-                java.util.Map.of("reason",request.reason().name(),
-                        "comment",comment == null ? "" : comment));
-        return result;
+        return cancelReasonedLocked(sale,request);
     }
 
     @Transactional(readOnly = true)
@@ -441,6 +434,37 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
         }
 
         return cancelLocked(sale);
+    }
+
+    @Transactional
+    public SaleResponse cancelForDeliveryWithReason(
+            UUID saleId, kg.chairx.sale.api.CancelSaleRequest request) {
+        Sale sale = lock(saleId);
+        if (sale.fulfillmentType() == FulfillmentType.SELF_PICKUP) {
+            throw rule("DELIVERY_NOT_ALLOWED","Самовывоз нельзя отменять через процесс доставки");
+        }
+        return cancelReasonedLocked(sale,request);
+    }
+
+    private SaleResponse cancelReasonedLocked(
+            Sale sale, kg.chairx.sale.api.CancelSaleRequest request) {
+        if(request==null || request.reason()==null) {
+            throw rule("CANCELLATION_REASON_REQUIRED","Выберите причину отмены");
+        }
+        if(request.comment()!=null && request.comment().length()>1000) {
+            throw rule("CANCELLATION_COMMENT_TOO_LONG","Комментарий слишком длинный");
+        }
+        if(sale.status()==SaleStatus.CANCELLED) {
+            throw rule("SALE_ALREADY_CANCELLED","Заказ уже отменён");
+        }
+        SaleResponse result=cancelLocked(sale);
+        String comment=request.comment()==null || request.comment().isBlank()
+                ? null : request.comment().strip();
+        repository.saveCancellationDetails(sale.id(),request.reason().name(),comment,actor());
+        audit.record("SALE",sale.id(),"CANCELLATION_REASON_RECORDED",null,
+                java.util.Map.of("reason",request.reason().name(),
+                        "comment",comment==null?"":comment));
+        return result;
     }
 
     private SaleResponse cancelLocked(
