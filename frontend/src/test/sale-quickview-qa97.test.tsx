@@ -15,7 +15,7 @@ vi.mock('../features/auth/AuthProvider',()=>({
   }),
 }));
 vi.mock('../features/sales/api',()=>({
-  salesApi:{get:vi.fn(),confirm:vi.fn(),fulfill:vi.fn(),cancel:vi.fn()},
+  salesApi:{get:vi.fn(),confirm:vi.fn(),fulfill:vi.fn(),cancel:vi.fn(),cancelWithReason:vi.fn()},
   salesKeys:{
     detail:(id:string)=>['sales','detail',id],
     lists:['sales','list'],
@@ -71,6 +71,23 @@ describe('QA-02: uncertain sale Quick View actions fail closed',()=>{
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(readSaleAction(USER,ID)).toEqual({kind:'pending',action:'cancel'});
     expect(screen.getByRole('button',{name:'Отменить заказ'})).toBeDisabled();
+    expect(salesApi.cancel).not.toHaveBeenCalled();
+  });
+  it('reasoned cancellation cannot post without selected reason and preserves optional comment',async()=>{
+    vi.mocked(salesApi.get).mockResolvedValue(order('DRAFT'));
+    vi.mocked(salesApi.cancelWithReason).mockResolvedValue(order('CANCELLED'));
+    mount('DRAFT');
+    const user=userEvent.setup();
+    await user.click(screen.getByRole('button',{name:'Отменить заказ'}));
+    expect(screen.getByRole('button',{name:'Продолжить отмену'})).toBeDisabled();
+    expect(salesApi.cancelWithReason).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByRole('combobox',{name:'Причина отмены'}),'PRODUCT_MISMATCH');
+    await user.type(screen.getByRole('textbox',{name:'Комментарий отмены'}),'Покупатель ожидал другую модель');
+    await user.click(screen.getByRole('button',{name:'Продолжить отмену'}));
+    await user.click(screen.getByRole('button',{name:'Подтвердить'}));
+    expect(salesApi.cancelWithReason).toHaveBeenCalledWith(ID,{
+      reason:'PRODUCT_MISMATCH',comment:'Покупатель ожидал другую модель'
+    });
     expect(salesApi.cancel).not.toHaveBeenCalled();
   });
   it('corrupted recovery storage fails closed before any POST',()=>{
