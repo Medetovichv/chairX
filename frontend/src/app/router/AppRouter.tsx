@@ -17,7 +17,7 @@ import { PurchasesPage } from '../../features/purchases/pages/PurchasesPage';
 import { PurchaseDetailPage } from '../../features/purchases/pages/PurchaseDetailPage';
 import { ReceivingPage } from '../../features/purchases/pages/ReceivingPage';
 import { SuppliersPage } from '../../features/purchases/pages/SuppliersPage';
-import { PurchasePaymentsPage } from '../../features/purchases/pages/PurchasePaymentsPage';
+const PurchasePaymentsPage = lazy(() => import('../../features/purchases/pages/PurchasePaymentsPage').then(module => ({default:module.PurchasePaymentsPage})));
 import { CustomersPage } from '../../features/customers/pages/CustomersPage';
 import { CustomerDetailPage } from '../../features/customers/pages/CustomerDetailPage';
 import { SalesPage } from '../../features/sales/pages/SalesPage';
@@ -150,7 +150,7 @@ function ProtectedSection({ path }: { path: string }) {
   if (path === '/purchases') return <PurchasesPage />;
   if (path === '/purchases/receipts') return <ReceivingPage />;
   if (path === '/purchases/suppliers') return <SuppliersPage />;
-  if (path === '/purchases/payments') return <PurchasePaymentsPage />;
+  if (path === '/purchases/payments') return <DeferredPage><PurchasePaymentsPage /></DeferredPage>;
   if (path === '/customers') return <CustomersPage />;
   return path === '/daily-closing' ? <DailyClosingPage /> : <OperationalPage path={path} />;
 }
