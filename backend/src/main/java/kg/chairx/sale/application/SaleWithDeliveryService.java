@@ -119,7 +119,7 @@ public class SaleWithDeliveryService {
      * constraint on the editable Customers directory.
      */
     private UUID resolveCustomerForDelivery(CreateSaleWithDeliveryRequest.DeliveryDetails delivery) {
-        String local=normalizedKyrgyzPhone(delivery.recipientPhone());
+        String local=kg.chairx.customer.application.KyrgyzPhoneNormalizer.local(delivery.recipientPhone());
         if(local!=null) {
             jdbc.sql("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))")
                     .param("key","chairx-delivery-customer:"+local)
@@ -155,17 +155,6 @@ public class SaleWithDeliveryService {
         return customers.create(new CreateCustomerRequest(
                 delivery.recipientName(),delivery.recipientPhone(),null,null,null,
                 delivery.address(),delivery.cityRegion(),null)).id();
-    }
-
-    /** Accept only unambiguous KG mobile/national representation. */
-    private static String normalizedKyrgyzPhone(String raw) {
-        if(raw==null)return null;
-        String digits=raw.replaceAll("[^0-9]","");
-        if(digits.startsWith("00996")&&digits.length()==14)digits=digits.substring(2);
-        if(digits.startsWith("996")&&digits.length()==12)digits=digits.substring(3);
-        else if(digits.startsWith("0")&&digits.length()==10)digits=digits.substring(1);
-        if(digits.length()!=9 || !digits.matches("[0-9]{9}"))return null;
-        return digits;
     }
 
     private String hash(CreateSaleWithDeliveryRequest request) {
