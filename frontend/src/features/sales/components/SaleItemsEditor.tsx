@@ -32,7 +32,7 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
       Не удалось загрузить список складов.
       <Button type="button" variant="outline" size="sm" onClick={()=>void warehouses.refetch()}>Повторить</Button>
     </p>}
-    {rows.map((row,index)=><div key={row.key} className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+    {rows.map((row,index)=><div key={row.key} className="@container space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="font-bold">Позиция {index+1}</p>
         <Button type="button" variant="outline" size="sm" disabled={disabled}
@@ -44,7 +44,7 @@ export function SaleItemsEditor({rows,onChange,disabled,allowOutOfStock=false}:{
           // A new variant may have no stock at the previously selected warehouse.
           // Use the availability-confirmed warehouse supplied by the picker.
           // Never silently reuse a stale location for a different variant.
-          warehouseId:preferredWarehouse??'',
+          warehouseId:allowOutOfStock?(row.warehouseId||preferredWarehouse||''):(preferredWarehouse??''),
         })}/>
       <div className="grid min-w-0 gap-3 @sm:grid-cols-2 @lg:grid-cols-3 [.quick-create_&]:!grid-cols-1">
         <label className="space-y-1 text-sm font-semibold">Склад <span className="text-red-600" aria-hidden="true">*</span>
