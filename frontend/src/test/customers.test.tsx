@@ -150,8 +150,8 @@ describe('F05 customer list / permissions', () => {
     const { calls } = mockBackend();
     renderAt();
     expect(await screen.findByRole('cell', { name: 'Алия' })).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'S-1' })).toBeInTheDocument();
-    expect(screen.getByText(/Всего клиентов: 1/)).toBeInTheDocument();
+    expect(screen.getByText('Последний: S-1')).toBeInTheDocument();
+    expect(screen.getByText('Страница 1 · всего 1')).toBeInTheDocument();
     expect(callsTo(calls, '/api/customers/overview')).toHaveLength(1);
     expect(callsTo(calls, '/api/sales/customer')).toHaveLength(0);
   });
