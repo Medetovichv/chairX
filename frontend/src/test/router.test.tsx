@@ -114,9 +114,9 @@ describe('F02.1 navigation structure', () => {
     expect(within(side).getByRole('link', { name: 'Поступления' })).toHaveAttribute('href', '/purchases/receipts');
   });
 
-  it.each(childRoutes.map((route) => [route.path, route.label]))('opens child %s', (path, label) => {
+  it.each(childRoutes.map((route) => [route.path, route.label]))('opens child %s', async (path, label) => {
     renderAt(path);
-    expect(screen.getByRole('heading', { name: label, level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: label, level: 2 })).toBeInTheDocument();
     expect(screen.getByRole('navigation', { name: 'Навигационная цепочка' })).toBeInTheDocument();
   });
 
@@ -162,7 +162,7 @@ describe('F02.1 RBAC and legacy paths', () => {
     mockProfile.roles = ['EMPLOYEE'];
     mockProfile.permissions = ['EXPENSES_READ'];
     renderAt('/finance');
-    expect(screen.getByRole('heading', { name: 'Расходы', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Расходы', level: 2 })).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Разделы ChairX' });
     expect(within(nav).getByRole('link', { name: 'Финансы' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Движение денег' })).not.toBeInTheDocument();
@@ -214,9 +214,9 @@ describe('F02.1 RBAC and legacy paths', () => {
     ['/suppliers', 'Поставщики'],
     ['/expenses', 'Расходы'],
     ['/defects', 'Брак'],
-  ])('redirects legacy %s to its authorized nested route', (path, heading) => {
+  ])('redirects legacy %s to its authorized nested route', async (path, heading) => {
     renderAt(path);
-    expect(screen.getByRole('heading', { name: heading, level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: heading, level: 2 })).toBeInTheDocument();
   });
 
   it('never turns a legacy redirect into an authorization bypass', () => {
