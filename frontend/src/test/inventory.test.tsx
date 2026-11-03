@@ -649,6 +649,25 @@ describe('UI-V2-05 warehouse operations, unified SKU search and nested routes', 
     expect(JSON.parse(String(updated[0]?.[1]?.body))).toMatchObject({name:'Склад регион'});
   });
 
+  it('shows Studio warehouse identities and statuses while preserving accessible edit controls', async () => {
+    access.permissions=['INVENTORY_READ','WAREHOUSES_MANAGE'];
+    fakeBackend();
+    renderAt('/inventory/warehouses');
+    const list=await screen.findByRole('region',{name:'Список складов'});
+    expect(within(list).getByRole('heading',{name:'Все склады'})).toBeInTheDocument();
+    expect(list).toHaveTextContent('3 склада');
+    expect(list).toHaveTextContent('Адрес не указан');
+    expect(within(list).getAllByText('Активен')).toHaveLength(2);
+    expect(within(list).getAllByText('Неактивен')).toHaveLength(1);
+    expect(within(list).getAllByRole('button',{name:'Изменить'})).toHaveLength(3);
+    await userEvent.setup().click(within(list).getAllByRole('button',{name:'Изменить'})[0]!);
+    const editor=screen.getByRole('region',{name:'Редактирование склада'});
+    expect(within(editor).getByRole('textbox',{name:'Код склада'})).toBeDisabled();
+    expect(within(list).getAllByRole('button',{name:'Деактивировать'})[0]).toBeDisabled();
+    await userEvent.setup().click(within(editor).getByRole('button',{name:'Отмена'}));
+    expect(screen.queryByRole('region',{name:'Редактирование склада'})).not.toBeInTheDocument();
+  });
+
   it('requires explicit confirmation for deactivation and does not POST before it', async () => {
     access.permissions=['INVENTORY_READ','WAREHOUSES_MANAGE'];
     const {calls}=fakeBackend();
