@@ -98,6 +98,27 @@ def main():
                     results.append({"route":route,"width":width,**result})
                     slug=route.split("?")[0].strip("/") or "home"
                     page.screenshot(path=str(ART/f"{slug}-{width}.png"),full_page=True)
+            # Sales is a two-mode operational workspace; confirm the real Kanban
+            # builds and remains usable at mobile and desktop widths.
+            goto(page, "/sales?operational=true")
+            page.get_by_role("heading", name="Продажи", exact=True).wait_for(timeout=30000)
+            page.get_by_role("region", name="Текущие показатели продаж").wait_for(timeout=30000)
+            page.get_by_role("button", name="Канбан").click()
+            board=page.get_by_label("Доска продаж", exact=True)
+            board.wait_for(timeout=30000)
+            assert board.get_by_text("DELIVERED",exact=True).count()==0, (
+                "Untranslated delivery status leaked into sales Kanban"
+            )
+            for width in (375,1440):
+                page.set_viewport_size({"width":width,"height":900})
+                page.wait_for_timeout(180)
+                metrics=measure(page)
+                assert metrics["documentWidth"]<=metrics["viewport"]+1, (
+                    f"Sales Kanban overflow at {width}: {metrics}"
+                )
+                page.screenshot(path=str(ART/f"sales-kanban-{width}.png"),full_page=True)
+            page.get_by_role("button", name="Таблица").click()
+            page.get_by_role("region", name="Таблица продаж").wait_for(timeout=30000)
             # Open actual right-side sale/delivery panels, not fabricated mock content.
             from urllib.parse import quote
             import importlib.util
