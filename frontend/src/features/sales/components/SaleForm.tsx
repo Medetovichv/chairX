@@ -228,7 +228,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
           <span className="block text-xs font-medium text-[#516977]">
             {rows.length} позиций · {quantity} кресел{type?' · '+fulfillmentNames[type]:''}
           </span>
-          <span className="block text-xs text-[#516977]">Итог с учётом доставки</span>
+          <span className="block text-xs text-[#516977]">{withDelivery?'Итого с доставкой':'Итого по товарам'}</span>
         </div>
         <strong className="text-lg font-extrabold text-[#182d38]">
           {grandTotal===null?'Уточните цену':money(grandTotal.toString())}
