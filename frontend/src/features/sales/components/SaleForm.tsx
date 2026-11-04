@@ -150,7 +150,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Телефон доставки при создании продажи" maxLength={50} value={recipientPhone}
                   disabled={saving||blocked} onChange={e=>{deliveryPhoneEdited.current=true;setRecipientPhone(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
-              {customerId&&savedAddresses.data&&savedAddresses.data.length>0&&<label className="space-y-1 text-sm font-semibold sm:col-span-2">
+              {customerId&&savedAddresses.data&&savedAddresses.data.length>0&&<label className="space-y-1 text-sm font-semibold sm:col-span-2 [.quick-create_&]:!col-span-1">
                 Сохранённые адреса клиента
                 <select aria-label="Выбрать сохранённый адрес" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"
                   disabled={saving||blocked} defaultValue=""
@@ -160,7 +160,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                   {savedAddresses.data.map(a=><option key={a.id} value={a.id}>{a.address}{a.cityRegion?' — '+a.cityRegion:''}</option>)}
                 </select>
               </label>}
-              <label className="space-y-1 text-sm font-semibold sm:col-span-2">Адрес *
+              <label className="space-y-1 text-sm font-semibold sm:col-span-2 [.quick-create_&]:!col-span-1">Адрес *
                 <input aria-label="Адрес доставки при создании продажи" maxLength={500} value={deliveryAddress}
                   disabled={saving||blocked} onChange={e=>{deliveryAddressEdited.current=true;setDeliveryAddress(e.target.value);}}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
@@ -177,7 +177,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
                 <input aria-label="Стоимость доставки при создании продажи" inputMode="numeric" maxLength={17} value={deliveryCost}
                   disabled={saving||blocked} onChange={e=>setDeliveryCost(e.target.value)}
                   className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3"/></label>
-              <p className="text-xs text-slate-600 sm:col-span-2">Доставка учитывается в предварительном итоге заказа; окончательная сумма фиксируется при оплате после оформления доставки. Плановая дата по умолчанию сегодня по Бишкеку; при необходимости выберите другую дату.</p>
+              <p className="text-xs text-slate-600 sm:col-span-2 [.quick-create_&]:!col-span-1">Доставка учитывается в предварительном итоге заказа; окончательная сумма фиксируется при оплате после оформления доставки. Плановая дата по умолчанию сегодня по Бишкеку; при необходимости выберите другую дату.</p>
             </div>}
           </div>}
           <label className="block space-y-2 text-sm font-semibold">Комментарий
