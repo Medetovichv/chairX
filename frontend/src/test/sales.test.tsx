@@ -757,7 +757,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     renderAt('/sales/'+SALE_ID);
     await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(await screen.findByRole('alert')).toHaveTextContent(/Заказ изменён другим сотрудником/);
     expect(api.count().confirms).toBe(0);
     const posts=api.fetchMock.mock.calls.filter(([url,opts])=>
@@ -787,14 +787,12 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     }));
     await waitFor(()=>expect(screen.queryByRole('form',{name:'Редактирование черновика'})).not.toBeInTheDocument());
   });
-  it('confirms draft only after explicit confirmation and backend updates status',async()=>{
+  it('confirms draft on one explicit click with server preflight and no redundant dialog',async()=>{
     const api=mockBackend({sales:[sale('DRAFT')]});
     renderAt('/sales/'+SALE_ID);
     await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('17');
-    expect(api.count().confirms).toBe(0);
-    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(await screen.findByText('Заказ подтверждён.')).toBeInTheDocument();
     expect(api.count().confirms).toBe(1);
     expect(api.rows[0]?.status).toBe('CONFIRMED');
@@ -804,7 +802,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     renderAt('/sales/'+SALE_ID);
     await screen.findByRole('heading',{name:'Продажа #42'});
     await userEvent.setup().click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    await userEvent.setup().click(within(screen.getByRole('alertdialog')).getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     expect(await screen.findByRole('alert')).toHaveTextContent(/409|противоречит/);
     expect(api.count().confirms).toBe(0);
     expect(api.rows[0]?.status).toBe('DRAFT');
