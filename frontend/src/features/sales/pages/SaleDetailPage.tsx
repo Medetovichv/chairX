@@ -265,6 +265,12 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     matched?.paymentStatus==='PARTIAL'?'Требуется проверить данные оплаты':
     'Статус оплаты недоступен';
   const delivery=canReadDelivery?relatedDelivery.data:undefined;
+  // The sale total contains goods only. Never label it as the total payable
+  // for delivery orders without an authoritative saved delivery fee.
+  const goodsSom=integerSom(sale.total);
+  const feeSom=delivery?integerSom(delivery.deliveryCost):null;
+  const payableSom=goodsSom!==null&&feeSom!==null
+    ? (BigInt(goodsSom)+BigInt(feeSom)).toString():null;
   const deliveryEvents=[
     ...(delivery?[
       {key:'delivery-created',label:'Доставка оформлена',at:delivery.createdAt},
@@ -482,7 +488,14 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         <div className="px-4 pt-3"><Link to="/inventory"
           className="text-sm font-semibold text-blue-700 underline-offset-2 hover:underline">
           Открыть учёт остатков</Link></div>}
-      <p className="p-4 text-right text-xl font-bold">Итого: {money(sale.total)}</p>
+      <div aria-label="Итог заказа" className="space-y-2 border-t border-[#dfe7eb] bg-[#f8fafb] px-4 py-4 text-right text-sm">
+        <p>Товары: <strong>{money(sale.total)}</strong></p>
+        {requiresDelivery&&<>
+          <p>Доставка: <strong>{delivery&&feeSom!==null?money(delivery.deliveryCost):'Стоимость пока не подтверждена'}</strong></p>
+          <p className="text-lg font-bold text-[#182d38]">Итого к оплате: {payableSom!==null?money(payableSom):'Ожидается оформление доставки'}</p>
+        </>}
+        {!requiresDelivery&&<p className="text-lg font-bold text-[#182d38]">Итого к оплате: {money(sale.total)}</p>}
+      </div>
     </section>
     <details key={sale.id} role="region" aria-label="События заказа"
       className="group rounded-2xl border border-slate-200 bg-white p-5">
