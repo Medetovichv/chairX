@@ -555,6 +555,16 @@ class DeliveryApiTests {
 
         String deliveryId = createDelivery(sale.id());
 
+        // The sale legacy route must also reject a missing reason before mutation.
+        mvc.perform(post("/api/sales/" + sale.id() + "/cancel").with(csrf()))
+                .andExpect(status().isBadRequest());
+        // Providing a reason never bypasses delivery-specific cancellation rules.
+        mvc.perform(post("/api/sales/" + sale.id() + "/cancel").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"CUSTOMER_CHANGED_MIND\",\"comment\":null}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_REQUIRED"));
+
         // The legacy URL must not permit an unreasoned cancellation.
         mvc.perform(post("/api/deliveries/" + deliveryId + "/cancel").with(csrf()))
                 .andExpect(status().isBadRequest());
