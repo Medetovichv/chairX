@@ -451,7 +451,9 @@ class DeliveryApiTests {
         mvc.perform(post("/api/deliveries/" + deliveryId + "/deliver").with(csrf()))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
-        mvc.perform(post("/api/deliveries/" + deliveryId + "/cancel").with(csrf()))
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/cancel").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"CUSTOMER_CHANGED_MIND\",\"comment\":null}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_DELIVERY_STATUS"));
 
@@ -553,13 +555,32 @@ class DeliveryApiTests {
 
         String deliveryId = createDelivery(sale.id());
 
+        // The sale legacy route must also reject a missing reason before mutation.
+        mvc.perform(post("/api/sales/" + sale.id() + "/cancel").with(csrf()))
+                .andExpect(status().isBadRequest());
+        // Providing a reason never bypasses delivery-specific cancellation rules.
+        mvc.perform(post("/api/sales/" + sale.id() + "/cancel").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"CUSTOMER_CHANGED_MIND\",\"comment\":null}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("DELIVERY_REQUIRED"));
+
+        // The legacy URL must not permit an unreasoned cancellation.
+        mvc.perform(post("/api/deliveries/" + deliveryId + "/cancel").with(csrf()))
+                .andExpect(status().isBadRequest());
+        assertThat(sales.get(sale.id()).status()).isEqualTo(kg.chairx.sale.domain.SaleStatus.CONFIRMED);
+        // Older integrations may continue to use the URL with a valid reason.
         mvc.perform(
                         post("/api/deliveries/" + deliveryId + "/cancel")
                                 .with(csrf())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reason\":\"CUSTOMER_CHANGED_MIND\",\"comment\":null}")
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("CANCELLED"))
                 .andExpect(jsonPath("$.cancelledAt").isString());
+        assertThat(sales.cancellationDetails(sale.id()).orElseThrow().reason())
+                .isEqualTo(kg.chairx.sale.api.SaleCancellationReason.CUSTOMER_CHANGED_MIND);
 
         assertThat(
                 inventory.getBalance(

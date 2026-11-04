@@ -123,10 +123,13 @@ public class SaleController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    // Legacy URL remains for older clients, but cancellation always requires
+    // the same validated reason and audit metadata as the canonical endpoint.
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request
     ) {
-        return service.cancel(id);
+        return service.cancelWithReason(id, request);
     }
 }

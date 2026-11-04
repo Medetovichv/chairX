@@ -107,11 +107,14 @@ public class DeliveryController {
         return service.cancelWithReason(id,request);
     }
 
+    // Preserve the legacy route for clients providing a reason. Missing
+    // reasons are rejected by request validation before any stock mutation.
     @PostMapping("/{id}/cancel")
     public DeliveryResponse cancel(
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request
     ) {
-        return service.cancel(id);
+        return service.cancelWithReason(id, request);
     }
 
     @PostMapping("/{id}/return-to-warehouse")
