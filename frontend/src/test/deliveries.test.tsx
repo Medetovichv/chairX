@@ -204,6 +204,16 @@ describe('F08 backend DTOs, filters and list',()=>{
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 
+  it('explains an empty eligible delivery page without hiding pagination',async()=>{
+    mockBackend({saleType:'SELF_PICKUP'});
+    renderAt('/deliveries?quick=new');
+    const form=await screen.findByRole('form',{name:'Оформить доставку'});
+    expect(await within(form).findByText(/На этой странице нет заказов для доставки/))
+      .toHaveAttribute('role','status');
+    expect(within(form).queryByRole('button',{name:/CHX-/})).not.toBeInTheDocument();
+    expect(within(form).getByText(/Список постраничный/)).toBeInTheDocument();
+  });
+
   it('honors exactly five statuses and accurate Bishkek local date',()=>{
     expect(deliveryStatuses).toEqual(['READY','IN_TRANSIT','DELIVERED','FAILED','CANCELLED']);
     expect(bishkekToday(new Date('2026-10-10T21:30:00Z'))).toBe('2026-10-11');
