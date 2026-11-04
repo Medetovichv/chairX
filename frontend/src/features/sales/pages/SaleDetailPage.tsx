@@ -202,8 +202,12 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     queryFn:()=>customersApi.get(sale.customerId!),
     enabled:hasPermission('CUSTOMERS_READ')&&!!sale.customerId,
   });
-  const customerLabel=customer.data?.fullName||customer.data?.phone||
-    customer.data?.whatsappPhone||'Клиент недоступен';
+  const visibleCustomerName=customer.data?.fullName?.trim();
+  const visibleCustomerPhone=customer.data?.phone?.trim()||customer.data?.whatsappPhone?.trim();
+  // The customer query is gated by CUSTOMERS_READ. Never infer protected contact data.
+  const customerLabel=visibleCustomerName
+    ?visibleCustomerName+(visibleCustomerPhone?' · '+visibleCustomerPhone:'')
+    :visibleCustomerPhone||'Клиент не указан';
   const requiresDelivery=sale.fulfillmentType!==null&&sale.fulfillmentType!=='SELF_PICKUP'&&
     (sale.status==='CONFIRMED'||sale.status==='FULFILLED');
   const canReadDelivery=hasPermission('DELIVERIES_READ');
