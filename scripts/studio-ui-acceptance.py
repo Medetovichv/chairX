@@ -19,7 +19,7 @@ ROUTES = [
     ("/finance/analytics", "Аналитика"), ("/admin/users", "Сотрудники"),
     ("/admin/roles", "Роли и разрешения"),
 ]
-WIDTHS = (320, 375, 768, 1024, 1440)
+WIDTHS = (320, 375, 768, 1024, 1280, 1440)
 
 def navigate_spa(page, route):
     # Auth is stored in React memory: full reload would log out.
@@ -47,6 +47,61 @@ def assert_layout(page, route, width):
         f"{route}: document overflows at {width}px: {layout}"
     )
     return layout
+
+def test_sale_quick_create(page):
+    """Exercise the actual embedded form, not just the underlying sales list."""
+    navigate_spa(page, "/sales")
+    page.get_by_role("heading", name="Продажи", exact=True).wait_for(
+        timeout=30000
+    )
+    page.get_by_role("link", name="Новая продажа").first.click()
+    drawer = page.get_by_role(
+        "dialog", name="Быстрый просмотр: Новая продажа"
+    )
+    drawer.wait_for(state="visible")
+    form = drawer.get_by_role("form", name="Новый черновик продажи")
+    footer = drawer.get_by_role("region", name="Итог и сохранение заказа")
+    scroller = drawer.get_by_label("Прокручиваемое содержимое панели")
+    save = footer.get_by_role("button", name="Сохранить черновик")
+    assert save.get_attribute("form") == form.get_attribute("id"), (
+        "Sticky save action is detached from the actual sale form"
+    )
+    assert not scroller.evaluate(
+        "(scroller, footer) => scroller.contains(footer)",
+        footer.element_handle()
+    ), "Sticky checkout is incorrectly nested inside the scrolling form"
+    close = drawer.get_by_role("button", name="Назад к списку")
+    assert close.evaluate("(el) => el === document.activeElement"), (
+        "Focus did not enter the sale Quick View"
+    )
+    for width in WIDTHS:
+        page.set_viewport_size({"width": width, "height": 900})
+        page.wait_for_timeout(150)
+        assert_layout(page, "/sales?quick=new", width)
+        bounds = drawer.bounding_box()
+        checkout = footer.bounding_box()
+        assert bounds and checkout, f"Quick Create not visible at {width}px"
+        assert drawer.evaluate(
+            "(el) => el.scrollWidth <= el.clientWidth + 1"
+        ), f"Quick Create horizontal overflow at {width}px"
+        assert checkout["y"] >= 0 and (
+            checkout["y"] + checkout["height"] <= 901
+        ), f"Quick Create checkout clipped at {width}px: {checkout}"
+        if width <= 1024:
+            assert bounds["x"] <= 1 and (
+                bounds["x"] + bounds["width"] >= width - 1
+            ), f"Quick Create must be full-screen at {width}px: {bounds}"
+        else:
+            assert bounds["x"] > 0, (
+                f"Quick Create must preserve a list beside drawer at {width}px"
+            )
+        page.screenshot(
+            path=str(ART / f"sale-quick-create-{width}.png"),
+            full_page=True
+        )
+    close.click()
+    drawer.wait_for(state="detached")
+
 
 def test_mobile_menu(page):
     page.set_viewport_size({"width": 375, "height": 812})
@@ -141,10 +196,12 @@ def main():
                         slug = route.strip("/").replace("/", "-") or "home"
                         page.screenshot(path=str(ART / f"{slug}-{width}.png"),
                                         full_page=True)
+            test_sale_quick_create(page)
             (ART / "acceptance.json").write_text(
                 json.dumps({"routes": len(ROUTES), "widths": WIDTHS,
                             "observations": observations,
-                            "keyboard_mobile_menu": "pass"},
+                            "keyboard_mobile_menu": "pass",
+                            "sale_quick_create_widths": WIDTHS},
                            ensure_ascii=False, indent=2), encoding="utf-8"
             )
             print(f"Passed {len(observations)} responsive checks + mobile menu focus")
