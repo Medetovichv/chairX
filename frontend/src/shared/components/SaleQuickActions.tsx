@@ -111,7 +111,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       <button type="button" disabled={busy} className="rounded-xl border px-3 py-2" onClick={()=>void verify()}>Проверить состояние сервера</button>
     </div>}
     <div className="flex flex-wrap gap-2">
-      {canConfirm&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('confirm')}>Подтвердить заказ</button>}
+      {canConfirm&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>void execute('confirm')}>Подтвердить заказ</button>}
       {canFulfill&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl bg-blue-600 px-4 py-2 text-white" onClick={()=>setIntent('fulfill')}>Завершить выдачу</button>}
       {canCancel&&<button type="button" disabled={busy||!!unknown||invalid} className="rounded-xl border px-4 py-2" onClick={()=>setShowCancelForm(true)}>Отменить заказ</button>}
     </div>
