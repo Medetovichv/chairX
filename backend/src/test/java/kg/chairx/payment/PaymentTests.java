@@ -11,6 +11,8 @@ import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.payment.domain.PaymentStatus;
 import kg.chairx.sale.api.CreateSaleItemRequest;
 import kg.chairx.sale.api.CreateSaleRequest;
+import kg.chairx.sale.api.CancelSaleRequest;
+import kg.chairx.sale.api.SaleCancellationReason;
 import kg.chairx.sale.application.SaleService;
 import kg.chairx.sale.application.SaleRuleViolationException;
 import kg.chairx.sale.domain.SaleStatus;
@@ -737,11 +739,13 @@ class PaymentTests {
         Long movementsBefore = jdbc.queryForObject(
                 "select count(*) from finance_movements", Long.class);
 
-        assertThatThrownBy(() -> sales.cancel(sale.id()))
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND, null)))
                 .isInstanceOfSatisfying(SaleRuleViolationException.class,
                         error -> assertThat(error.getCode()).isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
 
         assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CONFIRMED);
+        assertThat(sales.cancellationDetails(sale.id())).isEmpty();
         assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.PAID);
         assertThat(inventory.getBalance(home, variant).reserved()).isEqualTo(reservedBefore);
         assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
@@ -749,15 +753,38 @@ class PaymentTests {
     }
 
     @Test
-    void saleMayBeCancelledOncePaymentWasReversed() {
+    void reasonedSaleCancellationAfterPaymentReversalDoesNotPostAnotherMoneyMovement() {
         var sale = createSale(1, "8500");
         var payment = payments.create(new CreatePaymentRequest(
                 sale.id(), PaymentMethod.CASH, null, null));
         payments.cancel(payment.id(), new CancelPaymentRequest("Ошибочная оплата"));
+        Long movementsAfterReversal = jdbc.queryForObject(
+                "select count(*) from finance_movements", Long.class);
 
-        assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+        var cancelled = sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Клиент попросил отмену после возврата оплаты"));
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        var details = sales.cancellationDetails(sale.id()).orElseThrow();
+        assertThat(details.reason()).isEqualTo(SaleCancellationReason.CUSTOMER_CHANGED_MIND);
+        assertThat(details.comment()).isEqualTo("Клиент попросил отмену после возврата оплаты");
+        assertThat(details.cancelledBy()).isEqualTo("payment-test-user");
+        assertThat(details.cancelledAt()).isNotNull();
         assertThat(inventory.getBalance(home, variant).reserved()).isZero();
         assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.CANCELLED);
+        // Reversing the payment is the ONLY cash compensation. Cancelling the
+        // now-unpaid order must not debit cash/bank again.
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                .isEqualTo(movementsAfterReversal);
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER, null)))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_ALREADY_CANCELLED"));
+        assertThat(sales.cancellationDetails(sale.id()).orElseThrow()).isEqualTo(details);
+        assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                .isEqualTo(movementsAfterReversal);
     }
 
     @Test
