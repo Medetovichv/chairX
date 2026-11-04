@@ -50,7 +50,7 @@ export const salesApi = {
   fulfill: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill'),
   payAndHandOver:(id:string,payment:PaymentInput):Promise<SaleResponse> =>
     apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/pay-and-hand-over',payment),
-  cancel: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel'),
+  cancel: (id: string, input: CancelSaleInput) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel', input),
   cancelWithReason: (id:string,input:CancelSaleInput) =>
     apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/cancel-with-reason',input),
   cancellationDetails: (id:string) =>

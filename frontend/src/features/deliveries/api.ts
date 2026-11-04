@@ -31,7 +31,7 @@ export const deliveryApi = {
   deliver: (id: string): Promise<DeliveryResponse> => apiClient.post('/api/deliveries/' + enc(id) + '/deliver'),
   fail: (id: string, reason: string): Promise<DeliveryResponse> =>
     apiClient.post('/api/deliveries/' + enc(id) + '/fail',{reason}),
-  cancel: (id: string): Promise<DeliveryResponse> => apiClient.post('/api/deliveries/' + enc(id) + '/cancel'),
+  cancel: (id: string, input: CancelSaleInput): Promise<DeliveryResponse> => apiClient.post('/api/deliveries/' + enc(id) + '/cancel', input),
   cancelWithReason: (id:string,input:CancelSaleInput):Promise<DeliveryResponse> =>
     apiClient.post('/api/deliveries/'+enc(id)+'/cancel-with-reason',input),
   returnToWarehouse: (id: string, warehouseId: string): Promise<DeliveryResponse> =>
