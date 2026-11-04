@@ -355,6 +355,18 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
   });
 
+  it('shows delivery-inclusive summary only when inline delivery can be configured',async()=>{
+    granted.permissions.push('DELIVERIES_CREATE');
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'CITY_DELIVERY');
+    expect(within(footer).getByText('Итого с доставкой')).toBeInTheDocument();
+    expect(within(footer).queryByText('Итого по товарам')).not.toBeInTheDocument();
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
