@@ -19,7 +19,7 @@ import { FinanceAnalyticsPage } from '../features/finance/pages/FinanceAnalytics
 import { readFinancePending } from '../features/finance/pending';
 import {
  accountFor,methodFor,amountCents,som,positiveSom,nonnegativeSom,validateRefund,
- validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,customerReceiptsBridge,centsSom,
+ validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,customerReceiptsBridge,centsSom,saleCashReconciliation,
 } from '../features/finance/validation';
 import type { SaleResponse } from '../features/sales/types';
 
@@ -153,6 +153,57 @@ describe('Issue #107 customer receipts vs earned revenue bridge',()=>{
   expect(customerReceiptsBridge({
    payments:'100',paymentCorrections:'-10',refunds:'0',netRevenue:'100',
   })).toBeNull();
+ });
+});
+describe('Issue #107 read-only reconciliation by sale',()=>{
+ it('calculates active payments less posted refunds without loss of cents',()=>{
+  expect(saleCashReconciliation(['8000','1000'],['2000'])).toEqual({
+   received:900000n,refunded:200000n,net:700000n,
+  });
+  expect(saleCashReconciliation(['9007199254740999.50'],['0.50'])).toEqual({
+   received:900719925474099950n,refunded:50n,net:900719925474099900n,
+  });
+  expect(saleCashReconciliation(['invalid'],[])).toBeNull();
+  expect(saleCashReconciliation(['100'],['-20'])).toBeNull();
+ });
+ it('shows exact order settlement and preserves original invoice after a refund',async()=>{
+  access.permissions=['PAYMENTS_READ','REFUNDS_READ'];
+  const requested:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);requested.push(path);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([
+    {id:PAYMENT,saleId:SALE,amount:'8500',status:'PAID',method:'CASH',channel:'CASH',
+     paidAt:NOW,cancellationReason:null},
+    {id:validID,saleId:SALE,amount:'8500',status:'CANCELLED',method:'CASH',channel:'CASH',
+     paidAt:NOW,cancellationReason:'Ошибка'},
+   ]);
+   if(path.includes('/api/refunds/sale/'+SALE))return j([
+    {id:RETURN,saleId:SALE,amount:'2000',method:'CASH',reason:'Частичный возврат',refundedAt:NOW},
+   ]);
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={sale}/>);
+  const region=await screen.findByRole('region',{name:'Сверка денег по заказу'});
+  await waitFor(()=>expect(region).toHaveTextContent('6 500 сом'));
+  expect(region).toHaveTextContent('8 500 сом');
+  expect(region).toHaveTextContent('2 000 сом');
+  expect(region).toHaveTextContent('Разница с исходной стоимостью заказа');
+  expect(region).toHaveTextContent('не означает задолженность клиента');
+  expect(requested.filter(path=>path.includes('/api/refunds/sale/'))).toHaveLength(1);
+ });
+ it('does not claim complete reconciliation without refund permission',async()=>{
+  access.permissions=['PAYMENTS_READ'];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={sale}/>);
+  const region=await screen.findByRole('region',{name:'Сверка денег по заказу'});
+  expect(region).toHaveTextContent('нужны права просмотра платежей и денежных возвратов');
+  expect(region).not.toHaveTextContent('Чистые поступления по заказу');
  });
 });
 describe('F10 exact money validation, mappings and dates',()=>{
