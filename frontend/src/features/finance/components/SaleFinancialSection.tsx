@@ -166,9 +166,12 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
        </p>}
-       <label className="block space-y-1 text-sm font-semibold">Комментарий
-        <textarea aria-label="Комментарий платежа" value={comment} maxLength={1000} disabled={locked}
-         onChange={e=>setComment(e.target.value)} className="w-full rounded-xl border p-2"/></label>
+       <details className="rounded-xl border border-[#dfe7eb] bg-[#f8fafb] p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-[#405b65]">Дополнительно · комментарий к оплате</summary>
+        <label className="mt-3 block space-y-1 text-sm font-semibold">Комментарий (необязательно)
+         <textarea aria-label="Комментарий платежа" value={comment} maxLength={1000} disabled={locked}
+          onChange={e=>setComment(e.target.value)} className="min-h-20 w-full rounded-xl border border-[#dfe7eb] bg-white p-3"/></label>
+       </details>
        {error&&<p role="alert" className="text-red-700">{error}</p>}
        {!canPayStatus&&<p className="text-sm text-amber-800">Черновик или отменённую продажу нельзя оплачивать.</p>}
        {paymentRead&&activePayment&&<p className="text-sm text-amber-800">Уже зарегистрирована активная оплата; повтор запрещён.</p>}
