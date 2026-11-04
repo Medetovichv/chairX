@@ -340,6 +340,21 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(hint).toHaveClass('[.quick-create_&]:!col-span-1');
   });
 
+  it('labels the quick-create summary by actual fulfillment type',async()=>{
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
+    await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'SELF_PICKUP');
+    expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
+    expect(within(footer).queryByText('Итого с доставкой')).not.toBeInTheDocument();
+    await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'CITY_DELIVERY');
+    // Without delivery permission, inline delivery cannot be created; summary still covers goods only.
+    expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
