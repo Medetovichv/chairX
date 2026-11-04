@@ -488,7 +488,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         <div className="px-4 pt-3"><Link to="/inventory"
           className="text-sm font-semibold text-blue-700 underline-offset-2 hover:underline">
           Открыть учёт остатков</Link></div>}
-      <div aria-label="Итог заказа" className="space-y-2 border-t border-[#dfe7eb] bg-[#f8fafb] px-4 py-4 text-right text-sm">
+      <div role="region" aria-label="Итог заказа" className="space-y-2 border-t border-[#dfe7eb] bg-[#f8fafb] px-4 py-4 text-right text-sm">
         <p>Товары: <strong>{money(sale.total)}</strong></p>
         {requiresDelivery&&<>
           <p>Доставка: <strong>{delivery&&feeSom!==null?money(delivery.deliveryCost):'Стоимость пока не подтверждена'}</strong></p>
