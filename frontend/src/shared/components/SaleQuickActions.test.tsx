@@ -68,6 +68,33 @@ describe('SaleQuickActions RBAC',()=>{
     expect(post).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem('chairx:sale:quick-pending:v1:staff:sale')).toBe(JSON.stringify('confirm'));
   });
+  it('refuses to send a mutation if the pending-operation journal cannot be written',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const get=vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm');
+    vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage disabled');});
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Запрос не отправлен'));
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+  });
+  it('keeps a lost POST locked after unmount and reopening the sale panel',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(new TypeError('Disconnected'));
+    const first=view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    first.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(screen.getByRole('button',{name:'Проверить состояние сервера'})).toBeInTheDocument();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
   it('fails closed on corrupted action journal',()=>{
     permissions=['SALES_DRAFT_MANAGE','SALES_CANCEL'];
     sessionStorage.setItem('chairx:sale:quick-pending:v1:staff:sale','{corrupt');
