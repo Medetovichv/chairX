@@ -2,12 +2,12 @@ import {apiClient} from '../../shared/api/client';
 type Money=string|number;
 const params=(from:string,to:string)=>new URLSearchParams({from,to}).toString();
 export interface Profitability {
- from:string;to:string;grossRevenue:Money;verifiedFifoCost:Money;
+ from:string;to:string;grossRevenue:Money;goodsRevenue:Money;deliveryRevenue:Money;verifiedFifoCost:Money;
  recognizedAccruals:Money;otherOperatingExpenses:Money;returnedRevenue:Money;
  refundOnlyDiscounts:Money;restoredFifoCost:Money;netRevenue:Money;
  completeCost:boolean;netProfitAvailable:boolean;grossProfit:Money|null;
  operatingProfit:Money|null;caveat:string|null;
- sales:{saleId:string;saleNumber:string;recognizedRevenue:Money;fifoCost:Money;completeCost:boolean}[];
+ sales:{saleId:string;saleNumber:string;recognizedRevenue:Money;goodsRevenue:Money;deliveryRevenue:Money;fifoCost:Money;completeCost:boolean}[];
 }
 export interface LedgerLine {id:string;postedAt:string;businessDate:string;account:string;amount:Money;type:string;sourceType:string;sourceId:string|null;createdBy:string;documentKind:string|null;documentId:string|null;documentLabel:string|null}
 export interface LedgerPage {items:LedgerLine[];total:number;page:number;size:number}
