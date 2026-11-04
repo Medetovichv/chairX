@@ -418,6 +418,11 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   await waitFor(()=>expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeEnabled());
   expect(within(form).getAllByRole('option').map(o => o.textContent)).toEqual(['Наличные', 'Перевод']);
   expect(within(form).queryByRole('textbox',{name:'Reference платежа'})).not.toBeInTheDocument();
+  const extras=within(form).getByText('Дополнительно · комментарий к оплате');
+  expect(extras.closest('details')).not.toHaveAttribute('open');
+  await userEvent.setup().click(extras);
+  expect(extras.closest('details')).toHaveAttribute('open');
+  fireEvent.change(within(form).getByRole('textbox',{name:'Комментарий платежа'}),{target:{value:'Комментарий для аудита'}});
   expect(within(form).queryByText(/Метод:.*Счёт:/)).not.toBeInTheDocument();
   expect(screen.getByRole('region',{name:'Состояние оплаты'})).toHaveTextContent('Оплачено: 0 сом');
   expect(screen.getByRole('region',{name:'Состояние оплаты'})).toHaveTextContent('Остаток к оплате: 8 500 сом');
@@ -426,7 +431,7 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
    await userEvent.setup().click(within(form).getByRole('button',{name:'Зарегистрировать оплату'}));
    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   await waitFor(()=>expect(recorded).toHaveLength(1));
-  expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:null});
+  expect(recorded[0]).toEqual({saleId:SALE,method:'TRANSFER',channel:'BANK_TRANSFER',reference:null,comment:'Комментарий для аудита'});
   expect((recorded[0] as Record<string,unknown>).amount).toBeUndefined();
   expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
   expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
