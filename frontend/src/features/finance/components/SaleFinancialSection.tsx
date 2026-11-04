@@ -79,8 +79,14 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
  const canPay=paymentCreate&&canPayStatus&&deliveryVerified&&(!paymentRead||noActive)&&
   (!financeRead||account?.initialized===true);
- const customerLabel=customer.data?.fullName?.trim()||customer.data?.phone||customer.data?.whatsappPhone||
-  (hasPermission('DELIVERIES_READ')?delivery.data?.recipientPhone:null)||'Клиент не указан';
+ const customerName=customer.data?.fullName?.trim();
+ const customerPhone=customer.data?.phone?.trim()||customer.data?.whatsappPhone?.trim()||
+  (hasPermission('DELIVERIES_READ')?delivery.data?.recipientPhone?.trim():null);
+ // Display name and contact together when both are authorized and available;
+ // otherwise use the phone alone. Never fabricate an identity or leak protected data.
+ const customerLabel=customerName
+  ?customerName+(customerPhone?' · '+customerPhone:'')
+  :customerPhone||'Клиент не указан';
  async function refresh(){
   await Promise.all([
    client.invalidateQueries({queryKey:financeKeys.payments(sale.id)}),
