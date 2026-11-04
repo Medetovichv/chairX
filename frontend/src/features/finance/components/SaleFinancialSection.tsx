@@ -66,8 +66,8 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
  const canReconcile=!compact&&paymentRead&&refundRead&&payments.isSuccess&&refunds.isSuccess;
  const settlement=canReconcile
    ?saleCashReconciliation(
-     payments.data.filter(p=>p.status==='PAID').map(p=>p.amount),
-     refunds.data.map(r=>r.amount),
+     (payments.data??[]).filter(p=>p.status==='PAID').map(p=>p.amount),
+     (refunds.data??[]).map(r=>r.amount),
     ):null;
  const invoiceCents=requiresDelivery
    ?(orderTotal===null?null:amountCents(orderTotal.toString()))
