@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SaleQuickActions } from './SaleQuickActions';
+import { salesApi } from '../../features/sales/api';
 import type { SaleResponse } from '../../features/sales/types';
 
 let permissions:string[]=[];
@@ -18,6 +19,7 @@ function view() {
 }
 describe('SaleQuickActions RBAC',()=>{
   beforeEach(()=>{sessionStorage.clear();permissions=[];});
+  afterEach(()=>{vi.restoreAllMocks();});
   it('does not expose operations without permissions',()=>{
     permissions=[];
     view();
@@ -36,6 +38,35 @@ describe('SaleQuickActions RBAC',()=>{
     view();
     expect(screen.getByRole('button',{name:'Отменить заказ'}).hasAttribute('disabled')).toBe(true);
     expect(screen.getByRole('button',{name:'Проверить состояние сервера'})).toBeTruthy();
+  });
+  it('does not clear a lost-POST marker when another actor reached the expected status',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    sessionStorage.setItem(key,JSON.stringify('confirm'));
+    const get=vi.spyOn(salesApi,'get').mockResolvedValue({...sale,status:'CONFIRMED'} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm');
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('исход именно вашего запроса не доказан'));
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+  it('keeps the action blocked after a lost response even when refreshed sale status differs',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(new TypeError('Network connection lost'));
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('остаётся неизвестным'));
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem('chairx:sale:quick-pending:v1:staff:sale')).toBe(JSON.stringify('confirm'));
   });
   it('fails closed on corrupted action journal',()=>{
     permissions=['SALES_DRAFT_MANAGE','SALES_CANCEL'];
