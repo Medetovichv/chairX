@@ -47,6 +47,27 @@ export function centsSom(value:bigint):string {
  return (value<0n?'-':'')+grouped+
   (remainder?','+remainder.toString().padStart(2,'0'):'')+' сом';
 }
+/** Read-only settlement projection for ONE sale. Neither refunds nor payment reversal
+ * changes the original invoice amount; it is not a revenue or FIFO calculation.
+ * The caller must enforce permissions and loaded source completeness first.
+ */
+export function saleCashReconciliation(
+ paymentAmounts:ReadonlyArray<Money>,
+ refundAmounts:ReadonlyArray<Money>,
+):{received:bigint;refunded:bigint;net:bigint}|null{
+ let received=0n,refunded=0n;
+ for(const value of paymentAmounts){
+  const cents=amountCents(value);
+  if(cents===null||cents<0n)return null;
+  received+=cents;
+ }
+ for(const value of refundAmounts){
+  const cents=amountCents(value);
+  if(cents===null||cents<0n)return null;
+  refunded+=cents;
+ }
+ return {received,refunded,net:received-refunded};
+}
 export const accountFor=(channel:PaymentChannel):FinanceAccount=>channel==='CASH'?'CASH':'BANK';
 export const methodFor=(channel:PaymentChannel):PaymentMethod=>channel==='CASH'?'CASH':'TRANSFER';
 export const channels:ReadonlyArray<{value:PaymentChannel;label:string}>=[
