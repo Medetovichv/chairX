@@ -13,7 +13,8 @@ import { Input } from '../../../shared/ui/input';
 import { ErrorState } from '../../../shared/components/ErrorState';
 import { LoadingState } from '../../../shared/components/LoadingState';
 import {
- channels,accountFor,methodFor,optional,validUUID,som,validateRefund,positiveSom,dateLabel
+ channels,accountFor,methodFor,optional,validUUID,som,validateRefund,positiveSom,dateLabel,
+ saleCashReconciliation,centsSom,amountCents
 } from '../validation';
 import type {
  PaymentChannel,PaymentInput,PaymentResponse,RefundInput,RefundMethod
@@ -60,6 +61,19 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
  const [refundReason,setRefundReason]=useState(''),[refundReference,setRefundReference]=useState('');
  const [refundComment,setRefundComment]=useState(''),[error,setError]=useState('');
  const activePayment=payments.data?.find(p=>p.status==='PAID');
+ // Only posted, non-cancelled payments count as cash received.
+ // If we cannot read either side, never present an authoritative net result.
+ const canReconcile=!compact&&paymentRead&&refundRead&&payments.isSuccess&&refunds.isSuccess;
+ const settlement=canReconcile
+   ?saleCashReconciliation(
+     payments.data.filter(p=>p.status==='PAID').map(p=>p.amount),
+     refunds.data.map(r=>r.amount),
+    ):null;
+ const invoiceCents=requiresDelivery
+   ?(orderTotal===null?null:amountCents(orderTotal.toString()))
+   :amountCents(sale.total);
+ const settlementDifference=settlement!==null&&invoiceCents!==null
+   ?invoiceCents-settlement.net:null;
  const noActive=payments.isSuccess&&!activePayment&&(active.isSuccess===false&&pending(active.error));
  const account=accounts.data?.find(a=>a.code===accountFor(channel));
  const canPayStatus=sale.status==='CONFIRMED'||sale.status==='FULFILLED';
@@ -163,6 +177,33 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
        <Button type="submit" disabled={locked||!canPay}>{handoverNow?'Оплатить и завершить выдачу':'Зарегистрировать оплату'}</Button>
       </form>}
    </GuardedPost>}
+  </section>
+  {!compact&&(paymentRead||refundRead)&&<section aria-label="Сверка денег по заказу" className={card}>
+   <h3 className="text-lg font-bold text-[#182d38]">Сверка денег по заказу</h3>
+   <p className="text-sm text-[#516977]">Товары и доставка составляют исходную стоимость заказа. Здесь показаны проведённые платежи и денежные возвраты за всё время, а не выручка по дате закрытия дня.</p>
+   {canReconcile&&settlement&&invoiceCents!==null ? <>
+     <div className="grid gap-3 sm:grid-cols-2">
+       <p className="rounded-xl bg-[#f2f7f6] p-3 text-sm">Товары <strong className="block tabular-nums">{som(sale.total)}</strong></p>
+       <p className="rounded-xl bg-[#f2f7f6] p-3 text-sm">Доставка <strong className="block tabular-nums">{requiresDelivery?som(deliveryCost):'0 сом'}</strong></p>
+       <p className="rounded-xl bg-[#f8fafb] p-3 text-sm">Получено по действующим платежам <strong className="block tabular-nums">{centsSom(settlement.received)}</strong></p>
+       <p className="rounded-xl bg-[#f8fafb] p-3 text-sm">Возвращено клиенту <strong className="block tabular-nums">{centsSom(settlement.refunded)}</strong></p>
+     </div>
+     <div className="flex flex-wrap justify-between gap-2 border-t border-[#dfe7eb] pt-3 text-sm">
+       <span className="font-semibold">Чистые поступления по заказу</span>
+       <strong className="tabular-nums">{centsSom(settlement.net)}</strong>
+     </div>
+     <p className="text-sm text-[#516977]">Разница с исходной стоимостью заказа: <strong className="tabular-nums">{settlementDifference===null?'Недоступно':centsSom(settlementDifference)}</strong>. После возврата товаров эта разница не означает задолженность клиента: для расчёта долга нужно учитывать подтверждённые изменения состава заказа.</p>
+     {settlement.net<0n&&<p role="alert" className="text-sm text-red-700">Сумма денежных возвратов превышает действующие платежи. Требуется финансовая проверка.</p>}
+   </> : <p role="status" className="text-sm text-[#516977]">
+     {!paymentRead||!refundRead
+      ?'Полная сверка недоступна: нужны права просмотра платежей и денежных возвратов.'
+      :requiresDelivery&&!deliveryVerified
+      ?'Нужна подтверждённая стоимость доставки для сверки исходной суммы.'
+      :payments.isError||refunds.isError
+      ?'Не удалось загрузить историю платежей или возвратов.'
+      :'Ожидаем точные данные платежей, возвратов и стоимости заказа.'}
+   </p>}
+   <p className="text-xs text-[#516977]">Денежный возврат не распределён автоматически между товарами и доставкой. Отменённые платежи не считаются действующими; закрытые отчёты не меняются.</p>
   </section>
   {!compact&&(refundRead||refundCreate)&&<section aria-label="Денежные возвраты" className={card}>
    <h3 className="text-lg font-bold">Денежные возвраты клиенту</h3>
