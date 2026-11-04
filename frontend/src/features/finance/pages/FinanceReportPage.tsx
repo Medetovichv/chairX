@@ -5,7 +5,7 @@ import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
 import {financeApi} from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
-import {som,validPeriod} from '../validation';
+import {som,validPeriod,customerReceiptsBridge,centsSom} from '../validation';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
 import {PageHeader} from '../../../shared/components/PageHeader';
@@ -49,6 +49,13 @@ export function FinanceReportPage(){
  const valuation=useQuery({queryKey:['reporting','valuation'],queryFn:reportingApi.valuation,enabled:allowed});
  const obligations=useQuery({queryKey:['reporting','obligations'],queryFn:reportingApi.obligations,enabled:allowed});
  const year=period.from.slice(0,4),analytics=useQuery({queryKey:['reporting','analytics',year],queryFn:()=>reportingApi.analytics(year+'-01-01',String(Number(year)+1)+'-01-01'),enabled:allowed});
+ const customerBridge=pnl.isSuccess&&flow.isSuccess
+  ? customerReceiptsBridge({
+     payments:flow.data.payments,
+     paymentCorrections:flow.data.paymentCorrections,
+     refunds:flow.data.refunds,
+     netRevenue:pnl.data.netRevenue,
+    }):null;
  function submit(e:FormEvent){e.preventDefault();if(!validPeriod(draft.from,draft.to)){setError('Выберите корректный период не длиннее 93 дней.');return;}setError('');setPage(0);setPeriod({...draft});}
  if(!allowed)return <ForbiddenPage/>;
  return <div className="w-full min-w-0 max-w-full space-y-5 overflow-x-hidden pb-10">
@@ -70,6 +77,32 @@ export function FinanceReportPage(){
     {card('Прочие расходы',money(pnl.data.otherOperatingExpenses))}
    </>:pnl.isError?<ErrorState error={pnl.error} onRetry={()=>void pnl.refetch()}/>:<LoadingState label="Загружаем прибыль…"/>}
    {flow.isSuccess?<>{card('Поступления денег',money(flow.data.totalIn))}{card('Денежные выплаты',money(flow.data.totalOut))}</>:flow.isError?<ErrorState error={flow.error} onRetry={()=>void flow.refetch()}/>:<LoadingState label="Загружаем денежные потоки…"/>}
+  </section>
+  <section aria-label="Сверка выручки и клиентских денег" className="space-y-3 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-5">
+    <div>
+      <h2 className="text-lg font-bold text-[#182d38]">Начисленная выручка и деньги от клиентов</h2>
+      <p className="mt-1 text-sm text-[#516977]">Один и тот же период: {period.from} — {period.to} (дата окончания не включается). В выручке учитываются товары и доставка; оплата может поступить раньше или позже исполнения.</p>
+    </div>
+    {pnl.isSuccess&&flow.isSuccess&&customerBridge ? <>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {card('Чистая начисленная выручка',money(pnl.data.netRevenue),'Исполненные заказы с учётом корректировок')}
+        {card('Платежи клиентов',money(flow.data.payments),'Поступили на счета за период')}
+        {card('Отмены оплат',money(flow.data.paymentCorrections),'Уменьшают клиентские поступления')}
+        {card('Возвраты клиентам',money(flow.data.refunds),'Денежные выплаты, не второе списание выручки')}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dfe7eb] bg-[#f8fafb] p-4">
+        <div>
+          <p className="text-sm font-semibold text-[#182d38]">Чистые поступления от клиентов</p>
+          <p className="text-xs text-[#516977]">Платежи − отмены оплат − денежные возвраты</p>
+        </div>
+        <strong className="text-lg tabular-nums text-[#182d38]">{centsSom(customerBridge.netCustomerReceipts)}</strong>
+      </div>
+      <p className="text-sm text-[#405b65]">Разница «поступления минус начисленная выручка»: <strong className="tabular-nums">{centsSom(customerBridge.timingAndAdjustmentDifference)}</strong>. Это показатель для анализа дат оплат, доставок и возвратов, <strong>не ошибка и не сумма автоматической корректировки</strong>. Расходы, закупки и переводы между счетами сюда не входят.</p>
+    </> : pnl.isError||flow.isError ?
+      <p role="status" className="text-sm text-[#516977]">Сверка недоступна: не удалось получить выручку или движения денег.</p> :
+      pnl.isSuccess&&flow.isSuccess ?
+      <p role="status" className="text-sm text-[#516977]">Сверка недоступна: одна из сумм не может быть представлена точно.</p> :
+      <p role="status" className="text-sm text-[#516977]">Загружаем начисления и клиентские поступления…</p>}
   </section>
   {pnl.isSuccess&&!pnl.data.netProfitAvailable&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm">Прибыль не подтверждена. {pnl.data.caveat||'Требуется сверка FIFO или возвратов.'} Денежный поток не используется вместо прибыли.</p>}
   <section aria-label="Сравнение периодов" className="rounded-2xl border bg-white p-4">
