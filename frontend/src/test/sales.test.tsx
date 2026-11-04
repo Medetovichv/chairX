@@ -653,7 +653,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
     const card=await screen.findByRole('region',{name:'Карточка заказа'});
-    expect(within(card).getByRole('link',{name:'+996555123456'})).toBeInTheDocument();
+    await waitFor(()=>expect(within(card).getByRole('link',{name:'+996555123456'})).toBeInTheDocument());
     expect(within(card).queryByText('Клиент без имени')).not.toBeInTheDocument();
   });
   it('does not fetch or display protected customer contact without read permission',async()=>{
