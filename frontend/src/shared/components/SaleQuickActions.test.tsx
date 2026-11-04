@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SaleQuickActions } from './SaleQuickActions';
 import { salesApi } from '../../features/sales/api';
+import { ApiClientError } from '../api/api-error';
 import type { SaleResponse } from '../../features/sales/types';
 
 let permissions:string[]=[];
@@ -68,6 +69,34 @@ describe('SaleQuickActions RBAC',()=>{
     expect(post).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem('chairx:sale:quick-pending:v1:staff:sale')).toBe(JSON.stringify('confirm'));
   });
+  it('clears the provisional marker after an authoritative pre-mutation HTTP 403 rejection',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(
+      new ApiClientError('http','FORBIDDEN',403));
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('недостаточно прав'));
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBeNull();
+    expect(screen.queryByRole('button',{name:'Проверить состояние сервера'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).not.toBeDisabled();
+  });
+  it('keeps the pending marker after HTTP 409 when commit outcome may be ambiguous',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(
+      new ApiClientError('http','CONFLICT',409));
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+  });
+
   it('refuses to send a mutation if the pending-operation journal cannot be written',async()=>{
     permissions=['SALES_DRAFT_MANAGE'];
     const get=vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
