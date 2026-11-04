@@ -23,11 +23,11 @@ import { integerSom } from '../../sales/validation';
 type PaymentDraft=PaymentInput&{localOperationId:string;handoverNow:boolean};
 type CancelDraft={paymentId:string;reason:string;localOperationId:string};
 const pending=(error:unknown)=>error instanceof ApiClientError&&error.kind==='http'&&error.status===404;
-const card='space-y-4 rounded-2xl border border-slate-200 bg-white p-5';
+const card='space-y-4 rounded-2xl border border-[#dfe7eb] bg-white p-4 sm:p-5';
 // Only the two requested payment methods are offered for NEW sales.
 // Legacy MBANK and installment channel records remain readable in payment history.
 const salePaymentChannels=channels.filter(x=>x.value==='CASH'||x.value==='BANK_TRANSFER');
-export function SaleFinancialSection({sale}:{sale:SaleResponse}){
+export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;compact?:boolean}){
  const {hasPermission}=useAuth(),client=useQueryClient();
  const [query]=useSearchParams();
  const paymentRead=hasPermission('PAYMENTS_READ'),paymentCreate=hasPermission('PAYMENTS_CREATE'),
@@ -39,7 +39,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
  const active=useQuery({queryKey:financeKeys.activePayment(sale.id),queryFn:()=>financeApi.activePayment(sale.id),
   enabled:paymentRead&&relevant});
  const refunds=useQuery({queryKey:financeKeys.refunds(sale.id),queryFn:()=>financeApi.refunds(sale.id),
-  enabled:refundRead});
+  enabled:refundRead&&!compact});
  const accounts=useQuery({queryKey:financeKeys.accounts,queryFn:financeApi.accounts,
   enabled:financeRead&&(paymentCreate||paymentCancel||refundCreate)});
  const requiresDelivery=sale.fulfillmentType==='CITY_DELIVERY'||sale.fulfillmentType==='REGION_DELIVERY';
@@ -99,7 +99,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
     <div className="space-y-2">{payments.data.length===0?
      <p className="text-sm text-slate-600">Платежей пока нет.</p>:
      payments.data.map(p=><PaymentLine key={p.id} payment={p} onChanged={refresh}
-      canCancel={paymentCancel} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
+      canCancel={paymentCancel&&!compact} financeRead={financeRead} accounts={accounts.data} />)}</div>)}
    {paymentCreate&&<GuardedPost<PaymentDraft> kind="payment-create" scope={sale.id}
     allowed={paymentCreate} confirmBeforeSend={handoverNow}
     title={handoverNow?'Оплатить и выдать кресла клиенту?':'Подтвердить полную оплату продажи?'}
@@ -148,7 +148,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
              <span className="mt-1 block text-xs font-normal text-[#516977]">Отметьте только при фактической передаче товара. Оплата и выдача завершатся одной транзакцией.</span>
            </span>
          </label>}
-       {financeRead&&<p className="text-sm">
+       {financeRead&&!compact&&<p className="text-sm">
         {account?.initialized===false?'Счёт не инициализирован':
           accounts.isPending?'Проверяем счёт…':account?.initialized===true?'Счёт инициализирован':'Нет подтверждённых данных счёта'}
        </p>}
@@ -164,7 +164,7 @@ export function SaleFinancialSection({sale}:{sale:SaleResponse}){
       </form>}
    </GuardedPost>}
   </section>
-  {(refundRead||refundCreate)&&<section aria-label="Денежные возвраты" className={card}>
+  {!compact&&(refundRead||refundCreate)&&<section aria-label="Денежные возвраты" className={card}>
    <h3 className="text-lg font-bold">Денежные возвраты клиенту</h3>
    <p className="text-sm text-slate-600">Денежный Refund не делает RETURN_IN и не изменяет склад.</p>
    {refundRead&&(refunds.isPending?<LoadingState label="Загружаем возвраты денег…"/>:
