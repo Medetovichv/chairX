@@ -99,6 +99,39 @@ def test_sale_quick_create(page):
             path=str(ART / f"sale-quick-create-{width}.png"),
             full_page=True
         )
+    # A nested customer dialog must own keyboard focus without closing its
+    # parent sale drawer; no customer creation request is submitted here.
+    page.set_viewport_size({"width": 375, "height": 900})
+    opener = form.get_by_role("button", name="+ Новый клиент")
+    opener.click()
+    customer_dialog = page.get_by_role(
+        "dialog", name="Новый клиент для продажи"
+    )
+    customer_dialog.wait_for(state="visible")
+    customer_close = customer_dialog.get_by_role("button", name="Закрыть")
+    assert customer_close.evaluate(
+        "(el) => el === document.activeElement"
+    ), "Focus did not enter nested customer dialog"
+    page.keyboard.press("Shift+Tab")
+    customer_cancel = customer_dialog.get_by_role("button", name="Отмена")
+    assert customer_cancel.evaluate(
+        "(el) => el === document.activeElement"
+    ), "Shift+Tab did not wrap inside customer dialog"
+    page.keyboard.press("Tab")
+    assert customer_close.evaluate(
+        "(el) => el === document.activeElement"
+    ), "Tab did not return to first customer dialog control"
+    page.screenshot(
+        path=str(ART / "sale-quick-create-customer-dialog-375.png"),
+        full_page=True
+    )
+    page.keyboard.press("Escape")
+    customer_dialog.wait_for(state="detached")
+    drawer.wait_for(state="visible")
+    assert opener.evaluate(
+        "(el) => el === document.activeElement"
+    ), "Focus did not return to new-customer opener"
+    assert form.is_visible(), "Escape closed the parent sale drawer"
     close.click()
     drawer.wait_for(state="detached")
 
