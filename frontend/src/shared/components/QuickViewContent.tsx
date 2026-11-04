@@ -8,7 +8,7 @@ import { DeliveryTimeline } from '../../features/deliveries/components/DeliveryT
 import { SaleCommentsPanel } from '../../features/sales/components/SaleCommentsPanel';
 import { SaleForm } from '../../features/sales/components/SaleForm';
 import { SaleQuickActions } from './SaleQuickActions';
-import { SalePaymentPanel } from './SalePaymentPanel';
+import { SaleFinancialSection } from '../../features/finance/components/SaleFinancialSection';
 import { saleStatusNames, fulfillmentNames, money, integerSom } from '../../features/sales/validation';
 import { inventoryKeys } from '../../features/inventory/api';
 import { customersApi, customerKeys } from '../../features/customers/api';
@@ -121,7 +121,7 @@ export function SaleQuickView({ id }: { id: string }) {
         {addressNotice&&<p role="status" className="text-sm text-slate-700">{addressNotice}</p>}
       </div>}
       {!editing && <SaleQuickActions sale={sale}/>}
-      {!editing && <SalePaymentPanel sale={sale}/> }
+      {!editing && <SaleFinancialSection compact sale={sale}/> }
       {sale.fulfillmentType!=='SELF_PICKUP'&&relatedDelivery.data&&<section className="space-y-3 rounded-xl border border-slate-200 p-4">
         <h3 className="font-semibold">Управление доставкой</h3>
         <p className="text-sm text-slate-600">{relatedDelivery.data.address} · {relatedDelivery.data.recipientPhone}</p>
