@@ -110,6 +110,12 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
         {list.isPending?<LoadingState label="Подтверждённые продажи…"/>:
           list.isError?<ErrorState error={list.error} onRetry={()=>void list.refetch()}/>:
           <>
+            {list.data && !list.data.items.some(s=>
+              s.fulfillmentType==='CITY_DELIVERY'||s.fulfillmentType==='REGION_DELIVERY') &&
+              <p role="status" className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-600">
+                На этой странице нет заказов для доставки. Уточните номер заказа
+                или перейдите на другую страницу списка.
+              </p>}
             <div className="space-y-2">{list.data?.items.filter(s=>
               s.fulfillmentType==='CITY_DELIVERY'||s.fulfillmentType==='REGION_DELIVERY').map(s=>
               <Button key={s.id} type="button" variant="outline" className="w-full justify-start"
