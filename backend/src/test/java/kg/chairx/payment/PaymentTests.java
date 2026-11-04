@@ -822,7 +822,8 @@ class PaymentTests {
                 try {
                     ready.countDown();
                     if (!start.await(5, TimeUnit.SECONDS)) return "TIMEOUT";
-                    sales.cancel(sale.id());
+                    sales.cancelWithReason(sale.id(), new CancelSaleRequest(
+                            SaleCancellationReason.CUSTOMER_CHANGED_MIND, "Причина конкурентной отмены"));
                     return "CANCELLED";
                 } catch (SaleRuleViolationException e) {
                     return e.getCode();
@@ -850,9 +851,15 @@ class PaymentTests {
             if (sales.get(sale.id()).status() == SaleStatus.CANCELLED) {
                 assertThat(active).isZero();
                 assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+                var details = sales.cancellationDetails(sale.id()).orElseThrow();
+                assertThat(details.reason()).isEqualTo(SaleCancellationReason.CUSTOMER_CHANGED_MIND);
+                assertThat(details.comment()).isEqualTo("Причина конкурентной отмены");
+                assertThat(details.cancelledBy()).isEqualTo("p18-cancel");
+                assertThat(details.cancelledAt()).isNotNull();
             } else {
                 assertThat(active).isEqualTo(1);
                 assertThat(inventory.getBalance(home, variant).reserved()).isEqualTo(1);
+                assertThat(sales.cancellationDetails(sale.id())).isEmpty();
             }
         } finally {
             start.countDown();
