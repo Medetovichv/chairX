@@ -136,6 +136,62 @@ def test_sale_quick_create(page):
     drawer.wait_for(state="detached")
 
 
+def test_delivery_quick_create(page):
+    """Check the real delivery drawer at every shipped responsive breakpoint."""
+    page.set_viewport_size({"width": 1440, "height": 900})
+    navigate_spa(page, "/deliveries")
+    page.get_by_role("heading", name="Доставки", exact=True).first.wait_for(
+        timeout=30000
+    )
+    page.get_by_role("link", name="Оформить доставку").first.click()
+    drawer = page.get_by_role(
+        "dialog", name="Быстрый просмотр: Новая доставка"
+    )
+    drawer.wait_for(state="visible")
+    form = drawer.get_by_role("form", name="Оформить доставку")
+    footer = drawer.get_by_role("region", name="Итог и сохранение заказа")
+    scroller = drawer.get_by_label("Прокручиваемое содержимое панели")
+    create = footer.get_by_role("button", name="Создать доставку")
+    assert create.get_attribute("form") == form.get_attribute("id"), (
+        "Delivery save button must submit its own embedded form"
+    )
+    assert not scroller.evaluate(
+        "(node, footer) => node.contains(footer)", footer.element_handle()
+    ), "Delivery footer must remain outside scrolling content"
+    close = drawer.get_by_role("button", name="Назад к списку")
+    assert close.evaluate("(el) => el === document.activeElement"), (
+        "Delivery drawer must receive initial keyboard focus"
+    )
+    for width in WIDTHS:
+        page.set_viewport_size({"width": width, "height": 900})
+        page.wait_for_timeout(150)
+        assert_layout(page, "/deliveries?quick=new", width)
+        bounds, checkout = drawer.bounding_box(), footer.bounding_box()
+        assert bounds and checkout, f"Delivery Quick Create hidden at {width}px"
+        assert drawer.evaluate(
+            "(node) => node.scrollWidth <= node.clientWidth + 1"
+        ), f"Delivery Quick Create overflows horizontally at {width}px"
+        assert checkout["y"] >= 0 and (
+            checkout["y"] + checkout["height"] <= 901
+        ), f"Delivery footer clipped at {width}px: {checkout}"
+        if width <= 1024:
+            assert bounds["x"] <= 1 and (
+                bounds["x"] + bounds["width"] >= width - 1
+            ), f"Delivery drawer must fill viewport at {width}px: {bounds}"
+        else:
+            assert bounds["x"] > 0, (
+                f"Delivery drawer must preserve list at {width}px: {bounds}"
+            )
+        page.screenshot(
+            path=str(ART / f"delivery-quick-create-{width}.png"),
+            full_page=True
+        )
+    # Form is initially incomplete. No request to create a delivery is sent.
+    assert create.is_disabled(), "Incomplete delivery must not be submittable"
+    close.click()
+    drawer.wait_for(state="detached")
+
+
 def test_mobile_menu(page):
     page.set_viewport_size({"width": 375, "height": 812})
     opener = page.get_by_role("button", name="Открыть меню")
@@ -230,11 +286,13 @@ def main():
                         page.screenshot(path=str(ART / f"{slug}-{width}.png"),
                                         full_page=True)
             test_sale_quick_create(page)
+            test_delivery_quick_create(page)
             (ART / "acceptance.json").write_text(
                 json.dumps({"routes": len(ROUTES), "widths": WIDTHS,
                             "observations": observations,
                             "keyboard_mobile_menu": "pass",
-                            "sale_quick_create_widths": WIDTHS},
+                            "sale_quick_create_widths": WIDTHS,
+                            "delivery_quick_create_widths": WIDTHS},
                            ensure_ascii=False, indent=2), encoding="utf-8"
             )
             print(f"Passed {len(observations)} responsive checks + mobile menu focus")
