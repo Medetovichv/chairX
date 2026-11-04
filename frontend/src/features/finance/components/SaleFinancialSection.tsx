@@ -204,7 +204,7 @@ export function SaleFinancialSection({sale,compact=false}:{sale:SaleResponse;com
       :'Ожидаем точные данные платежей, возвратов и стоимости заказа.'}
    </p>}
    <p className="text-xs text-[#516977]">Денежный возврат не распределён автоматически между товарами и доставкой. Отменённые платежи не считаются действующими; закрытые отчёты не меняются.</p>
-  </section>
+  </section>}
   {!compact&&(refundRead||refundCreate)&&<section aria-label="Денежные возвраты" className={card}>
    <h3 className="text-lg font-bold">Денежные возвраты клиенту</h3>
    <p className="text-sm text-slate-600">Денежный Refund не делает RETURN_IN и не изменяет склад.</p>
