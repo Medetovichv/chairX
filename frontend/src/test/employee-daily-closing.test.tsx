@@ -84,6 +84,43 @@ describe('Employee daily closing isolation',()=>{
    {target:{value:'not found'}});
   expect(within(cards).queryByText('CX-1')).not.toBeInTheDocument();
  });
+ it('shows fully paid regional deliveries in READY and IN_TRANSIT with fees and full-payment date',async()=>{
+  const fixture={...personal(),orders:2,chairs:2,salesValue:'18500',
+   sales:[
+    {saleId:'region-ready',saleNumber:'CX-REG-READY',quantity:1,
+     total:'9000',goodsTotal:'8500',deliveryTotal:'500',
+     fulfillment:'REGION_DELIVERY',deliveryStatus:'READY',paymentStatus:'PAID',
+     products:'Кресло А',phone:'+996700000001',address:'Бишкек',
+     completedAt:'2026-10-10T18:30:00Z'},
+    {saleId:'region-transit',saleNumber:'CX-REG-TRANSIT',quantity:1,
+     total:'9500',goodsTotal:'8500',deliveryTotal:'1000',
+     fulfillment:'REGION_DELIVERY',deliveryStatus:'IN_TRANSIT',paymentStatus:'PAID',
+     products:'Кресло Б',phone:'+996700000002',address:'Ош',
+     completedAt:'2026-10-11T03:00:00Z'},
+   ]};
+  vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/finance/my-closings')return reply([]);
+   if(path==='/api/finance/my-closings/'+day)return reply(fixture);
+   throw Error('Unexpected '+path);
+  }));
+  renderPage();
+  const table=await screen.findByRole('table',{name:'Оплаченные выданные товары дня'});
+  const ready=within(table).getByRole('row',{name:/CX-REG-READY/});
+  const transit=within(table).getByRole('row',{name:/CX-REG-TRANSIT/});
+  expect(ready).toHaveTextContent('Готовится к отправке');
+  expect(ready).toHaveTextContent('8 500 сом');
+  expect(ready).toHaveTextContent('500 сом');
+  expect(ready).toHaveTextContent('9 000 сом');
+  expect(ready).toHaveTextContent('Полная оплата: 11.10.2026');
+  expect(transit).toHaveTextContent('В пути');
+  expect(transit).toHaveTextContent('1 000 сом');
+  expect(transit).toHaveTextContent('9 500 сом');
+  expect(transit).toHaveTextContent('Полная оплата: 11.10.2026');
+  const cards=screen.getByLabelText('Карточки продаж');
+  expect(within(cards).getByText('CX-REG-READY').closest('article')).toHaveTextContent('Готовится к отправке');
+  expect(within(cards).getByText('CX-REG-TRANSIT').closest('article')).toHaveTextContent('Полная оплата: 11.10.2026');
+ });
  it('supports custom role grants for operational closing without requiring EMPLOYEE role name',async()=>{
   perms.roles=['CUSTOM_DAILY_OPERATOR'];
   vi.stubGlobal('fetch',vi.fn(async(url:RequestInfo|URL)=>{

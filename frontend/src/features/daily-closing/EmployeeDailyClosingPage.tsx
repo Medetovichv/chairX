@@ -1,6 +1,6 @@
 import {useState,type FormEvent} from 'react';
 import {EmployeeClosingMetrics} from './EmployeeClosingMetrics';
-import {operationalDeliveryLabel} from './operational-delivery-label';
+import {operationalDeliveryLabel,operationalClosingTimestamp} from './operational-delivery-label';
 import {Link} from 'react-router';
 import {useQuery,useQueryClient} from '@tanstack/react-query';
 import {useAuth} from '../auth/AuthProvider';
@@ -178,7 +178,8 @@ export function EmployeeDailyClosingPage(){
         <td className="p-2">{s.phone||'Без номера'}
          {s.address&&<p className="text-xs text-slate-500">{s.address}</p>}</td>
         <td className="p-2"><span className="font-semibold text-emerald-700">Оплачено</span>
-         <p className="text-xs text-slate-600">{operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</p></td>
+         <p className="text-xs text-slate-600">{operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</p>
+         <p className="text-xs text-slate-600">{s.fulfillment==='REGION_DELIVERY'?'Полная оплата':'Учтено'}: {operationalClosingTimestamp(s.completedAt)}</p></td>
         <td className="p-2 text-right">{s.goodsTotal===null?'Нет данных':money(s.goodsTotal)}</td>
         <td className="p-2 text-right">{s.deliveryTotal===null?'Нет данных':money(s.deliveryTotal)}</td>
         <td className="p-2 text-right font-semibold">{money(s.total)}</td>
@@ -203,6 +204,7 @@ export function EmployeeDailyClosingPage(){
           <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">
            {operationalDeliveryLabel(s.deliveryStatus,s.fulfillment)}</span>
          </div>
+         <p className="mt-2 text-xs text-slate-600">{s.fulfillment==='REGION_DELIVERY'?'Полная оплата':'Учтено'}: {operationalClosingTimestamp(s.completedAt)}</p>
        </article>)}
       </div>
      {report.data.sales.length===0?<p className="mt-3 text-sm text-slate-600">Продаж, соответствующих условиям закрытия, за выбранную дату нет.</p>:
