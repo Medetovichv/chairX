@@ -54,6 +54,22 @@ describe('SaleQuickActions RBAC',()=>{
     expect(get).toHaveBeenCalledTimes(1);
     expect(post).not.toHaveBeenCalled();
   });
+  it('shows a human-readable Russian status while the unknown operation remains locked',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    sessionStorage.setItem(key,JSON.stringify('confirm'));
+    const get=vi.spyOn(salesApi,'get').mockResolvedValue({...sale,status:'CANCELLED'} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm');
+    view();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Текущий статус заказа: Отменён.'));
+    expect(screen.getByRole('alert')).not.toHaveTextContent('CANCELLED');
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('keeps the action blocked after a lost response even when refreshed sale status differs',async()=>{
     permissions=['SALES_DRAFT_MANAGE'];
     vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
