@@ -322,6 +322,24 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(await within(drawer).findByRole('heading',{name:/Продажа/})).toBeInTheDocument();
   });
 
+  it('keeps delivery fields in a single grid track in quick-create drawer',async()=>{
+    granted.permissions.push('DELIVERIES_CREATE');
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'CITY_DELIVERY');
+    for(const label of ['Сохранённые адреса клиента','Адрес доставки при создании продажи']){
+      const field=within(form).queryByLabelText(label);
+      if(field)expect(field.closest('label')).toHaveClass('[.quick-create_&]:!col-span-1');
+    }
+    const address=within(form).getByLabelText('Адрес доставки при создании продажи');
+    expect(address.closest('label')).toHaveClass('sm:col-span-2');
+    expect(address.closest('label')).toHaveClass('[.quick-create_&]:!col-span-1');
+    const hint=within(form).getByText(/Доставка учитывается в предварительном итоге заказа/);
+    expect(hint).toHaveClass('[.quick-create_&]:!col-span-1');
+  });
+
   it('accepts a full employee delivery order with zero delivery cost',()=>{
     const input={
       customerId:CUSTOMER_ID,fulfillmentType:'CITY_DELIVERY' as const,
