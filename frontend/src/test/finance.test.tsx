@@ -356,6 +356,38 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
   expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
  });
+ it('compact Quick View uses guarded payment and hides refund operations',async()=>{
+  access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE','PAYMENTS_CANCEL','REFUNDS_READ','REFUNDS_CREATE'];
+  const requested:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);requested.push(path);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   throw new Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={sale} compact/>);
+  const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
+  expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeInTheDocument();
+  expect(screen.queryByRole('region',{name:'Денежные возвраты'})).not.toBeInTheDocument();
+  expect(requested.some(path=>path.includes('/api/refunds'))).toBe(false);
+ });
+ it('compact delivery payment stays blocked until delivery amount is confirmed',async()=>{
+  access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE','DELIVERIES_READ'];
+  const posted:unknown[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL,init?:RequestInit)=>{
+   const path=String(url);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   if(path==='/api/deliveries/by-sale/'+SALE)return j({code:'NOT_FOUND',message:''},404);
+   if(init?.method==='POST')posted.push(init.body);
+   throw new Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={{...sale,fulfillmentType:'CITY_DELIVERY'}} compact/>);
+  const form=await screen.findByRole('form',{name:'Регистрация оплаты'});
+  expect(within(form).getByRole('button',{name:'Зарегистрировать оплату'})).toBeDisabled();
+  expect(await screen.findByText(/Сначала оформите доставку/)).toBeInTheDocument();
+  expect(posted).toHaveLength(0);
+ });
  it('explicit pickup handover posts one atomic payment+fulfill request, never the payment-only route',async()=>{
   access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE','SALES_UPDATE'];
   const calls:{path:string;body:unknown}[]=[];
