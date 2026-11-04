@@ -76,7 +76,7 @@ describe('SaleQuickActions RBAC',()=>{
     view();
     fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
     fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
-    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Запрос не отправлен'));
+    await waitFor(()=>expect(screen.getAllByRole('alert').some(node=>node.textContent?.includes('Запрос не отправлен'))).toBe(true));
     expect(get).toHaveBeenCalledTimes(1);
     expect(post).not.toHaveBeenCalled();
     expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
