@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { salesApi, salesKeys } from '../../features/sales/api';
 import { ApiClientError, userFacingApiError } from '../api/api-error';
+import { saleStatusNames } from '../../features/sales/validation';
 import { ConfirmDialog } from '../ui/confirm-dialog';
 import { readSaleAction, saveSaleAction, clearSaleAction } from './pending-sale-action';
 import type { SaleResponse } from '../../features/sales/types';
@@ -95,7 +96,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       if(current.status===expected) {
         setError('Текущий статус заказа совпадает с ожидаемым, но исход именно вашего запроса не доказан. Запись операции сохранена. Не повторяйте действие: требуется ручная сверка с аудитом.');
       } else {
-        setError('Текущий статус заказа: '+current.status+'. Исход отправленного запроса остаётся неизвестным. Не повторяйте действие без ручной сверки с аудитом.');
+        setError('Текущий статус заказа: '+saleStatusNames[current.status]+'. Исход отправленного запроса остаётся неизвестным. Не повторяйте действие без ручной сверки с аудитом.');
       }
     } catch(cause) {setError(userFacingApiError(cause));}
     finally {busyRef.current=false;setBusy(false);}
