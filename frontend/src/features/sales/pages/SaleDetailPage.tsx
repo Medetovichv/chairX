@@ -562,7 +562,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       {canManageDraft&&!unknownAction&&!draftUncertain&&
         <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
       {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
-        <Button disabled={busy} onClick={()=>setAction('confirm')}>Подтвердить заказ</Button>}
+        <Button disabled={busy} onClick={()=>void execute('confirm')}>Подтвердить заказ</Button>}
       {canFulfill&&!unknownAction&&<Button disabled={busy}
         onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
       {canCancel&&!unknownAction&&<Button disabled={busy}
