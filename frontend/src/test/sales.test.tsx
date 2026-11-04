@@ -645,7 +645,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'CITY_DELIVERY'})],deliveryCost:cost});
       renderAt('/sales/'+SALE_ID);
       const result=await screen.findByRole('region',{name:'Итог заказа'});
-      expect(result).toHaveTextContent('Товары: 17 000 сом');
+      expect(result).toHaveTextContent('Товары: 17 000,00 сом');
       await waitFor(()=>expect(result).toHaveTextContent('Доставка: '+Number(cost).toLocaleString('ru-RU')+' сом'));
       expect(result).toHaveTextContent('Итого к оплате: '+total);
     });
@@ -653,8 +653,8 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
     const result=await screen.findByRole('region',{name:'Итог заказа'});
-    expect(result).toHaveTextContent('Товары: 17 000 сом');
-    expect(result).toHaveTextContent('Итого к оплате: 17 000 сом');
+    expect(result).toHaveTextContent('Товары: 17 000,00 сом');
+    expect(result).toHaveTextContent('Итого к оплате: 17 000,00 сом');
     expect(result).not.toHaveTextContent('Доставка:');
     expect(called(api,'/api/deliveries/by-sale/')).toHaveLength(0);
   });
@@ -663,7 +663,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'REGION_DELIVERY'})]});
     renderAt('/sales/'+SALE_ID);
     const result=await screen.findByRole('region',{name:'Итог заказа'});
-    expect(result).toHaveTextContent('Товары: 17 000 сом');
+    expect(result).toHaveTextContent('Товары: 17 000,00 сом');
     expect(result).toHaveTextContent('Стоимость пока не подтверждена');
     expect(result).toHaveTextContent('Ожидается оформление доставки');
   });
