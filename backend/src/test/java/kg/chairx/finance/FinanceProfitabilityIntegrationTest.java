@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Transactional
 class FinanceProfitabilityIntegrationTest {
     @Autowired MockMvc mvc;
+    @Autowired kg.chairx.finance.application.FinanceProfitabilityService profitability;
     @Autowired JdbcTemplate jdbc;
     @Autowired kg.chairx.finance.web.FinancePurchaseObligationsController obligations;
 
@@ -100,6 +101,61 @@ class FinanceProfitabilityIntegrationTest {
                 .with(user("warehouse").authorities(
                   new org.springframework.security.core.authority.SimpleGrantedAuthority("INVENTORY_READ"))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test void deliveredOrderRecognizesGoodsAndFeeSeparatelyWithoutCreatingCashPayments() throws Exception {
+        var date=java.time.LocalDate.of(2024,7,11);
+        var recognizedAt=java.time.OffsetDateTime.parse("2024-07-11T13:00:00+06:00");
+        var warehouse=jdbc.queryForObject(
+                "SELECT id FROM warehouses WHERE code='HOME'",java.util.UUID.class);
+        var product=java.util.UUID.randomUUID();
+        var variant=java.util.UUID.randomUUID();
+        jdbc.update("INSERT INTO products(id,name,active,created_at,updated_at) VALUES (?,'Pnl delivery fixture',TRUE,now(),now())",product);
+        jdbc.update("INSERT INTO product_variants(id,product_id,name,recommended_sale_price,active,created_at,updated_at) VALUES (?,?,'Default',7000,TRUE,now(),now())",variant,product);
+        var deliveredSale=java.util.UUID.randomUUID();
+        var pickupSale=java.util.UUID.randomUUID();
+        for (var fixture:java.util.List.of(
+                new Object[]{deliveredSale,"CITY_DELIVERY",7000},
+                new Object[]{pickupSale,"SELF_PICKUP",2000})) {
+            var id=(java.util.UUID)fixture[0];
+            jdbc.update("""
+                INSERT INTO sales(id,sale_number,idempotency_key,request_fingerprint,
+                    fulfillment_type,status,created_by,created_at,fulfilled_by,fulfilled_at)
+                VALUES (?,?,?,? ,?,'FULFILLED','pnl-delivery-test',?,'pnl-delivery-test',?)
+                """,id,"P&L-"+id.toString().substring(0,13),
+                java.util.UUID.randomUUID(),"pnl-delivery-fixture",fixture[1],recognizedAt,recognizedAt);
+            jdbc.update("""
+                INSERT INTO sale_items(id,sale_id,product_variant_id,warehouse_id,quantity,unit_sale_price)
+                VALUES (?,?,?,?,1,?)
+                """,java.util.UUID.randomUUID(),id,variant,warehouse,fixture[2]);
+        }
+        jdbc.update("""
+            INSERT INTO deliveries(id,sale_id,status,recipient_name,recipient_phone,address,
+                delivery_cost,created_by,created_at,dispatched_by,dispatched_at,delivered_by,delivered_at)
+            VALUES (?,?,'DELIVERED','Customer','+996555000000','Bishkek',
+                1000,'pnl-delivery-test',?,'pnl-delivery-test',?,'pnl-delivery-test',?)
+            """,java.util.UUID.randomUUID(),deliveredSale,recognizedAt,recognizedAt,recognizedAt);
+
+        var report=profitability.calculate(date,date.plusDays(1));
+        var delivery=report.sales().stream().filter(x->x.saleId().equals(deliveredSale)).findFirst().orElseThrow();
+        var pickup=report.sales().stream().filter(x->x.saleId().equals(pickupSale)).findFirst().orElseThrow();
+        assertThat(delivery.goodsRevenue()).isEqualByComparingTo("7000");
+        assertThat(delivery.deliveryRevenue()).isEqualByComparingTo("1000");
+        assertThat(delivery.recognizedRevenue()).isEqualByComparingTo("8000");
+        assertThat(pickup.goodsRevenue()).isEqualByComparingTo("2000");
+        assertThat(pickup.deliveryRevenue()).isEqualByComparingTo("0");
+        assertThat(pickup.recognizedRevenue()).isEqualByComparingTo("2000");
+        assertThat(report.goodsRevenue().add(report.deliveryRevenue()))
+                .isEqualByComparingTo(report.grossRevenue());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM payments WHERE sale_id IN (?,?)",
+                Long.class,deliveredSale,pickupSale)).isZero();
+        mvc.perform(get("/api/finance/profitability")
+                .param("from",date.toString()).param("to",date.plusDays(1).toString())
+                .with(user("accountant").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.goodsRevenue").isNumber())
+                .andExpect(jsonPath("$.deliveryRevenue").isNumber())
+                .andExpect(jsonPath("$.sales[?(@.saleId == '"+deliveredSale+"')].deliveryRevenue").exists());
     }
 
     @Test void linkedExpenseIsNotChargedTwiceWhenAccrualIsRecognized() throws Exception {

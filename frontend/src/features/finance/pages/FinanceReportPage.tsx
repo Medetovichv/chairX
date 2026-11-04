@@ -92,6 +92,8 @@ export function FinanceReportPage(){
    <h2 className="mb-3 font-semibold">Отчёт о прибыли и убытках (P&L)</h2>
    {pnl.isSuccess?<div className="space-y-2 text-sm">{([
     ['Выручка до корректировок',pnl.data.grossRevenue],
+    ['В том числе: товары',pnl.data.goodsRevenue],
+    ['В том числе: доставка',pnl.data.deliveryRevenue],
     ['Возвраты товаров',pnl.data.returnedRevenue],
     ['Возвраты без товара / скидки',pnl.data.refundOnlyDiscounts],
     ['Чистая выручка',pnl.data.netRevenue],
@@ -106,10 +108,11 @@ export function FinanceReportPage(){
   {pnl.isSuccess&&<details className="rounded-2xl border bg-white p-4">
    <summary className="cursor-pointer font-semibold">Признанные продажи и FIFO — расшифровка ({pnl.data.sales.length})</summary>
    <p className="mt-2 text-xs text-slate-500">Выручка признаётся по фактическому исполнению заказа, независимо от даты оплаты. Историческая себестоимость берётся из FIFO allocations.</p>
-   <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm">
-    <thead className="bg-slate-50"><tr><th className="p-3">Заказ</th><th className="p-3 text-right">Выручка</th><th className="p-3 text-right">FIFO стоимость</th><th className="p-3">Проверка</th></tr></thead>
+   <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
+    <thead className="bg-slate-50"><tr><th className="p-3">Заказ</th><th className="p-3 text-right">Товары</th><th className="p-3 text-right">Доставка</th><th className="p-3 text-right">Всего начислено</th><th className="p-3 text-right">FIFO стоимость</th><th className="p-3">Проверка</th></tr></thead>
     <tbody>{pnl.data.sales.map(sale=><tr key={sale.saleId} className="border-t">
      <td className="p-3">{hasPermission('SALES_READ')?<Link to={'/sales/'+encodeURIComponent(sale.saleId)} className="text-blue-700 underline">{sale.saleNumber}</Link>:sale.saleNumber}</td>
+     <td className="p-3 text-right">{money(sale.goodsRevenue)}</td><td className="p-3 text-right">{money(sale.deliveryRevenue)}</td>
      <td className="p-3 text-right">{money(sale.recognizedRevenue)}</td><td className="p-3 text-right">{sale.completeCost?money(sale.fifoCost):'Недоступно'}</td>
      <td className="p-3">{sale.completeCost?'Подтверждено':'Не проверено'}</td>
     </tr>)}</tbody>
