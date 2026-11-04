@@ -436,6 +436,39 @@ describe('F10 permissions and real backend HTTP contracts',()=>{
   expect(await screen.findByText((_,el)=>el?.tagName==='P' && /Оплачено\s*·\s*8\s*500 сом\s*·\s*Перевод/.test(el.textContent||''))).toBeInTheDocument();
   expect(screen.queryByText(/PAID.*BANK_TRANSFER.*f10/)).not.toBeInTheDocument();
  });
+ it.each([
+  {fullName:null,phone:'+996 700 123 456',expected:'Клиент: +996 700 123 456.'},
+  {fullName:'Айжан',phone:'+996 700 123 456',expected:'Клиент: Айжан · +996 700 123 456.'},
+  {fullName:null,phone:null,expected:'Клиент: Клиент не указан.'},
+ ])('renders authorized customer identity without invented name: $expected',async({fullName,phone,expected})=>{
+  access.permissions=['PAYMENTS_READ','CUSTOMERS_READ'];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);
+   if(path==='/api/customers/'+validID)return j({
+    id:validID,fullName,phone,whatsappPhone:null,secondaryPhone:null,
+    instagramUsername:null,address:null,cityRegion:null,comment:null,active:true,
+    createdAt:NOW,updatedAt:NOW,
+   });
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={{...sale,customerId:validID}}/>);
+  expect(await screen.findByText(text=>text.includes(expected))).toBeInTheDocument();
+ });
+ it('does not reveal phone when customer access is missing',async()=>{
+  access.permissions=['PAYMENTS_READ'];
+  const requests:string[]=[];
+  vi.stubGlobal('fetch',vi.fn(async (url:RequestInfo|URL)=>{
+   const path=String(url);requests.push(path);
+   if(path.includes('/api/payments/sale/'+SALE+'/active'))return j({code:'PAYMENT_NOT_FOUND',message:''},404);
+   if(path.includes('/api/payments/sale/'+SALE))return j([]);
+   throw Error('Unexpected '+path);
+  }));
+  wrapper(<SaleFinancialSection sale={{...sale,customerId:validID}}/>);
+  expect(screen.getByText(text=>text.includes('Клиент: Клиент не указан.'))).toBeInTheDocument();
+  expect(requests.some(url=>url.includes('/api/customers/'))).toBe(false);
+ });
  it('compact Quick View uses guarded payment and hides refund operations',async()=>{
   access.permissions=['PAYMENTS_READ','PAYMENTS_CREATE','PAYMENTS_CANCEL','REFUNDS_READ','REFUNDS_CREATE'];
   const requested:string[]=[];
