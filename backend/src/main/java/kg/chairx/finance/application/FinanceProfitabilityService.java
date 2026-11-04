@@ -27,7 +27,8 @@ public class FinanceProfitabilityService {
         this.jdbc=jdbc;this.accruals=accruals;this.adjustmentsService=adjustmentsService;
     }
     public record SaleCost(UUID saleId,String saleNumber,BigDecimal recognizedRevenue,
-                           BigDecimal fifoCost,boolean completeCost) {}
+                           BigDecimal fifoCost,boolean completeCost,
+                           BigDecimal goodsRevenue,BigDecimal deliveryRevenue) {}
     public record Profitability(LocalDate from,LocalDate to,BigDecimal grossRevenue,
                                 BigDecimal verifiedFifoCost,BigDecimal recognizedAccruals,
                                 BigDecimal otherOperatingExpenses,
@@ -35,7 +36,8 @@ public class FinanceProfitabilityService {
                                 BigDecimal restoredFifoCost,BigDecimal netRevenue,
                                 boolean completeCost,boolean netProfitAvailable,
                                 BigDecimal grossProfit,BigDecimal operatingProfit,
-                                List<SaleCost> sales,String caveat) {}
+                                List<SaleCost> sales,String caveat,
+                                BigDecimal goodsRevenue,BigDecimal deliveryRevenue) {}
     public Profitability calculate(LocalDate from,LocalDate to){
         if(from==null||to==null||!from.isBefore(to)
                 ||java.time.temporal.ChronoUnit.DAYS.between(from,to)>93)
@@ -43,7 +45,10 @@ public class FinanceProfitabilityService {
         var begin=from.atStartOfDay(ZONE).toOffsetDateTime();
         var end=to.atStartOfDay(ZONE).toOffsetDateTime();
         List<SaleCost> rows=jdbc.sql("""
-          SELECT s.id,s.sale_number,detail.total,COALESCE(cost.value,0) AS fifo_cost,
+          SELECT s.id,s.sale_number,detail.total AS goods_revenue,
+                 COALESCE(d.delivery_cost,0) AS delivery_revenue,
+                 detail.total + COALESCE(d.delivery_cost,0) AS total,
+                 COALESCE(cost.value,0) AS fifo_cost,
                  COALESCE(cost.valued_items,0)=detail.item_count AS complete_cost
           FROM sales s
           LEFT JOIN deliveries d ON d.sale_id=s.id
@@ -80,9 +85,14 @@ public class FinanceProfitabilityService {
           """).param("begin",begin).param("end",end)
           .query((rs,i)->new SaleCost(rs.getObject("id",UUID.class),
               rs.getString("sale_number"),rs.getBigDecimal("total"),
-              rs.getBigDecimal("fifo_cost"),rs.getBoolean("complete_cost"))).list();
-        BigDecimal revenue=rows.stream().map(SaleCost::recognizedRevenue)
+              rs.getBigDecimal("fifo_cost"),rs.getBoolean("complete_cost"),
+              rs.getBigDecimal("goods_revenue"),rs.getBigDecimal("delivery_revenue"))).list();
+        BigDecimal goodsRevenue=rows.stream().map(SaleCost::goodsRevenue)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
+        BigDecimal deliveryRevenue=rows.stream().map(SaleCost::deliveryRevenue)
+                .reduce(BigDecimal.ZERO,BigDecimal::add);
+        // Accrual only: client payments already post once for goods + delivery.
+        BigDecimal revenue=goodsRevenue.add(deliveryRevenue);
         BigDecimal fifo=rows.stream().map(SaleCost::fifoCost)
                 .reduce(BigDecimal.ZERO,BigDecimal::add);
         BigDecimal expenses=accruals.report(from,to).stream()
@@ -115,6 +125,7 @@ public class FinanceProfitabilityService {
                 adjustments.restoredFifoCost(),netRevenue,allValued,
                 available,gross,operating,rows,
                 available?"Revenue and FIFO reflect historical returns, refunds and allocated expenses":
-                "Financial result unavailable: incomplete FIFO, missing restoration, or ambiguous refund attribution");
+                "Financial result unavailable: incomplete FIFO, missing restoration, or ambiguous refund attribution",
+                goodsRevenue,deliveryRevenue);
     }
 }
