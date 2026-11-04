@@ -646,7 +646,7 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       renderAt('/sales/'+SALE_ID);
       const result=await screen.findByRole('region',{name:'Итог заказа'});
       expect(result).toHaveTextContent('Товары: 17 000 сом');
-      expect(result).toHaveTextContent('Доставка: '+Number(cost).toLocaleString('ru-RU')+' сом');
+      await waitFor(()=>expect(result).toHaveTextContent('Доставка: '+Number(cost).toLocaleString('ru-RU')+' сом'));
       expect(result).toHaveTextContent('Итого к оплате: '+total);
     });
   it('shows goods-only total for pickup and never loads a delivery',async()=>{
