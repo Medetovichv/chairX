@@ -124,6 +124,34 @@ describe('SaleQuickActions RBAC',()=>{
     expect(screen.getByRole('button',{name:'Проверить состояние сервера'})).toBeInTheDocument();
     expect(post).toHaveBeenCalledTimes(1);
   });
+  it('never replays a committed confirm whose response was lost across remount and status refresh',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    let serverStatus:'DRAFT'|'CONFIRMED'='DRAFT';
+    const get=vi.spyOn(salesApi,'get').mockImplementation(async()=>({
+      ...sale,status:serverStatus,
+    } as SaleResponse));
+    const post=vi.spyOn(salesApi,'confirm').mockImplementation(async()=>{
+      // The database transaction committed; only the HTTP response was lost.
+      serverStatus='CONFIRMED';
+      throw new TypeError('Connection closed after commit');
+    });
+    const first=view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    first.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('исход именно вашего запроса не доказан'));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+  });
+
   it('fails closed on corrupted action journal',()=>{
     permissions=['SALES_DRAFT_MANAGE','SALES_CANCEL'];
     sessionStorage.setItem('chairx:sale:quick-pending:v1:staff:sale','{corrupt');
