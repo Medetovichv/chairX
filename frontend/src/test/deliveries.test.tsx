@@ -214,6 +214,29 @@ describe('F08 backend DTOs, filters and list',()=>{
     expect(within(form).getByText(/Список постраничный/)).toBeInTheDocument();
   });
 
+  it('protects a dirty delivery Quick Create from accidental close without posting',async()=>{
+    const api=mockBackend();
+    renderAt('/deliveries?quick=new');
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая доставка'});
+    const form=within(drawer).getByRole('form',{name:'Оформить доставку'});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Имя получателя'}),{
+      target:{value:'Получатель с несохранёнными данными'},
+    });
+    const confirm=vi.spyOn(window,'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const close=within(drawer).getByRole('button',{name:'Назад к списку'});
+    await userEvent.setup().click(close);
+    expect(confirm).toHaveBeenCalledWith('Есть несохранённые изменения. Продолжить без сохранения?');
+    expect(drawer).toBeInTheDocument();
+    expect(within(form).getByRole('textbox',{name:'Имя получателя'}))
+      .toHaveValue('Получатель с несохранёнными данными');
+    await userEvent.setup().click(close);
+    expect(screen.queryByRole('dialog',{name:'Быстрый просмотр: Новая доставка'}))
+      .not.toBeInTheDocument();
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(api.fetchMock.mock.calls.some(([url,init])=>
+      String(url)==='/api/deliveries'&&(init as RequestInit).method==='POST')).toBe(false);
+  });
+
   it('honors exactly five statuses and accurate Bishkek local date',()=>{
     expect(deliveryStatuses).toEqual(['READY','IN_TRANSIT','DELIVERED','FAILED','CANCELLED']);
     expect(bishkekToday(new Date('2026-10-10T21:30:00Z'))).toBe('2026-10-11');
