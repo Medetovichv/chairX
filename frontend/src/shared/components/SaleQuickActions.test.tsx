@@ -59,7 +59,7 @@ describe('SaleQuickActions RBAC',()=>{
     const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(new TypeError('Network connection lost'));
     view();
     fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
     expect(post).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
@@ -75,7 +75,7 @@ describe('SaleQuickActions RBAC',()=>{
     vi.spyOn(Storage.prototype,'setItem').mockImplementation(()=>{throw new Error('Storage disabled');});
     view();
     fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await waitFor(()=>expect(screen.getAllByRole('alert').some(node=>node.textContent?.includes('Запрос не отправлен'))).toBe(true));
     expect(get).toHaveBeenCalledTimes(1);
     expect(post).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe('SaleQuickActions RBAC',()=>{
     const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(new TypeError('Disconnected'));
     const first=view();
     fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
-    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
     await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
     first.unmount();
     view();
