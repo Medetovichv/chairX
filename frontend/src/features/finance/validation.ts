@@ -24,6 +24,29 @@ export function som(v:Money|null|undefined):string{
  const remainder=abs%100n;
  return sign+whole+(remainder?','+remainder.toString().padStart(2,'0'):'')+' сом';
 }
+/** A period bridge, not a reconciliation assertion: cash and earned sales differ in timing.
+ * Use exact cents and never substitute all-account cash flow for customer receipts.
+ * All three outflow values are represented as positive magnitudes by the API.
+ */
+export function customerReceiptsBridge(input:{
+ payments:Money;paymentCorrections:Money;refunds:Money;netRevenue:Money;
+}):{netCustomerReceipts:bigint;timingAndAdjustmentDifference:bigint}|null {
+ const received=amountCents(input.payments);
+ const reversed=amountCents(input.paymentCorrections);
+ const refunded=amountCents(input.refunds);
+ const earned=amountCents(input.netRevenue);
+ if(received===null||reversed===null||refunded===null||earned===null||
+   received<0n||reversed<0n||refunded<0n)return null;
+ const netCustomerReceipts=received-reversed-refunded;
+ return {netCustomerReceipts,timingAndAdjustmentDifference:netCustomerReceipts-earned};
+}
+export function centsSom(value:bigint):string {
+ const abs=value<0n?-value:value;
+ const grouped=(abs/100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+ const remainder=abs%100n;
+ return (value<0n?'-':'')+grouped+
+  (remainder?','+remainder.toString().padStart(2,'0'):'')+' сом';
+}
 export const accountFor=(channel:PaymentChannel):FinanceAccount=>channel==='CASH'?'CASH':'BANK';
 export const methodFor=(channel:PaymentChannel):PaymentMethod=>channel==='CASH'?'CASH':'TRANSFER';
 export const channels:ReadonlyArray<{value:PaymentChannel;label:string}>=[

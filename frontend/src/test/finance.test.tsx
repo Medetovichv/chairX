@@ -19,7 +19,7 @@ import { FinanceAnalyticsPage } from '../features/finance/pages/FinanceAnalytics
 import { readFinancePending } from '../features/finance/pending';
 import {
  accountFor,methodFor,amountCents,som,positiveSom,nonnegativeSom,validateRefund,
- validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,
+ validateExpense,validateTransfer,validateOpening,periodMonth,validPeriod,customerReceiptsBridge,centsSom,
 } from '../features/finance/validation';
 import type { SaleResponse } from '../features/sales/types';
 
@@ -127,8 +127,32 @@ describe('Finance reporting RBAC and unavailable profit',()=>{
   wrapper(<FinanceReportPage/>);
   expect(await screen.findByRole('alert')).toHaveTextContent('Не подтверждён FIFO');
   expect(screen.getByText('Чистая выручка')).toBeInTheDocument();
+  const bridge=screen.getByRole('region',{name:'Сверка выручки и клиентских денег'});
+  expect(bridge).toHaveTextContent('Чистые поступления от клиентов');
+  expect(bridge).toHaveTextContent('10 000 сом');
+  expect(bridge).toHaveTextContent('не ошибка и не сумма автоматической корректировки');
   expect(screen.getByRole('table',{name:'Журнал всех операций'})).toBeInTheDocument();
   expect(screen.getAllByText('Недоступно').length).toBeGreaterThan(0);
+ });
+});
+describe('Issue #107 customer receipts vs earned revenue bridge',()=>{
+ it('separates receipts, payment reversals and refunds from profit',()=>{
+  expect(customerReceiptsBridge({
+   payments:'8000',paymentCorrections:'1000',refunds:'500',netRevenue:'7000',
+  })).toEqual({netCustomerReceipts:650000n,timingAndAdjustmentDifference:-50000n});
+  expect(centsSom(-50000n)).toBe('-500 сом');
+ });
+ it('preserves exact cents and rejects inaccurate amounts',()=>{
+  expect(customerReceiptsBridge({
+   payments:'9007199254740999.50',paymentCorrections:'0',refunds:'0',
+   netRevenue:'9007199254740999.50',
+  })).toEqual({netCustomerReceipts:900719925474099950n,timingAndAdjustmentDifference:0n});
+  expect(customerReceiptsBridge({
+   payments:Number.MAX_SAFE_INTEGER,paymentCorrections:'0',refunds:'0',netRevenue:'1',
+  })).toBeNull();
+  expect(customerReceiptsBridge({
+   payments:'100',paymentCorrections:'-10',refunds:'0',netRevenue:'100',
+  })).toBeNull();
  });
 });
 describe('F10 exact money validation, mappings and dates',()=>{
