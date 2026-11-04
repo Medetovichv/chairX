@@ -649,6 +649,22 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
       await waitFor(()=>expect(result).toHaveTextContent('Доставка: '+Number(cost).toLocaleString('ru-RU').replace(/\u00a0/g,' ')+' сом'));
       expect(result).toHaveTextContent('Итого к оплате: '+total);
     });
+  it('shows the real phone for unnamed customers on the full sale card',async()=>{
+    mockBackend({sales:[sale('CONFIRMED')]});
+    renderAt('/sales/'+SALE_ID);
+    const card=await screen.findByRole('region',{name:'Карточка заказа'});
+    expect(within(card).getByRole('link',{name:'+996555123456'})).toBeInTheDocument();
+    expect(within(card).queryByText('Клиент без имени')).not.toBeInTheDocument();
+  });
+  it('does not fetch or display protected customer contact without read permission',async()=>{
+    granted.permissions=granted.permissions.filter(p=>p!=='CUSTOMERS_READ');
+    const api=mockBackend({sales:[sale('CONFIRMED')]});
+    renderAt('/sales/'+SALE_ID);
+    const card=await screen.findByRole('region',{name:'Карточка заказа'});
+    expect(within(card).getByText('Клиент не указан')).toBeInTheDocument();
+    expect(within(card).queryByText('+996555123456')).not.toBeInTheDocument();
+    expect(called(api,'/api/customers/'+CUSTOMER_ID)).toHaveLength(0);
+  });
   it('shows goods-only total for pickup and never loads a delivery',async()=>{
     const api=mockBackend({sales:[sale('CONFIRMED')]});
     renderAt('/sales/'+SALE_ID);
