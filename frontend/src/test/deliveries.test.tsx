@@ -208,8 +208,8 @@ describe('F08 backend DTOs, filters and list',()=>{
     mockBackend({saleType:'SELF_PICKUP'});
     renderAt('/deliveries?quick=new');
     const form=await screen.findByRole('form',{name:'Оформить доставку'});
-    expect(await within(form).findByRole('status',{name:''})).toHaveTextContent(
-      'На этой странице нет заказов для доставки');
+    expect(await within(form).findByText(/На этой странице нет заказов для доставки/))
+      .toHaveAttribute('role','status');
     expect(within(form).queryByRole('button',{name:/CHX-/})).not.toBeInTheDocument();
     expect(within(form).getByText(/Список постраничный/)).toBeInTheDocument();
   });
