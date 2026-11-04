@@ -59,7 +59,7 @@ function summary(s:SaleResponse):SaleSummary {
 function mockBackend(options:{
   sales?:SaleResponse[]; draftNetworkOnce?:boolean; draftUpdateNetworkOnce?:boolean;
   draftUpdateFailBeforeCommit?:boolean; changeBeforeAction?:boolean; stockFailure?:boolean;
-  deny?:Record<string,number>; alternateWarehouse?:boolean;
+  deny?:Record<string,number>; alternateWarehouse?:boolean; deliveryCost?:string;
 }={}){
   const rows=[...(options.sales??[sale('DRAFT')])];
   const byKey=new Map<string,SaleResponse>();
@@ -96,7 +96,7 @@ function mockBackend(options:{
     }
     if(path==='/api/sales/'+SALE_ID+'/cancellation-details'&&method==='GET')return json({reason:'CUSTOMER_CHANGED_MIND',comment:null,cancelledBy:'sales-operator',cancelledAt:TIME});
     if(path==='/api/deliveries/by-sale/'+SALE_ID&&method==='GET'){
-      return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY'});
+      return json({id:DELIVERY_ID,saleId:SALE_ID,status:'READY',deliveryCost:options.deliveryCost??'500'});
     }
     if(path==='/api/sales/statistics'&&method==='GET'){
       const byStatus=(status:SaleStatus)=>rows.filter(r=>r.status===status).length;
@@ -639,6 +639,34 @@ describe('F07 detail, state transitions, reservations and RBAC',()=>{
     expect(screen.queryByText('Доступ запрещён')).not.toBeInTheDocument();
   });
 
+  it.each([['500','17 500 сом'],['1000','18 000 сом'],['0','17 000 сом']])(
+    'shows goods, %s som delivery and a single correct payable total',async(cost,total)=>{
+      granted.permissions.push('DELIVERIES_READ');
+      mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'CITY_DELIVERY'})],deliveryCost:cost});
+      renderAt('/sales/'+SALE_ID);
+      const result=await screen.findByRole('region',{name:'Итог заказа'});
+      expect(result).toHaveTextContent('Товары: 17 000 сом');
+      expect(result).toHaveTextContent('Доставка: '+Number(cost).toLocaleString('ru-RU')+' сом');
+      expect(result).toHaveTextContent('Итого к оплате: '+total);
+    });
+  it('shows goods-only total for pickup and never loads a delivery',async()=>{
+    const api=mockBackend({sales:[sale('CONFIRMED')]});
+    renderAt('/sales/'+SALE_ID);
+    const result=await screen.findByRole('region',{name:'Итог заказа'});
+    expect(result).toHaveTextContent('Товары: 17 000 сом');
+    expect(result).toHaveTextContent('Итого к оплате: 17 000 сом');
+    expect(result).not.toHaveTextContent('Доставка:');
+    expect(called(api,'/api/deliveries/by-sale/')).toHaveLength(0);
+  });
+  it('does not invent a delivery-inclusive total without delivery read permission',async()=>{
+    granted.permissions=granted.permissions.filter(p=>p!=='DELIVERIES_READ');
+    mockBackend({sales:[sale('CONFIRMED',{fulfillmentType:'REGION_DELIVERY'})]});
+    renderAt('/sales/'+SALE_ID);
+    const result=await screen.findByRole('region',{name:'Итог заказа'});
+    expect(result).toHaveTextContent('Товары: 17 000 сом');
+    expect(result).toHaveTextContent('Стоимость пока не подтверждена');
+    expect(result).toHaveTextContent('Ожидается оформление доставки');
+  });
   it('shows a human-readable model, warehouse and confirmed event history',async()=>{
     const api=mockBackend({sales:[sale('FULFILLED',{fulfilledAt:TIME})]});
     renderAt('/sales/'+SALE_ID);
