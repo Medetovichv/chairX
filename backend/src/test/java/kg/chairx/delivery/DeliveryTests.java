@@ -1325,7 +1325,8 @@ class DeliveryTests {
             var saved = closed.items().stream().filter(x -> x.saleId().equals(sale.id()))
                     .findFirst().orElseThrow();
             assertThat(saved.quantity()).isEqualTo(2);
-            // The captured gross also includes the 300-som delivery service.\n            assertThat(saved.total()).isEqualByComparingTo("17300");
+            // The captured gross also includes the 300-som delivery service.
+            assertThat(saved.total()).isEqualByComparingTo("17300");
 
             var refundLater = returns.create(new CreateReturnRequest(
                     sale.id(), home, UUID.randomUUID(),
@@ -1339,6 +1340,8 @@ class DeliveryTests {
             assertThat(after.snapshotAvailable()).isTrue();
             assertThat(after.items().stream().filter(x -> x.saleId().equals(sale.id()))
                     .findFirst().orElseThrow()).isEqualTo(saved);
+            assertThat(after.items().stream().filter(x -> x.saleId().equals(sale.id()))
+                    .findFirst().orElseThrow().total()).isEqualByComparingTo("17300");
             assertThat(after.totals()).isEqualTo(closed.totals());
             assertThat(jdbc.queryForObject("""
                     SELECT count(*) FROM finance_daily_closing_sales
