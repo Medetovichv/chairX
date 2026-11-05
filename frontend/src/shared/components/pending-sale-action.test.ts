@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearSaleAction, readSaleAction, saveSaleAction } from './pending-sale-action';
+import { clearSaleAction, readSaleAction, saveSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
+import { ApiClientError } from '../api/api-error';
 
 describe('pending sale action journal', () => {
   beforeEach(() => sessionStorage.clear());
@@ -10,6 +11,20 @@ describe('pending sale action journal', () => {
     expect(saveSaleAction('staff', 'order', 'cancel')).toBe(false);
     expect(clearSaleAction('staff', 'order')).toBe(true);
     expect(readSaleAction('staff', 'order')).toEqual({ kind: 'missing' });
+  });
+  it.each([408,409,500,503])('preserves a pending action after ambiguous HTTP %i', status => {
+    expect(isUnknownSaleMutationResult(new ApiClientError('http','REQUEST_FAILED',status))).toBe(true);
+  });
+  it.each([400,401,403,422])('clears a provisional action after definitive HTTP %i', status => {
+    expect(isUnknownSaleMutationResult(new ApiClientError('http','REQUEST_REJECTED',status))).toBe(false);
+  });
+  it('treats lost responses as an unknown server mutation', () => {
+    expect(isUnknownSaleMutationResult(new TypeError('Connection reset after POST'))).toBe(true);
+  });
+  it('allows Quick View to observe a durable marker written by full sale detail', () => {
+    expect(saveSaleAction('staff','sale-123','fulfill')).toBe(true);
+    expect(readSaleAction('staff','sale-123')).toEqual({kind:'pending',action:'fulfill'});
+    expect(saveSaleAction('staff','sale-123','cancel')).toBe(false);
   });
   it('isolates employees and sales', () => {
     expect(saveSaleAction('staff', 'order', 'fulfill')).toBe(true);
