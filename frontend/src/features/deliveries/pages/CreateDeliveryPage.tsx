@@ -1,14 +1,15 @@
 import { useQuickViewDirty } from '../../../shared/components/QuickViewDrawer';
 import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
-import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
+import { userFacingApiError } from '../../../shared/api/api-error';
 import { deliveryApi, deliveryKeys } from '../api';
 import { DeliveryForm } from '../components/DeliveryForm';
-import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../pending-create';
+import { readPendingCreate, savePendingCreate, clearPendingCreate, isUnknownDeliveryCreation } from '../pending-create';
 import type { CreateDeliveryInput } from '../types';
 export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}){
   const markDirty=useQuickViewDirty();
@@ -44,13 +45,12 @@ export function CreateDeliveryPage({embedded=false,onCreated}:{embedded?:boolean
         client.invalidateQueries({queryKey:deliveryKeys.lists}),
         client.invalidateQueries({queryKey:deliveryKeys.bySale(result.saleId)}),
       ]);
-      if(embedded && onCreated) { markDirty(false); onCreated(result.id); }
+      if(embedded && onCreated) { flushSync(() => markDirty(false)); onCreated(result.id); }
       else navigate('/deliveries/'+encodeURIComponent(result.id),{replace:true,
         state:{notice:'Доставка создана.'}});
     }catch(cause){
       setError(userFacingApiError(cause));
-      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||cause.status===409||
-        cause.status===undefined||cause.status>=500){
+      if(isUnknownDeliveryCreation(cause)){
         setPending(payload);
         setError(userFacingApiError(cause)+
           ' Результат может быть уже сохранён. Проверьте список по заказу и не отправляйте второй POST вслепую.');
