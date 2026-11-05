@@ -4,6 +4,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useAuth} from '../../auth/AuthProvider';
 import {reportingApi} from '../reporting-api';
 import {som} from '../validation';
+import {financeMovementLabel} from '../ledger-labels';
 import {useFinancePeriod} from '../useFinancePeriod';
 import {FinanceTabs} from '../components/FinanceTabs';
 import {FinanceQuickPeriods} from '../components/FinanceQuickPeriods';
@@ -13,7 +14,6 @@ import {ErrorState} from '../../../shared/components/ErrorState';
 import {ForbiddenPage} from '../../../pages/ForbiddenPage';
 import {Button} from '../../../shared/ui/button';
 import {FinanceExportButton} from '../components/FinanceExportButton';
-const labels:Record<string,string>={SALE_PAYMENT:'Оплата продажи',PURCHASE_PAYMENT:'Оплата закупки',EXPENSE:'Расход',CUSTOMER_REFUND:'Возврат клиенту',PAYMENT_REVERSAL:'Отмена платежа',TRANSFER:'Перевод между счетами'};
 // Section fallback is deliberately not described as a document deep link.
 function sourceLink(kind:string|null,id:string|null,hasPermission:(permission:string)=>boolean){
  if(!id || !kind || !['EXPENSE','TRANSFER','ADMIN_ADJUSTMENT','OPENING_BALANCE','REFUND'].includes(kind))return null;
@@ -75,7 +75,7 @@ export function FinanceOperationsPage(){
    <div className="hidden overflow-x-auto md:block"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr>{['Дата','Тип','Счёт','Источник','Сумма'].map(k=><th className="p-3" key={k}>{k}</th>)}</tr></thead>
    <tbody>{report.data.items.map(x=><tr key={x.id} className="cursor-pointer border-t hover:bg-blue-50" onClick={()=>setSelected(x.id)}>
     <td className="p-3">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})}</td>
-    <td className="p-3">{labels[x.type]||x.type.replaceAll('_',' ')}</td>
+    <td className="p-3">{financeMovementLabel(x.type)}</td>
     <td className="p-3">{x.account==='CASH'?'Наличные':'Банк'}</td><td className="p-3">{x.documentLabel||x.sourceType.replaceAll('_',' ')}{x.documentKind==='SALE'&&x.documentId&&hasPermission('SALES_READ')&&
      <Link to={'/sales/'+encodeURIComponent(x.documentId)} onClick={event=>event.stopPropagation()} className="ml-2 text-blue-700 underline">Открыть заказ</Link>}
     {x.documentKind==='EXCHANGE'&&x.documentId&&hasPermission('EXCHANGES_READ')&&
@@ -88,7 +88,7 @@ export function FinanceOperationsPage(){
         <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
    </tr>)}</tbody></table></div>
    <div className="divide-y md:hidden">{report.data.items.map(x=><button key={x.id} onClick={()=>setSelected(x.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
-    <span className="min-w-0"><strong className="block">{labels[x.type]||x.type.replaceAll('_',' ')}</strong><span className="text-xs text-slate-500">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})} · {x.account==='CASH'?'Наличные':'Банк'}</span></span>
+    <span className="min-w-0"><strong className="block">{financeMovementLabel(x.type)}</strong><span className="text-xs text-slate-500">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})} · {x.account==='CASH'?'Наличные':'Банк'}</span></span>
     <strong className="shrink-0">{som(x.amount)}</strong></button>)}</div>
    {!report.data.items.length&&<p className="p-5 text-sm text-slate-500">Нет проводок за период.</p>}
    <div className="flex items-center justify-between gap-3 border-t p-3 text-sm"><span>Всего: {report.data.total}</span>
@@ -97,7 +97,7 @@ export function FinanceOperationsPage(){
   {line&&<section role="dialog" aria-label="Детали финансовой операции" className="rounded-2xl border bg-white p-5 shadow-md">
    <div className="flex justify-between gap-3"><h2 className="font-semibold">Детали операции</h2><Button variant="outline" onClick={()=>setSelected(null)}>Закрыть</Button></div>
    <dl className="mt-3 space-y-2 text-sm">
-    <div><dt className="text-slate-500">Операция</dt><dd>{labels[line.type]||line.type}</dd></div>
+    <div><dt className="text-slate-500">Операция</dt><dd>{financeMovementLabel(line.type)}</dd></div>
     <div><dt className="text-slate-500">Время</dt><dd>{new Date(line.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})}</dd></div>
     <div><dt className="text-slate-500">Счёт</dt><dd>{line.account}</dd></div>
     <div><dt className="text-slate-500">Источник</dt><dd>{line.documentLabel||line.sourceType}</dd></div>
