@@ -85,6 +85,24 @@ describe('SaleQuickActions RBAC',()=>{
     expect(post).toHaveBeenCalledTimes(1);
     expect(sessionStorage.getItem('chairx:sale:quick-pending:v1:staff:sale')).toBe(JSON.stringify('confirm'));
   });
+  it('keeps another surface pending when preflight GET fails before POST',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    vi.spyOn(salesApi,'get').mockImplementation(async()=>{
+      sessionStorage.setItem(key,JSON.stringify('cancel'));
+      throw new ApiClientError('http','SERVICE_UNAVAILABLE',503);
+    });
+    const post=vi.spyOn(salesApi,'confirm');
+    const first=view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toBeInTheDocument());
+    expect(post).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('cancel'));
+    first.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument();
+  });
   it('clears the provisional marker after an authoritative pre-mutation HTTP 403 rejection',async()=>{
     permissions=['SALES_DRAFT_MANAGE'];
     const key='chairx:sale:quick-pending:v1:staff:sale';
