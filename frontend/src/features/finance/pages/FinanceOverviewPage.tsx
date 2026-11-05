@@ -5,6 +5,7 @@ import { financeApi,financeKeys } from '../api';
 import {useFinancePeriod} from '../useFinancePeriod';
 import { reportingApi } from '../reporting-api';
 import { som } from '../validation';
+import { financeMovementLabel } from '../ledger-labels';
 import { FinanceTabs } from '../components/FinanceTabs';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { LoadingState } from '../../../shared/components/LoadingState';
@@ -53,7 +54,7 @@ export function FinanceOverviewPage(){
     <p className="mt-3 text-xs text-slate-500">Показатели на текущий момент, а не на конец выбранного месяца.</p>
    </section>
    <section className="min-w-0 overflow-hidden rounded-[20px] border border-[#e3e9ee] bg-white p-4 shadow-sm"><div className="flex justify-between gap-3"><h2 className="font-bold">Последние денежные операции</h2><Link to="/finance/operations" className="text-sm text-blue-700">Все операции →</Link></div>
-    {ledger.isSuccess?<div className="mt-2 min-w-0 divide-y">{ledger.data.items.slice(0,5).map(item=><div key={item.id} className="flex justify-between gap-2 py-2 text-sm"><span className="min-w-0 truncate">{item.type.replaceAll('_',' ')} · {new Date(item.postedAt).toLocaleDateString('ru-RU',{timeZone:'Asia/Bishkek'})}</span><strong>{som(item.amount)}</strong></div>)}{!ledger.data.items.length&&<p className="text-sm text-slate-500">Проводок пока нет.</p>}</div>:ledger.isError?<p role="alert" className="text-sm text-rose-700">Не удалось загрузить журнал.</p>:<LoadingState label="Загружаем последние операции…"/>}
+    {ledger.isSuccess?<div className="mt-2 min-w-0 divide-y">{ledger.data.items.slice(0,5).map(item=><div key={item.id} className="flex justify-between gap-2 py-2 text-sm"><span className="min-w-0 truncate">{financeMovementLabel(item.type)} · {new Date(item.postedAt).toLocaleDateString('ru-RU',{timeZone:'Asia/Bishkek'})}</span><strong>{som(item.amount)}</strong></div>)}{!ledger.data.items.length&&<p className="text-sm text-slate-500">Проводок пока нет.</p>}</div>:ledger.isError?<p role="alert" className="text-sm text-rose-700">Не удалось загрузить журнал.</p>:<LoadingState label="Загружаем последние операции…"/>}
    </section>
   </div>
   {accounts.isPending?<LoadingState label="Загружаем финансовые счета…"/>:
