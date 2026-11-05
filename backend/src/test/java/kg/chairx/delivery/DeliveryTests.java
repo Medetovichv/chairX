@@ -1058,6 +1058,36 @@ class DeliveryTests {
     }
 
     @Test
+    void reasonedCancellationOfDispatchedCityAndRegionalDeliveriesCannotUndoFulfillment() {
+        for (FulfillmentType type : List.of(
+                FulfillmentType.CITY_DELIVERY, FulfillmentType.REGION_DELIVERY)) {
+            var sale = createSale(type, item(firstVariant, home, 2, "8500"));
+            var delivery = deliveries.create(deliveryRequest(sale.id()));
+            deliveries.dispatch(delivery.id());
+            var movementsBefore = stockMovementCount();
+            var financeBefore = jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class);
+            var stockBefore = inventory.getBalance(home, firstVariant);
+
+            assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
+                    new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                            "Нельзя отменять уже отправленный товар")))
+                    .isInstanceOfSatisfying(DeliveryRuleViolationException.class,
+                            error -> assertThat(error.code())
+                                    .isEqualTo("INVALID_DELIVERY_STATUS"));
+            assertThat(deliveries.get(delivery.id()).status())
+                    .isEqualTo(DeliveryStatus.IN_TRANSIT);
+            assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+            assertThat(sales.cancellationDetails(sale.id())).isEmpty();
+            assertThat(inventory.getBalance(home, firstVariant)).isEqualTo(stockBefore);
+            assertThat(stockMovementCount()).isEqualTo(movementsBefore);
+            assertThat(jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class))
+                    .isEqualTo(financeBefore);
+        }
+    }
+
+    @Test
     void dispatchFailureRollsBackDeliverySaleReservationAndMovements() {
         var sale = createSale(
                 FulfillmentType.REGION_DELIVERY,
