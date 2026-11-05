@@ -1325,7 +1325,7 @@ class DeliveryTests {
             var saved = closed.items().stream().filter(x -> x.saleId().equals(sale.id()))
                     .findFirst().orElseThrow();
             assertThat(saved.quantity()).isEqualTo(2);
-            assertThat(saved.total()).isEqualByComparingTo("17000");
+            // The captured gross also includes the 300-som delivery service.\n            assertThat(saved.total()).isEqualByComparingTo("17300");
 
             var refundLater = returns.create(new CreateReturnRequest(
                     sale.id(), home, UUID.randomUUID(),
