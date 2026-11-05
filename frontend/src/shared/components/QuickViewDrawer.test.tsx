@@ -138,6 +138,19 @@ describe('QuickViewDrawer navigation', () => {
     expect(container.querySelector('[data-quick-view]')).toBeTruthy();
     unmount();
   });
+  it('uses semantic Lucide navigation controls with keyboard-visible focus and accessible names', () => {
+    const { unmount } = render(<MemoryRouter><QuickViewDrawer title="Заказ" detailUrl="/sales/order"
+      onClose={() => {}} previous={() => {}} next={() => {}}><Editor/></QuickViewDrawer></MemoryRouter>);
+    const navigation=screen.getByRole('navigation',{name:'Переход между записями'});
+    for(const label of ['Предыдущая запись','Следующая запись']) {
+      const control=screen.getByRole('button',{name:label});
+      expect(navigation).toContainElement(control);
+      expect(control.querySelector('svg')).not.toBeNull();
+      expect(control.className).toContain('focus-visible:outline-2');
+      expect(control).not.toBeDisabled();
+    }
+    unmount();
+  });
   it('allows moving to adjacent records after approval', () => {
     const next = vi.fn();
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
