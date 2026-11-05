@@ -1,3 +1,12 @@
+import { ApiClientError } from '../api/api-error';
+
+/** No authoritative mutation outcome is known for timeout, conflict or transport errors. */
+export function isUnknownSaleMutationResult(error: unknown): boolean {
+  return !(error instanceof ApiClientError) || error.kind !== 'http' ||
+    error.status === undefined || error.status === 408 ||
+    error.status === 409 || error.status >= 500;
+}
+
 /** A pending irreversible sale action must never be replayed without server reconciliation. */
 export type SaleAction = 'confirm' | 'fulfill' | 'cancel';
 export type PendingSaleAction = { kind: 'missing' } | { kind: 'pending'; action: SaleAction } | { kind: 'invalid' };

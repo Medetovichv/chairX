@@ -31,6 +31,7 @@ import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../val
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 import {cancellationReasons,cancellationLabel,type SaleCancellationReason} from '../cancellation';
+import { readSaleAction, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from '../../../shared/components/pending-sale-action';
 
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
@@ -164,7 +165,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   const [showCancelForm,setShowCancelForm]=useState(false);
   const [cancelReason,setCancelReason]=useState<SaleCancellationReason|''>('');
   const [cancelComment,setCancelComment]=useState('');
-  const [unknownAction,setUnknownAction]=useState<Action|null>(null);
+  const [actionJournal]=useState(() => readSaleAction(user?.id,sale.id));
+  const [unknownAction,setUnknownAction]=useState<Action|null>(actionJournal.kind==='pending'?actionJournal.action:null);
+  const [actionJournalInvalid,setActionJournalInvalid]=useState(actionJournal.kind==='invalid');
   const [busy,setBusy]=useState(false);
   const running=useRef(false);
   const isDraft=sale.status==='DRAFT';
@@ -318,20 +321,32 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     }finally{running.current=false;}
   }
   async function execute(value:Action) {
-    if(running.current||unknownAction||value==='cancel'&&(!cancelReason||cancelComment.length>1000))return;
+    if(running.current||unknownAction||actionJournalInvalid||
+      value==='cancel'&&(!cancelReason||cancelComment.length>1000))return;
     running.current=true;setBusy(true);setError('');
+    let sent=false;
     try {
-      // Verify what the operator is actually approving. Another employee may
-      // have changed a DRAFT or its amount since this card was opened.
       const fresh=await salesApi.get(sale.id);
       if(!sameSaleForAction(sale,fresh)){
         client.setQueryData(salesKeys.detail(sale.id),fresh);
         setError('Заказ изменён другим сотрудником. Данные и сумма обновлены; проверьте их и подтвердите операцию заново.');
         return;
       }
-      // A 200 is not assumed until the backend returns an authoritative SaleResponse.
+      // Write a durable marker before irreversible POST. Quick View uses this
+      // same per-user/per-sale journal, so reopening either surface stays locked.
+      if(!user?.id||!saveSaleAction(user.id,sale.id,value)){
+        setActionJournalInvalid(true);
+        setError('Не удалось сохранить запись операции. Запрос не отправлен; проверьте журнал перед повтором.');
+        return;
+      }
+      sent=true;
       const next=await (value==='confirm'?salesApi.confirm(sale.id):
         value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null}));
+      sent=false; // Authoritative success response: cache refresh is not another POST.
+      if(!clearSaleAction(user.id,sale.id)){
+        setActionJournalInvalid(true);
+        setError('Операция выполнена, но журнал восстановления не очищен. Новые действия заблокированы.');
+      }
       await changed(next);
       if(value==='cancel')await client.invalidateQueries({queryKey:['sales','cancellation',sale.id]});
       setNotice(value==='confirm'?'Заказ подтверждён.':
@@ -339,8 +354,9 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       setUnknownAction(null);
     }catch(cause){
       setError(userFacingApiError(cause));
-      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||(cause.status??500)>=500)
-        setUnknownAction(value);
+      const ambiguous=isUnknownSaleMutationResult(cause);
+      if(sent&&ambiguous)setUnknownAction(value);
+      else if(sent&&user?.id&&!clearSaleAction(user.id,sale.id))setActionJournalInvalid(true);
     }finally{running.current=false;setBusy(false);setAction(null);}
   }
   async function checkStatus() {
@@ -350,8 +366,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       client.setQueryData(salesKeys.detail(sale.id),result);
       const expected=unknownAction==='confirm'?'CONFIRMED':
         unknownAction==='fulfill'?'FULFILLED':'CANCELLED';
-      if(unknownAction!==null){
-        setError('Текущий статус не доказывает результат вашего запроса. Требуется сверка с аудитом; не повторяйте действие.');
+      if(unknownAction!==null||actionJournalInvalid){
+        setError('Текущий статус не доказывает результат вашего запроса или целостность журнала. Требуется сверка с аудитом; не повторяйте действие.');
       }else if(result.status===expected){
         setNotice('Операция подтверждена актуальным статусом сервера.');
         setError('');setUnknownAction(null);
@@ -390,8 +406,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       </Link>}
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
     {error&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</p>}
-    {(unknownAction||draftUncertain)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
-      <p>Результат операции неизвестен. Возможна запись изменений на сервере.</p>
+    {(unknownAction||draftUncertain||actionJournalInvalid)&&<div className="space-y-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+      <p>{actionJournalInvalid?'Журнал операции недоступен или повреждён. Действия заблокированы до ручной сверки.':'Результат операции неизвестен. Возможна запись изменений на сервере.'}</p>
       <Button type="button" disabled={busy} onClick={()=>void checkStatus()}>
         Проверить актуальный статус</Button>
       {draftUncertain&&<Button type="button" variant="outline" disabled={busy}
@@ -562,13 +578,13 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         <section aria-label="Действия с заказом" className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="font-bold">Действия</h3>
     <div className="flex flex-col gap-2 [&_button]:w-full">
-      {canManageDraft&&!unknownAction&&!draftUncertain&&
+      {canManageDraft&&!unknownAction&&!actionJournalInvalid&&!draftUncertain&&
         <Button variant="outline" disabled={editing||busy} onClick={()=>setEditing(true)}>Редактировать черновик</Button>}
-      {canConfirm&&!editing&&!unknownAction&&!draftUncertain&&
+      {canConfirm&&!editing&&!unknownAction&&!actionJournalInvalid&&!draftUncertain&&
         <Button disabled={busy} onClick={()=>void execute('confirm')}>Подтвердить заказ</Button>}
-      {canFulfill&&!unknownAction&&<Button disabled={busy}
+      {canFulfill&&!unknownAction&&!actionJournalInvalid&&<Button disabled={busy}
         onClick={()=>setAction('fulfill')}>Подтвердить выдачу кресел</Button>}
-      {canCancel&&!unknownAction&&<Button disabled={busy}
+      {canCancel&&!unknownAction&&!actionJournalInvalid&&<Button disabled={busy}
         variant="outline" onClick={()=>setShowCancelForm(true)}>Отменить заказ</Button>}
     </div>
 
