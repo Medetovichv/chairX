@@ -74,7 +74,9 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       setError(userFacingApiError(cause));
       if(sent && isUnknownSaleMutationResult(cause)) {
         setUnknown(action);
-      } else if(user?.id && !clearSaleAction(user.id,sale.id)) {
+      } else if(sent && user?.id && !clearSaleAction(user.id,sale.id)) {
+        // Preflight GET never sent a mutation and owns no journal entry.
+        // Clearing it here could erase another mounted surface's pending POST.
         setInvalid(true);
       }
     } finally {
