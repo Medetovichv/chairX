@@ -1296,6 +1296,65 @@ class DeliveryTests {
     }
 
     @Test
+    void closedSalesSnapshotRemainsImmutableAfterLaterPartialCustomerReturn() {
+        var sale = createSale(FulfillmentType.CITY_DELIVERY,
+                item(firstVariant, home, 2, "8500"));
+        var delivery = deliveries.create(deliveryRequest(sale.id()));
+        deliveries.dispatch(delivery.id());
+        deliveries.markDelivered(delivery.id());
+        payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.CASH, null, null));
+        var day = LocalDate.now(ZoneId.of("Asia/Bishkek"));
+        var closingId = UUID.randomUUID();
+        assertThat(kg.chairx.finance.application.DailyClosingSalesSnapshot.live(jdbcClient, day))
+                .extracting(x -> x.saleId()).contains(sale.id());
+
+        // Capture the same durable operational snapshot written by the real
+        // daily-closing transaction; use a disposable finance closing fixture.
+        jdbc.update("""
+                INSERT INTO finance_daily_closings (id, business_date, created_by)
+                VALUES (?, ?, ?)
+                """, closingId, day, "delivery-test-user");
+        try {
+            kg.chairx.finance.application.DailyClosingSalesSnapshot.capture(
+                    jdbcClient, closingId, day);
+            var closed = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(
+                    jdbcClient, day);
+            assertThat(closed.closed()).isTrue();
+            assertThat(closed.snapshotAvailable()).isTrue();
+            var saved = closed.items().stream().filter(x -> x.saleId().equals(sale.id()))
+                    .findFirst().orElseThrow();
+            assertThat(saved.quantity()).isEqualTo(2);
+            assertThat(saved.total()).isEqualByComparingTo("17000");
+
+            var refundLater = returns.create(new CreateReturnRequest(
+                    sale.id(), home, UUID.randomUUID(),
+                    List.of(new CreateReturnItemRequest(
+                            sale.items().getFirst().id(), 1, ReturnCondition.SELLABLE)),
+                    "Частичный возврат после закрытия отчёта", null));
+            assertThat(refundLater.items()).hasSize(1);
+            var after = kg.chairx.finance.application.DailyClosingSalesSnapshot.read(
+                    jdbcClient, day);
+            assertThat(after.closed()).isTrue();
+            assertThat(after.snapshotAvailable()).isTrue();
+            assertThat(after.items().stream().filter(x -> x.saleId().equals(sale.id()))
+                    .findFirst().orElseThrow()).isEqualTo(saved);
+            assertThat(after.totals()).isEqualTo(closed.totals());
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_daily_closing_sales
+                    WHERE closing_id=? AND sale_id=?
+                    """, Long.class, closingId, sale.id())).isEqualTo(1);
+            assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+            assertThat(deliveries.get(delivery.id()).status())
+                    .isEqualTo(DeliveryStatus.DELIVERED);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closing_sales WHERE closing_id=?", closingId);
+            jdbc.update("DELETE FROM finance_daily_closing_sales_snapshots WHERE closing_id=?", closingId);
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", closingId);
+        }
+    }
+
+    @Test
     void failedDeliveryCannotBeReturnedAgainViaRegularReturn() {
         var sale = createSale(FulfillmentType.REGION_DELIVERY,
                 item(firstVariant, home, 2, "8500"));
