@@ -918,6 +918,64 @@ class RefundTests {
     }
 
     @Test
+    void refundPostedTodayDoesNotRewritePriorBusinessDayPaymentLedger() {
+        var sale = createSale(1, "8500");
+        var payment = createPayment(sale.id());
+        var paymentBefore = payments.get(payment.id());
+        var priorDay = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).minusDays(1);
+
+        // Explicitly age the *isolated test fixture*'s original payment posting.
+        // The real refund still uses the PostgreSQL clock, not this past date.
+        assertThat(jdbc.update("""
+                UPDATE finance_movements
+                SET business_date = ?,
+                    created_at = (?::date + TIME '12:00') AT TIME ZONE 'Asia/Bishkek'
+                WHERE source_type = 'PAYMENT' AND source_id = ?
+                """, priorDay, priorDay, payment.id())).isEqualTo(1);
+        var historicalPayment = jdbc.queryForMap("""
+                SELECT business_date::text AS day, amount, created_at
+                FROM finance_movements
+                WHERE source_type = 'PAYMENT' AND source_id = ?
+                """, payment.id());
+        assertThat(historicalPayment.get("day")).isEqualTo(priorDay.toString());
+        assertThat((BigDecimal) historicalPayment.get("amount")).isEqualByComparingTo("8500");
+
+        var request = request(sale.id(), null, "2500", RefundMethod.TRANSFER,
+                "Возврат после исторической оплаты", UUID.randomUUID());
+        var refund = refunds.create(request);
+        var movement = jdbc.queryForMap("""
+                SELECT business_date::text AS day,
+                       (created_at AT TIME ZONE 'Asia/Bishkek')::date::text AS posting_day,
+                       business_date_source, amount, account_code
+                FROM finance_movements
+                WHERE source_type = 'REFUND' AND source_id = ?
+                """, refund.id());
+        assertThat(movement.get("day")).isEqualTo(movement.get("posting_day"));
+        assertThat(movement.get("day")).isNotEqualTo(priorDay.toString());
+        assertThat(movement.get("business_date_source")).isEqualTo("POSTING_DATE");
+        assertThat(movement.get("account_code")).isEqualTo("BANK");
+        assertThat((BigDecimal) movement.get("amount")).isEqualByComparingTo("-2500");
+
+        // The previous day's payment stays positive and unchanged; only the new
+        // date receives a compensation entry. No previous closing is rewritten.
+        assertThat(jdbc.queryForMap("""
+                SELECT business_date::text AS day, amount, created_at
+                FROM finance_movements
+                WHERE source_type = 'PAYMENT' AND source_id = ?
+                """, payment.id())).isEqualTo(historicalPayment);
+        assertThat(payments.get(payment.id())).isEqualTo(paymentBefore);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type = 'REFUND' AND business_date = ? AND source_id = ?
+                """, Long.class, priorDay, refund.id())).isZero();
+        assertThat(refunds.create(request).id()).isEqualTo(refund.id());
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type = 'REFUND' AND source_id = ?
+                """, Long.class, refund.id())).isEqualTo(1L);
+    }
+
+    @Test
     void delimiterCollisionCannotReplayDifferentRefundFields() {
         var sale = createSale(1, "8500"); createPayment(sale.id()); UUID key = UUID.randomUUID();
         refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
