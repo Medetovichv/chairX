@@ -1,0 +1,76 @@
+name: AI codebase reference
+
+on:
+  pull_request:
+    paths:
+      - 'backend/src/main/**'
+      - 'frontend/src/**'
+      - 'scripts/generate-codebase-reference.py'
+      - 'docs/reference/**'
+      - 'AGENTS.md'
+      - '.github/workflows/ai-reference.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/src/main/**'
+      - 'frontend/src/**'
+      - 'scripts/generate-codebase-reference.py'
+      - 'docs/reference/**'
+      - 'AGENTS.md'
+      - '.github/workflows/ai-reference.yml'
+  schedule:
+    - cron: '23 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: ai-reference-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Generate source-derived inventory
+        run: python3 scripts/generate-codebase-reference.py
+
+      - name: Validate deterministic regeneration
+        run: python3 scripts/generate-codebase-reference.py --check
+
+      - name: Show changed files
+        run: git status --short docs/reference/generated
+
+      - name: Commit inventory updates to same-repo PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/reference/generated
+          if ! git diff --cached --quiet; then
+            git commit -m "docs: refresh source-derived AI reference"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          fi
+
+      - name: Propose documentation sync PR
+        if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          add-paths: docs/reference/generated
+          commit-message: 'docs: sync generated ChairX technical reference'
+          branch: bot/sync-ai-codebase-reference
+          delete-branch: true
+          title: 'docs: synchronize source-derived ChairX knowledge base'
+          body: |
+            Generated from current Java, Flyway SQL and React source.
+            This is a heuristic index, not live database introspection or complete OpenAPI.
+            Review the changes before merging.
