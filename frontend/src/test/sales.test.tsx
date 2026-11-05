@@ -305,6 +305,18 @@ describe('F07 DTOs, validation and server sales list',()=>{
     expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/sales/new')||String(url).includes('/api/deliveries/new'))).toBe(false);
   });
 
+  it('shows one customer heading and an uncluttered lookup prompt in the compact sale drawer',async()=>{
+    mockBackend({sales:[]});
+    renderAt('/sales?quick=new');
+    const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
+    const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
+    expect(within(form).getAllByRole('heading',{name:/^(?:1\.\s*)?Клиент$/})).toHaveLength(1);
+    expect(within(form).getByText('Необязательно для черновика')).toBeInTheDocument();
+    const lookup=within(form).getByRole('searchbox',{name:'Поиск клиента для продажи'});
+    expect(lookup).toHaveAttribute('placeholder','Имя, телефон или WhatsApp');
+    expect(lookup).toHaveAttribute('maxLength','200');
+  });
+
   it('keeps quick-create checkout visible outside scroll and preserves real form submit',async()=>{
     const api=mockBackend({sales:[]});
     renderAt();
