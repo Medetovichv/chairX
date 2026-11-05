@@ -8,6 +8,8 @@ This folder is the entrypoint for ChatGPT, coding agents and human maintainers. 
 3. Open the linked Java / SQL / TypeScript files; verify implementation and tests, especially before touching money, stock or permissions.
 4. Apply changes in a feature branch. Regenerate all indexes, run tests and open a PR. Do not assume a previous chat or October 2026 docs match main.
 
+[Reusable AI onboarding prompt](AI-HANDOFF.md) — copy into ChatGPT, Claude or another coding agent with repository access.
+
 ## Generated source inventories
 | Resource | What it contains | Caveat |
 |---|---|---|
