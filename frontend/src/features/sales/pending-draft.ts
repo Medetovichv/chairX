@@ -1,3 +1,12 @@
+import { ApiClientError } from '../../shared/api/api-error';
+
+/** A timeout or conflict may arrive after a committed sale. Retry only with the same key. */
+export function isUnknownDraftSubmission(error: unknown): boolean {
+  return !(error instanceof ApiClientError) || error.kind !== 'http' ||
+    error.status === undefined || error.status === 408 ||
+    error.status === 409 || error.status >= 500;
+}
+
 import type { CreateDraftInput } from './types';
 import { checkDraft, uuidValid } from './validation';
 
