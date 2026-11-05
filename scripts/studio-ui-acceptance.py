@@ -149,7 +149,7 @@ def test_delivery_quick_create(page):
     )
     drawer.wait_for(state="visible")
     form = drawer.get_by_role("form", name="Оформить доставку")
-    footer = drawer.get_by_role("region", name="Итог и сохранение продажи")
+    footer = drawer.get_by_role("region", name="Стоимость и создание доставки")
     scroller = drawer.get_by_label("Прокручиваемое содержимое панели")
     create = footer.get_by_role("button", name="Создать доставку")
     assert create.get_attribute("form") == form.get_attribute("id"), (
