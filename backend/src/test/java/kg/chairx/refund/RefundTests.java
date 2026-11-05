@@ -885,6 +885,39 @@ class RefundTests {
     }
 
     @Test
+    void cashCompensationIsPostedOnActualBishkekDateWithoutRewritingOriginalPayment() {
+        var sale = createSale(1, "8500");
+        var payment = createPayment(sale.id());
+        var originalPayment = payments.get(payment.id());
+        var input = request(sale.id(), null, "2500", RefundMethod.TRANSFER,
+                "Компенсация клиенту", UUID.randomUUID());
+
+        var refund = refunds.create(input);
+        var row = jdbc.queryForMap("""
+                SELECT amount, account_code, movement_type, source_type,
+                       business_date::text AS business_date,
+                       (created_at AT TIME ZONE 'Asia/Bishkek')::date::text AS posted_date,
+                       business_date_source
+                FROM finance_movements
+                WHERE source_id=? AND source_type='REFUND'
+                """, refund.id());
+
+        assertThat((BigDecimal) row.get("amount")).isEqualByComparingTo("-2500");
+        assertThat(row.get("account_code")).isEqualTo("BANK");
+        assertThat(row.get("movement_type")).isEqualTo("CUSTOMER_REFUND");
+        assertThat(row.get("source_type")).isEqualTo("REFUND");
+        assertThat(row.get("business_date_source")).isEqualTo("POSTING_DATE");
+        assertThat(row.get("business_date")).isEqualTo(row.get("posted_date"));
+        assertThat(payments.get(payment.id())).isEqualTo(originalPayment);
+
+        assertThat(refunds.create(input).id()).isEqualTo(refund.id());
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_id=? AND source_type='REFUND'
+                """, Long.class, refund.id())).isEqualTo(1);
+    }
+
+    @Test
     void delimiterCollisionCannotReplayDifferentRefundFields() {
         var sale = createSale(1, "8500"); createPayment(sale.id()); UUID key = UUID.randomUUID();
         refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
