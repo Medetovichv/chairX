@@ -60,7 +60,7 @@ def test_sale_quick_create(page):
     )
     drawer.wait_for(state="visible")
     form = drawer.get_by_role("form", name="Новый черновик продажи")
-    footer = drawer.get_by_role("region", name="Итог и сохранение заказа")
+    footer = drawer.get_by_role("region", name="Итог и сохранение продажи")
     scroller = drawer.get_by_label("Прокручиваемое содержимое панели")
     save = footer.get_by_role("button", name="Сохранить черновик")
     assert save.get_attribute("form") == form.get_attribute("id"), (
@@ -149,7 +149,7 @@ def test_delivery_quick_create(page):
     )
     drawer.wait_for(state="visible")
     form = drawer.get_by_role("form", name="Оформить доставку")
-    footer = drawer.get_by_role("region", name="Итог и сохранение заказа")
+    footer = drawer.get_by_role("region", name="Итог и сохранение продажи")
     scroller = drawer.get_by_label("Прокручиваемое содержимое панели")
     create = footer.get_by_role("button", name="Создать доставку")
     assert create.get_attribute("form") == form.get_attribute("id"), (
