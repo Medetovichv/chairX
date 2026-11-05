@@ -976,6 +976,51 @@ class RefundTests {
     }
 
     @Test
+    void closedCurrentBusinessDayRejectsRefundWithoutPartialPosting() {
+        var sale = createSale(1, "8500");
+        var payment = createPayment(sale.id());
+        var originalPayment = payments.get(payment.id());
+        var day = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        var closingId = UUID.randomUUID();
+        var bankBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        long refundMovementsBefore = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='REFUND'", Long.class);
+        var request = request(sale.id(), null, "2500", RefundMethod.TRANSFER,
+                "Компенсация после закрытия дня", UUID.randomUUID());
+
+        // Disposable database fixture: the real finance account guard checks
+        // finance_daily_closings under its transaction/account lock.
+        jdbc.update("""
+                INSERT INTO finance_daily_closings (id, business_date, created_by)
+                VALUES (?, ?, ?)
+                """, closingId, day, "refund-test-user");
+        try {
+            assertThatThrownBy(() -> refunds.create(request))
+                    .isInstanceOf(kg.chairx.finance.domain.FinanceAccountOperationException.class);
+            assertThat(refundCount(sale.id())).isZero();
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements WHERE source_type='REFUND'
+                    """, Long.class)).isEqualTo(refundMovementsBefore);
+            assertThat(jdbc.queryForObject("""
+                    SELECT balance FROM finance_accounts WHERE code='BANK'
+                    """, BigDecimal.class)).isEqualByComparingTo(bankBefore);
+            assertThat(payments.get(payment.id())).isEqualTo(originalPayment);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?", closingId);
+        }
+        // Once the artificial closed-day fixture is gone, the same request
+        // succeeds exactly once with the actual current posting date.
+        var posted = refunds.create(request);
+        assertThat(refunds.create(request).id()).isEqualTo(posted.id());
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM finance_movements
+                WHERE source_type='REFUND' AND source_id=?
+                """, Long.class, posted.id())).isEqualTo(1L);
+        assertThat(payments.get(payment.id())).isEqualTo(originalPayment);
+    }
+
+    @Test
     void delimiterCollisionCannotReplayDifferentRefundFields() {
         var sale = createSale(1, "8500"); createPayment(sale.id()); UUID key = UUID.randomUUID();
         refunds.create(new CreateRefundRequest(sale.id(), null, new BigDecimal("1000"), RefundMethod.CASH,
