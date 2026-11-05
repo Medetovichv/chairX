@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { salesApi, salesKeys } from '../../features/sales/api';
-import { ApiClientError, userFacingApiError } from '../api/api-error';
+import { userFacingApiError } from '../api/api-error';
 import { saleStatusNames } from '../../features/sales/validation';
 import { ConfirmDialog } from '../ui/confirm-dialog';
-import { readSaleAction, saveSaleAction, clearSaleAction } from './pending-sale-action';
+import { readSaleAction, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
 import type { SaleResponse } from '../../features/sales/types';
 import {cancellationReasons,type SaleCancellationReason} from '../../features/sales/cancellation';
 
@@ -72,8 +72,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
       setNotice('Операция подтверждена сервером.');
     } catch(cause) {
       setError(userFacingApiError(cause));
-      if(sent && (!(cause instanceof ApiClientError)||cause.kind!=='http'||
-        cause.status===undefined||cause.status===408||cause.status===409||cause.status>=500)) {
+      if(sent && isUnknownSaleMutationResult(cause)) {
         setUnknown(action);
       } else if(user?.id && !clearSaleAction(user.id,sale.id)) {
         setInvalid(true);
