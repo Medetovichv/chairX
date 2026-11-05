@@ -10,7 +10,7 @@ import { deliveryApi, deliveryKeys } from '../../deliveries/api';
 import { DeliveryForm } from '../../deliveries/components/DeliveryForm';
 import { returnsApi,returnKeys } from '../../returns/api';
 import { DeliveryActions } from '../../deliveries/components/DeliveryActions';
-import { readPendingCreate, savePendingCreate, clearPendingCreate } from '../../deliveries/pending-create';
+import { readPendingCreate, savePendingCreate, clearPendingCreate, isUnknownDeliveryCreation } from '../../deliveries/pending-create';
 import type { CreateDeliveryInput } from '../../deliveries/types';
 import { deliveryStatusNames } from '../../deliveries/validation';
 import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
@@ -245,8 +245,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       await client.invalidateQueries({queryKey:deliveryKeys.bySale(sale.id)});
       await client.invalidateQueries({queryKey:deliveryKeys.lists});
     }catch(cause){
-      const unknown=!(cause instanceof ApiClientError)||cause.kind!=='http'||
-        cause.status===undefined||cause.status===409||cause.status>=500;
+      const unknown=isUnknownDeliveryCreation(cause);
       if(!unknown)clearPendingCreate(user.id);
       setDeliveryCreateError(userFacingApiError(cause)+(unknown?
         ' Исход операции неизвестен. Перед повтором проверьте заказ и доставку.':''));
