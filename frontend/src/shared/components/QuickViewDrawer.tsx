@@ -137,7 +137,7 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
       className="absolute bottom-4 right-5 z-20 flex size-11 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg hover:bg-blue-50 focus-visible:outline-2 focus-visible:outline-blue-600">
       <ArrowDown aria-hidden="true" className="size-5"/>
     </button>}
-    {creating&&<div ref={setFooterHost} data-quick-create-footer role="region" aria-label="Итог и сохранение заказа"
+    {creating&&<div ref={setFooterHost} data-quick-create-footer role="region" aria-label={detailUrl.startsWith("/deliveries/") ? "Стоимость и создание доставки" : "Итог и сохранение продажи"}
       className="shrink-0 border-t border-[#dfe7eb] bg-white px-4 py-3 shadow-[0_-8px_24px_rgba(18,42,55,0.08)] sm:px-5 pb-[max(0.75rem,env(safe-area-inset-bottom))]"/>}
   </aside></LeaveContext.Provider></DirtyContext.Provider></FooterHostContext.Provider>;
 }
