@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, UNSAFE_DataRouterContext, useBlocker } from 'react-router';
-import { ArrowDown, ArrowLeft, ExternalLink, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
 
 const DirtyContext = createContext<(dirty: boolean) => void>(() => {});
 export const useQuickViewDirty = () => useContext(DirtyContext);
@@ -108,12 +108,23 @@ export function QuickViewDrawer({ title, detailUrl, onClose, children, previous,
     className="fixed inset-0 z-40 flex min-w-0 flex-col overflow-hidden border-l border-slate-200 bg-white shadow-xl xl:sticky xl:top-4 xl:z-10 xl:h-[calc(100dvh-10rem)] xl:w-[min(52vw,720px)] xl:min-w-0 xl:shrink-0 xl:rounded-2xl xl:border">
     <header className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white p-3 sm:p-4">
       <button ref={closeRef} type="button" onClick={guardedClose} aria-label="Назад к списку"
-        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-slate-100">
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl hover:bg-[#edf5f3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#267f79]">
         <ArrowLeft className="size-5 xl:hidden"/><X className="hidden size-5 xl:block"/>
       </button>
       <h2 className="min-w-0 flex-1 truncate font-semibold text-slate-900">{title}</h2>
-      {!creating&&<div className="flex gap-1"><button type="button" aria-label="Предыдущая запись" disabled={!previous} onClick={() => guardedMove(previous)} className="min-h-11 min-w-11 rounded-lg px-2 py-2 disabled:opacity-30">←</button><button type="button" aria-label="Следующая запись" disabled={!next} onClick={() => guardedMove(next)} className="min-h-11 min-w-11 rounded-lg px-2 py-2 disabled:opacity-30">→</button></div>}
-      <Link to={detailUrl} aria-label={creating ? "Открыть отдельную страницу создания" : "Полная страница"} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-blue-700 hover:bg-blue-50">
+      {!creating&&<nav aria-label="Переход между записями" className="flex shrink-0 gap-1">
+        <button type="button" aria-label="Предыдущая запись" disabled={!previous}
+          onClick={() => guardedMove(previous)}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[#416c82] hover:bg-[#edf5f3] disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#267f79]">
+          <ChevronLeft aria-hidden="true" className="size-5"/>
+        </button>
+        <button type="button" aria-label="Следующая запись" disabled={!next}
+          onClick={() => guardedMove(next)}
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-[#416c82] hover:bg-[#edf5f3] disabled:cursor-not-allowed disabled:opacity-30 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#267f79]">
+          <ChevronRight aria-hidden="true" className="size-5"/>
+        </button>
+      </nav>}
+      <Link to={detailUrl} aria-label={creating ? "Открыть отдельную страницу создания" : "Полная страница"} className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium text-[#267f79] hover:bg-[#edf5f3] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#267f79]">
         <ExternalLink className="size-4" aria-hidden="true"/><span className="hidden sm:inline">{creating ? "Открыть отдельно" : "Полная страница"}</span>
       </Link>
     </header>
