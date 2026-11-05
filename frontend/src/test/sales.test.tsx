@@ -312,7 +312,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
     const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
     const scroll=within(drawer).getByLabelText('Прокручиваемое содержимое панели');
-    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение продажи'});
     expect(scroll.contains(footer)).toBe(false);
     const save=within(footer).getByRole('button',{name:'Сохранить черновик'});
     expect(save.getAttribute('form')).toBe(form.id);
@@ -345,7 +345,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     renderAt('/sales?quick=new');
     const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
     const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
-    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение продажи'});
     expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
     await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'SELF_PICKUP');
     expect(within(footer).getByText('Итого по товарам')).toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('F07 DTOs, validation and server sales list',()=>{
     renderAt('/sales?quick=new');
     const drawer=await screen.findByRole('dialog',{name:'Быстрый просмотр: Новая продажа'});
     const form=within(drawer).getByRole('form',{name:'Новый черновик продажи'});
-    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение заказа'});
+    const footer=within(drawer).getByRole('region',{name:'Итог и сохранение продажи'});
     await userEvent.setup().selectOptions(within(form).getByRole('combobox',{name:'Способ получения'}),'CITY_DELIVERY');
     expect(within(footer).getByText('Итого с доставкой')).toBeInTheDocument();
     expect(within(footer).queryByText('Итого по товарам')).not.toBeInTheDocument();

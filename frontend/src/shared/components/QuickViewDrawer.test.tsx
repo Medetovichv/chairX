@@ -44,6 +44,17 @@ describe('QuickViewDrawer navigation', () => {
     expect(screen.getByRole('button', { name: 'Предыдущая запись' }).hasAttribute('disabled')).toBe(true);
     unmount();
   });
+  it('names the embedded save region according to sale or delivery creation', () => {
+    const sale = render(<MemoryRouter><QuickViewDrawer title="Новая продажа" detailUrl="/sales/new"
+      onClose={() => {}}><Editor/></QuickViewDrawer></MemoryRouter>);
+    expect(screen.getByRole('region', { name: 'Итог и сохранение продажи' })).toBeInTheDocument();
+    sale.unmount();
+
+    const delivery = render(<MemoryRouter><QuickViewDrawer title="Новая доставка" detailUrl="/deliveries/new"
+      onClose={() => {}}><Editor/></QuickViewDrawer></MemoryRouter>);
+    expect(screen.getByRole('region', { name: 'Стоимость и создание доставки' })).toBeInTheDocument();
+    delivery.unmount();
+  });
   it('keeps the entire right panel as an independently scrollable keyboard-accessible region', () => {
     const { container, unmount } = render(<MemoryRouter>
       <QuickViewDrawer title="Заказ" detailUrl="/sales/id" onClose={() => {}}>

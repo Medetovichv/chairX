@@ -332,7 +332,7 @@ describe('F08 create delivery and non-idempotent network outcomes',()=>{
       </QuickViewDrawer>
     </MemoryRouter></QueryClientProvider>);
     const form=await screen.findByRole('form',{name:'Оформить доставку'});
-    const footer=screen.getByRole('region',{name:'Итог и сохранение заказа'});
+    const footer=screen.getByRole('region',{name:'Стоимость и создание доставки'});
     const action=within(footer).getByRole('button',{name:'Создать доставку'});
     expect(action.closest('[data-quick-view-scroll]')).toBeNull();
     expect(action).toHaveAttribute('form',form.id);
