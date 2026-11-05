@@ -1,3 +1,12 @@
+import { ApiClientError } from '../../shared/api/api-error';
+
+/** Delivery creation has no idempotency key: ambiguous POSTs must remain locked. */
+export function isUnknownDeliveryCreation(error: unknown): boolean {
+  return !(error instanceof ApiClientError) || error.kind !== 'http' ||
+    error.status === undefined || error.status === 408 ||
+    error.status === 409 || error.status >= 500;
+}
+
 import type { CreateDeliveryInput } from './types';
 import { validateCreate } from './validation';
 const PREFIX='chairx:delivery:create-pending:v1:';
