@@ -73,7 +73,7 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     } catch(cause) {
       setError(userFacingApiError(cause));
       if(sent && (!(cause instanceof ApiClientError)||cause.kind!=='http'||
-        cause.status===undefined||cause.status===409||cause.status>=500)) {
+        cause.status===undefined||cause.status===408||cause.status===409||cause.status>=500)) {
         setUnknown(action);
       } else if(user?.id && !clearSaleAction(user.id,sale.id)) {
         setInvalid(true);
