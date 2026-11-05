@@ -6,7 +6,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { customersApi, customerKeys } from '../../customers/api';
 import { CustomerForm } from '../../customers/components/CustomerForm';
 import type { CustomerInput } from '../../customers/types';
-import { ApiClientError } from '../../../shared/api/api-error';
+import { unknownCustomerWriteOutcome } from './customer-write-outcome';
 import { salesKeys } from '../api';
 import { Button } from '../../../shared/ui/button';
 import { Input } from '../../../shared/ui/input';
@@ -67,8 +67,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     } catch(error) {
       // Customer creation has no explicit idempotency key; never silently retry
       // when the request might already have created the record.
-      if(!(error instanceof ApiClientError)||error.kind!=='http'||
-          error.status===undefined||error.status===409||error.status>=500) {
+      if(unknownCustomerWriteOutcome(error)) {
         setCreationUncertain(true);
       }
       throw error;
@@ -88,8 +87,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
       setPhoneError(error instanceof Error?error.message:'Не удалось определить клиента по телефону');
       // The POST may have committed even when the response was lost.
       // Don't issue another uncorrelated write without manual reconciliation.
-      if(!(error instanceof ApiClientError)||error.kind!=='http'||
-         error.status===undefined||error.status===409||error.status>=500){
+      if(unknownCustomerWriteOutcome(error)){
         setCreationUncertain(true);
       }
     } finally {setPhoneBusy(false);}
