@@ -8,8 +8,6 @@ Static method inventory, not a call graph or transactional safety proof. Inspect
 
 Source: [backend/src/main/java/kg/chairx/customer/application/CustomerAddressService.java](../../../backend/src/main/java/kg/chairx/customer/application/CustomerAddressService.java)
 
-- Address(UUID id, UUID customerId, String address, String cityRegion, Instant createdAt)
-- AddressInput(String address, String cityRegion)
 - list(UUID customerId)
 - add(UUID customerId, AddressInput input)
 
@@ -102,9 +100,6 @@ Source: [backend/src/main/java/kg/chairx/delivery/application/DeliveryService.ja
 
 Source: [backend/src/main/java/kg/chairx/expense/application/ExpenseAccrualService.java](../../../backend/src/main/java/kg/chairx/expense/application/ExpenseAccrualService.java)
 
-- Create(UUID idempotencyKey, ExpenseCategory category, String description, BigDecimal amount, LocalDate periodStart, LocalDate periodEnd)
-- Accrual(UUID id, UUID idempotencyKey, ExpenseCategory category, String description, BigDecimal amount, LocalDate periodStart, LocalDate periodEnd, String createdBy)
-- ReportLine(Accrual accrual, BigDecimal recognized, BigDecimal paid, BigDecimal outstanding, BigDecimal prepaid)
 - create(Create input, String actor)
 - linkExistingPayment(UUID accrualId, UUID expenseId, String actor)
 - report(LocalDate from, LocalDate to)
@@ -124,7 +119,6 @@ Source: [backend/src/main/java/kg/chairx/expense/application/ExpensePeriodAlloca
 - prepaid(BigDecimal accrued, BigDecimal paid)
 - byMonth( BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive)
 - position( BigDecimal amount, LocalDate periodStart, LocalDate periodEnd, LocalDate reportFrom, LocalDate reportTo, BigDecimal actuallyPaid)
-- PeriodPosition( BigDecimal recognized, BigDecimal paid, BigDecimal outstanding, BigDecimal prepaid)
 - allocate( BigDecimal amount, LocalDate fromInclusive, LocalDate toExclusive)
 
 ## expense / ExpenseService
@@ -165,17 +159,12 @@ Source: [backend/src/main/java/kg/chairx/finance/application/DailyClosingAccessS
 - assertCanEdit(LocalDate date)
 - unlock(LocalDate date, String reason)
 - revoke(LocalDate date)
-- Grant(UUID id, LocalDate businessDate, String unlockedBy, Instant unlockedAt, Instant expiresAt, String reason, Instant revokedAt, String revokedBy)
-- AccessState(LocalDate businessDate, boolean reportExists, String reportStatus, String accessStatus, boolean canEdit, boolean canUnlock, Instant unlockedUntil, long remainingSeconds)
 
 ## finance / DailyClosingSalesSnapshot
 
 Source: [backend/src/main/java/kg/chairx/finance/application/DailyClosingSalesSnapshot.java](../../../backend/src/main/java/kg/chairx/finance/application/DailyClosingSalesSnapshot.java)
 
 - acquireCompletionGate(JdbcClient jdbc)
-- CompletedSale(UUID saleId, String saleNumber, String customerName, String phone, String products, long quantity, String address, String fulfillmentType, Instant completedAt, BigDecimal total, St)
-- Totals(Long orders, Long chairs, BigDecimal value)
-- Result(LocalDate businessDate, boolean closed, boolean snapshotAvailable, boolean preliminary, List<CompletedSale> items, Totals totals, Long lateCompletionCount)
 - capture(JdbcClient jdbc, UUID closingId, LocalDate day)
 - read(JdbcClient jdbc, LocalDate date)
 - live(JdbcClient jdbc, LocalDate day)
@@ -192,26 +181,17 @@ Source: [backend/src/main/java/kg/chairx/finance/application/DailyClosingService
 - findByDate(LocalDate date)
 - closedDates()
 - history(LocalDate date)
-- Preview(LocalDate businessDate, BigDecimal expectedCash, BigDecimal expectedBank)
-- AuditEntry(String action, String actor, Instant at, String before, String after)
 
 ## finance / EmployeeClosingManagerReportService
 
 Source: [backend/src/main/java/kg/chairx/finance/application/EmployeeClosingManagerReportService.java](../../../backend/src/main/java/kg/chairx/finance/application/EmployeeClosingManagerReportService.java)
 
-- EmployeeClose(UUID employeeId,String username,String displayName, boolean closed,BigDecimal expectedCash,BigDecimal expectedBank, BigDecimal actualCash,BigDecimal actualBank,BigDecimal actualTot)
-- ExpenseLine(UUID id,String createdBy,String category, String paymentMethod,BigDecimal amount,String comment)
-- ManagerReport(LocalDate businessDate,List<EmployeeClose> employees, List<ExpenseLine> expenses,BigDecimal expenseTotal,BigDecimal cashExpenses, BigDecimal bankExpenses,BigDecimal totalExpectedCa)
 - report(LocalDate date)
 
 ## finance / EmployeeDailyClosingService
 
 Source: [backend/src/main/java/kg/chairx/finance/application/EmployeeDailyClosingService.java](../../../backend/src/main/java/kg/chairx/finance/application/EmployeeDailyClosingService.java)
 
-- SaleLine(UUID saleId, String saleNumber, long quantity, BigDecimal total, Instant completedAt, String products,String phone,String address, String fulfillment,String deliveryStatus,String p)
-- ExpenseLine(UUID expenseId,String category,BigDecimal amount, String paymentMethod,String comment,Instant createdAt,String createdBy)
-- Request(BigDecimal expectedCash, BigDecimal expectedBank, BigDecimal actualCash, BigDecimal actualBank, String cashNote, String bankNote, BigDecimal actualTotal, String totalNote)
-- Report(LocalDate businessDate, boolean closed, boolean canClose, BigDecimal expectedCash, BigDecimal expectedBank, BigDecimal actualCash, BigDecimal actualBank, String cashNote, String ba)
 - companyDates(String username)
 - companyReport(String username,LocalDate date)
 - dates(String username)
@@ -223,7 +203,6 @@ Source: [backend/src/main/java/kg/chairx/finance/application/EmployeeDailyClosin
 
 Source: [backend/src/main/java/kg/chairx/finance/application/FinanceAdminAdjustmentService.java](../../../backend/src/main/java/kg/chairx/finance/application/FinanceAdminAdjustmentService.java)
 
-- Result(FinanceAccount account, BigDecimal previousBalance, BigDecimal newBalance, BigDecimal delta)
 - adjust(AdminBalanceAdjustmentRequest request, String actor)
 
 ## finance / FinanceConflictException
@@ -254,8 +233,6 @@ Source: [backend/src/main/java/kg/chairx/finance/application/FinancePostingServi
 
 Source: [backend/src/main/java/kg/chairx/finance/application/FinanceProfitabilityService.java](../../../backend/src/main/java/kg/chairx/finance/application/FinanceProfitabilityService.java)
 
-- SaleCost(UUID saleId,String saleNumber,BigDecimal recognizedRevenue, BigDecimal fifoCost,boolean completeCost, BigDecimal goodsRevenue,BigDecimal deliveryRevenue)
-- Profitability(LocalDate from,LocalDate to,BigDecimal grossRevenue, BigDecimal verifiedFifoCost,BigDecimal recognizedAccruals, BigDecimal otherOperatingExpenses, BigDecimal returnedRevenue,BigDec)
 - calculate(LocalDate from,LocalDate to)
 
 ## finance / FinanceQueryService
@@ -269,13 +246,11 @@ Source: [backend/src/main/java/kg/chairx/finance/application/FinanceQueryService
 Source: [backend/src/main/java/kg/chairx/finance/application/FinanceReconciliationService.java](../../../backend/src/main/java/kg/chairx/finance/application/FinanceReconciliationService.java)
 
 - listIssues()
-- Issue( String documentSource, UUID documentId, String account, String movementType, BigDecimal expectedAmount, BigDecimal postedAmount, String problem )
 
 ## finance / FinanceSaleAdjustmentsService
 
 Source: [backend/src/main/java/kg/chairx/finance/application/FinanceSaleAdjustmentsService.java](../../../backend/src/main/java/kg/chairx/finance/application/FinanceSaleAdjustmentsService.java)
 
-- Adjustments(BigDecimal returnedRevenue,BigDecimal restoredFifoCost, BigDecimal refundOnlyDiscounts,boolean completeReturnCost, boolean unrecognizedAdjustments,long returnItemCount)
 - forPeriod(LocalDate from,LocalDate to)
 
 ## finance / FinanceTransferService
@@ -323,7 +298,6 @@ Source: [backend/src/main/java/kg/chairx/inventory/application/InventoryTransfer
 Source: [backend/src/main/java/kg/chairx/inventory/application/InventoryTransferService.java](../../../backend/src/main/java/kg/chairx/inventory/application/InventoryTransferService.java)
 
 - transfer( UUID transferId, UUID sourceWarehouse, UUID destinationWarehouse, UUID variantId, long quantity, String actor )
-- TransferResult( UUID transferId, UUID outMovementId, UUID inMovementId, long quantity, BigDecimal totalCost )
 
 ## inventory / WarehouseStockSummaryService
 
@@ -541,12 +515,6 @@ Source: [backend/src/main/java/kg/chairx/security/application/CompositeUserDetai
 
 - loadUserByUsername(String username)
 
-## security / CreateUserCommand
-
-Source: [backend/src/main/java/kg/chairx/security/application/CreateUserCommand.java](../../../backend/src/main/java/kg/chairx/security/application/CreateUserCommand.java)
-
-- CreateUserCommand( String username, String password, String displayName )
-
 ## security / LocalDevUsersRunner
 
 Source: [backend/src/main/java/kg/chairx/security/application/LocalDevUsersRunner.java](../../../backend/src/main/java/kg/chairx/security/application/LocalDevUsersRunner.java)
@@ -570,12 +538,6 @@ Source: [backend/src/main/java/kg/chairx/security/application/RoleAssignmentServ
 
 Source: [backend/src/main/java/kg/chairx/security/application/RoleManagementService.java](../../../backend/src/main/java/kg/chairx/security/application/RoleManagementService.java)
 
-- RoleView(UUID id, String code, String name, boolean systemRole, List<String> permissions, long assignedUsersCount, long version)
-- PermissionView(String code, String description, String group, boolean sensitive, boolean adminOnly)
-- AuditLine(UUID id, UUID actorUserId, String action, String targetType, UUID targetId, String details, java.time.Instant createdAt)
-- AuditPage(List<AuditLine> items, int page, int size, long total)
-- CreateRole(String code, String name, List<String> permissions)
-- UpdateRole(String name, List<String> permissions, Long expectedVersion, String reason)
 - adminOnly(String code)
 - list(Authentication auth)
 - get(Authentication auth, UUID roleId)
