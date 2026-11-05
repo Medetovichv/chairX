@@ -113,6 +113,22 @@ describe('SaleQuickActions RBAC',()=>{
     expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
   });
 
+  it('keeps an HTTP 408 timeout unresolved instead of allowing a duplicate confirmation',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(
+      new ApiClientError('http','REQUEST_TIMEOUT',408));
+    const first=view();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    first.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
   it('refuses to send a mutation if the pending-operation journal cannot be written',async()=>{
     permissions=['SALES_DRAFT_MANAGE'];
     const get=vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
