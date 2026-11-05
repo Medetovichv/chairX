@@ -124,6 +124,8 @@ def java_services():
         s = p.read_text(encoding="utf-8")
         methods = []
         for m in re.finditer(r"\bpublic\s+(?:static\s+)?(?:[\w<>?,.\[\] ]+?)\s+(\w+)\s*\(([^{};]*?)\)\s*(?:throws\s+[\w, ]+)?\{",s,re.S):
+            if re.search(r"\b(?:record|class|interface|enum)\s+" + re.escape(m.group(1)) + r"\s*\(", m.group(0)):
+                continue
             methods.append((m.group(1),re.sub(r"\s+"," ",m.group(2))[:180]))
         if methods:
             rows.append((p.relative_to(JAVA).parts[0],p,methods))
