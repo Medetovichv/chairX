@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real Chromium responsive acceptance on the disposable F11 CI stack; read-only."""
+"""Real Chromium responsive acceptance on the disposable F11 CI stack only."""
 import json
 import os
 from pathlib import Path
@@ -132,8 +132,40 @@ def test_sale_quick_create(page):
         "(el) => el === document.activeElement"
     ), "Focus did not return to new-customer opener"
     assert form.is_visible(), "Escape closed the parent sale drawer"
+    # Exercise the real customer POST on the disposable test DB. A nested
+    # dialog lives in a portal, so selecting the new customer must explicitly
+    # dirty the parent sale form even though no input event bubbles through it.
+    opener.click()
+    customer_dialog.wait_for(state="visible")
+    customer_form = customer_dialog.get_by_role("form", name="Создание клиента")
+    customer_form.get_by_role("textbox", name="Имя", exact=True).fill(
+        "F11 Клиент из панели")
+    customer_form.get_by_role("textbox", name="Основной телефон").fill(
+        "+996700555616")
+    customer_form.get_by_role("button", name="Сохранить клиента").click()
+    customer_dialog.wait_for(state="detached", timeout=30000)
+    assert form.get_by_text("F11 Клиент из панели", exact=True).is_visible(), (
+        "Newly created customer was not selected in the sale form"
+    )
+    assert form.get_by_text("+996700555616", exact=False).is_visible(), (
+        "New customer's phone was not retained in the sale form"
+    )
+    assert form.is_visible(), "Customer creation unexpectedly closed sale drawer"
+    page.screenshot(path=str(ART / "sale-quick-create-selected-customer-375.png"),
+                    full_page=True)
+
+    # Customer selection from a portalled dialog is an unsaved sale edit.
+    # Closing the parent without saving must ask for explicit discard.
+    confirmations = []
+    def approve_discard(dialog):
+        confirmations.append(dialog.message)
+        dialog.accept()
+    page.once("dialog", approve_discard)
     close.click()
     drawer.wait_for(state="detached")
+    assert any("несохран" in message.lower() for message in confirmations), (
+        "Creating/selecting a customer bypassed the parent's unsaved-edit guard"
+    )
 
 
 def test_delivery_quick_create(page):
