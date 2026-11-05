@@ -88,7 +88,7 @@ export function FinanceOperationsPage(){
         <td className="p-3 text-right font-semibold">{som(x.amount)}</td>
    </tr>)}</tbody></table></div>
    <div className="divide-y md:hidden">{report.data.items.map(x=><button key={x.id} onClick={()=>setSelected(x.id)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
-    <span className="min-w-0"><strong className="block">{labels[x.type]||x.type.replaceAll('_',' ')}</strong><span className="text-xs text-slate-500">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})} · {x.account==='CASH'?'Наличные':'Банк'}</span></span>
+    <span className="min-w-0"><strong className="block">{financeMovementLabel(x.type)}</strong><span className="text-xs text-slate-500">{new Date(x.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})} · {x.account==='CASH'?'Наличные':'Банк'}</span></span>
     <strong className="shrink-0">{som(x.amount)}</strong></button>)}</div>
    {!report.data.items.length&&<p className="p-5 text-sm text-slate-500">Нет проводок за период.</p>}
    <div className="flex items-center justify-between gap-3 border-t p-3 text-sm"><span>Всего: {report.data.total}</span>
@@ -97,7 +97,7 @@ export function FinanceOperationsPage(){
   {line&&<section role="dialog" aria-label="Детали финансовой операции" className="rounded-2xl border bg-white p-5 shadow-md">
    <div className="flex justify-between gap-3"><h2 className="font-semibold">Детали операции</h2><Button variant="outline" onClick={()=>setSelected(null)}>Закрыть</Button></div>
    <dl className="mt-3 space-y-2 text-sm">
-    <div><dt className="text-slate-500">Операция</dt><dd>{labels[line.type]||line.type}</dd></div>
+    <div><dt className="text-slate-500">Операция</dt><dd>{financeMovementLabel(line.type)}</dd></div>
     <div><dt className="text-slate-500">Время</dt><dd>{new Date(line.postedAt).toLocaleString('ru-RU',{timeZone:'Asia/Bishkek'})}</dd></div>
     <div><dt className="text-slate-500">Счёт</dt><dd>{line.account}</dd></div>
     <div><dt className="text-slate-500">Источник</dt><dd>{line.documentLabel||line.sourceType}</dd></div>
