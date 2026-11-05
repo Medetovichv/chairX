@@ -367,8 +367,8 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       client.setQueryData(salesKeys.detail(sale.id),result);
       const expected=unknownAction==='confirm'?'CONFIRMED':
         unknownAction==='fulfill'?'FULFILLED':'CANCELLED';
-      if(unknownAction!==null){
-        setError('Текущий статус не доказывает результат вашего запроса. Требуется сверка с аудитом; не повторяйте действие.');
+      if(unknownAction!==null||actionJournalInvalid){
+        setError('Текущий статус не доказывает результат вашего запроса или целостность журнала. Требуется сверка с аудитом; не повторяйте действие.');
       }else if(result.status===expected){
         setNotice('Операция подтверждена актуальным статусом сервера.');
         setError('');setUnknownAction(null);
