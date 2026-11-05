@@ -109,7 +109,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
   const picked=selected?.id===value?selected:current.data;
   return <section aria-label="Выбор клиента" className="space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h3 className="font-semibold">Клиент (необязательно для черновика)</h3>
+      <p className="text-xs text-slate-600">Необязательно для черновика</p>
       {canCreate && allowed && <Button type="button" variant="outline" size="sm"
         ref={createButtonRef} disabled={disabled||creating} onClick={()=>setCreating(true)}>+ Новый клиент</Button>}
     </div>
@@ -149,7 +149,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
     {allowed && <>
       <label className="block space-y-2 text-sm font-semibold">Найти клиента
         <Input type="search" aria-label="Поиск клиента для продажи" value={search}
-          disabled={disabled} maxLength={200} placeholder="Имя, телефон или WhatsApp (от 2 символов)"
+          disabled={disabled} maxLength={200} placeholder="Имя, телефон или WhatsApp"
           onChange={e=>setSearch(e.target.value)} />
       </label>
       {current.isError&&value&&<ErrorState title="Не удалось загрузить выбранного клиента"
