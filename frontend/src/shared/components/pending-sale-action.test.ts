@@ -21,6 +21,15 @@ describe('pending sale action journal', () => {
   it('treats lost responses as an unknown server mutation', () => {
     expect(isUnknownSaleMutationResult(new TypeError('Connection reset after POST'))).toBe(true);
   });
+  it.each([408,409,500])('treats an HTTP %i response to sale draft PUT as an unverified mutation', status => {
+    // SaleDetailPage uses this classifier for both irreversible actions and draft PUT.
+    // The screen must keep its submitted draft available for server reconciliation.
+    expect(isUnknownSaleMutationResult(new ApiClientError('http','REQUEST_FAILED',status))).toBe(true);
+  });
+  it('distinguishes a pre-mutation HTTP 422 validation rejection from a timed-out draft PUT', () => {
+    expect(isUnknownSaleMutationResult(new ApiClientError('http','INVALID_DRAFT',422))).toBe(false);
+    expect(isUnknownSaleMutationResult(new TypeError('Socket closed after draft PUT'))).toBe(true);
+  });
   it('allows Quick View to observe a durable marker written by full sale detail', () => {
     expect(saveSaleAction('staff','sale-123','fulfill')).toBe(true);
     expect(readSaleAction('staff','sale-123')).toEqual({kind:'pending',action:'fulfill'});
