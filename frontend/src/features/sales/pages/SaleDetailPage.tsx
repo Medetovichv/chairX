@@ -311,11 +311,14 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
     if(running.current||draftUncertain)throw new ApiClientError('http','DRAFT_RESULT_UNKNOWN',409);
     running.current=true;
     try{await update(input);}catch(cause){
-      if(!(cause instanceof ApiClientError)||cause.kind!=='http'||(cause.status??500)>=500){
+      if(isUnknownSaleMutationResult(cause)){
+        // A timed-out or conflicted PUT may already have changed the server.
+        // Preserve the submitted draft for reconciliation instead of replaying it.
         setDraftUncertain(true);
       } else {
         setSubmittedDraft(null);
-        if(cause.status===409)void client.invalidateQueries({queryKey:salesKeys.detail(sale.id)});
+        if(cause instanceof ApiClientError&&cause.status===409)
+          void client.invalidateQueries({queryKey:salesKeys.detail(sale.id)});
       }
       throw cause;
     }finally{running.current=false;}
