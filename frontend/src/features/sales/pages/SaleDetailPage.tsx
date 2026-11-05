@@ -31,7 +31,7 @@ import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../val
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 import {cancellationReasons,cancellationLabel,type SaleCancellationReason} from '../cancellation';
-import { readSaleAction, saveSaleAction, clearSaleAction } from '../../../shared/components/pending-sale-action';
+import { readSaleAction, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from '../../../shared/components/pending-sale-action';
 
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
@@ -355,8 +355,7 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
       setUnknownAction(null);
     }catch(cause){
       setError(userFacingApiError(cause));
-      const ambiguous=!(cause instanceof ApiClientError)||cause.kind!=='http'||
-        cause.status===undefined||cause.status===408||cause.status===409||cause.status>=500;
+      const ambiguous=isUnknownSaleMutationResult(cause);
       if(sent&&ambiguous)setUnknownAction(value);
       else if(sent&&user?.id&&!clearSaleAction(user.id,sale.id))setActionJournalInvalid(true);
     }finally{running.current=false;setBusy(false);setAction(null);}
