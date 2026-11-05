@@ -1252,6 +1252,50 @@ class DeliveryTests {
     }
 
     @Test
+    void paidDeliveredCityAndRegionPartialReturnsCannotBeReversedByOrderCancellation() {
+        for (FulfillmentType type : List.of(
+                FulfillmentType.CITY_DELIVERY, FulfillmentType.REGION_DELIVERY)) {
+            var sale = createSale(type, item(firstVariant, home, 2, "8500"));
+            var delivery = deliveries.create(deliveryRequest(sale.id()));
+            deliveries.dispatch(delivery.id());
+            deliveries.markDelivered(delivery.id());
+            var payment = payments.create(new CreatePaymentRequest(
+                    sale.id(), PaymentMethod.CASH, null, null));
+            var returned = returns.create(new CreateReturnRequest(
+                    sale.id(), home, UUID.randomUUID(),
+                    List.of(new CreateReturnItemRequest(
+                            sale.items().getFirst().id(), 1, ReturnCondition.SELLABLE)),
+                    "Частичный возврат после вручения", null));
+            assertThat(returned.items()).hasSize(1);
+
+            var movementCountBefore = stockMovementCount();
+            var financeCountBefore = jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class);
+            var stockBefore = inventory.getBalance(home, firstVariant);
+            var paymentBefore = payments.get(payment.id());
+            long returnsBefore = count("returns");
+
+            assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
+                    new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                            "Товар уже вручён и частично возвращён")))
+                    .isInstanceOfSatisfying(DeliveryRuleViolationException.class,
+                            error -> assertThat(error.code())
+                                    .isEqualTo("INVALID_DELIVERY_STATUS"));
+            assertThat(deliveries.get(delivery.id()).status())
+                    .isEqualTo(DeliveryStatus.DELIVERED);
+            assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.FULFILLED);
+            assertThat(sales.cancellationDetails(sale.id())).isEmpty();
+            assertThat(payments.get(payment.id())).isEqualTo(paymentBefore);
+            assertThat(inventory.getBalance(home, firstVariant)).isEqualTo(stockBefore);
+            assertThat(count("returns")).isEqualTo(returnsBefore);
+            assertThat(stockMovementCount()).isEqualTo(movementCountBefore);
+            assertThat(jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class))
+                    .isEqualTo(financeCountBefore);
+        }
+    }
+
+    @Test
     void failedDeliveryCannotBeReturnedAgainViaRegularReturn() {
         var sale = createSale(FulfillmentType.REGION_DELIVERY,
                 item(firstVariant, home, 2, "8500"));
