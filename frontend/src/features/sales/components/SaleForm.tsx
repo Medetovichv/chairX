@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { useQuickCreateFooterHost } from '../../../shared/components/QuickViewDrawer';
+import { useQuickCreateFooterHost, useQuickViewDirty } from '../../../shared/components/QuickViewDrawer';
 import { useQuery } from '@tanstack/react-query';
 import { customersApi, customerKeys } from '../../customers/api';
 import { useAuth } from '../../auth/AuthProvider';
@@ -19,6 +19,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
   const {hasPermission}=useAuth();
   const formId=useId();
   const quickFooter=useQuickCreateFooterHost();
+  const markDrawerDirty=useQuickViewDirty();
   const [customerId,setCustomerId]=useState<string|null>(initial?.customerId??defaultCustomerId);
   const [type,setType]=useState<FulfillmentType|null>(initial?.fulfillmentType??null);
   const [comment,setComment]=useState(initial?.comment??'');
@@ -117,7 +118,7 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       <div className="min-w-0 space-y-5">
         <section aria-label="Этап 1. Клиент" className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">1. </span>Клиент</h3>
-          <CustomerPicker value={customerId} onChange={setCustomerId} disabled={saving||blocked}/>
+          <CustomerPicker value={customerId} onChange={id=>{setCustomerId(id);markDrawerDirty(true);}} disabled={saving||blocked}/>
         </section>
         <section aria-label="Этап 2. Товары" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="mb-4 text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">2. </span>Выбор кресел</h3>
