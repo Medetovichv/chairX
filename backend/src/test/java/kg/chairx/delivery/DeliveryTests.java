@@ -11,6 +11,7 @@ import kg.chairx.delivery.domain.DeliveryStatus;
 import kg.chairx.payment.application.PaymentService;
 import kg.chairx.payment.application.PaymentRuleViolationException;
 import kg.chairx.payment.api.CreatePaymentRequest;
+import kg.chairx.payment.api.CancelPaymentRequest;
 import kg.chairx.payment.domain.PaymentMethod;
 import kg.chairx.returning.application.ReturnService;
 import kg.chairx.returning.application.ReturnRuleViolationException;
@@ -524,6 +525,58 @@ class DeliveryTests {
         assertThat(payments.get(payment.id()).status())
                 .isEqualTo(kg.chairx.payment.domain.PaymentStatus.PAID);
         assertThat(inventory.getBalance(home,firstVariant).reserved()).isEqualTo(2);
+    }
+
+    @Test
+    void reasonedCityAndRegionCancellationAfterPaymentReversalKeepsLedgerSingleEntryPerAction() {
+        for (FulfillmentType type : List.of(
+                FulfillmentType.CITY_DELIVERY, FulfillmentType.REGION_DELIVERY)) {
+            var sale = createSale(type, item(firstVariant, home, 2, "8500"));
+            var delivery = deliveries.create(deliveryRequest(sale.id()));
+            var payment = payments.create(new CreatePaymentRequest(
+                    sale.id(), PaymentMethod.CASH, null, null));
+            var movementsAfterPayment = jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class);
+            assertThatThrownBy(() -> deliveries.cancelWithReason(delivery.id(),
+                    new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND, null)))
+                    .isInstanceOfSatisfying(
+                            kg.chairx.sale.application.SaleRuleViolationException.class,
+                            error -> assertThat(error.getCode())
+                                    .isEqualTo("SALE_HAS_ACTIVE_PAYMENT"));
+            assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                    .isEqualTo(movementsAfterPayment);
+            assertThat(inventory.getBalance(home, firstVariant).reserved()).isEqualTo(2);
+            assertThat(sales.cancellationDetails(sale.id())).isEmpty();
+
+            payments.cancel(payment.id(), new CancelPaymentRequest("Возврат до отправки"));
+            var movementsAfterReversal = jdbc.queryForObject(
+                    "select count(*) from finance_movements", Long.class);
+            assertThat(movementsAfterReversal).isEqualTo(movementsAfterPayment + 1);
+
+            var cancelled = deliveries.cancelWithReason(delivery.id(),
+                    new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                            "Доставка отменена после возврата оплаты"));
+            assertThat(cancelled.status()).isEqualTo(DeliveryStatus.CANCELLED);
+            assertThat(sales.get(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
+            assertThat(payments.get(payment.id()).status())
+                    .isEqualTo(kg.chairx.payment.domain.PaymentStatus.CANCELLED);
+            assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+            var details = sales.cancellationDetails(sale.id()).orElseThrow();
+            assertThat(details.reason()).isEqualTo(SaleCancellationReason.CUSTOMER_CHANGED_MIND);
+            assertThat(details.comment()).isEqualTo("Доставка отменена после возврата оплаты");
+            assertThat(details.cancelledBy()).isEqualTo("delivery-test-user");
+            assertThat(details.cancelledAt()).isNotNull();
+            assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                    .isEqualTo(movementsAfterReversal);
+
+            var repeated = deliveries.cancelWithReason(delivery.id(),
+                    new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER, null));
+            assertThat(repeated.status()).isEqualTo(DeliveryStatus.CANCELLED);
+            assertThat(sales.cancellationDetails(sale.id()).orElseThrow()).isEqualTo(details);
+            assertThat(inventory.getBalance(home, firstVariant).reserved()).isZero();
+            assertThat(jdbc.queryForObject("select count(*) from finance_movements", Long.class))
+                    .isEqualTo(movementsAfterReversal);
+        }
     }
 
     @Test
