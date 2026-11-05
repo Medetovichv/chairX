@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
-import { ApiClientError, userFacingApiError } from '../../../shared/api/api-error';
+import { userFacingApiError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
 import { Button } from '../../../shared/ui/button';
 import { ForbiddenPage } from '../../../pages/ForbiddenPage';
@@ -12,15 +12,10 @@ import { SaleForm } from '../components/SaleForm';
 import { salesApi, salesKeys } from '../api';
 import { saleStatisticsKeys } from '../statistics';
 import { displaySaleNumber } from '../../../shared/lib/format';
-import { readPendingDraft, savePendingDraft, clearPendingDraft } from '../pending-draft';
+import { readPendingDraft, savePendingDraft, clearPendingDraft, isUnknownDraftSubmission } from '../pending-draft';
 import { uuidValid } from '../validation';
 import type { CreateDraftInput, DraftInput, SaleResponse } from '../types';
 
-function unresolved(error:unknown):boolean {
-  return !(error instanceof ApiClientError) ||
-    error.kind!=='http' || error.status===undefined ||
-    error.status>=500 || error.status===409;
-}
 export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onCreated?:(id:string)=>void} = {}) {
   const markDirty=useQuickViewDirty();
   const {hasPermission,user}=useAuth();
@@ -72,7 +67,7 @@ export function CreateSalePage({embedded=false,onCreated}:{embedded?:boolean;onC
       else setSuccess(result);
     }catch(error){
       setProblem(userFacingApiError(error));
-      if(unresolved(error)){
+      if(isUnknownDraftSubmission(error)){
         // Server may already have committed: preserve exact operation + key.
         setPending(payload);
       }else{
