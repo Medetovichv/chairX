@@ -79,6 +79,24 @@ class SaleOperationReceiptApiTests {
                 .andExpect(status().isConflict());
     }
 
+
+    @Test
+    @WithMockUser(username = "worker-1", authorities = {"SALES_DRAFT_MANAGE","SALES_READ"})
+    void matchingStatusFromAnotherMutationMustNotCreateFalseReceipt() throws Exception {
+        UUID sale = draftSale();
+        UUID operation = UUID.randomUUID();
+        // Simulate a different operator confirming before the request starts.
+        jdbc.update("UPDATE sales SET status='CONFIRMED' WHERE id=?", sale);
+        mvc.perform(post("/api/sales/" + sale + "/confirm").with(csrf())
+                .header("X-Sale-Operation-Id", operation))
+                .andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM sale_operation_receipts WHERE operation_id=?",
+                Long.class, operation)).isZero();
+        mvc.perform(get("/api/sales/" + sale + "/operations/" + operation))
+                .andExpect(status().isNotFound());
+    }
+
     @Test
     @WithMockUser(username = "worker-1", authorities = {"SALES_CANCEL","SALES_READ"})
     void operationResultsArePrivateToOriginalActor() throws Exception {
