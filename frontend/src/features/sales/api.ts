@@ -4,6 +4,15 @@ import type {CancelSaleInput,SaleCancellationDetails} from './cancellation';
 import type { CreateDraftInput, DraftInput, SaleFilters, SalePageResponse, SaleResponse, SaleStatus, SaleHistoryPage, SaleCommentsPage, SaleComment, CreateSaleCommentInput } from './types';
 
 export const SALES_PAGE_SIZE = 20;
+export type SaleOperationReceipt = {
+  operationId: string;
+  action: 'confirm' | 'fulfill' | 'cancel';
+  status: 'COMMITTED';
+  sale: SaleResponse;
+};
+const mutationHeaders = (operationId?: string) =>
+  operationId ? { headers: { 'X-Sale-Operation-Id': operationId } } : {};
+
 const enc = (id: string) => encodeURIComponent(id);
 export const salesKeys = {
   lists: ['sales', 'list'] as const,
@@ -46,13 +55,17 @@ export const salesApi = {
   },
   updateDraft: (id: string, input: DraftInput) =>
     apiClient.put<SaleResponse>('/api/sales/' + enc(id) + '/draft', input),
-  confirm: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm'),
-  fulfill: (id: string) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill'),
+  confirm: (id: string, operationId?: string) =>
+    apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/confirm', undefined, mutationHeaders(operationId)),
+  operationReceipt: (id: string, operationId: string): Promise<SaleOperationReceipt> =>
+    apiClient.get<SaleOperationReceipt>('/api/sales/' + enc(id) + '/operations/' + enc(operationId)),
+  fulfill: (id: string, operationId?: string) =>
+    apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/fulfill', undefined, mutationHeaders(operationId)),
   payAndHandOver:(id:string,payment:PaymentInput):Promise<SaleResponse> =>
     apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/pay-and-hand-over',payment),
   cancel: (id: string, input: CancelSaleInput) => apiClient.post<SaleResponse>('/api/sales/' + enc(id) + '/cancel', input),
-  cancelWithReason: (id:string,input:CancelSaleInput) =>
-    apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/cancel-with-reason',input),
+  cancelWithReason: (id:string,input:CancelSaleInput,operationId?:string) =>
+    apiClient.post<SaleResponse>('/api/sales/'+enc(id)+'/cancel-with-reason',input,mutationHeaders(operationId)),
   cancellationDetails: (id:string) =>
     apiClient.get<SaleCancellationDetails>('/api/sales/'+enc(id)+'/cancellation-details'),
 

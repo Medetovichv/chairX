@@ -31,7 +31,7 @@ import { fulfillmentNames, integerSom, money, saleDate, uuidValid } from '../val
 import { displaySaleNumber } from '../../../shared/lib/format';
 import type { DraftInput, SaleResponse, SaleSummary, SaleAuditAction } from '../types';
 import {cancellationReasons,cancellationLabel,type SaleCancellationReason} from '../cancellation';
-import { readSaleAction, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from '../../../shared/components/pending-sale-action';
+import { readSaleAction, readSaleOperationId, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from '../../../shared/components/pending-sale-action';
 
 type Action='confirm'|'fulfill'|'cancel';
 const auditLabels:Record<SaleAuditAction,string>={
@@ -342,9 +342,15 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
         setError('Не удалось сохранить запись операции. Запрос не отправлен; проверьте журнал перед повтором.');
         return;
       }
+      const operationId=readSaleOperationId(user.id,sale.id);
+      if(!operationId){
+        setActionJournalInvalid(true);
+        setError('Не удалось сохранить идентификатор операции. Запрос не отправлен; требуется ручная проверка.');
+        return;
+      }
       sent=true;
-      const next=await (value==='confirm'?salesApi.confirm(sale.id):
-        value==='fulfill'?salesApi.fulfill(sale.id):salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null}));
+      const next=await (value==='confirm'?salesApi.confirm(sale.id,operationId):
+        value==='fulfill'?salesApi.fulfill(sale.id,operationId):salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null},operationId));
       sent=false; // Authoritative success response: cache refresh is not another POST.
       if(!clearSaleAction(user.id,sale.id)){
         setActionJournalInvalid(true);
@@ -365,6 +371,31 @@ function SaleDetail({sale}:{sale:SaleResponse}) {
   async function checkStatus() {
     setBusy(true);
     try {
+      const operationId=unknownAction?readSaleOperationId(user?.id,sale.id):null;
+      if(operationId){
+        try{
+          const receipt=await salesApi.operationReceipt(sale.id,operationId);
+          if(receipt.status==='COMMITTED'&&receipt.operationId===operationId&&
+              receipt.action===unknownAction&&receipt.sale.id===sale.id){
+            if(!user?.id||!clearSaleAction(user.id,sale.id)){
+              setActionJournalInvalid(true);
+              setError('Сервер подтвердил операцию, но журнал восстановления не удалось очистить.');
+              return;
+            }
+            await changed(receipt.sale);
+            if(unknownAction==='cancel')await client.invalidateQueries({queryKey:['sales','cancellation',sale.id]});
+            setUnknownAction(null);
+            setError('');
+            setNotice('Сервер подтвердил результат именно вашего запроса.');
+            return;
+          }
+          setError('Квитанция сервера не совпадает с отправленной операцией. Действия заблокированы.');
+          return;
+        }catch {
+          // A missing or unavailable receipt is not evidence that POST failed.
+          // Continue with status-only display; keep the pending journal locked.
+        }
+      }
       const result=await salesApi.get(sale.id);
       client.setQueryData(salesKeys.detail(sale.id),result);
       const expected=unknownAction==='confirm'?'CONFIRMED':

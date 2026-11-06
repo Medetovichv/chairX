@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SaleQuickActions } from './SaleQuickActions';
 import { salesApi } from '../../features/sales/api';
 import { ApiClientError } from '../api/api-error';
+import { readSaleOperationId } from './pending-sale-action';
 import type { SaleResponse } from '../../features/sales/types';
 
 let permissions:string[]=[];
@@ -19,7 +20,11 @@ function view() {
   return render(<QueryClientProvider client={client}><SaleQuickActions sale={sale}/></QueryClientProvider>);
 }
 describe('SaleQuickActions RBAC',()=>{
-  beforeEach(()=>{sessionStorage.clear();permissions=[];});
+  beforeEach(()=>{
+    sessionStorage.clear();permissions=[];
+    vi.spyOn(salesApi,'operationReceipt').mockRejectedValue(
+      new ApiClientError('http','RECEIPT_NOT_FOUND',404));
+  });
   afterEach(()=>{vi.restoreAllMocks();});
   it('does not expose operations without permissions',()=>{
     permissions=[];
@@ -264,25 +269,25 @@ describe('SaleQuickActions RBAC',()=>{
   });
 
 
-  it('sends only one POST when two mounted panels race to confirm the same sale',async()=>{
+  it('authoritatively reconciles a lost POST by its exact server receipt',async()=>{
     permissions=['SALES_DRAFT_MANAGE'];
-    const key='chairx:sale:quick-pending:v1:staff:sale';
     vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
-    const post=vi.spyOn(salesApi,'confirm').mockImplementation(async()=>new Promise<SaleResponse>(()=>{}));
+    const post=vi.spyOn(salesApi,'confirm').mockRejectedValue(new TypeError('Connection lost after commit'));
     const first=view();
-    const second=view();
-    const buttons=screen.getAllByRole('button',{name:'Подтвердить заказ'});
-    expect(buttons).toHaveLength(2);
-    fireEvent.click(buttons[0]!);
-    fireEvent.click(buttons[1]!);
-    await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
-    await waitFor(()=>expect(screen.getByText('Не удалось сохранить запись операции. Запрос не отправлен.')).toBeInTheDocument());
-    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
-    expect(buttons[1]!).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить заказ'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    const operationId=readSaleOperationId('staff','sale');
+    expect(operationId).toMatch(/^[0-9a-f-]{36}$/);
     first.unmount();
-    second.unmount();
+    vi.spyOn(salesApi,'operationReceipt').mockResolvedValue({
+      operationId:operationId!,action:'confirm',status:'COMMITTED',
+      sale:{...sale,status:'CONFIRMED'} as SaleResponse,
+    });
     view();
-    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('status')).toHaveTextContent('именно вашего запроса'));
+    expect(sessionStorage.getItem('chairx:sale:quick-pending:v1:staff:sale')).toBeNull();
+    expect(readSaleOperationId('staff','sale')).toBeNull();
     expect(post).toHaveBeenCalledTimes(1);
   });
 

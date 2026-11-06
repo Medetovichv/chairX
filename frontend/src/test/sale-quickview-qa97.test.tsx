@@ -87,7 +87,7 @@ describe('QA-02: uncertain sale Quick View actions fail closed',()=>{
     await user.click(screen.getByRole('button',{name:'Подтвердить'}));
     expect(salesApi.cancelWithReason).toHaveBeenCalledWith(ID,{
       reason:'PRODUCT_MISMATCH',comment:'Покупатель ожидал другую модель'
-    });
+    },expect.stringMatching(/^[0-9a-f-]{36}$/));
     expect(salesApi.cancel).not.toHaveBeenCalled();
   });
   it('corrupted recovery storage fails closed before any POST',()=>{
