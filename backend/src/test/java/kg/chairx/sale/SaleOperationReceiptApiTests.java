@@ -91,7 +91,7 @@ class SaleOperationReceiptApiTests {
                 .header("X-Sale-Operation-Id", operation))
                 .andExpect(status().isConflict());
         assertThat(jdbc.queryForObject(
-                "SELECT count(*) FROM sale_operation_receipts WHERE operation_id=?",
+                "SELECT count(*) FROM sale_operation_receipts WHERE operation_id=? AND response_json IS NOT NULL",
                 Long.class, operation)).isZero();
         mvc.perform(get("/api/sales/" + sale + "/operations/" + operation))
                 .andExpect(status().isNotFound());
