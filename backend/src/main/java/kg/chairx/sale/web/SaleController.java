@@ -84,7 +84,7 @@ public class SaleController {
     @PostMapping("/{id}/confirm")
     public SaleResponse confirmDraft(@PathVariable UUID id,
             @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId) {
-        return receipts.execute(id, operationId, "confirm", "", () -> service.confirmDraft(id));
+        return receipts.execute(id, operationId, "confirm", "", () -> operationId == null ? service.confirmDraft(id) : service.confirmDraftForOperation(id));
     }
 
     @GetMapping("/{id}/history")
@@ -112,7 +112,7 @@ public class SaleController {
             @PathVariable UUID id,
             @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId
     ) {
-        return receipts.execute(id, operationId, "fulfill", "", () -> service.fulfill(id));
+        return receipts.execute(id, operationId, "fulfill", "", () -> operationId == null ? service.fulfill(id) : service.fulfillForOperation(id));
     }
 
     @PostMapping("/{id}/cancel-with-reason")
