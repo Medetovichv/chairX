@@ -97,6 +97,53 @@ class SaleOperationReceiptApiTests {
                 .andExpect(status().isNotFound());
     }
 
+
+    @Test
+    @WithMockUser(username = "worker-1", authorities = {"SALES_CANCEL","SALES_READ"})
+    void anotherOperatorCannotClaimOrReplayCommittedSaleOperation() throws Exception {
+        UUID sale = draftSale();
+        UUID operation = UUID.randomUUID();
+        UUID otherOperation = UUID.randomUUID();
+        String url = "/api/sales/" + sale + "/cancel-with-reason";
+        String body = "{\"reason\":\"CUSTOMER_CHANGED_MIND\"}";
+        mvc.perform(post(url).with(csrf()).header("X-Sale-Operation-Id", operation)
+                .contentType("application/json").content(body))
+                .andExpect(status().isOk());
+        long auditCount = jdbc.queryForObject("""
+                SELECT count(*) FROM audit_entries
+                WHERE entity_type = 'SALE' AND entity_id = ? AND action = 'CANCELLED'
+                """, Long.class, sale);
+        // A different authenticated operator cannot impersonate the owner of
+        // the receipt, even when the body and operation key are identical.
+        mvc.perform(post(url).with(csrf())
+                .with(user("worker-2").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("SALES_CANCEL")))
+                .header("X-Sale-Operation-Id", operation)
+                .contentType("application/json").content(body))
+                .andExpect(status().isConflict());
+        // A fresh ID cannot claim the already-cancelled state as evidence of a
+        // new successful cancellation. The original actor's receipt still works.
+        mvc.perform(post(url).with(csrf())
+                .with(user("worker-2").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("SALES_CANCEL")))
+                .header("X-Sale-Operation-Id", otherOperation)
+                .contentType("application/json").content(body))
+                .andExpect(status().isConflict());
+        mvc.perform(get("/api/sales/" + sale + "/operations/" + otherOperation))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/api/sales/" + sale + "/operations/" + operation))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationId").value(operation.toString()));
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM audit_entries
+                WHERE entity_type = 'SALE' AND entity_id = ? AND action = 'CANCELLED'
+                """, Long.class, sale)).isEqualTo(auditCount);
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM sale_operation_receipts
+                WHERE sale_id = ? AND response_json IS NOT NULL
+                """, Long.class, sale)).isEqualTo(1L);
+    }
+
     @Test
     @WithMockUser(username = "worker-1", authorities = {"SALES_CANCEL","SALES_READ"})
     void operationResultsArePrivateToOriginalActor() throws Exception {
