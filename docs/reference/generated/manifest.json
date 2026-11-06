@@ -1,0 +1,26 @@
+{
+  "source_sha256": "284acb44cd59ce470be469930709ec339f2cfb53199d1b3c991c1f66c738ceb1",
+  "statistics": {
+    "database.md": {
+      "migrations": 73,
+      "tables_detected": 55
+    },
+    "models.md": {
+      "records": 215,
+      "enums": 16
+    },
+    "services.md": {
+      "service_files": 71,
+      "public_functions": 218
+    },
+    "endpoints.md": {
+      "endpoint_rows": 159
+    },
+    "frontend.md": {
+      "routes": 40,
+      "features": 12
+    }
+  },
+  "generator": "scripts/generate-codebase-reference.py",
+  "note": "Heuristic static inventory, not verified OpenAPI or actual live PostgreSQL schema"
+}
