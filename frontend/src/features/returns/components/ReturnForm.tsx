@@ -15,6 +15,16 @@ import { uuid,positive,conditionLabels,validateReturn } from '../validation';
 import type { ReturnInput,ReturnCondition } from '../types';
 import { ReturnChairLabel } from './ReturnChairLabel';
 
+/** Structured choices for staff reporting; comment remains an independent optional note. */
+export const returnReasonChoices = [
+ 'Не понравился',
+ 'Не соответствует ожиданиям',
+ 'Не подошёл по размеру',
+ 'Товар с дефектом',
+ 'Ошибка комплектации',
+ 'Другая причина',
+] as const;
+
 export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
  initialSaleId:string;onSubmit:(input:Omit<ReturnInput,'idempotencyKey'>)=>Promise<void>;disabled?:boolean;
 }){
@@ -62,6 +72,10 @@ export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
   const data:ReturnInput={saleId,warehouseId,idempotencyKey:crypto.randomUUID(),items,
    reason:reason.trim(),comment:comment.trim()||null};
   const problem=validateReturn(data);
+  if(!returnReasonChoices.some(choice=>choice===reason)){
+   setError('Выберите причину возврата из списка.');
+   return;
+  }
   if(problem||!safeToReturn||items.some(i=>!positive(String(i.quantity)))){
    setError(problem||'Продажа, доставка или история возвратов не подтверждены сервером.');
    return;
@@ -180,9 +194,13 @@ export function ReturnForm({initialSaleId,onSubmit,disabled=false}:{
       Для выбора склада возврата необходимо INVENTORY_READ. Попросите администратора предоставить доступ.
     </p>}
   </label>
-  <label className="block space-y-1 text-sm font-semibold">Причина *
-   <textarea aria-label="Причина возврата" value={reason} maxLength={500} disabled={disabled} onChange={e=>setReason(e.target.value)}
-    className="w-full rounded-xl border p-3" rows={2}/>
+  <label className="block space-y-1 text-sm font-semibold">Причина возврата *
+   <select aria-label="Причина возврата" value={reason} required disabled={disabled}
+     onChange={e=>setReason(e.target.value)}
+     className="min-h-11 w-full rounded-xl border border-slate-300 bg-white p-3">
+     <option value="">Выберите причину</option>
+     {returnReasonChoices.map(choice=><option key={choice} value={choice}>{choice}</option>)}
+   </select>
   </label>
   <label className="block space-y-1 text-sm font-semibold">Комментарий
    <textarea aria-label="Комментарий возврата" value={comment} maxLength={1000} disabled={disabled} onChange={e=>setComment(e.target.value)}

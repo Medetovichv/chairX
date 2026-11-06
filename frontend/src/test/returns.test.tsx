@@ -322,6 +322,27 @@ describe('F09 list, detail and returns lifecycle',()=>{
   expect(within(form).getByRole('button',{name:'Подтвердить физический возврат'})).toBeDisabled();
   expect(api.fetchMock.mock.calls.some(([raw])=>String(raw)==='/api/warehouses')).toBe(false);
  });
+ it('requires a selected reason and preserves a separate optional comment',async()=>{
+  const api=mockBackend();renderAt('/returns/new?saleId='+SALE);
+  const form=await screen.findByRole('form',{name:'Создание возврата'});
+  fireEvent.change(await within(form).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'1'}});
+  fireEvent.change(within(form).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
+  const selector=within(form).getByRole('combobox',{name:'Причина возврата'});
+  expect(selector).toHaveValue('');
+  expect(within(selector).getAllByRole('option')).toHaveLength(7);
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить физический возврат'}));
+  expect(api.count.returnPOST).toBe(0);
+  fireEvent.change(selector,{target:{value:'Не соответствует ожиданиям'}});
+  fireEvent.change(within(form).getByRole('textbox',{name:'Комментарий возврата'}),
+    {target:{value:'Кресло оказалось ниже ожидаемого'}});
+  await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить физический возврат'}));
+  await screen.findByRole('heading',{name:'Карточка возврата'});
+  const sent=api.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/returns'&&(init as RequestInit).method==='POST');
+  const payload=JSON.parse(String((sent?.[1] as RequestInit).body)) as ReturnInput;
+  expect(payload.reason).toBe('Не соответствует ожиданиям');
+  expect(payload.comment).toBe('Кресло оказалось ниже ожидаемого');
+  expect(api.count.returnPOST).toBe(1);
+ });
  it('creates an exact partial BLOCKED return with no extra defect or stock POST',async()=>{
   const a=mockBackend();renderAt('/returns/new?saleId='+SALE);
   const f=await screen.findByRole('form',{name:'Создание возврата'});
@@ -329,7 +350,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   fireEvent.change(quantity,{target:{value:'1'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Состояние товара — позиция 1'}),{target:{value:'BLOCKED'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
-  fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Повреждён механизм'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Причина возврата'}),{target:{value:'Товар с дефектом'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
   expect(await screen.findByRole('heading',{name:'Карточка возврата'})).toBeInTheDocument();
   const sent=a.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/returns'&&(init as RequestInit).method==='POST');
@@ -346,7 +367,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'3'}});
   fireEvent.change(within(f).getByRole('textbox',{name:'Количество возврата — позиция 2'}),{target:{value:'1'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
-  fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Полный возврат кресел'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Причина возврата'}),{target:{value:'Не понравился'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
   expect(await screen.findByRole('heading',{name:'Карточка возврата'})).toBeInTheDocument();
   const post=a.fetchMock.mock.calls.find(([url,init])=>String(url)==='/api/returns'&&(init as RequestInit).method==='POST');
@@ -362,7 +383,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   const f=await screen.findByRole('form',{name:'Создание возврата'});
   fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'2'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
-  fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Возврат'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Причина возврата'}),{target:{value:'Не соответствует ожиданиям'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
   expect(await screen.findByRole('alert')).toHaveTextContent(/превышает/);
   expect(a.count.returnPOST).toBe(0);
@@ -380,7 +401,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   const form=await screen.findByRole('form',{name:'Создание возврата'});
   fireEvent.change(await within(form).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'1'}});
   fireEvent.change(within(form).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
-  fireEvent.change(within(form).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Повреждение'}});
+  fireEvent.change(within(form).getByRole('combobox',{name:'Причина возврата'}),{target:{value:'Товар с дефектом'}});
   await userEvent.setup().click(within(form).getByRole('button',{name:'Подтвердить физический возврат'}));
   expect(await screen.findByText(/Результат возврата неизвестен/)).toBeInTheDocument();
   const before=a.fetchMock.mock.calls.filter(([url,init])=>String(url)==='/api/returns'&&
@@ -401,7 +422,7 @@ describe('F09 list, detail and returns lifecycle',()=>{
   const f=await screen.findByRole('form',{name:'Создание возврата'});
   fireEvent.change(await within(f).findByRole('textbox',{name:'Количество возврата — позиция 1'}),{target:{value:'1'}});
   fireEvent.change(within(f).getByRole('combobox',{name:'Склад возврата'}),{target:{value:WH}});
-  fireEvent.change(within(f).getByRole('textbox',{name:'Причина возврата'}),{target:{value:'Возврат'}});
+  fireEvent.change(within(f).getByRole('combobox',{name:'Причина возврата'}),{target:{value:'Не соответствует ожиданиям'}});
   await userEvent.setup().click(within(f).getByRole('button',{name:'Подтвердить физический возврат'}));
   expect(await screen.findByText(/Результат возврата неизвестен/)).toBeInTheDocument();
   expect(a.count.returnPOST).toBe(1);
