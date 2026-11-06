@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { clearSaleAction, readSaleAction, saveSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
+import { clearSaleAction, readSaleAction, readSaleOperationId, saveSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
 import { ApiClientError } from '../api/api-error';
 
 describe('pending sale action journal', () => {
@@ -8,8 +8,12 @@ describe('pending sale action journal', () => {
     expect(readSaleAction('staff', 'order')).toEqual({ kind: 'missing' });
     expect(saveSaleAction('staff', 'order', 'confirm')).toBe(true);
     expect(readSaleAction('staff', 'order')).toEqual({ kind: 'pending', action: 'confirm' });
+    const operationId=readSaleOperationId('staff','order');
+    expect(operationId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(readSaleOperationId('staff','order')).toBe(operationId);
     expect(saveSaleAction('staff', 'order', 'cancel')).toBe(false);
     expect(clearSaleAction('staff', 'order')).toBe(true);
+    expect(readSaleOperationId('staff','order')).toBeNull();
     expect(readSaleAction('staff', 'order')).toEqual({ kind: 'missing' });
   });
   it.each([408,409,500,503])('preserves a pending action after ambiguous HTTP %i', status => {
@@ -39,6 +43,12 @@ describe('pending sale action journal', () => {
     expect(saveSaleAction('staff', 'order', 'fulfill')).toBe(true);
     expect(readSaleAction('other', 'order')).toEqual({ kind: 'missing' });
     expect(readSaleAction('staff', 'other')).toEqual({ kind: 'missing' });
+  });
+  it('keeps legacy pending markers locked without fabricated request correlation', () => {
+    sessionStorage.setItem('chairx:sale:quick-pending:v1:staff:order',JSON.stringify('confirm'));
+    expect(readSaleAction('staff','order')).toEqual({kind:'pending',action:'confirm'});
+    expect(readSaleOperationId('staff','order')).toBeNull();
+    expect(saveSaleAction('staff','order','confirm')).toBe(false);
   });
   it('rejects unknown or corrupt data and fails closed', () => {
     const key = 'chairx:sale:quick-pending:v1:staff:order';

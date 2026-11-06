@@ -2,10 +2,10 @@ import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { salesApi, salesKeys } from '../../features/sales/api';
-import { userFacingApiError } from '../api/api-error';
+import { ApiClientError, userFacingApiError } from '../api/api-error';
 import { saleStatusNames } from '../../features/sales/validation';
 import { ConfirmDialog } from '../ui/confirm-dialog';
-import { readSaleAction, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
+import { readSaleAction, readSaleOperationId, saveSaleAction, clearSaleAction, isUnknownSaleMutationResult } from './pending-sale-action';
 import type { SaleResponse } from '../../features/sales/types';
 import {cancellationReasons,type SaleCancellationReason} from '../../features/sales/cancellation';
 
@@ -60,9 +60,15 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
         setError('Не удалось сохранить запись операции. Запрос не отправлен.');
         return;
       }
+      const operationId=readSaleOperationId(user.id, sale.id);
+      if(!operationId) {
+        setInvalid(true);
+        setError('Не удалось сохранить идентификатор операции. Запрос не отправлен; требуется ручная проверка.');
+        return;
+      }
       sent=true;
-      const result=action==='confirm'?await salesApi.confirm(sale.id):
-        action==='fulfill'?await salesApi.fulfill(sale.id):await salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null});
+      const result=action==='confirm'?await salesApi.confirm(sale.id, operationId):
+        action==='fulfill'?await salesApi.fulfill(sale.id, operationId):await salesApi.cancelWithReason(sale.id,{reason:cancelReason as SaleCancellationReason,comment:cancelComment.trim()||null},operationId);
       sent=false; // A successful API response is authoritative: cache invalidation is not a second mutation.
       if(!clearSaleAction(user.id, sale.id)) {
         setInvalid(true);
@@ -87,6 +93,33 @@ export function SaleQuickActions({sale}:{sale:SaleResponse}) {
     if(busyRef.current || !unknown)return;
     busyRef.current=true;setBusy(true);setNotice('');
     try {
+      const operationId=readSaleOperationId(user?.id,sale.id);
+      if(operationId){
+        try {
+          const receipt=await salesApi.operationReceipt(sale.id,operationId);
+          if(receipt.status==='COMMITTED'&&receipt.operationId===operationId&&
+              receipt.action===unknown&&receipt.sale.id===sale.id){
+            if(!user?.id || !clearSaleAction(user.id,sale.id)){
+              setInvalid(true);
+              setError('Сервер подтвердил операцию, но журнал не удалось очистить. Действия заблокированы.');
+              return;
+            }
+            await update(receipt.sale);
+            setUnknown(null);
+            setError('');
+            setNotice('Сервер подтвердил результат именно вашего запроса.');
+            return;
+          }
+          setError('Сервер вернул несоответствующую квитанцию. Действия заблокированы; нужна ручная проверка.');
+          return;
+        } catch(cause) {
+          // A 404 or transport error cannot prove that an in-flight POST failed.
+          // Read the current state only for display; never clear the pending marker.
+          if(!(cause instanceof ApiClientError && cause.status===404)){
+            setError('Квитанция операции недоступна. Результат запроса неизвестен; нужна ручная проверка.');
+          }
+        }
+      }
       const current=await salesApi.get(sale.id);
       await update(current);
       const expected=unknown==='confirm'?'CONFIRMED':unknown==='fulfill'?'FULFILLED':'CANCELLED';
