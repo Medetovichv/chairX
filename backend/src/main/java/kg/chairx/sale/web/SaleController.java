@@ -22,12 +22,15 @@ public class SaleController {
     private final SaleService service;
     private final kg.chairx.sale.application.SaleHistoryService history;
     private final kg.chairx.sale.application.PaidPickupService pickup;
+    private final kg.chairx.sale.application.SaleOperationReceiptService receipts;
 
     public SaleController(SaleService service, kg.chairx.sale.application.SaleHistoryService history,
-                          kg.chairx.sale.application.PaidPickupService pickup) {
+                          kg.chairx.sale.application.PaidPickupService pickup,
+                          kg.chairx.sale.application.SaleOperationReceiptService receipts) {
         this.service = service;
         this.history = history;
         this.pickup = pickup;
+        this.receipts = receipts;
     }
 
     @GetMapping
@@ -79,8 +82,9 @@ public class SaleController {
     }
 
     @PostMapping("/{id}/confirm")
-    public SaleResponse confirmDraft(@PathVariable UUID id) {
-        return service.confirmDraft(id);
+    public SaleResponse confirmDraft(@PathVariable UUID id,
+            @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId) {
+        return receipts.execute(id, operationId, "confirm", "", () -> operationId == null ? service.confirmDraft(id) : service.confirmDraftForOperation(id));
     }
 
     @GetMapping("/{id}/history")
@@ -105,15 +109,18 @@ public class SaleController {
 
     @PostMapping("/{id}/fulfill")
     public SaleResponse fulfill(
-            @PathVariable UUID id
+            @PathVariable UUID id,
+            @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId
     ) {
-        return service.fulfill(id);
+        return receipts.execute(id, operationId, "fulfill", "", () -> operationId == null ? service.fulfill(id) : service.fulfillForOperation(id));
     }
 
     @PostMapping("/{id}/cancel-with-reason")
     public SaleResponse cancelWithReason(@PathVariable UUID id,
-            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request) {
-        return service.cancelWithReason(id, request);
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request,
+            @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId) {
+        return receipts.execute(id, operationId, "cancel", cancellationFingerprint(request),
+                () -> service.cancelWithReason(id, request));
     }
 
     @GetMapping("/{id}/cancellation-details")
@@ -128,8 +135,24 @@ public class SaleController {
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(
             @PathVariable UUID id,
-            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request
+            @Valid @RequestBody kg.chairx.sale.api.CancelSaleRequest request,
+            @RequestHeader(value="X-Sale-Operation-Id", required=false) UUID operationId
     ) {
-        return service.cancelWithReason(id, request);
+        return receipts.execute(id, operationId, "cancel", cancellationFingerprint(request),
+                () -> service.cancelWithReason(id, request));
+    }
+
+    @GetMapping("/{id}/operations/{operationId}")
+    public ResponseEntity<kg.chairx.sale.application.SaleOperationReceiptService.SaleOperationReceiptResult>
+    operationReceipt(@PathVariable UUID id, @PathVariable UUID operationId) {
+        // Exercise the existing sale read path before querying a request-specific result.
+        service.get(id);
+        return receipts.find(id, operationId).map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    private static String cancellationFingerprint(kg.chairx.sale.api.CancelSaleRequest request) {
+        return request.reason().name() + "\n"
+                + (request.comment() == null ? "" : request.comment().strip());
     }
 }

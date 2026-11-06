@@ -75,6 +75,7 @@ class ProductPersistenceTests {
                         "customer_addresses",
                         "sales",
                         "sale_comments",
+                "sale_operation_receipts",
                         "sale_items",
                         "deliveries",
                         "payments",
