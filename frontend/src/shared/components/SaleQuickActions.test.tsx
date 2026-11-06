@@ -202,6 +202,67 @@ describe('SaleQuickActions RBAC',()=>{
     expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
   });
 
+  it('does not replay a fulfilled pickup if the mutation committed but the response timed out',async()=>{
+    permissions=['SALES_UPDATE'];
+    const pickup={...sale,status:'CONFIRMED'} as SaleResponse;
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    let serverStatus:'CONFIRMED'|'FULFILLED'='CONFIRMED';
+    vi.spyOn(salesApi,'get').mockImplementation(async()=>({
+      ...pickup,status:serverStatus,
+    } as SaleResponse));
+    const post=vi.spyOn(salesApi,'fulfill').mockImplementation(async()=>{
+      serverStatus='FULFILLED';
+      throw new ApiClientError('http','REQUEST_TIMEOUT',408);
+    });
+    const client=new QueryClient({defaultOptions:{queries:{retry:false}}});
+    const first=render(<QueryClientProvider client={client}><SaleQuickActions sale={pickup}/></QueryClientProvider>);
+    fireEvent.click(screen.getByRole('button',{name:'Завершить выдачу'}));
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('fulfill'));
+    first.unmount();
+    render(<QueryClientProvider client={client}><SaleQuickActions sale={pickup}/></QueryClientProvider>);
+    expect(screen.getByRole('button',{name:'Завершить выдачу'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('исход именно вашего запроса не доказан'));
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('fulfill'));
+  });
+
+  it('never replays lost cancellation after a second employee has changed the sale status',async()=>{
+    permissions=['SALES_CANCEL'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    let serverStatus:'DRAFT'|'CANCELLED'='DRAFT';
+    const get=vi.spyOn(salesApi,'get').mockImplementation(async()=>({
+      ...sale,status:serverStatus,
+    } as SaleResponse));
+    const post=vi.spyOn(salesApi,'cancelWithReason').mockImplementation(async()=>{
+      // A commit may have succeeded, or a different employee may have cancelled.
+      // A status GET alone cannot distinguish those outcomes.
+      serverStatus='CANCELLED';
+      throw new TypeError('Disconnected after cancellation POST');
+    });
+    const first=view();
+    fireEvent.click(screen.getByRole('button',{name:'Отменить заказ'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Причина отмены'}),{
+      target:{value:'CUSTOMER_CHANGED_MIND'},
+    });
+    fireEvent.click(screen.getByRole('button',{name:'Продолжить отмену'}));
+    fireEvent.click(screen.getByRole('button',{name:'Подтвердить'}));
+    await waitFor(()=>expect(screen.getByText(/Исход операции неизвестен/)).toBeInTheDocument());
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('cancel'));
+    first.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Отменить заказ'})).toBeDisabled();
+    fireEvent.click(screen.getByRole('button',{name:'Проверить состояние сервера'}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('исход именно вашего запроса не доказан'));
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('cancel'));
+  });
+
   it('fails closed on corrupted action journal',()=>{
     permissions=['SALES_DRAFT_MANAGE','SALES_CANCEL'];
     sessionStorage.setItem('chairx:sale:quick-pending:v1:staff:sale','{corrupt');
