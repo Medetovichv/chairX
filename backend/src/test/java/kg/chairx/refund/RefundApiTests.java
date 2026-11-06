@@ -30,6 +30,7 @@ import java.util.UUID;
 
 import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -246,6 +247,50 @@ class RefundApiTests {
             jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closingId);
             jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closingId);
         }
+    }
+
+    @Test
+    void unauthorizedOrCsrfMissingRefundCannotChangeBankOrDocuments() throws Exception {
+        var sale = createPaidSale();
+        BigDecimal bankBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        long movementCount = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='REFUND'",
+                Long.class);
+        long refundCount = jdbc.queryForObject("SELECT count(*) FROM refunds", Long.class);
+        var input = new CreateRefundRequest(
+                sale.id(), null, new BigDecimal("2500"), RefundMethod.TRANSFER,
+                "Проверка отказа в доступе", null, null, UUID.randomUUID());
+        String body = mapper.writeValueAsString(input);
+
+        // An authenticated catalog-only employee cannot post a refund.
+        mvc.perform(post("/api/refunds").with(csrf())
+                .with(user("catalog-only").authorities(
+                    new org.springframework.security.core.authority.SimpleGrantedAuthority("PRODUCTS_READ")))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+
+        // Even a refund-authorized employee requires CSRF for mutation.
+        mvc.perform(post("/api/refunds")
+                .with(user("refund-operator").authorities(
+                    new org.springframework.security.core.authority.SimpleGrantedAuthority("REFUNDS_CREATE")))
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isForbidden());
+
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class))
+                .isEqualByComparingTo(bankBefore);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM refunds", Long.class)).isEqualTo(refundCount);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements WHERE source_type='REFUND'",
+                Long.class)).isEqualTo(movementCount);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT status FROM sales WHERE id=?", String.class, sale.id()))
+                .isEqualTo("CONFIRMED");
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM audit_entries WHERE entity_type='REFUND'",
+                Long.class)).isZero();
     }
 
     @Test
