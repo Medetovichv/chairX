@@ -193,8 +193,12 @@ class RefundApiTests {
             var request = new CreateRefundRequest(
                     sale.id(), null, new BigDecimal("2500"), RefundMethod.CASH,
                     "Денежный возврат после закрытия прошлого дня", null, null, UUID.randomUUID());
-            mvc.perform(post("/api/refunds").with(csrf()).contentType(MediaType.APPLICATION_JSON)
-                    .content(mapper.writeValueAsString(request))).andExpect(status().isCreated());
+            String payload = mapper.writeValueAsString(request);
+            String createdBody = mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            UUID refundId = UUID.fromString(mapper.readTree(createdBody).get("id").asText());
             BigDecimal cashAfter = jdbc.queryForObject(
                     "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class);
             org.assertj.core.api.Assertions.assertThat(cashAfter)
@@ -207,8 +211,37 @@ class RefundApiTests {
                     .isEqualByComparingTo(cashBefore);
             org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
                     SELECT count(*) FROM finance_movements
-                    WHERE source_type='REFUND' AND amount=-2500
-                    """, Integer.class)).isGreaterThanOrEqualTo(1);
+                    WHERE source_type='REFUND' AND source_id=? AND account_code='CASH' AND amount=-2500
+                    """, Integer.class, refundId)).isEqualTo(1);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                      AND business_date=?
+                    """, Integer.class, refundId,
+                    java.sql.Date.valueOf(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"))))
+                    .isEqualTo(1);
+
+            // A lost HTTP response can lead to a legitimate retry of the exact key.
+            // The closed historical snapshot, refund document and CASH must not change.
+            String replayBody = mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            org.assertj.core.api.Assertions.assertThat(
+                    mapper.readTree(replayBody).get("id").asText()).isEqualTo(refundId.toString());
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                    "SELECT count(*) FROM refunds WHERE id=?", Integer.class, refundId)).isEqualTo(1);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                    """, Integer.class, refundId)).isEqualTo(1);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='CASH'", BigDecimal.class))
+                    .isEqualByComparingTo(cashAfter);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT actual_balance FROM finance_daily_closing_accounts
+                    WHERE closing_id=? AND account_code='CASH'
+                    """, BigDecimal.class, closingId)).isEqualByComparingTo(cashBefore);
         } finally {
             jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closingId);
             jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closingId);
