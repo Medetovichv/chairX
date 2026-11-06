@@ -23,7 +23,8 @@ export const deliveryApi = {
     return apiClient.get('/api/deliveries?' + qs.toString());
   },
   get: (id: string): Promise<DeliveryResponse> => apiClient.get('/api/deliveries/' + enc(id)),
-  bySale: (saleId: string): Promise<DeliveryResponse> => apiClient.get('/api/deliveries/by-sale/' + enc(saleId)),
+  bySale: (saleId: string, signal?: AbortSignal): Promise<DeliveryResponse> =>
+    apiClient.get('/api/deliveries/by-sale/' + enc(saleId),signal ? {signal} : undefined),
   create: (body: CreateDeliveryInput): Promise<DeliveryResponse> => apiClient.post('/api/deliveries',body),
   plannedDate: (id: string, plannedDeliveryDate: string | null): Promise<DeliveryResponse> =>
     apiClient.put('/api/deliveries/' + enc(id) + '/planned-date',{plannedDeliveryDate}),

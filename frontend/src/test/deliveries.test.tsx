@@ -63,6 +63,7 @@ interface Options {
   saleType?:'CITY_DELIVERY'|'REGION_DELIVERY'|'SELF_PICKUP'; saleStatus?:'CONFIRMED'|'DRAFT';
   mutateBeforeAction?:boolean; afterDispatchNetwork?:boolean; afterDateNetwork?:boolean;
   paymentActive?:boolean;
+  hangBySale?:boolean;
 }
 function mockBackend(options:Options={}){
   const data=[...(options.deliveries??[delivery()])];
@@ -95,6 +96,13 @@ function mockBackend(options:Options={}){
         json({code:'PAYMENT_NOT_FOUND',message:'',details:{}},404);
     }
     if(path==='/api/deliveries/by-sale/'+SALE&&method==='GET'){
+      if(options.hangBySale){
+        return new Promise<Response>((_resolve,reject)=>{
+          const stop=()=>reject(new DOMException('Timed-out delivery lookup','AbortError'));
+          if(init?.signal?.aborted)stop();
+          else init?.signal?.addEventListener('abort',stop,{once:true});
+        });
+      }
       const existing=data.find(d=>d.saleId===SALE);
       return existing?json(existing):json({code:'DELIVERY_NOT_FOUND',message:'',details:{}},404);
     }
@@ -399,6 +407,19 @@ describe('F08 create delivery and non-idempotent network outcomes',()=>{
     renderAt('/deliveries/new?saleId='+SALE);
     const form=await screen.findByRole('form',{name:'Оформить доставку'});
     expect(await within(form).findByRole('link',{name:'Открыть доставку'})).toHaveAttribute('href','/deliveries/'+ID);
+    expect(within(form).getByRole('button',{name:'Создать доставку'})).toBeDisabled();
+    expect(api.counts().creates).toBe(0);
+  });
+  it('times out hung sale-linked lookup, never guesses 404 or enables duplicate creation',async()=>{
+    const timeout=new AbortController();
+    vi.spyOn(AbortSignal,'timeout').mockReturnValue(timeout.signal);
+    const api=mockBackend({deliveries:[],hangBySale:true});
+    renderAt('/deliveries/new?saleId='+SALE);
+    const form=await screen.findByRole('form',{name:'Оформить доставку'});
+    expect(within(form).getByText(/Проверяем, не создана ли уже доставка/)).toBeInTheDocument();
+    expect(within(form).getByRole('button',{name:'Создать доставку'})).toBeDisabled();
+    timeout.abort();
+    expect(await within(form).findByText(/Не удалось проверить существующую доставку/)).toBeInTheDocument();
     expect(within(form).getByRole('button',{name:'Создать доставку'})).toBeDisabled();
     expect(api.counts().creates).toBe(0);
   });

@@ -55,7 +55,10 @@ export function DeliveryForm({initialSaleId='',onSubmit,disabled=false}:{
   });
   const existing=useQuery({
     queryKey:deliveryKeys.bySale(saleId),
-    queryFn:()=>deliveryApi.bySale(saleId),
+    // A hung lookup must not leave the form in an infinite spinner.
+    // Abort the real GET rather than racing an uncancelled HTTP request.
+    queryFn:({signal})=>deliveryApi.bySale(saleId,
+      AbortSignal.any([signal,AbortSignal.timeout(10_000)])),
     enabled:validUUID(saleId)&&hasPermission('DELIVERIES_READ'),
     retry:false,
   });
