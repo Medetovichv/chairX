@@ -139,6 +139,8 @@ public class SecurityConfig {
                         .hasAnyAuthority("SALES_READ", "DELIVERIES_READ", "INVENTORY_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales", "/api/sales/*", "/api/sales/*/history", "/api/sales/*/comments", "/api/sales/*/cancellation-details")
                         .hasAuthority("SALES_READ")
+                        .requestMatchers(HttpMethod.GET, "/api/sales/*/operations/*")
+                        .hasAuthority("SALES_READ")
                         .requestMatchers(HttpMethod.GET, "/api/sales/customer/*")
                         .access(new org.springframework.security.web.access.expression.WebExpressionAuthorizationManager(
                                 "hasAuthority('SALES_READ') and hasAuthority('CUSTOMERS_READ')"))
