@@ -976,6 +976,96 @@ class RefundTests {
     }
 
     @Test
+    void priorClosedDaySnapshotAndPaymentRemainImmutableWhenTodayRefundPosts() {
+        var sale = createSale(1, "8500");
+        var payment = createPayment(sale.id());
+        var originalPayment = payments.get(payment.id());
+        var today = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"));
+        var yesterday = today.minusDays(1);
+
+        // Only the dated finance movement is staged historically; the real
+        // refund runs today against an open business date.
+        assertThat(jdbc.update("""
+                UPDATE finance_movements
+                SET business_date=?,
+                    created_at=(?::date + TIME '12:00') AT TIME ZONE 'Asia/Bishkek'
+                WHERE source_type='PAYMENT' AND source_id=?
+                """, yesterday, yesterday, payment.id())).isEqualTo(1);
+        var priorPaymentMovement = jdbc.queryForMap("""
+                SELECT id, amount, account_code, business_date, created_at
+                FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                """, payment.id());
+        UUID closingId = UUID.randomUUID();
+        jdbc.update("""
+                INSERT INTO finance_daily_closings(id,business_date,created_by)
+                VALUES (?, ?, 'refund-historical-test')
+                """, closingId, yesterday);
+        jdbc.update("""
+                INSERT INTO finance_daily_closing_accounts
+                    (closing_id, account_code, expected_balance, actual_balance)
+                SELECT ?,code,balance,balance FROM finance_accounts
+                """, closingId);
+        var frozenAccounts = jdbc.queryForList("""
+                SELECT account_code,expected_balance,actual_balance
+                FROM finance_daily_closing_accounts WHERE closing_id=?
+                ORDER BY account_code
+                """, closingId);
+        var frozenClosing = jdbc.queryForMap("""
+                SELECT id,business_date,created_by,created_at
+                FROM finance_daily_closings WHERE id=?
+                """, closingId);
+        var bankBefore = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        var refundRequest = request(sale.id(),null,"2500",RefundMethod.TRANSFER,
+                "Компенсация после исторического закрытия", UUID.randomUUID());
+        try {
+            var posted = refunds.create(refundRequest);
+            assertThat(refunds.create(refundRequest).id()).isEqualTo(posted.id());
+            assertThat(jdbc.queryForObject("""
+                    SELECT balance FROM finance_accounts WHERE code='BANK'
+                    """,BigDecimal.class)).isEqualByComparingTo(
+                    bankBefore.subtract(new BigDecimal("2500")));
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                    """,Long.class,posted.id())).isEqualTo(1L);
+            assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND business_date=?
+                    """,Long.class,yesterday)).isZero();
+            assertThat(jdbc.queryForMap("""
+                    SELECT business_date::text AS day,
+                      (created_at AT TIME ZONE 'Asia/Bishkek')::date::text AS posted_day,
+                      amount,account_code
+                    FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                    """,posted.id())).satisfies(row -> {
+                        assertThat(row.get("day")).isEqualTo(today.toString());
+                        assertThat(row.get("posted_day")).isEqualTo(today.toString());
+                        assertThat(row.get("account_code")).isEqualTo("BANK");
+                        assertThat((BigDecimal)row.get("amount")).isEqualByComparingTo("-2500");
+                    });
+            assertThat(jdbc.queryForMap("""
+                    SELECT id,amount,account_code,business_date,created_at
+                    FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                    """,payment.id())).isEqualTo(priorPaymentMovement);
+            assertThat(payments.get(payment.id())).isEqualTo(originalPayment);
+            assertThat(jdbc.queryForMap("""
+                    SELECT id,business_date,created_by,created_at
+                    FROM finance_daily_closings WHERE id=?
+                    """,closingId)).isEqualTo(frozenClosing);
+            assertThat(jdbc.queryForList("""
+                    SELECT account_code,expected_balance,actual_balance
+                    FROM finance_daily_closing_accounts WHERE closing_id=?
+                    ORDER BY account_code
+                    """,closingId)).isEqualTo(frozenAccounts);
+        } finally {
+            jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closingId);
+            jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closingId);
+        }
+    }
+
+    @Test
     void closedCurrentBusinessDayRejectsRefundWithoutPartialPosting() {
         var sale = createSale(1, "8500");
         var payment = createPayment(sale.id());
