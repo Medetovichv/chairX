@@ -187,6 +187,15 @@ def main():
     sid=sale["id"]
     assert sale["status"]=="CONFIRMED"
     assert int(sale["total"])==25500
+    # Real authenticated HTTP: reason is mandatory, even for a confirmed order.
+    # Reject BEFORE any sale/inventory/finance write, then continue the sale.
+    invalid_cancel,invalid_body=admin.request(
+        "POST",f"/api/sales/{sid}/cancel-with-reason",
+        {"reason":None,"comment":"No selected reason"})
+    assert 400<=invalid_cancel<500,("Missing cancellation reason accepted",invalid_cancel,invalid_body)
+    assert admin.must("GET",f"/api/sales/{sid}",None,200)["status"]=="CONFIRMED"
+    db_number("SELECT count(*) FROM finance_movements",2)
+    db_number("SELECT count(*) FROM sales WHERE id='"+sid+"' AND cancellation_reason IS NOT NULL",0)
     delivery=admin.must("POST","/api/deliveries",{
         "saleId":sid,"recipientName":"Issue32 Test Customer",
         "recipientPhone":"+996555112233","address":"Bishkek Test Address",
@@ -216,6 +225,17 @@ def main():
         "reference":"ISSUE32-"+uuid4()[:8],"comment":"Test paid"},201)
     payment_id=pay["id"]
     assert int(pay["amount"])==25500 and pay["status"]=="PAID"
+    money(admin,20000,125500,3)
+    # A paid delivery cannot be silently cancelled via the pickup-only endpoint:
+    # it must follow the explicit delivery/payment reconciliation workflow.
+    rejected_paid_cancel,rejected_body=admin.request(
+        "POST",f"/api/sales/{sid}/cancel-with-reason",
+        {"reason":"CUSTOMER_CHANGED_MIND","comment":"CI verified paid-delivery guard"})
+    assert 400<=rejected_paid_cancel<500,(
+        "Paid delivery cancelled through wrong workflow",rejected_paid_cancel,rejected_body)
+    assert admin.must("GET",f"/api/sales/{sid}",None,200)["status"]=="CONFIRMED"
+    assert admin.must("GET",f"/api/payments/sale/{sid}",None,200)[0]["status"]=="PAID"
+    db_number("SELECT count(*) FROM sales WHERE id='"+sid+"' AND cancellation_reason IS NOT NULL",0)
     money(admin,20000,125500,3)
     payment_repeat,_=employee.request("POST","/api/payments",{
         "saleId":sid,"method":"TRANSFER","channel":"MBANK",
@@ -262,6 +282,10 @@ def main():
     outsider.must("GET","/api/finance/closings/"+DAY+"/preview",None,403)
     blocked,_=outsider.request("POST",f"/api/deliveries/{did}/dispatch",{})
     assert blocked==403,f"CATALOG could mutate delivery: {blocked}"
+    denied_cancel,_=outsider.request(
+        "POST",f"/api/sales/{sid}/cancel-with-reason",
+        {"reason":"CUSTOMER_CHANGED_MIND","comment":None})
+    assert denied_cancel==403,f"CATALOG could cancel sale: {denied_cancel}"
     money(admin,20000,117000,4)
 
     # Real Chrome user-flow acceptance under the built-in EMPLOYEE role.
