@@ -118,7 +118,15 @@ export function SaleForm({initial,defaultCustomerId=null,onSave,onCancel,blocked
       <div className="min-w-0 space-y-5">
         <section aria-label="Этап 1. Клиент" className="min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">1. </span>Клиент</h3>
-          <CustomerPicker value={customerId} onChange={id=>{setCustomerId(id);markDrawerDirty(true);}} disabled={saving||blocked}/>
+          <CustomerPicker value={customerId}
+            onChange={id=>{setCustomerId(id);markDrawerDirty(true);}}
+            onPhoneDraftChange={phone=>{
+              if(!customerId&&!deliveryPhoneEdited.current){
+                setRecipientPhone(phone);
+                markDrawerDirty(true);
+              }
+            }}
+            disabled={saving||blocked}/>
         </section>
         <section aria-label="Этап 2. Товары" className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 [.quick-create_&]:p-4">
           <h3 className="mb-4 text-lg font-bold text-slate-950"><span className="[.quick-create_&]:hidden">2. </span>Выбор кресел</h3>
