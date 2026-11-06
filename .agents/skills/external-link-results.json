@@ -1,0 +1,267 @@
+[
+  {
+    "url": "http://127.0.0.1:5173/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "http://localhost:8400",
+    "status": "000",
+    "error": "curl: (7) Failed to connect to localhost port 8400 after 0 ms: Couldn't connect to server"
+  },
+  {
+    "url": "http://localhost:PORT/detect.js",
+    "status": "000",
+    "error": "curl: (3) URL rejected: Port number was not a decimal number between 0 and 65535"
+  },
+  {
+    "url": "https://agentskills.io/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://analytics.example.com'",
+    "status": "000",
+    "error": "curl: (3) URL rejected: Bad hostname"
+  },
+  {
+    "url": "https://api.example.com'",
+    "status": "000",
+    "error": "curl: (3) URL rejected: Bad hostname"
+  },
+  {
+    "url": "https://csstriggers.com/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script#defer",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://esbuild.github.io/api/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://example.com",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://example.com/analytics.js",
+    "status": "404",
+    "error": ""
+  },
+  {
+    "url": "https://example.com/skills",
+    "status": "404",
+    "error": ""
+  },
+  {
+    "url": "https://gist.github.com/paulirish/5d52fb081b3570c81e3a",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/ehmo/platform-design-skills",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/isaacs/node-lru-cache",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/main/.claude/skills/ui-ux-pro-max",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable/blob/8dac6ae7e020c43ab10ce9b41939f6fd42627b96/tests/framework-fixtures/nextjs-inline-csp/expected-after-patch.js",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable/blob/8dac6ae7e020c43ab10ce9b41939f6fd42627b96/tests/framework-fixtures/nextjs-turborepo/expected-after-patch.ts",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable/blob/8dac6ae7e020c43ab10ce9b41939f6fd42627b96/tests/framework-fixtures/nuxt-csp/expected-after-patch.ts",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable/blob/8dac6ae7e020c43ab10ce9b41939f6fd42627b96/tests/framework-fixtures/sveltekit-csp/expected-after-patch.js",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/pbakaus/impeccable/blob/8dac6ae7e020c43ab10ce9b41939f6fd42627b96/tests/live-e2e/agent.mjs",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/shuding/better-all",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://impeccable.style/docs/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://jsfiddle.net/qw1jabsx/4/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://nextjs.org",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://nextjs.org/docs/app/api-reference/config/next-config-js/output",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://nextjs.org/docs/app/api-reference/functions/after",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://nextjs.org/docs/app/guides/authentication",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://nextjs.org/learn/seo/dynamic-imports",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://raw.githubusercontent.com/google-labs-code/design.md/main/docs/spec.md",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/learn/react-compiler",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/learn/removing-effect-dependencies#should-this-code-move-to-an-event-handler",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/learn/you-might-not-need-an-effect",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/learn/you-might-not-need-an-effect#initializing-the-application",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/reference/react-dom#resource-preloading-apis",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/reference/react/cache",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/reference/react/useDeferredValue",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/reference/react/useEffectEvent#effect-event-in-deps",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://react.dev/reference/react/useTransition",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://skills.sh/b/vercel-labs/agent-skills",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://skills.sh/vercel-labs/agent-skills",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://swr.vercel.app",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://vercel.com",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://vercel.com/blog/how-we-made-the-vercel-dashboard-twice-as-fast",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://vercel.com/blog/how-we-optimized-package-imports-in-next-js",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://vercel.com/docs/fluid-compute",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://vite.dev/guide/features.html",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://webpack.js.org/guides/dependency-management/",
+    "status": "200",
+    "error": ""
+  },
+  {
+    "url": "https://www.npmjs.com/package/@rollup/plugin-dynamic-import-vars",
+    "status": "403",
+    "error": ""
+  },
+  {
+    "url": "https://x.com/shuding",
+    "status": "200",
+    "error": ""
+  }
+]
