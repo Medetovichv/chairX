@@ -176,8 +176,22 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     @Transactional
     public SaleResponse confirmDraft(UUID id) {
+        return confirmDraftInternal(id, false);
+    }
+
+    /** A request-specific receipt is proof of a transition, not a coincidentally matching status. */
+    @Transactional
+    public SaleResponse confirmDraftForOperation(UUID id) {
+        return confirmDraftInternal(id, true);
+    }
+
+    private SaleResponse confirmDraftInternal(UUID id, boolean requireTransition) {
         Sale sale = lock(id);
         if (sale.status() == SaleStatus.CONFIRMED) {
+            if (requireTransition) {
+                throw rule("SALE_OPERATION_NO_TRANSITION",
+                        "Заказ уже подтверждён другой операцией");
+            }
             return SaleMapper.toResponse(sale);
         }
         if (sale.status() != SaleStatus.DRAFT) {
@@ -332,8 +346,21 @@ public class SaleService implements kg.chairx.sale.api.DeliverySaleOperations {
 
     @Transactional
     public SaleResponse fulfill(UUID saleId) {
+        return fulfillInternal(saleId, false);
+    }
+
+    @Transactional
+    public SaleResponse fulfillForOperation(UUID saleId) {
+        return fulfillInternal(saleId, true);
+    }
+
+    private SaleResponse fulfillInternal(UUID saleId, boolean requireTransition) {
         repository.acquireCompletionGate();
         Sale sale = lock(saleId);
+        if (requireTransition && sale.status() == SaleStatus.FULFILLED) {
+            throw rule("SALE_OPERATION_NO_TRANSITION",
+                    "Продажа уже выдана другой операцией");
+        }
 
         if (sale.fulfillmentType()
                 != FulfillmentType.SELF_PICKUP) {
