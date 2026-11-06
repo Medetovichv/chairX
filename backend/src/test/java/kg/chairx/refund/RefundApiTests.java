@@ -218,7 +218,7 @@ class RefundApiTests {
                     WHERE source_type='REFUND' AND source_id=?
                       AND business_date=?
                     """, Integer.class, refundId,
-                    java.sql.Date.valueOf(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek"))))
+                    java.sql.Date.valueOf(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")))))
                     .isEqualTo(1);
 
             // A lost HTTP response can lead to a legitimate retry of the exact key.
