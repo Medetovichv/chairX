@@ -788,6 +788,52 @@ class PaymentTests {
     }
 
     @Test
+    void transferReversalThenReasonedCancellationKeepsOriginalPaymentAndPostsNoSecondDebit() {
+        var sale = createSale(2, "8500");
+        var payment = payments.create(new CreatePaymentRequest(
+                sale.id(), PaymentMethod.TRANSFER, null, "Перевод клиента"));
+        var bankAfterPayment = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        var journalBeforeReversal = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements", Long.class);
+
+        var reversed = payments.cancel(payment.id(),
+                new CancelPaymentRequest("Ошибочный перевод — деньги возвращены"));
+        assertThat(reversed.status()).isEqualTo(PaymentStatus.CANCELLED);
+        var bankAfterReversal = jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'", BigDecimal.class);
+        assertThat(bankAfterPayment.subtract(bankAfterReversal))
+                .isEqualByComparingTo("17000");
+        var journalAfterReversal = jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements", Long.class);
+        assertThat(journalAfterReversal).isEqualTo(journalBeforeReversal + 1);
+
+        var cancelled = sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.CUSTOMER_CHANGED_MIND,
+                        "Перевод возвращён клиенту"));
+        assertThat(cancelled.status()).isEqualTo(SaleStatus.CANCELLED);
+        assertThat(inventory.getBalance(home, variant).reserved()).isZero();
+        assertThat(inventory.getBalance(home, variant).onHand()).isEqualTo(20);
+        assertThat(payments.get(payment.id()).status()).isEqualTo(PaymentStatus.CANCELLED);
+        assertThat(jdbc.queryForObject(
+                "SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class))
+                .isEqualByComparingTo(bankAfterReversal);
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements",Long.class))
+                .isEqualTo(journalAfterReversal);
+        assertThat(sales.cancellationDetails(sale.id()).orElseThrow().reason())
+                .isEqualTo(SaleCancellationReason.CUSTOMER_CHANGED_MIND);
+
+        assertThatThrownBy(() -> sales.cancelWithReason(sale.id(),
+                new CancelSaleRequest(SaleCancellationReason.DUPLICATE_ORDER, null)))
+                .isInstanceOfSatisfying(SaleRuleViolationException.class,
+                        error -> assertThat(error.getCode()).isEqualTo("SALE_ALREADY_CANCELLED"));
+        assertThat(jdbc.queryForObject(
+                "SELECT count(*) FROM finance_movements",Long.class))
+                .isEqualTo(journalAfterReversal);
+    }
+
+    @Test
     void repeatedCancellationDoesNotReleaseStockTwice() {
         var sale = createSale(2, "8500");
         assertThat(sales.cancel(sale.id()).status()).isEqualTo(SaleStatus.CANCELLED);
