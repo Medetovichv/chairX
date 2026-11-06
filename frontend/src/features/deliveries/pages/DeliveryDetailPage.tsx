@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../auth/AuthProvider';
 import { inventoryApi, inventoryKeys } from '../../inventory/api';
 import { salesApi, salesKeys } from '../../sales/api';
+import { financeApi, financeKeys } from '../../finance/api';
 import { displaySaleNumber } from '../../../shared/lib/format';
 import { ApiClientError } from '../../../shared/api/api-error';
 import { PageHeader } from '../../../shared/components/PageHeader';
@@ -41,6 +42,15 @@ function Detail({d}:{d:DeliveryResponse}){
   const [notice]=useState(state?.notice??'');
   const sale=useQuery({queryKey:salesKeys.detail(d.saleId),
     queryFn:()=>salesApi.get(d.saleId),enabled:hasPermission('SALES_READ')});
+  const paymentRead=hasPermission('PAYMENTS_READ');
+  const activePayment=useQuery({
+    queryKey:financeKeys.activePayment(d.saleId),
+    queryFn:()=>financeApi.activePayment(d.saleId),
+    enabled:paymentRead,
+    retry:false,
+  });
+  const paymentMissing=activePayment.isError&&activePayment.error instanceof ApiClientError&&
+    activePayment.error.status===404;
   const saleNumber=info?.saleNumber||(sale.data?.saleNumber?displaySaleNumber(sale.data.saleNumber):'');
   const warehouses=useQuery({queryKey:inventoryKeys.warehouses,
     queryFn:inventoryApi.warehouses,
@@ -65,6 +75,20 @@ function Detail({d}:{d:DeliveryResponse}){
     <PageHeader title={saleNumber?'Доставка · '+saleNumber :'Доставка'}
       description={saleNumber?'Заказ: '+saleNumber:'Сведения о заказе доступны по разрешению SALES_READ'}/>
     {notice&&<p role="status" className="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{notice}</p>}
+    {paymentRead&&<section aria-label="Оплата связанной продажи"
+      className={activePayment.isSuccess?
+        'rounded-2xl border border-slate-200 bg-white p-4 text-sm':
+        'rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950'}>
+      <p className="font-bold">{activePayment.isSuccess&&activePayment.data.status==='PAID'?
+        'Оплата по заказу зарегистрирована':paymentMissing?
+        'Заказ не оплачен — финансово не закрыт':activePayment.isPending?
+        'Проверяем оплату заказа…':'Не удалось подтвердить оплату заказа'}</p>
+      <p className="mt-1">Вручение или отправка товара не означают получение денег.</p>
+      {activePayment.isError&&!paymentMissing&&
+        <Button type="button" size="sm" variant="outline" className="mt-2"
+          onClick={()=>void activePayment.refetch()}>Повторить проверку оплаты</Button>}
+    </section>}
+
     <div className="flex flex-wrap items-center gap-3"><DeliveryStatusBadge status={d.status}/>
       {hasPermission('SALES_READ')&&<Link className="font-semibold text-indigo-700 underline"
         to={'/sales/'+encodeURIComponent(d.saleId)}>Открыть связанную продажу</Link>}

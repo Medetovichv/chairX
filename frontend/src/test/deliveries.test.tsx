@@ -62,6 +62,7 @@ interface Options {
   deliveries?:DeliveryResponse[]; afterCreateNetwork?:boolean; errorOnce?:Record<string,number>;
   saleType?:'CITY_DELIVERY'|'REGION_DELIVERY'|'SELF_PICKUP'; saleStatus?:'CONFIRMED'|'DRAFT';
   mutateBeforeAction?:boolean; afterDispatchNetwork?:boolean; afterDateNetwork?:boolean;
+  paymentActive?:boolean;
 }
 function mockBackend(options:Options={}){
   const data=[...(options.deliveries??[delivery()])];
@@ -87,6 +88,11 @@ function mockBackend(options:Options={}){
         (!f.get('to')||d.createdAt.slice(0,10)<=f.get('to')!)&&
         (!f.get('cityRegion')||d.cityRegion?.toLowerCase().includes(f.get('cityRegion')!.toLowerCase())));
       return json({page,size,total:rows.length,items:rows.slice(page*size,(page+1)*size).map(asSummary)});
+    }
+    if(path==='/api/payments/sale/'+SALE+'/active'&&method==='GET'){
+      return options.paymentActive?
+        json({id:'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',saleId:SALE,amount:'10000.00',status:'PAID',method:'CASH'}):
+        json({code:'PAYMENT_NOT_FOUND',message:'',details:{}},404);
     }
     if(path==='/api/deliveries/by-sale/'+SALE&&method==='GET'){
       const existing=data.find(d=>d.saleId===SALE);
@@ -313,6 +319,24 @@ describe('FLOW-24 direct delivery links and least-privilege reads',()=>{
   expect(requests(api,'/api/sales/'+SALE)).toHaveLength(1);
   expect(screen.getByRole('link',{name:'Открыть связанную продажу'}))
    .toHaveAttribute('href','/sales/'+SALE);
+ });
+ it('shows unpaid linked sale only with PAYMENTS_READ and never treats handover as payment',async()=>{
+  access.permissions.push('PAYMENTS_READ');
+  const api=mockBackend({deliveries:[delivery('DELIVERED')],paymentActive:false});
+  renderAt('/deliveries/'+ID);
+  const card=await screen.findByRole('region',{name:'Оплата связанной продажи'});
+  expect(await within(card).findByText(/Заказ не оплачен/)).toBeInTheDocument();
+  expect(card).toHaveTextContent(/Вручение или отправка товара не означают получение денег/);
+  expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/payments/sale/'+SALE+'/active'))).toBe(true);
+  expect(api.counts().creates).toBe(0);
+ });
+ it('shows active paid receipt only to authorized delivery viewers',async()=>{
+  access.permissions.push('PAYMENTS_READ');
+  const api=mockBackend({paymentActive:true});
+  renderAt('/deliveries/'+ID);
+  const card=await screen.findByRole('region',{name:'Оплата связанной продажи'});
+  expect(await within(card).findByText('Оплата по заказу зарегистрирована')).toBeInTheDocument();
+  expect(api.fetchMock.mock.calls.some(([url])=>String(url).includes('/api/payments/sale/'+SALE+'/active'))).toBe(true);
  });
  it('does not fetch sale details without SALES_READ',async()=>{
   access.permissions=['DELIVERIES_READ'];
