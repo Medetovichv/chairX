@@ -273,12 +273,12 @@ describe('SaleQuickActions RBAC',()=>{
     const second=view();
     const buttons=screen.getAllByRole('button',{name:'Подтвердить заказ'});
     expect(buttons).toHaveLength(2);
-    fireEvent.click(buttons[0]);
-    fireEvent.click(buttons[1]);
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(buttons[1]!);
     await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
     await waitFor(()=>expect(screen.getByText('Не удалось сохранить запись операции. Запрос не отправлен.')).toBeInTheDocument());
     expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
-    expect(buttons[1]).toBeDisabled();
+    expect(buttons[1]!).toBeDisabled();
     first.unmount();
     second.unmount();
     view();
