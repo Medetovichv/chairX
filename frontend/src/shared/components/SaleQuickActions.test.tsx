@@ -291,6 +291,28 @@ describe('SaleQuickActions RBAC',()=>{
     expect(post).toHaveBeenCalledTimes(1);
   });
 
+  it('sends only one POST when two mounted panels race to confirm the same sale',async()=>{
+    permissions=['SALES_DRAFT_MANAGE'];
+    const key='chairx:sale:quick-pending:v1:staff:sale';
+    vi.spyOn(salesApi,'get').mockResolvedValue({...sale} as SaleResponse);
+    const post=vi.spyOn(salesApi,'confirm').mockImplementation(async()=>new Promise<SaleResponse>(()=>{}));
+    const first=view();
+    const second=view();
+    const buttons=screen.getAllByRole('button',{name:'Подтвердить заказ'});
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]!);
+    fireEvent.click(buttons[1]!);
+    await waitFor(()=>expect(post).toHaveBeenCalledTimes(1));
+    await waitFor(()=>expect(screen.getByText('Не удалось сохранить запись операции. Запрос не отправлен.')).toBeInTheDocument());
+    expect(sessionStorage.getItem(key)).toBe(JSON.stringify('confirm'));
+    expect(buttons[1]!).toBeDisabled();
+    first.unmount();
+    second.unmount();
+    view();
+    expect(screen.getByRole('button',{name:'Подтвердить заказ'})).toBeDisabled();
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
   it('fails closed on corrupted action journal',()=>{
     permissions=['SALES_DRAFT_MANAGE','SALES_CANCEL'];
     sessionStorage.setItem('chairx:sale:quick-pending:v1:staff:sale','{corrupt');
