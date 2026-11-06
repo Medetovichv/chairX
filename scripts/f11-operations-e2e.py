@@ -9,6 +9,9 @@ proxy; SQL is READ-ONLY for postcondition assertions.
 import datetime as dt
 import importlib.util
 import os
+import json
+import urllib.error
+import urllib.request
 from pathlib import Path
 import uuid
 
@@ -187,6 +190,35 @@ def main():
     sid=sale["id"]
     assert sale["status"]=="CONFIRMED"
     assert int(sale["total"])==25500
+    # Anonymous reads must be rejected without leaking the customer's sale.
+    anonymous=urllib.request.Request(BASE+f"/api/sales/{sid}",
+                                     headers={"Accept":"application/json"})
+    try:
+        with urllib.request.urlopen(anonymous,timeout=15) as response:
+            raise AssertionError(f"Unauthenticated sale detail returned {response.status}")
+    except urllib.error.HTTPError as exc:
+        assert exc.code in (401,403),f"Unauthenticated sale HTTP {exc.code}"
+        error_body=exc.read().decode("utf-8",errors="replace")
+        assert sale["saleNumber"] not in error_body
+        assert "Issue32 Test Customer" not in error_body
+        assert "+996555112233" not in error_body
+
+    # A Basic-authenticated mutation without CSRF token is also denied;
+    # a valid admin session alone must never be enough to cancel a sale.
+    csrf_missing=urllib.request.Request(
+        BASE+f"/api/sales/{sid}/cancel-with-reason",
+        data=json.dumps({"reason":"CUSTOMER_CHANGED_MIND","comment":None}).encode(),
+        headers={"Authorization":admin.auth,"Accept":"application/json",
+                 "Content-Type":"application/json"},method="POST")
+    try:
+        with admin.opener.open(csrf_missing,timeout=15) as response:
+            raise AssertionError(f"Sale cancellation without CSRF returned {response.status}")
+    except urllib.error.HTTPError as exc:
+        assert exc.code==403,f"Missing-CSRF cancellation returned HTTP {exc.code}"
+
+    db_number("SELECT count(*) FROM sales WHERE id='"+sid+"' AND cancellation_reason IS NOT NULL",0)
+    db_number("SELECT count(*) FROM finance_movements",2)
+    assert admin.must("GET",f"/api/sales/{sid}",None,200)["status"]=="CONFIRMED"
     # Real authenticated HTTP: reason is mandatory, even for a confirmed order.
     # Reject BEFORE any sale/inventory/finance write, then continue the sale.
     invalid_cancel,invalid_body=admin.request(
