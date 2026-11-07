@@ -33,13 +33,6 @@ export interface ExpenseResponse{
  id:string;category:ExpenseCategory;amount:Money;paymentMethod:FinanceAccount;
  expenseDate:string;comment:string|null;createdBy:string;createdAt:string;
 }
-export interface SettlementInput{
- idempotencyKey:string;direction:'IN'|'OUT';method:PaymentMethod;amount:string;reference:string|null;
-}
-export interface SettlementResponse{
- id:string;exchangeId:string;direction:'IN'|'OUT';method:PaymentMethod;amount:Money;
- reference:string|null;idempotencyKey:string;createdBy:string;createdAt:string;
-}
 export interface TransferInput{transferId:string;from:FinanceAccount;to:FinanceAccount;amount:string}
 export type TransferResponse=TransferInput;
 export interface OpeningInput{account:FinanceAccount;amount:string}
