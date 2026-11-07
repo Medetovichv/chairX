@@ -268,17 +268,9 @@ class RefundApiTests {
                 SELECT id, business_date, account_code, amount, created_at
                 FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
                 """,paymentId);
-        var authorized = user("finance-closing-operator").authorities(
-                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
-                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
         UUID closeId=null;
         try {
-            String previewJson=mvc.perform(get("/api/finance/closings/"+yesterday)
-                        .with(authorized))
-                    .andReturn().getResponse().getContentAsString();
-            // A missing yesterday closing is expected; obtain the authoritative
-            // balance preview instead of inventing the physical observations.
-            org.assertj.core.api.Assertions.assertThat(previewJson).isNotNull();
+            // Preview calculates the historical expected balances; do not invent observations.
             String preview=mvc.perform(get("/api/finance/closings/"+yesterday+"/preview")
                     .with(user("finance-closing-operator").authorities(
                         new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
