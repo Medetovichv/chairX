@@ -12,7 +12,7 @@ from playwright.sync_api import sync_playwright
 BASE="http://127.0.0.1:5173"
 ART=Path("artifacts/studio-populated")
 ART.mkdir(parents=True,exist_ok=True)
-WIDTHS=(375,768,1440)
+WIDTHS=(320,375,768,1440)
 # The F11 operation journey has already created sales, deliveries, stock,
 # a completed purchase, customer, return/refund and a closed-day report.
 ROUTES=[
@@ -98,6 +98,20 @@ def main():
                     results.append({"route":route,"width":width,**result})
                     slug=route.split("?")[0].strip("/") or "home"
                     page.screenshot(path=str(ART/f"{slug}-{width}.png"),full_page=True)
+            # Real browser history must restore both URL and the loaded screen,
+            # not only React's synthetic popstate navigation helper.
+            goto(page, "/sales?operational=false")
+            page.get_by_role("heading", name="Продажи", exact=True).first.wait_for(timeout=30000)
+            goto(page, "/deliveries?operational=false")
+            page.get_by_role("heading", name="Доставки", exact=True).first.wait_for(timeout=30000)
+            page.go_back(wait_until="domcontentloaded")
+            assert page.url.endswith("/sales?operational=false"), (
+                f"Back did not restore sales route: {page.url}")
+            page.get_by_role("heading", name="Продажи", exact=True).first.wait_for(timeout=30000)
+            page.go_forward(wait_until="domcontentloaded")
+            assert page.url.endswith("/deliveries?operational=false"), (
+                f"Forward did not restore delivery route: {page.url}")
+            page.get_by_role("heading", name="Доставки", exact=True).first.wait_for(timeout=30000)
             # Sales is a two-mode operational workspace; confirm the real Kanban
             # builds and remains usable at mobile and desktop widths.
             goto(page, "/sales?operational=true")
@@ -109,7 +123,7 @@ def main():
             assert board.get_by_text("DELIVERED",exact=True).count()==0, (
                 "Untranslated delivery status leaked into sales Kanban"
             )
-            for width in (375,1440):
+            for width in (320,375,1440):
                 page.set_viewport_size({"width":width,"height":900})
                 page.wait_for_timeout(180)
                 metrics=measure(page)
@@ -151,9 +165,9 @@ def main():
                     page.set_viewport_size({"width":width,"height":900})
                     page.wait_for_timeout(120)
                     assert dialog.is_visible(),f"{name} drawer hidden at {width}"
-                    if width==375:
+                    if width in (320,375):
                         box=dialog.bounding_box()
-                        assert box and box["x"]>=-1 and box["x"]+box["width"]<=376,(
+                        assert box and box["x"]>=-1 and box["x"]+box["width"]<=width+1,(
                             f"{name} drawer beyond mobile viewport: {box}")
                     page.screenshot(path=str(ART/f"{name}-drawer-{width}.png"),full_page=False)
                 page.keyboard.press("Escape")
@@ -161,9 +175,10 @@ def main():
             (ART/"results.json").write_text(json.dumps({
                 "checks":len(results),"screens":len(ROUTES),
                 "widths":WIDTHS,"populated":True,"results":results,
-                "drawers":"sale+delivery verified at 375 and 1440"
+                "drawers":"sale+delivery verified at 320, 375 and 1440",
+                "browserHistory":"Back and Forward route restoration verified"
             },ensure_ascii=False,indent=2),encoding="utf-8")
-            print("Populated Studio acceptance passed: 24 viewport checks + 4 drawer screenshots")
+            print(f"Populated Studio acceptance passed: {len(results)} viewport checks + 6 drawer screenshots + Back/Forward")
         finally:
             context.close()
             browser.close()
