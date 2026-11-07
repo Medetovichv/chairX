@@ -1,4 +1,4 @@
-import type { Money,FinanceAccount,PaymentChannel,PaymentMethod,RefundInput,ExpenseInput,SettlementInput,TransferInput,OpeningInput } from './types';
+import type { Money,FinanceAccount,PaymentChannel,PaymentMethod,RefundInput,ExpenseInput,TransferInput,OpeningInput } from './types';
 import { bishkekToday,validLocalDate,validUUID } from '../deliveries/validation';
 export {bishkekToday,validLocalDate,validUUID};
 export const positiveSom=(v:string)=>/^[1-9][0-9]{0,16}$/.test(v.trim());
@@ -106,12 +106,6 @@ export function validateExpense(p:ExpenseInput):string|null{
  if(!validUUID(p.idempotencyKey)||!positiveSom(p.amount))return 'Введите положительную целую сумму сомов.';
  if(!validLocalDate(p.expenseDate))return 'Некорректная бизнес-дата расхода.';
  if((p.comment?.length??0)>1000)return 'Комментарий не более 1000 символов.';
- return null;
-}
-export function validateSettlement(p:SettlementInput):string|null{
- if(!validUUID(p.idempotencyKey)||!positiveSom(p.amount))return 'Сумма доплаты/возврата должна быть целыми положительными сомами.';
- if(!['IN','OUT'].includes(p.direction)||!['CASH','TRANSFER'].includes(p.method))return 'Недопустимый способ или направление расчёта.';
- if((p.reference?.length??0)>200)return 'Номер операции: максимум 200 символов.';
  return null;
 }
 export function validateTransfer(p:TransferInput):string|null{

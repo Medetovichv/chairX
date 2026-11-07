@@ -1,7 +1,7 @@
 import { apiClient } from '../../shared/api/client';
 import type {
  FinanceAccountResponse,CashFlowSummary,PaymentResponse,PaymentInput,RefundInput,RefundResponse,
- ExpenseInput,ExpenseResponse,SettlementInput,SettlementResponse,TransferInput,TransferResponse,OpeningInput
+ ExpenseInput,ExpenseResponse,TransferInput,TransferResponse,OpeningInput
 } from './types';
 const enc=(v:string)=>encodeURIComponent(v);
 const period=(from:string,to:string)=>new URLSearchParams({from,to}).toString();
@@ -45,5 +45,4 @@ export const financeApi={
  refunds:(saleId:string):Promise<RefundResponse[]>=>apiClient.get('/api/refunds/sale/'+enc(saleId)),
  refund:(id:string):Promise<RefundResponse>=>apiClient.get('/api/refunds/'+enc(id)),
  createRefund:(payload:RefundInput):Promise<RefundResponse>=>apiClient.post('/api/refunds',payload),
- settle:(id:string,payload:SettlementInput):Promise<SettlementResponse>=>apiClient.post('/api/exchanges/'+enc(id)+'/settlements',payload),
 };
