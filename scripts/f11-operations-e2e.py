@@ -310,6 +310,17 @@ def main():
     db_number("SELECT count(*) FROM finance_movements WHERE source_type='PAYMENT' AND source_id='"+payment_id+"'",1)
     db_number("SELECT count(*) FROM finance_movements WHERE source_type='REFUND' AND source_id='"+refund["id"]+"'",1)
 
+    # Reconcile posted gross sale, actual refund, and net without altering books.
+    payment_posted = int(sql(
+        "SELECT amount::bigint FROM finance_movements WHERE source_type='PAYMENT' AND source_id='" + payment_id + "'"))
+    refund_posted = int(sql(
+        "SELECT amount::bigint FROM finance_movements WHERE source_type='REFUND' AND source_id='" + refund["id"] + "'"))
+    assert payment_posted == 25500
+    assert refund_posted == -8500
+    assert payment_posted + refund_posted == 17000
+    assert int(sql("SELECT count(*) FROM finance_movements WHERE source_type IN ('PAYMENT','REFUND') AND account_code='BANK'")) == 2
+    assert int(sql("SELECT count(*) FROM finance_movements WHERE source_type IN ('PAYMENT','REFUND') AND account_code='CASH'")) == 0
+
     # Reader with ONLY CATALOG_READ cannot read finance or modify sale.
     outsider.must("GET","/api/finance/closings/"+DAY+"/preview",None,403)
     blocked,_=outsider.request("POST",f"/api/deliveries/{did}/dispatch",{})
