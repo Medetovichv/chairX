@@ -397,6 +397,21 @@ def main():
     assert int(sql("SELECT count(*) FROM finance_movements WHERE source_type IN ('PAYMENT','REFUND') AND account_code='BANK'")) == 2
     assert int(sql("SELECT count(*) FROM finance_movements WHERE source_type IN ('PAYMENT','REFUND') AND account_code='CASH'")) == 0
 
+    # Compare economic reporting with the signed BANK ledger after one return.
+    tomorrow=(dt.date.fromisoformat(DAY)+dt.timedelta(days=1)).isoformat()
+    report=admin.must("GET",f"/api/finance/profitability?from={DAY}&to={tomorrow}",None,200)
+    assert int(report["grossRevenue"])==25500,report
+    assert int(report["returnedRevenue"])==8500,report
+    assert int(report["refundOnlyDiscounts"])==0,report
+    assert int(report["netRevenue"])==17000,report
+    assert int(report["goodsRevenue"])==25500 and int(report["deliveryRevenue"])==0,report
+    assert any(x["saleId"]==sid and int(x["recognizedRevenue"])==25500 for x in report["sales"]),report
+    ledger=admin.must("GET",f"/api/finance/ledger?from={DAY}&to={tomorrow}&account=BANK",None,200)
+    pays=[x for x in ledger["items"] if x["sourceType"]=="PAYMENT" and x["sourceId"]==payment_id]
+    returns=[x for x in ledger["items"] if x["sourceType"]=="REFUND" and x["sourceId"]==refund["id"]]
+    assert len(pays)==len(returns)==1,ledger
+    assert int(pays[0]["amount"])==25500 and int(returns[0]["amount"])==-8500,ledger
+
     # Reader with ONLY CATALOG_READ cannot read finance or modify sale.
     outsider.must("GET","/api/finance/closings/"+DAY+"/preview",None,403)
     blocked,_=outsider.request("POST",f"/api/deliveries/{did}/dispatch",{})
