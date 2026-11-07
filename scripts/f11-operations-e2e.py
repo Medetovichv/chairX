@@ -183,14 +183,20 @@ def main():
     pickup_draft=admin.must("POST","/api/sales/drafts",{
         "idempotencyKey":uuid4(),"customerId":customer["id"],
         "fulfillmentType":"SELF_PICKUP",
-        "items":[{"productVariantId":variant_id,"warehouseId":home,
-                  "quantity":1,"unitSalePrice":8500}],
-        "comment":"disposable unpaid pickup cancellation"},201)
+        "items":[
+            {"productVariantId":variant_id,"warehouseId":home,
+             "quantity":1,"unitSalePrice":8500},
+            {"productVariantId":variant_id,"warehouseId":office,
+             "quantity":1,"unitSalePrice":8500},
+        ],
+        "comment":"disposable two-warehouse unpaid pickup cancellation"},201)
     pickup_id=pickup_draft["id"]
     assert pickup_draft["status"]=="DRAFT"
     assert admin.must("POST",f"/api/sales/{pickup_id}/confirm",None,200)["status"]=="CONFIRMED"
     reserved=admin.must("GET",f"/api/inventory/balances/{home}/{variant_id}",None,200)
     assert reserved["reserved"]==1 and reserved["available"]==3,reserved
+    office_reserved=admin.must("GET",f"/api/inventory/balances/{office}/{variant_id}",None,200)
+    assert office_reserved["reserved"]==1 and office_reserved["available"]==1,office_reserved
     reason={"reason":"CUSTOMER_CHANGED_MIND","comment":"customer cancelled before pickup"}
     cancelled=admin.must("POST",f"/api/sales/{pickup_id}/cancel-with-reason",reason,200)
     assert cancelled["status"]=="CANCELLED"
@@ -205,6 +211,13 @@ def main():
     money(admin,20000,100000,2)
     db_number("SELECT count(*) FROM payments WHERE sale_id='"+pickup_id+"'",0)
     db_number("SELECT count(*) FROM finance_movements WHERE source_id='"+pickup_id+"'",0)
+    db_number("SELECT count(*) FROM audit_entries WHERE entity_type='SALE' AND entity_id='"+pickup_id+"' AND action='CANCELLED'",1)
+    db_number("SELECT count(*) FROM audit_entries WHERE entity_type='SALE' AND entity_id='"+pickup_id+"' AND action='CANCELLATION_REASON_RECORDED'",1)
+    db_number("SELECT count(*) FROM stock_movements WHERE source_id='"+pickup_id+"'",0)
+    home_released=admin.must("GET",f"/api/inventory/balances/{home}/{variant_id}",None,200)
+    office_released=admin.must("GET",f"/api/inventory/balances/{office}/{variant_id}",None,200)
+    assert home_released["reserved"]==0 and office_released["reserved"]==0,(
+        home_released,office_released)
 
     # One sale with two warehouses, real BANK settlement, physical dispatch.
     sale=admin.must("POST","/api/sales",{
