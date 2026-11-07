@@ -18,8 +18,9 @@ function display(customer:Customer):string {
   return customer.fullName?.trim() || customer.phone || customer.whatsappPhone ||
     (customer.instagramUsername ? '@'+customer.instagramUsername : '') || 'Клиент без имени';
 }
-export function CustomerPicker({value,onChange,disabled=false}:{
-  value:string|null;onChange:(id:string|null)=>void;disabled?:boolean;
+export function CustomerPicker({value,onChange,onPhoneDraftChange,disabled=false}:{
+  value:string|null;onChange:(id:string|null)=>void;
+  onPhoneDraftChange?:(phone:string)=>void;disabled?:boolean;
 }) {
   const {hasPermission}=useAuth();
   const queryClient=useQueryClient();
@@ -134,7 +135,7 @@ export function CustomerPicker({value,onChange,disabled=false}:{
         <label className="min-w-[13rem] flex-1 space-y-1 text-sm font-semibold">Номер клиента
           <Input type="tel" aria-label="Номер клиента для продажи" value={phone} maxLength={50}
             placeholder="+996 700 123456" disabled={disabled||phoneBusy||creationUncertain}
-            onChange={e=>{setPhone(e.target.value);setPhoneError('');}}/>
+            onChange={e=>{setPhone(e.target.value);setPhoneError('');onPhoneDraftChange?.(e.target.value);}}/>
         </label>
         <Button type="button" variant="outline" disabled={disabled||phoneBusy||creationUncertain||!phone.trim()}
           onClick={()=>void resolvePhone()}>

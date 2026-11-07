@@ -490,6 +490,26 @@ describe('F07 creation and idempotent drafts',()=>{
     expect(within(form).queryByRole('textbox',{name:'Адрес доставки при создании продажи'})).not.toBeInTheDocument();
   });
 
+  it('prefills delivery phone from typed customer lookup without creating a customer',async()=>{
+    granted.permissions.push('DELIVERIES_CREATE');
+    const api=mockBackend({sales:[]});
+    renderAt('/sales/new');
+    const form=await screen.findByRole('form',{name:'Новый черновик продажи'});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Номер клиента для продажи'}),
+      {target:{value:'+996 700 999000'}});
+    fireEvent.change(within(form).getByRole('combobox',{name:'Способ получения'}),
+      {target:{value:'CITY_DELIVERY'}});
+    expect(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'}))
+      .toHaveValue('+996 700 999000');
+    expect(api.fetchMock.mock.calls.some(([url])=>String(url)==='/api/customers/resolve-phone')).toBe(false);
+    fireEvent.change(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'}),
+      {target:{value:'+996 700 222333'}});
+    fireEvent.change(within(form).getByRole('textbox',{name:'Номер клиента для продажи'}),
+      {target:{value:'+996 700 111222'}});
+    expect(within(form).getByRole('textbox',{name:'Телефон доставки при создании продажи'}))
+      .toHaveValue('+996 700 222333');
+  });
+
   it('creates empty DRAFT with a real idempotency key and no inventory reservation',async()=>{
     const api=mockBackend({sales:[]});
     renderAt('/sales/new');
