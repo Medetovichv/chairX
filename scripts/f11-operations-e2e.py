@@ -315,6 +315,12 @@ def main():
     admin.must("POST",f"/api/admin/users/{staff_user['id']}/roles",{
         "roleId":"00000000-0000-0000-0000-000000000003"},204)
     employee=API(employee_username,employee_password)
+    # QA-128: an actual second signed-in employee may read a sale, but
+    # must never recover another operator's cancellation operation receipt.
+    employee.must("GET",f"/api/sales/{pickup_id}",None,200)
+    employee.must("GET",f"/api/sales/{pickup_id}/operations/{operation_id}",None,404)
+    owner_receipt=admin.must("GET",f"/api/sales/{pickup_id}/operations/{operation_id}",None,200)
+    assert owner_receipt["status"]=="COMMITTED" and owner_receipt["sale"]["status"]=="CANCELLED"
     current_user=employee.must("GET","/api/auth/me",None,200)
     for permission in ("PAYMENTS_READ","PAYMENTS_CREATE","EXPENSES_CREATE","DELIVERIES_CREATE"):
         assert permission in current_user["permissions"],permission
