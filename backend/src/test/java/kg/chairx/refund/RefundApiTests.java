@@ -30,6 +30,7 @@ import java.util.UUID;
 
 import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -269,6 +270,19 @@ class RefundApiTests {
                 FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
                 """,paymentId);
         UUID closeId=null;
+        UUID closingActorId=UUID.randomUUID();
+        String closingActor="qa128_closer_"+closingActorId.toString().replace("-","");
+        String closingPassword="integration-qa128-password";
+        jdbc.update("""
+                INSERT INTO app_users(id,username,password_hash,display_name,active)
+                VALUES(?,?,?,'QA-128 closing administrator',TRUE)
+                """,closingActorId,closingActor,
+                org.springframework.security.crypto.factory.PasswordEncoderFactories
+                    .createDelegatingPasswordEncoder().encode(closingPassword));
+        jdbc.update("""
+                INSERT INTO security_user_roles(user_id,role_id)
+                VALUES(?,?)
+                """,closingActorId,UUID.fromString("00000000-0000-0000-0000-000000000001"));
         var openingMovementIds=new java.util.ArrayList<UUID>();
         try {
             // FundedFinanceExtension seeds the accounts with test money, but
@@ -297,8 +311,7 @@ class RefundApiTests {
             }
             // Preview calculates the historical expected balances; do not invent observations.
             String preview=mvc.perform(get("/api/finance/closings/"+yesterday+"/preview")
-                    .with(user("finance-closing-operator").authorities(
-                        new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                    .with(httpBasic(closingActor,closingPassword)))
                     .andExpect(status().isOk())
                     .andReturn().getResponse().getContentAsString();
             var expected=mapper.readTree(preview);
@@ -306,8 +319,7 @@ class RefundApiTests {
                     "actualCash",expected.get("expectedCash").decimalValue(),
                     "actualBank",expected.get("expectedBank").decimalValue()));
             String created=mvc.perform(post("/api/finance/closings/"+yesterday)
-                    .with(csrf()).with(user("finance-closing-operator").authorities(
-                        new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE")))
+                    .with(csrf()).with(httpBasic(closingActor,closingPassword))
                     .contentType(MediaType.APPLICATION_JSON).content(closeBody))
                     .andExpect(status().isCreated())
                     .andReturn().getResponse().getContentAsString();
@@ -369,6 +381,8 @@ class RefundApiTests {
                 jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closeId);
             }
             jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?",yesterday);
+            jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",closingActorId);
+            jdbc.update("DELETE FROM app_users WHERE id=?",closingActorId);
             for(UUID movementId:openingMovementIds) {
                 jdbc.update("DELETE FROM finance_movements WHERE id=?",movementId);
             }
