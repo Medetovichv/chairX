@@ -34,3 +34,30 @@
 5. Close #128 only after its financially sensitive live HTTP and manual acceptance is supported; close #96 only after every matrix row has an explicit signoff. Never substitute 'CI is green' for this evidence.
 
 This register is a reproducible inventory of **tested automation vs outstanding release acceptance**, not a claim that every operational scenario was personally executed.
+
+## Verified `main` CI checkpoint — 2026-11-07
+
+- **Exact tested revision:** `b54031bb88a5e6165fa419dd32d16d890e3dc63c` (merged #251; includes #250).
+- **Push F11 run:** [42320004624](https://github.com/Medetovichv/chairX/actions/runs/42320004624) — **completed / success**, six of six jobs successful:
+  1. Java 25 full Testcontainers and migration upgrade.
+  2. Purchase → receipts → sale → delivery → refund → Chromium closing.
+  3. Two closed dates / late expense / RBAC / audit PostgreSQL.
+  4. V40 pg_dump → fresh PG17 pg_restore → current Flyway fingerprints.
+  5. Node 24 F11 frontend lint, TypeScript, Vitest and build.
+  6. Chromium → Vite → Spring → disposable PostgreSQL.
+- **Push frontend verification:** [42320004570](https://github.com/Medetovichv/chairX/actions/runs/42320004570) — **completed / success** on the same revision.
+- The first section of this document remains **historical evidence** for `9088c7c`; this checkpoint supersedes the SHA for purposes of release-gate tracking, **not** for manual acceptance evidence.
+
+### Outstanding manual signoff register (NOT EXECUTED)
+
+Every item below needs reviewer, staging environment/data snapshot, role, viewport (if UI), expected and observed outcomes, reproducible trace/screenshot/log, and defect links. CI success alone does not check these boxes.
+
+| Area | Required hands-on scenario | Expected evidence | Status |
+|---|---|---|---|
+| Finance #128 | Seed pickup, city and regional deliveries; paid, unpaid and partial return/defect; exercise employee/manager and concurrent payment/cancel; reconcile cash/bank, gross/refund/net against primary journal | Before/after balances, immutable historical snapshots, exact sale/refund and report totals, role/HTTP logs | **PENDING** |
+| UI #96 | Open populated sales, delivery, stock and finance screens at 320/375/768px; keyboard and Back/Forward; test interruption/replay and unsaved changes | Screenshots/browser trace plus observed focus, overflow and state persistence | **PENDING** |
+| Custom roles/security #96 | Custom-role matrix, 401/403/CSRF and inspect raw JSON for financial/private fields | Exact request/response per identity, no disallowed fields or mutations | **PENDING** |
+| Recovery #96 | Restore **representative sanitized staging backup** into isolated PostgreSQL, verify row counts/financial invariants and Flyway version, bring up application | Backup identity/checksum, restore commands/logs, post-restore reconciliation and smoke results | **PENDING** |
+| Operations #96 | Cross-role warehouse purchase/FIFO, regional dispatch, daily closing and correction handoffs with populated synthetic records | Actor and dated scenario logs, expected versus actual, linked defects | **PENDING** |
+
+**Release policy:** Do not claim #96 or #128 closed, or production-ready, until all remaining manual evidence is recorded and final CI is revalidated on the eventual release commit. Do not use production data for destructive tests.
