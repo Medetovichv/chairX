@@ -250,6 +250,112 @@ class RefundApiTests {
     }
 
     @Test
+    void realAuthorizedPriorDayClosingThenCurrentRefundPreservesOriginalSnapshot() throws Exception {
+        // Unlike a hand-inserted closing row, this goes through the actual
+        // HTTP security boundary, closing policy, snapshot and audit logic.
+        var sale = createPaidSale();
+        var yesterday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).minusDays(1);
+        var today = yesterday.plusDays(1);
+        var paymentId = jdbc.queryForObject(
+                "SELECT id FROM payments WHERE sale_id=? AND status='PAID'", UUID.class, sale.id());
+        int dated = jdbc.update("""
+                UPDATE finance_movements SET business_date=?,
+                   created_at=(?::date + TIME '12:00') AT TIME ZONE 'Asia/Bishkek'
+                WHERE source_type='PAYMENT' AND source_id=?
+                """, yesterday, yesterday, paymentId);
+        org.assertj.core.api.Assertions.assertThat(dated).isEqualTo(1);
+        var originalPaymentJournal = jdbc.queryForMap("""
+                SELECT id, business_date, account_code, amount, created_at
+                FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                """,paymentId);
+        var authorized = user("finance-closing-operator").authorities(
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE"),
+                new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"));
+        UUID closeId=null;
+        try {
+            String previewJson=mvc.perform(get("/api/finance/closings/"+yesterday)
+                        .with(authorized))
+                    .andReturn().getResponse().getContentAsString();
+            // A missing yesterday closing is expected; obtain the authoritative
+            // balance preview instead of inventing the physical observations.
+            org.assertj.core.api.Assertions.assertThat(previewJson).isNotNull();
+            String preview=mvc.perform(get("/api/finance/closings/"+yesterday+"/preview")
+                    .with(user("finance-closing-operator").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_READ"))))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            var expected=mapper.readTree(preview);
+            String closeBody=mapper.writeValueAsString(java.util.Map.of(
+                    "actualCash",expected.get("expectedCash").decimalValue(),
+                    "actualBank",expected.get("expectedBank").decimalValue()));
+            String created=mvc.perform(post("/api/finance/closings/"+yesterday)
+                    .with(csrf()).with(user("finance-closing-operator").authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority("FINANCE_CLOSE")))
+                    .contentType(MediaType.APPLICATION_JSON).content(closeBody))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            closeId=UUID.fromString(mapper.readTree(created).get("id").asText());
+            var frozen=jdbc.queryForList("""
+                    SELECT account_code,expected_balance,actual_balance
+                    FROM finance_daily_closing_accounts WHERE closing_id=?
+                    ORDER BY account_code
+                    """,closeId);
+            var frozenHeader=jdbc.queryForMap("""
+                    SELECT id,business_date,created_by,version,created_at
+                    FROM finance_daily_closings WHERE id=?
+                    """,closeId);
+            BigDecimal bankBefore=jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class);
+            var request=new CreateRefundRequest(sale.id(),null,new BigDecimal("2500"),
+                    RefundMethod.TRANSFER,"Возврат после подтверждённого закрытия",null,null,
+                    UUID.randomUUID());
+            String payload=mapper.writeValueAsString(request);
+            String first=mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            UUID refundId=UUID.fromString(mapper.readTree(first).get("id").asText());
+            String replay=mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            org.assertj.core.api.Assertions.assertThat(mapper.readTree(replay).get("id").asText())
+                    .isEqualTo(refundId.toString());
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class))
+                    .isEqualByComparingTo(bankBefore.subtract(new BigDecimal("2500")));
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                      AND business_date=? AND account_code='BANK' AND amount=-2500
+                    """,Long.class,refundId,today)).isEqualTo(1L);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForMap("""
+                    SELECT id,business_date,account_code,amount,created_at
+                    FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                    """,paymentId)).isEqualTo(originalPaymentJournal);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForList("""
+                    SELECT account_code,expected_balance,actual_balance
+                    FROM finance_daily_closing_accounts WHERE closing_id=?
+                    ORDER BY account_code
+                    """,closeId)).isEqualTo(frozen);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForMap("""
+                    SELECT id,business_date,created_by,version,created_at
+                    FROM finance_daily_closings WHERE id=?
+                    """,closeId)).isEqualTo(frozenHeader);
+        } finally {
+            if(closeId!=null) {
+                jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_sales WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_sales_snapshots WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_adjustments WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closeId);
+            }
+            jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?",yesterday);
+        }
+    }
+
+    @Test
     void unauthorizedOrCsrfMissingRefundCannotChangeBankOrDocuments() throws Exception {
         var sale = createPaidSale();
         BigDecimal bankBefore = jdbc.queryForObject(
