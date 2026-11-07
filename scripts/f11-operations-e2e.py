@@ -198,19 +198,47 @@ def main():
     office_reserved=admin.must("GET",f"/api/inventory/balances/{office}/{variant_id}",None,200)
     assert office_reserved["reserved"]==1 and office_reserved["available"]==1,office_reserved
     reason={"reason":"CUSTOMER_CHANGED_MIND","comment":"customer cancelled before pickup"}
-    cancelled=admin.must("POST",f"/api/sales/{pickup_id}/cancel-with-reason",reason,200)
-    assert cancelled["status"]=="CANCELLED"
+    operation_id=uuid4()
+    # Real HTTP request with explicit durable operation identity. Mimics
+    # re-sending an already committed request after a lost network response.
+    def cancel_operation(op_id,payload):
+        headers={"Authorization":admin.auth,"Accept":"application/json",
+                 "Content-Type":"application/json",
+                 admin.csrf_header:admin.csrf_token,
+                 "X-Sale-Operation-Id":op_id}
+        request=urllib.request.Request(
+            BASE+f"/api/sales/{pickup_id}/cancel-with-reason",
+            data=json.dumps(payload).encode(),headers=headers,method="POST")
+        try:
+            response=admin.opener.open(request,timeout=15)
+        except urllib.error.HTTPError as error:
+            response=error
+        with response:
+            raw=response.read().decode()
+            return response.status,json.loads(raw) if raw else {}
+    first_status,cancelled=cancel_operation(operation_id,reason)
+    assert first_status==200 and cancelled["status"]=="CANCELLED",(first_status,cancelled)
+    replay_status,replayed=cancel_operation(operation_id,reason)
+    assert replay_status==200 and replayed==cancelled,(
+        "Committed cancellation response must survive replay",replay_status,replayed)
+    recovered=admin.must("GET",f"/api/sales/{pickup_id}/operations/{operation_id}",None,200)
+    assert recovered["status"]=="COMMITTED" and recovered["action"]=="cancel",recovered
+    assert recovered["sale"]["id"]==pickup_id and recovered["sale"]["status"]=="CANCELLED",recovered
+    changed=dict(reason,comment="tampered replay comment")
+    conflict_status,_=cancel_operation(operation_id,changed)
+    assert conflict_status==409,("Same operation ID accepted changed reason/comment",conflict_status)
+    distinct_status,_=cancel_operation(uuid4(),reason)
+    assert 400<=distinct_status<500,("Different operation repeated cancellation",distinct_status)
     details=admin.must("GET",f"/api/sales/{pickup_id}/cancellation-details",None,200)
     assert details["reason"]=="CUSTOMER_CHANGED_MIND",details
     assert details["comment"]=="customer cancelled before pickup",details
     assert details["cancelledBy"]=="admin" and details["cancelledAt"],details
-    rejected_replay,_=admin.request("POST",f"/api/sales/{pickup_id}/cancel-with-reason",reason)
-    assert 400<=rejected_replay<500,("Duplicate pickup cancel accepted",rejected_replay)
     stock(admin,home,variant_id,4)
     stock(admin,office,variant_id,2)
     money(admin,20000,100000,2)
     db_number("SELECT count(*) FROM payments WHERE sale_id='"+pickup_id+"'",0)
     db_number("SELECT count(*) FROM finance_movements WHERE source_id='"+pickup_id+"'",0)
+    db_number("SELECT count(*) FROM sale_operation_receipts WHERE sale_id='"+pickup_id+"' AND action='cancel' AND response_json IS NOT NULL",1)
     db_number("SELECT count(*) FROM audit_entries WHERE entity_type='SALE' AND entity_id='"+pickup_id+"' AND action='CANCELLED'",1)
     db_number("SELECT count(*) FROM audit_entries WHERE entity_type='SALE' AND entity_id='"+pickup_id+"' AND action='CANCELLATION_REASON_RECORDED'",1)
     db_number("SELECT count(*) FROM stock_movements WHERE source_id='"+pickup_id+"'",0)
