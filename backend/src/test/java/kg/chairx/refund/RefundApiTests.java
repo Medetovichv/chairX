@@ -269,7 +269,32 @@ class RefundApiTests {
                 FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
                 """,paymentId);
         UUID closeId=null;
+        var openingMovementIds=new java.util.ArrayList<UUID>();
         try {
+            // FundedFinanceExtension seeds the accounts with test money, but
+            // the historical close correctly requires every som to reconcile
+            // to a real journal entry. Reconcile only this disposable fixture.
+            for(String account:java.util.List.of("CASH","BANK")) {
+                BigDecimal actual=jdbc.queryForObject(
+                        "SELECT balance FROM finance_accounts WHERE code=?",
+                        BigDecimal.class,account);
+                BigDecimal ledger=jdbc.queryForObject("""
+                        SELECT COALESCE(SUM(amount),0) FROM finance_movements
+                        WHERE account_code=?
+                        """,BigDecimal.class,account);
+                BigDecimal unjournaled=actual.subtract(ledger);
+                if(unjournaled.signum()!=0) {
+                    UUID movementId=UUID.randomUUID();
+                    openingMovementIds.add(movementId);
+                    jdbc.update("""
+                            INSERT INTO finance_movements(
+                                id,account_code,amount,movement_type,source_type,
+                                source_id,created_by,business_date,business_date_source)
+                            VALUES (?,? ,?,'OPENING_BALANCE','OPENING_BALANCE',?,
+                                'qa128-fixture',?,'POSTING_DATE')
+                            """,movementId,account,unjournaled,UUID.randomUUID(),yesterday);
+                }
+            }
             // Preview calculates the historical expected balances; do not invent observations.
             String preview=mvc.perform(get("/api/finance/closings/"+yesterday+"/preview")
                     .with(user("finance-closing-operator").authorities(
@@ -344,6 +369,9 @@ class RefundApiTests {
                 jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closeId);
             }
             jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?",yesterday);
+            for(UUID movementId:openingMovementIds) {
+                jdbc.update("DELETE FROM finance_movements WHERE id=?",movementId);
+            }
         }
     }
 
