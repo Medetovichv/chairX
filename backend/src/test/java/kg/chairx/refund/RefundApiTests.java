@@ -30,6 +30,7 @@ import java.util.UUID;
 
 import static kg.chairx.inventory.domain.StockMovementType.ADJUSTMENT_IN;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -246,6 +247,145 @@ class RefundApiTests {
         } finally {
             jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closingId);
             jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closingId);
+        }
+    }
+
+    @Test
+    void realAuthorizedPriorDayClosingThenCurrentRefundPreservesOriginalSnapshot() throws Exception {
+        // Unlike a hand-inserted closing row, this goes through the actual
+        // HTTP security boundary, closing policy, snapshot and audit logic.
+        var sale = createPaidSale();
+        var yesterday = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Bishkek")).minusDays(1);
+        var today = yesterday.plusDays(1);
+        var paymentId = jdbc.queryForObject(
+                "SELECT id FROM payments WHERE sale_id=? AND status='PAID'", UUID.class, sale.id());
+        int dated = jdbc.update("""
+                UPDATE finance_movements SET business_date=?,
+                   created_at=(?::date + TIME '12:00') AT TIME ZONE 'Asia/Bishkek'
+                WHERE source_type='PAYMENT' AND source_id=?
+                """, yesterday, yesterday, paymentId);
+        org.assertj.core.api.Assertions.assertThat(dated).isEqualTo(1);
+        var originalPaymentJournal = jdbc.queryForMap("""
+                SELECT id, business_date, account_code, amount, created_at
+                FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                """,paymentId);
+        UUID closeId=null;
+        UUID closingActorId=UUID.randomUUID();
+        String closingActor="qa128_closer_"+closingActorId.toString().replace("-","");
+        String closingPassword="integration-qa128-password";
+        jdbc.update("""
+                INSERT INTO app_users(id,username,password_hash,display_name,active)
+                VALUES(?,?,?,'QA-128 closing administrator',TRUE)
+                """,closingActorId,closingActor,
+                org.springframework.security.crypto.factory.PasswordEncoderFactories
+                    .createDelegatingPasswordEncoder().encode(closingPassword));
+        jdbc.update("""
+                INSERT INTO security_user_roles(user_id,role_id)
+                VALUES(?,?)
+                """,closingActorId,UUID.fromString("00000000-0000-0000-0000-000000000001"));
+        var openingMovementIds=new java.util.ArrayList<UUID>();
+        try {
+            // FundedFinanceExtension seeds the accounts with test money, but
+            // the historical close correctly requires every som to reconcile
+            // to a real journal entry. Reconcile only this disposable fixture.
+            for(String account:java.util.List.of("CASH","BANK")) {
+                BigDecimal actual=jdbc.queryForObject(
+                        "SELECT balance FROM finance_accounts WHERE code=?",
+                        BigDecimal.class,account);
+                BigDecimal ledger=jdbc.queryForObject("""
+                        SELECT COALESCE(SUM(amount),0) FROM finance_movements
+                        WHERE account_code=?
+                        """,BigDecimal.class,account);
+                BigDecimal unjournaled=actual.subtract(ledger);
+                if(unjournaled.signum()!=0) {
+                    UUID movementId=UUID.randomUUID();
+                    openingMovementIds.add(movementId);
+                    jdbc.update("""
+                            INSERT INTO finance_movements(
+                                id,account_code,amount,movement_type,source_type,
+                                source_id,created_by,business_date,business_date_source)
+                            VALUES (?,? ,?,'OPENING_BALANCE','OPENING_BALANCE',?,
+                                'qa128-fixture',?,'POSTING_DATE')
+                            """,movementId,account,unjournaled,UUID.randomUUID(),yesterday);
+                }
+            }
+            // Preview calculates the historical expected balances; do not invent observations.
+            String preview=mvc.perform(get("/api/finance/closings/"+yesterday+"/preview")
+                    .with(httpBasic(closingActor,closingPassword)))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            var expected=mapper.readTree(preview);
+            String closeBody=mapper.writeValueAsString(java.util.Map.of(
+                    "actualCash",expected.get("expectedCash").decimalValue(),
+                    "actualBank",expected.get("expectedBank").decimalValue()));
+            String created=mvc.perform(post("/api/finance/closings/"+yesterday)
+                    .with(csrf()).with(httpBasic(closingActor,closingPassword))
+                    .contentType(MediaType.APPLICATION_JSON).content(closeBody))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            closeId=UUID.fromString(mapper.readTree(created).get("id").asText());
+            var frozen=jdbc.queryForList("""
+                    SELECT account_code,expected_balance,actual_balance
+                    FROM finance_daily_closing_accounts WHERE closing_id=?
+                    ORDER BY account_code
+                    """,closeId);
+            var frozenHeader=jdbc.queryForMap("""
+                    SELECT id,business_date,created_by,version,created_at
+                    FROM finance_daily_closings WHERE id=?
+                    """,closeId);
+            BigDecimal bankBefore=jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class);
+            var request=new CreateRefundRequest(sale.id(),null,new BigDecimal("2500"),
+                    RefundMethod.TRANSFER,"Возврат после подтверждённого закрытия",null,null,
+                    UUID.randomUUID());
+            String payload=mapper.writeValueAsString(request);
+            String first=mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            UUID refundId=UUID.fromString(mapper.readTree(first).get("id").asText());
+            String replay=mvc.perform(post("/api/refunds").with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON).content(payload))
+                    .andExpect(status().isCreated())
+                    .andReturn().getResponse().getContentAsString();
+            org.assertj.core.api.Assertions.assertThat(mapper.readTree(replay).get("id").asText())
+                    .isEqualTo(refundId.toString());
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject(
+                    "SELECT balance FROM finance_accounts WHERE code='BANK'",BigDecimal.class))
+                    .isEqualByComparingTo(bankBefore.subtract(new BigDecimal("2500")));
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM finance_movements
+                    WHERE source_type='REFUND' AND source_id=?
+                      AND business_date=? AND account_code='BANK' AND amount=-2500
+                    """,Long.class,refundId,today)).isEqualTo(1L);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForMap("""
+                    SELECT id,business_date,account_code,amount,created_at
+                    FROM finance_movements WHERE source_type='PAYMENT' AND source_id=?
+                    """,paymentId)).isEqualTo(originalPaymentJournal);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForList("""
+                    SELECT account_code,expected_balance,actual_balance
+                    FROM finance_daily_closing_accounts WHERE closing_id=?
+                    ORDER BY account_code
+                    """,closeId)).isEqualTo(frozen);
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForMap("""
+                    SELECT id,business_date,created_by,version,created_at
+                    FROM finance_daily_closings WHERE id=?
+                    """,closeId)).isEqualTo(frozenHeader);
+        } finally {
+            if(closeId!=null) {
+                jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_sales WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_sales_snapshots WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_adjustments WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closeId);
+                jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closeId);
+            }
+            jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?",yesterday);
+            jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",closingActorId);
+            jdbc.update("DELETE FROM app_users WHERE id=?",closingActorId);
+            for(UUID movementId:openingMovementIds) {
+                jdbc.update("DELETE FROM finance_movements WHERE id=?",movementId);
+            }
         }
     }
 
