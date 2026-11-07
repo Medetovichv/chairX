@@ -73,7 +73,36 @@ class BackupUpgradeRehearsalTest {
                 assertThat(dumpResult.getExitCode()).as("V40 pg_dump exit status").isZero();
                 source.copyFileFromContainer("/tmp/chairx-v40.dump", temp.toString());
             }
-            verifyArchive(temp, true);
+            verifyArchive(temp, "SYNTHETIC_V40");
+        } finally {
+            Files.deleteIfExists(temp);
+        }
+    }
+
+    @Test
+    void syntheticCurrentDumpRoundTripVerifiesRealPgRestoreAndFlywayPath() throws Exception {
+        Path temp = Files.createTempFile("chairx-issue96-current-", ".dump");
+        try {
+            try (PostgreSQLContainer<?> source = freshContainer()) {
+                source.start();
+                Flyway.configure().dataSource(source.getJdbcUrl(), source.getUsername(),
+                        source.getPassword()).target("40").load().migrate();
+                seedRepresentativeV40Rows(source);
+                // Build a current-version, populated backup rather than only
+                // validating restoration of the historical V40 fixture.
+                Flyway current = Flyway.configure()
+                        .dataSource(source.getJdbcUrl(), source.getUsername(),
+                                source.getPassword())
+                        .cleanDisabled(true).load();
+                current.migrate();
+                current.validate();
+                var dumpResult = source.execInContainer("pg_dump", "-Fc", "--no-owner",
+                        "--no-acl", "-U", source.getUsername(), "-d", source.getDatabaseName(),
+                        "-f", "/tmp/chairx-current.dump");
+                assertThat(dumpResult.getExitCode()).as("Current pg_dump exit status").isZero();
+                source.copyFileFromContainer("/tmp/chairx-current.dump", temp.toString());
+            }
+            verifyArchive(temp, "SYNTHETIC_CURRENT");
         } finally {
             Files.deleteIfExists(temp);
         }
@@ -85,7 +114,7 @@ class BackupUpgradeRehearsalTest {
         assumeTrue(file != null && !file.isBlank(),
                 "Operator backup not provided; no real-data rehearsal was claimed");
         Path dump = Path.of(file).toAbsolutePath().normalize();
-        verifyArchive(dump, false);
+        verifyArchive(dump, "OPERATOR_BACKUP");
     }
 
     private static PostgreSQLContainer<?> freshContainer() {
@@ -95,7 +124,7 @@ class BackupUpgradeRehearsalTest {
                 .withPassword("temporary-" + UUID.randomUUID());
     }
 
-    private static void verifyArchive(Path dump, boolean synthetic) throws Exception {
+    private static void verifyArchive(Path dump, String sourceDescription) throws Exception {
         assertThat(dump).as("Readable PGDMP input").isRegularFile();
         assertThat(Files.size(dump)).as("Non-empty PGDMP input").isGreaterThan(5);
         try (var stream = Files.newInputStream(dump)) {
@@ -143,7 +172,7 @@ class BackupUpgradeRehearsalTest {
                             + "preVersion=V%d migrationsExecuted=%d "
                             + "comparedTables=%d originalLegacyMovements=%d "
                             + "noOriginalRowChanged=true nonProductionDatabase=true%n",
-                    synthetic ? "SYNTHETIC_V40" : "OPERATOR_BACKUP",
+                    sourceDescription,
                     baseline.startingVersion(), migrationCount,
                     baseline.tables().size(), baseline.legacyMovementCount());
         }

@@ -363,7 +363,7 @@ jobs:
         working-directory: backend
         run: >-
           mvn --batch-mode --no-transfer-progress test
-          '-Dtest=BackupUpgradeRehearsalTest#syntheticV40DumpRoundTripVerifiesRealPgRestoreAndFlywayPath'
+          '-Dtest=BackupUpgradeRehearsalTest'
       - name: Archive redacted JUnit failure report (NO backup contents)
         if: failure()
         uses: actions/upload-artifact@v4
