@@ -177,6 +177,35 @@ def main():
         no_transfer_cost(details)
     money(admin,20000,100000,2)  # Stock movements are NOT financial money.
 
+    # QA-128: successfully cancel an UNPAID confirmed pickup through real HTTP.
+    # The reservation must be restored once, and cancellation metadata must
+    # survive without any cash/bank/journal posting.
+    pickup_draft=admin.must("POST","/api/sales/drafts",{
+        "idempotencyKey":uuid4(),"customerId":customer["id"],
+        "fulfillmentType":"SELF_PICKUP",
+        "items":[{"productVariantId":variant_id,"warehouseId":home,
+                  "quantity":1,"unitSalePrice":8500}],
+        "comment":"disposable unpaid pickup cancellation"},201)
+    pickup_id=pickup_draft["id"]
+    assert pickup_draft["status"]=="DRAFT"
+    assert admin.must("POST",f"/api/sales/{pickup_id}/confirm",None,200)["status"]=="CONFIRMED"
+    reserved=admin.must("GET",f"/api/inventory/balances/{home}/{variant_id}",None,200)
+    assert reserved["reserved"]==1 and reserved["available"]==3,reserved
+    reason={"reason":"CUSTOMER_CHANGED_MIND","comment":"customer cancelled before pickup"}
+    cancelled=admin.must("POST",f"/api/sales/{pickup_id}/cancel-with-reason",reason,200)
+    assert cancelled["status"]=="CANCELLED"
+    details=admin.must("GET",f"/api/sales/{pickup_id}/cancellation-details",None,200)
+    assert details["reason"]=="CUSTOMER_CHANGED_MIND",details
+    assert details["comment"]=="customer cancelled before pickup",details
+    assert details["cancelledBy"]=="admin" and details["cancelledAt"],details
+    rejected_replay,_=admin.request("POST",f"/api/sales/{pickup_id}/cancel-with-reason",reason)
+    assert 400<=rejected_replay<500,("Duplicate pickup cancel accepted",rejected_replay)
+    stock(admin,home,variant_id,4)
+    stock(admin,office,variant_id,2)
+    money(admin,20000,100000,2)
+    db_number("SELECT count(*) FROM payments WHERE sale_id='"+pickup_id+"'",0)
+    db_number("SELECT count(*) FROM finance_movements WHERE source_id='"+pickup_id+"'",0)
+
     # One sale with two warehouses, real BANK settlement, physical dispatch.
     sale=admin.must("POST","/api/sales",{
         "idempotencyKey":uuid4(),"customerId":customer["id"],
