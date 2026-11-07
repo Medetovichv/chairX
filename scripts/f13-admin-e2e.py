@@ -167,13 +167,28 @@ def main():
     assert "F13_WAREHOUSE" in current["roles"]
     assert set(warehouse_rights) <= set(current["permissions"])
     assert "ADMIN" not in current["roles"] and "FINANCE_READ" not in current["permissions"]
+    # The raw authenticated identity response is not an admin user record.
+    identity_payload = json.dumps(current, ensure_ascii=False).lower()
+    assert "password" not in identity_payload and "hash" not in identity_payload, (
+        "Identity endpoint exposed password material")
+    assert original_password.lower() not in identity_payload
 
     # Real API authorization, not merely hidden sidebar buttons.
     employee.must("GET", "/api/inventory/overview", None, 200)
     employee.must("GET", "/api/warehouses", None, 200)
     for denied in ("/api/finance/accounts", "/api/admin/users",
                    "/api/admin/roles", "/api/customers", "/api/purchases"):
-        employee.must("GET", denied, None, 403)
+        # Inspect the actual HTTP error payload, not just its status or
+        # frontend visibility. Denied responses must not echo staff details.
+        http_status, raw_payload = employee.request("GET", denied, None)
+        assert http_status == 403, (denied, http_status)
+        serialized = json.dumps(raw_payload, ensure_ascii=False)
+        assert employee_name not in serialized, (
+            f"Forbidden {denied} leaked private employee profile")
+        assert original_password not in serialized, (
+            f"Forbidden {denied} echoed a staff credential")
+        assert uid not in serialized, (
+            f"Forbidden {denied} leaked staff identifier")
     rejected(employee, "POST", "/api/finance/transfers",
              {"transferId": str(uuid.uuid4()), "from": "CASH",
               "to": "BANK", "amount": 1}, 403)
@@ -220,9 +235,10 @@ def main():
 
     # Confirm warehouse interface is accessible to a restricted user on a
     # mobile viewport, without production data or frontend API mocks.
+    # UI UX Pro Max/Impeccable: include the narrowest supported viewport.
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True)
-        ctx = browser.new_context(viewport={"width": 390, "height": 844},
+        ctx = browser.new_context(viewport={"width": 320, "height": 844},
                                   is_mobile=True, device_scale_factor=1,
                                   has_touch=True, locale="ru-RU")
         page = ctx.new_page()
