@@ -318,6 +318,20 @@ class RefundApiTests {
             String closeBody=mapper.writeValueAsString(java.util.Map.of(
                     "actualCash",expected.get("expectedCash").decimalValue(),
                     "actualBank",expected.get("expectedBank").decimalValue()));
+            // Yesterday is editable only before 13:00 Asia/Bishkek. After
+            // cutoff the same authorized ADMIN must explicitly unlock the
+            // date; do not make this integration test depend on runner time.
+            String access=mvc.perform(get("/api/finance/closings/"+yesterday+"/access")
+                    .with(httpBasic(closingActor,closingPassword)))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getContentAsString();
+            if (!mapper.readTree(access).get("canEdit").asBoolean()) {
+                mvc.perform(post("/api/finance/closings/"+yesterday+"/unlock")
+                        .with(csrf()).with(httpBasic(closingActor,closingPassword))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"QA-128 isolated prior-day closing rehearsal\"}"))
+                        .andExpect(status().isOk());
+            }
             String created=mvc.perform(post("/api/finance/closings/"+yesterday)
                     .with(csrf()).with(httpBasic(closingActor,closingPassword))
                     .contentType(MediaType.APPLICATION_JSON).content(closeBody))
@@ -380,6 +394,12 @@ class RefundApiTests {
                 jdbc.update("DELETE FROM finance_daily_closing_accounts WHERE closing_id=?",closeId);
                 jdbc.update("DELETE FROM finance_daily_closings WHERE id=?",closeId);
             }
+            // Only disposable test records: unlock rows and the pre-creation
+            // date-scoped audit use a deterministic synthetic entity UUID.
+            jdbc.update("DELETE FROM finance_daily_closing_unlocks WHERE business_date=?",yesterday);
+            UUID pendingAuditId=UUID.nameUUIDFromBytes(
+                    ("FINANCE_DAILY_CLOSING:"+yesterday).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            jdbc.update("DELETE FROM audit_entries WHERE entity_type='FINANCE_DAILY_CLOSING' AND entity_id=?",pendingAuditId);
             jdbc.update("DELETE FROM finance_daily_closing_access_locks WHERE business_date=?",yesterday);
             jdbc.update("DELETE FROM security_user_roles WHERE user_id=?",closingActorId);
             jdbc.update("DELETE FROM app_users WHERE id=?",closingActorId);
